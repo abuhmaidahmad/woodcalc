@@ -56,7 +56,7 @@ export default function KitchenPlannerModule() {
   const canvasRef = useRef(null)
 
   const addCabinet = (t) => {
-    const cab = { ...t, id:Date.now(), x:50, y:50, material:'Particleboard', doorStyle:'Handle', carcassColor:'#F5F0E8', frontColor:'#FFFFFF' }
+    const cab = { ...t, id:Date.now(), x:50, y:50, material:'Particleboard', doorStyle:'Handle', carcassColor:'#F5F0E8', frontColor:'#FFFFFF', zonePreset:null }
     setCabinets(p=>[...p,cab])
     setSelected(cab.id)
   }
