@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
+import KitchenPlanner3D from './KitchenPlanner3D'
 
 const SCALE = 0.12
 const COLORS = [
@@ -108,7 +109,7 @@ export default function KitchenPlannerModule() {
         </div>
       </div>
       <div style={{display:'flex',gap:8,marginBottom:12,flexShrink:0}}>
-        {[['planner','🏠 2D Planner'],['bom','📋 BOM Summary']].map(([id,label])=>(
+        {[['planner','🏠 2D Planner'],['3d','🎮 3D View'],['bom','📋 BOM Summary']].map(([id,label])=>(
           <button key={id} onClick={()=>setTab(id)} style={{padding:'8px 18px',background:tab===id?'#3498db':'#ecf0f1',color:tab===id?'white':'#666',border:'none',borderRadius:6,cursor:'pointer',fontWeight:tab===id?700:400}}>{label}</button>
         ))}
       </div>
@@ -253,6 +254,17 @@ export default function KitchenPlannerModule() {
                   </tbody>
                 </table>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab==='3d' && (
+        <div style={{flex:1}}>
+          <KitchenPlanner3D cabinets={cabinets} room={room} />
+          {!cabinets.length && (
+            <div style={{textAlign:'center',paddingTop:20,color:'#999',fontSize:13}}>
+              Add cabinets in the 2D Planner to see them in 3D
             </div>
           )}
         </div>
