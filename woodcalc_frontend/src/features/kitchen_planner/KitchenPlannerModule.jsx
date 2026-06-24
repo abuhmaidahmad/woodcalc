@@ -129,7 +129,7 @@ export default function KitchenPlannerModule() {
             ))}
           </div>
 
-          <div style={{flex:1,overflow:'auto',background:'#f0f0f0',borderRadius:8,padding:12}}>
+          <div style={{flex:1,overflow:'auto',background:'#e8e4df',borderRadius:8,padding:8,minHeight:0}}>
             <div style={{marginBottom:8,display:'flex',gap:12,alignItems:'center'}}>
               <label style={{fontSize:12}}>Room W: <input type="number" value={room.width} onChange={e=>setRoom(r=>({...r,width:+e.target.value}))} style={{width:65,padding:'2px 6px',border:'1px solid #ddd',borderRadius:4,fontSize:12}} /></label>
               <label style={{fontSize:12}}>Room D: <input type="number" value={room.depth} onChange={e=>setRoom(r=>({...r,depth:+e.target.value}))} style={{width:65,padding:'2px 6px',border:'1px solid #ddd',borderRadius:4,fontSize:12}} /></label>
