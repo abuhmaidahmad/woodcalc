@@ -1,6 +1,6 @@
 // KitchenPlannerModule.jsx
 import React, { useState } from 'react'
-import { calculateCabinet, getDefaultDoorCount } from './formulaEngine'
+import { calculateCabinet, getZonePresets, getDefaultDoorCount, getHingeCount } from './formulaEngine'
 
 export default function KitchenPlannerModule() {
   const [width, setWidth] = useState(800)
