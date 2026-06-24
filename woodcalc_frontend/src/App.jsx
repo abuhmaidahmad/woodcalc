@@ -51,7 +51,7 @@ function App() {
   const cur = modules.find(m => m.id === sel)
   const Component = cur.component
   return (
-    <div style={{display:'flex',height:'100vh',fontFamily:'sans-serif'}}>
+    <div style={{display:'flex',height:'100vh',width:'100vw',fontFamily:'sans-serif',overflow:'hidden'}}>
       <div style={{width:220,background:'#2c3e50',color:'white',padding:20,display:'flex',flexDirection:'column',flexShrink:0}}>
         <h2 style={{marginBottom:4,fontSize:18}}>🪵 WoodCalc</h2>
         <p style={{fontSize:11,color:'rgba(255,255,255,0.4)',marginBottom:24}}>ERP + Kitchen Planner</p>
@@ -64,7 +64,7 @@ function App() {
           🚪 Logout
         </div>
       </div>
-      <div style={{flex:1,padding:24,background:'#f8f5f1',overflowY:'auto',display:'flex',flexDirection:'column'}}>
+      <div style={{flex:1,padding:20,background:'#f8f5f1',overflow:'hidden',display:'flex',flexDirection:'column',minWidth:0}}>
         <Component />
       </div>
     </div>
