@@ -27,6 +27,13 @@ SECRET_KEY = config('SECRET_KEY', default='django-insecure-izgzqseyqp4aoo6qmt$f-
 DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
+# CORS settings for Vercel frontend during development
+CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOWED_ORIGINS = [
+    'https://woodcalc-96zdh2u3i-woodcalc.vercel.app',
+    'https://woodcalc-seven.vercel.app',
+]
+
 
 
 # Application definition
