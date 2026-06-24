@@ -150,3 +150,6 @@ import os
 _db_url = os.environ.get('DATABASE_URL')
 if _db_url:
     DATABASES = {'default': dj_database_url.config(default=_db_url, conn_max_age=600)}
+
+import os
+CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', 'https://woodcalc-production.up.railway.app').split(',')
