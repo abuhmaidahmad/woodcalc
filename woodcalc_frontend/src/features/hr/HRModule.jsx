@@ -4,7 +4,7 @@ function HRModule() {
   const [loading, setLoading] = useState(true)
   const token = localStorage.getItem('access_token')
   useEffect(() => {
-    fetch('http://localhost:8000/api/hr/employees/', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${import.meta.env.VITE_API_URL}/api/hr/employees/`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { setEmployees(d.results || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])

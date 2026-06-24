@@ -7,8 +7,8 @@ function CRMModule() {
   const token = localStorage.getItem('access_token')
   useEffect(() => {
     Promise.all([
-      fetch('http://localhost:8000/api/crm/clients/', { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json()),
-      fetch('http://localhost:8000/api/crm/leads/', { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json())
+      fetch(`${import.meta.env.VITE_API_URL}/api/crm/clients/`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json()),
+      fetch(`${import.meta.env.VITE_API_URL}/api/crm/leads/`, { headers: { Authorization: `Bearer ${token}` } }).then(r=>r.json())
     ]).then(([c,l])=>{ setClients(c.results||[]); setLeads(l.results||[]); setLoading(false) })
     .catch(()=>setLoading(false))
   }, [])

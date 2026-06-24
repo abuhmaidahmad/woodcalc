@@ -4,7 +4,7 @@ function InventoryModule() {
   const [loading, setLoading] = useState(true)
   const token = localStorage.getItem('access_token')
   useEffect(() => {
-    fetch('http://localhost:8000/api/inventory/materials/', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${import.meta.env.VITE_API_URL}/api/inventory/materials/`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { setMaterials(d.results || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])

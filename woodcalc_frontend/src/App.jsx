@@ -13,7 +13,7 @@ function LoginPage({ setToken }) {
   const login = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch('http://localhost:8000/api/auth/login/', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) })
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login/`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) })
       const data = await res.json()
       if (data.access) { localStorage.setItem('access_token', data.access); setToken(data.access) }
       else setErr('Invalid credentials')

@@ -129,7 +129,7 @@ export default function KitchenPlannerModule() {
     setSending(true)
     try {
       const token = localStorage.getItem('access_token')
-      const res = await fetch('/api/manufacturing/work-orders/', {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/manufacturing/work-orders/`, {
         method: 'POST',
         headers: { 'Content-Type':'application/json', Authorization:`Bearer ${token}` },
         body: JSON.stringify({

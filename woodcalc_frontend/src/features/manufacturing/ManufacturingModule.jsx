@@ -4,7 +4,7 @@ function ManufacturingModule() {
   const [loading, setLoading] = useState(true)
   const token = localStorage.getItem('access_token')
   useEffect(() => {
-    fetch('http://localhost:8000/api/manufacturing/work-orders/', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${import.meta.env.VITE_API_URL}/api/manufacturing/work-orders/`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { setOrders(d.results || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
@@ -12,7 +12,7 @@ function ManufacturingModule() {
   return (
     <div style={{maxWidth:1100,margin:'0 auto'}}>
       <h1 style={{color:'#2c3e50',marginBottom:20}}>Manufacturing</h1>
-      {loading ? <p>Loading...</p> : orders.length === 0 ? <p style={{color:'#999'}}>No work orders yet. Add from Django Admin at localhost:8000/admin</p> : (
+      {loading ? <p>Loading...</p> : orders.length === 0 ? <p style={{color:'#999'}}>No work orders yet. Add from Django Admin.</p> : (
         <div style={{background:'white',borderRadius:8,overflow:'hidden',boxShadow:'0 2px 8px rgba(0,0,0,0.1)'}}>
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead><tr style={{background:'#ecf0f1'}}>{['Order #','Product','Customer','Qty','Status','Due'].map(h=><th key={h} style={{padding:12,textAlign:'left'}}>{h}</th>)}</tr></thead>

@@ -4,7 +4,7 @@ function SupplyChainModule() {
   const [loading, setLoading] = useState(true)
   const token = localStorage.getItem('access_token')
   useEffect(() => {
-    fetch('http://localhost:8000/api/supply_chain/purchase-orders/', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${import.meta.env.VITE_API_URL}/api/supply_chain/purchase-orders/`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json()).then(d => { setOrders(d.results || []); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
