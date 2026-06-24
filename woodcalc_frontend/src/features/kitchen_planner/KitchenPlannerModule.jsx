@@ -43,7 +43,7 @@ export default function KitchenPlannerModule() {
       quantity: 1,
       status: 'NEW',
     }
-    const apiUrl = `${import.meta.env.VITE_API_URL}/api/manufacturing/work-orders/`
+    const apiUrl = `${import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'}/api/manufacturing/work-orders/`
 
     try {
       const response = await fetch(apiUrl, {
@@ -60,6 +60,7 @@ export default function KitchenPlannerModule() {
       setSendStatus('❌ Failed - check connection')
     }
   }
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
       <h2>Kitchen Planner — Cabinet Formula</h2>
@@ -132,7 +133,7 @@ export default function KitchenPlannerModule() {
             {sendStatus && <span>{sendStatus}</span>}
           </div>
 
-                    <h3>Summary</h3>
+          <h3>Summary</h3>
           <pre style={{ background: '#f7f7f7', padding: 12 }}>{JSON.stringify(result.summary, null, 2)}</pre>
 
           <h3>Panels</h3>
