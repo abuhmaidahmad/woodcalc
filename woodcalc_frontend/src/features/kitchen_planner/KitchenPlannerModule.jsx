@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { calculateCabinet } from './formulaEngine'
+import ZonePresetPicker from './ZonePresetPicker'
 
 const SCALE = 0.12
 const COLORS = [
@@ -169,6 +170,9 @@ export default function KitchenPlannerModule() {
                   <select value={selCab.doorStyle} onChange={e=>update('doorStyle',e.target.value)} style={{width:'100%',padding:'5px',border:'1px solid #ddd',borderRadius:4,fontSize:12}}>
                     {['Handle','Gola','Push'].map(d=><option key={d}>{d}</option>)}
                   </select>
+                </div>
+                <div style={{marginBottom:8}}>
+                  <ZonePresetPicker height={selCab.height} selected={selCab.zonePreset} onChange={p=>update('zonePreset',p)} />
                 </div>
                 <div style={{marginBottom:8}}>
                   <div style={{fontSize:11,color:'#666',marginBottom:4}}>Carcass Color</div>
