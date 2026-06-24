@@ -13,6 +13,7 @@ export default function KitchenPlannerModule() {
   const [drawerCount, setDrawerCount] = useState(0)
   const [drawerType, setDrawerType] = useState('Wood Box')
   const [result, setResult] = useState(null)
+  const [sendStatus, setSendStatus] = useState('')
 
   function runCalc(e) {
     e && e.preventDefault()
@@ -32,6 +33,33 @@ export default function KitchenPlannerModule() {
     setResult(res)
   }
 
+  async function sendToERP() {
+    const token = localStorage.getItem('access_token')
+    const orderNumber = `WO-KP-${Date.now()}`
+    const payload = {
+      order_number: orderNumber,
+      product_name: `Kitchen Project (${width}x${height}x${depth} ${material})`,
+      customer_name: 'Kitchen Planner',
+      quantity: 1,
+      status: 'NEW',
+    }
+    const apiUrl = `${import.meta.env.VITE_API_URL}/api/manufacturing/work-orders/`
+
+    try {
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) throw new Error('Request failed')
+      setSendStatus(`✅ Work Order ${orderNumber} created!`)
+    } catch (error) {
+      setSendStatus('❌ Failed - check connection')
+    }
+  }
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: 20 }}>
       <h2>Kitchen Planner — Cabinet Formula</h2>
@@ -99,7 +127,12 @@ export default function KitchenPlannerModule() {
 
       {result && (
         <div>
-          <h3>Summary</h3>
+          <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button type='button' onClick={sendToERP} style={{ padding: '8px 16px' }}>📤 Send to Manufacturing</button>
+            {sendStatus && <span>{sendStatus}</span>}
+          </div>
+
+                    <h3>Summary</h3>
           <pre style={{ background: '#f7f7f7', padding: 12 }}>{JSON.stringify(result.summary, null, 2)}</pre>
 
           <h3>Panels</h3>
