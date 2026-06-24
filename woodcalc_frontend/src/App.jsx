@@ -6,7 +6,7 @@ import HRModule from './features/hr/HRModule'
 import CRMModule from './features/crm/CRMModule'
 import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule'
 
-function LoginPage({ setToken }) {
+function LoginPage({ setToken, setDemoMode }) {
   const [u, setU] = useState('')
   const [p, setP] = useState('')
   const [err, setErr] = useState('')
@@ -31,6 +31,11 @@ function LoginPage({ setToken }) {
           <button style={{width:'100%',padding:12,background:'#2c3e50',color:'white',border:'none',borderRadius:6,fontSize:16,cursor:'pointer'}} type="submit">Login</button>
         </form>
         <p style={{textAlign:'center',marginTop:16,color:'#999',fontSize:12}}>admin / admin123</p>
+        <div style={{textAlign:'center',marginTop:12}}>
+          <button onClick={()=>setDemoMode(true)} style={{background:'none',border:'1px solid #ddd',borderRadius:6,padding:'8px 20px',color:'#666',cursor:'pointer',fontSize:13}}>
+            👀 View Demo (no login)
+          </button>
+        </div>
       </div>
     </div>
   )
@@ -39,7 +44,8 @@ function LoginPage({ setToken }) {
 function App() {
   const [token, setToken] = useState(localStorage.getItem('access_token'))
   const [sel, setSel] = useState('planner')
-  if (!token) return <LoginPage setToken={setToken} />
+  const [demoMode, setDemoMode] = useState(false)
+  if (!token && !demoMode) return <LoginPage setToken={setToken} setDemoMode={setDemoMode} />
   const modules = [
     { id:'planner',       label:'🏠 Kitchen Planner', color:'#27ae60', component:KitchenPlannerModule },
     { id:'inventory',     label:'📦 Inventory',        color:'#3498db', component:InventoryModule },
