@@ -6,6 +6,7 @@ import RegisterCustomer from './pages/auth/RegisterCustomer';
 import RegisterArchitect from './pages/auth/RegisterArchitect';
 import RegisterManufacturer from './pages/auth/RegisterManufacturer';
 import RegisterSupplier from './pages/auth/RegisterSupplier';
+import Dashboard from './pages/Dashboard';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -29,12 +30,12 @@ export default function App() {
 
         {/* Dashboard placeholder */}
         <Route path="/dashboard" element={
-          <PrivateRoute>
-            <div style={{ padding: 40, fontFamily: 'Inter, sans-serif' }}>
-              <h1>Dashboard — coming soon</h1>
-            </div>
-          </PrivateRoute>
-        } />
+  <PrivateRoute>
+    <Dashboard />
+  </PrivateRoute>
+} />
+
+         
       </Routes>
     </BrowserRouter>
   );
