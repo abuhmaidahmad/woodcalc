@@ -91,6 +91,7 @@ export default function KitchenPlannerModule() {
   const [savedMsg, setSavedMsg]             = useState('')
   const [catalogFilter, setCatalogFilter]   = useState('All')
   const [wallThickness, setWallThickness]   = useState(120)
+  const [walls, setWalls]                   = useState([])
   const canvasRef = useRef(null)
 
   const onMouseDown = useCallback((e, id, type) => {
@@ -217,18 +218,41 @@ export default function KitchenPlannerModule() {
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
-              wallThickness={wallThickness} setWallThickness={setWallThickness} />
+              wallThickness={wallThickness} setWallThickness={setWallThickness}
+  walls={walls} setWalls={setWalls} />
           </div>
           <div style={s.rightPanel}>
             {selEl ? (
               <div>
                 <div style={s.propTitle}>{selEl.icon} {selEl.label}</div>
-                {[['Width (mm)', 'w'], ['Height (mm)', 'h']].map(([label, key]) => (
-                  <div key={key} style={{ marginBottom: 12 }}>
-                    <div style={s.propLabel}>{label}</div>
-                    <input type="number" value={selEl[key]} onChange={e => updateEl(key, +e.target.value)} style={s.propInput} />
+                <div style={s.propSection}>Dimensions</div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={s.propLabel}>Width (mm)</div>
+                  <input type="number" value={selEl.w} onChange={e => updateEl('w', +e.target.value)} style={s.propInput} />
+                </div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={s.propLabel}>Height (mm)</div>
+                  <input type="number" value={selEl.h} onChange={e => updateEl('h', +e.target.value)} style={s.propInput} />
+                </div>
+                <div style={s.propSection}>Position</div>
+                <div style={{ marginBottom: 10 }}>
+                  <div style={s.propLabel}>Elevation from floor (mm)</div>
+                  <input type="number" value={selEl.elevation || 0} onChange={e => updateEl('elevation', +e.target.value)} placeholder="e.g. 900" style={s.propInput} />
+                </div>
+                {selEl.embeddedInWall && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>Embedded in</div>
+                    <div style={{ fontSize: 12, color: '#2AC87A', fontWeight: 600, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6 }}>
+                      ✓ Wall {(selEl.wallIndex || 0) + 1}
+                    </div>
                   </div>
-                ))}
+                )}
+                {selEl.type !== 'window' && selEl.type !== 'door' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>Rotation (°)</div>
+                    <input type="number" min={0} max={359} value={selEl.rotation || 0} onChange={e => updateEl('rotation', (+e.target.value + 360) % 360)} style={s.propInput} />
+                  </div>
+                )}
                 <button onClick={() => { setElements(p => p.filter(e => e.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete</button>
               </div>
             ) : (

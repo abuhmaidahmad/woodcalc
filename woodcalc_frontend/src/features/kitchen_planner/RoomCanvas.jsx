@@ -2,43 +2,144 @@ import React, { useState, useRef, useCallback, useEffect } from 'react'
 
 const ACCENT = '#C8902A'
 const GRID = 50
-const SNAP_DIST = 15
+const ENDPOINT_SNAP_DIST = 15
 
 const snap = v => Math.round(v / GRID) * GRID
+const degToRad = d => d * Math.PI / 180
+const radToDeg = r => r * 180 / Math.PI
+const ptDist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by)
 
-function WallSegment({ x1, y1, x2, y2, selected, thickness, onClick }) {
-  const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI
-  const len = Math.hypot(x2 - x1, y2 - y1)
-  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
-  const realLen = Math.round(len / 0.16)
-  return (
-    <g onClick={onClick} style={{ cursor: 'pointer' }}>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={thickness} strokeLinecap="round" />
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent" strokeWidth={Math.max(thickness + 8, 16)} strokeLinecap="round" />
-      <g transform={`translate(${cx},${cy}) rotate(${angle})`}>
-        <rect x={-22} y={-10} width={44} height={16} rx={3} fill="white" stroke="#ddd" strokeWidth={0.5} />
-        <text x={0} y={3} textAnchor="middle" fontSize={9} fill="#555" fontFamily="Inter,sans-serif" fontWeight={600}>{realLen}mm</text>
-      </g>
-    </g>
-  )
+function getWindingDirection(walls) {
+  if (walls.length < 3) return 1
+  let sum = 0
+  walls.forEach(w => { sum += (w.x2 - w.x1) * (w.y2 + w.y1) })
+  return sum > 0 ? 1 : -1
 }
 
-function snapToWall(px, py, walls, snapDist) {
-  let best = null, bestDist = snapDist
+function getInnerNormal(wall, winding) {
+  const dx = wall.x2 - wall.x1, dy = wall.y2 - wall.y1
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return { nx: 0, ny: 0 }
+  return { nx: (dy / len) * winding, ny: (-dx / len) * winding }
+}
+
+function getInnerLength(wall, wallThickness, scale) {
+  const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+  const halfT = (wallThickness * scale) / 2
+  return Math.max(0, Math.round((len - halfT * 2) / scale))
+}
+
+function findNearestEndpoint(px, py, walls, skipIndex, threshold) {
+  let best = null, bestDist = threshold
+  walls.forEach((w, i) => {
+    if (i === skipIndex) return
+    ;[{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(pt => {
+      const d = ptDist(px, py, pt.x, pt.y)
+      if (d < bestDist) { bestDist = d; best = { x: pt.x, y: pt.y } }
+    })
+  })
+  return best
+}
+
+function findWallSnap(px, py, walls, wallThickness, scale, threshold) {
+  let best = null, bestDist = threshold
   walls.forEach((w, wi) => {
     const dx = w.x2 - w.x1, dy = w.y2 - w.y1
     const lenSq = dx * dx + dy * dy
     if (lenSq === 0) return
     const t = Math.max(0, Math.min(1, ((px - w.x1) * dx + (py - w.y1) * dy) / lenSq))
-    const closestX = w.x1 + t * dx
-    const closestY = w.y1 + t * dy
-    const dist = Math.hypot(px - closestX, py - closestY)
-    if (dist < bestDist) {
-      bestDist = dist
-      best = { x: closestX, y: closestY, wallIndex: wi, wallAngle: Math.atan2(dy, dx) * 180 / Math.PI, dist }
+    const cx = w.x1 + t * dx, cy = w.y1 + t * dy
+    const d = ptDist(px, py, cx, cy)
+    if (d < bestDist) {
+      bestDist = d
+      best = { wallIndex: wi, t, centerX: cx, centerY: cy, wallAngle: radToDeg(Math.atan2(dy, dx)), dx: dx / Math.sqrt(lenSq), dy: dy / Math.sqrt(lenSq) }
     }
   })
   return best
+}
+
+function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm }) {
+  const { x1, y1, x2, y2 } = wall
+  const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
+  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
+  const { nx, ny } = getInnerNormal(wall, winding)
+  const labelX = cx + nx * thickness * 0.7
+  const labelY = cy + ny * thickness * 0.7
+
+  return (
+    <g>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent"
+        strokeWidth={Math.max(thickness + 12, 20)} strokeLinecap="square"
+        onMouseDown={e => { e.stopPropagation(); onSelect(); onDragStart(e, index) }}
+        style={{ cursor: 'move' }} />
+      <line x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={thickness}
+        strokeLinecap="square" style={{ pointerEvents: 'none' }} />
+      {winding !== 0 && (() => {
+        const halfT = thickness / 2
+        return <line x1={x1 + nx * halfT} y1={y1 + ny * halfT}
+          x2={x2 + nx * halfT} y2={y2 + ny * halfT}
+          stroke={selected ? ACCENT + '88' : '#88888855'} strokeWidth={1}
+          strokeDasharray="4,3" style={{ pointerEvents: 'none' }} />
+      })()}
+      <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
+        onClick={e => { e.stopPropagation(); onLabelClick() }}
+        style={{ cursor: 'text' }}>
+        <rect x={-30} y={-11} width={60} height={18} rx={4}
+          fill={selected ? ACCENT : 'white'} stroke={selected ? ACCENT : '#ddd'} strokeWidth={1} />
+        {editingLength ? (
+          <foreignObject x={-28} y={-10} width={56} height={16}>
+            <input autoFocus type="number" defaultValue={innerLenMm}
+              onChange={e => onLengthChange(+e.target.value)}
+              onBlur={onLengthConfirm}
+              onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
+              style={{ width: '100%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+          </foreignObject>
+        ) : (
+          <text x={0} y={3} textAnchor="middle" fontSize={9}
+            fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
+            {innerLenMm}mm
+          </text>
+        )}
+      </g>
+      {selected && [{ x: x1, y: y1, ep: 0 }, { x: x2, y: y2, ep: 1 }].map(({ x, y, ep }) => (
+        <g key={ep} onMouseDown={e => { e.stopPropagation(); onEndpointDragStart(e, index, ep) }} style={{ cursor: 'crosshair' }}>
+          <circle cx={x} cy={y} r={10} fill="transparent" />
+          <circle cx={x} cy={y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={2.5} />
+        </g>
+      ))}
+    </g>
+  )
+}
+
+function EmbeddedElement({ el, scale, selected, onMouseDown }) {
+  const x = el.x * scale, y = el.y * scale
+  const w = el.w * scale
+  const h = (el.wallThickness || 120) * scale
+  const angle = el.wallAngle || 0
+  const isWindow = el.type === 'window'
+  const isDoor = el.type === 'door'
+
+  return (
+    <g transform={`translate(${x},${y}) rotate(${angle})`}
+      onMouseDown={onMouseDown} style={{ cursor: 'move' }}>
+      <rect x={-w/2} y={-h/2} width={w} height={h} fill="white" stroke="none" />
+      <rect x={-w/2} y={-h/2} width={w} height={h}
+        fill="none" stroke={selected ? ACCENT : el.color} strokeWidth={selected ? 2 : 1.5} />
+      {isWindow && <>
+        <line x1={-w/2} y1={0} x2={w/2} y2={0} stroke={selected ? ACCENT : el.color} strokeWidth={1} />
+        <line x1={0} y1={-h/2} x2={0} y2={h/2} stroke={selected ? ACCENT : el.color} strokeWidth={0.5} strokeDasharray="2,2" />
+      </>}
+      {isDoor && <>
+        <line x1={-w/2} y1={-h/2} x2={-w/2} y2={h/2} stroke={selected ? ACCENT : el.color} strokeWidth={2} />
+        <path d={`M ${-w/2} ${h/2} Q ${w/2} ${h/2} ${w/2} ${-h/2}`}
+          stroke={selected ? ACCENT : el.color} strokeWidth={1} fill={el.color + '22'} strokeDasharray="3,2" />
+      </>}
+      <text x={0} y={h/2 + 10} textAnchor="middle" fontSize={7}
+        fill={selected ? ACCENT : '#555'} fontFamily="Inter,sans-serif"
+        style={{ pointerEvents: 'none', userSelect: 'none' }}>{el.w}mm</text>
+    </g>
+  )
 }
 
 export default function RoomCanvas({
@@ -46,97 +147,247 @@ export default function RoomCanvas({
   elements, setElements, cabinets, setCabinets,
   selected, setSelected, selectedType, setSelectedType,
   wallThickness, setWallThickness,
+  walls, setWalls,
 }) {
-  const [walls, setWalls] = useState([])
-  const [drawMode, setDrawMode] = useState(false)
-  const [drawPoints, setDrawPoints] = useState([])
-  const [mousePos, setMousePos] = useState(null)
-  const [selectedWall, setSelectedWall] = useState(null)
-  const [dragging, setDragging] = useState(null)
-  const [dragType, setDragType] = useState(null)
-  const [offset, setOffset] = useState({ x: 0, y: 0 })
-  const [wallSnap, setWallSnap] = useState(null)
+  const [mode, setMode]                     = useState('select')
+  const [startPoint, setStartPoint]         = useState(null)
+  const [mousePos, setMousePos]             = useState(null)
+  const [endpointSnap, setEndpointSnap]     = useState(null)
+  const [selectedWall, setSelectedWall]     = useState(null)
+  const [editingWall, setEditingWall]       = useState(null)
+  const [editingLenVal, setEditingLenVal]   = useState(null)
+  const [inputVal, setInputVal]             = useState('')
+  const [inputMode, setInputMode]           = useState(null)
+  const [lockedLength, setLockedLength]     = useState(null)
+  const [lockedAngle, setLockedAngle]       = useState(null)
+  const [history, setHistory]               = useState([[]])
+  const [dragging, setDragging]             = useState(null)
+  const [dragStart, setDragStart]           = useState(null)
+  const [dragCorner, setDragCorner]         = useState(null)
+  const [wallSnapPreview, setWallSnapPreview] = useState(null)
+  const [flipWinding, setFlipWinding]       = useState(1)
   const svgRef = useRef(null)
 
   const W = room.width * scale
   const H = room.depth * scale
-  const wallPx = (wallThickness / 1000) * (1 / 0.16) * scale
+  const wallPx = wallThickness * scale
+  const winding = getWindingDirection(walls) * flipWinding
 
   const getSVGPos = useCallback((e) => {
     const rect = svgRef.current.getBoundingClientRect()
-    return {
-      x: snap((e.clientX - rect.left) / scale) * scale,
-      y: snap((e.clientY - rect.top) / scale) * scale,
-    }
-  }, [scale])
+    return { x: (e.clientX - rect.left) * (W / rect.width), y: (e.clientY - rect.top) * (H / rect.height) }
+  }, [W, H])
 
-  const handleCanvasClick = useCallback((e) => {
-    if (!drawMode) return
-    const pos = getSVGPos(e)
-    if (drawPoints.length > 2) {
-      const first = drawPoints[0]
-      if (Math.hypot(pos.x - first.x, pos.y - first.y) < 20) {
-        const closed = [...walls]
-        for (let i = 0; i < drawPoints.length - 1; i++) {
-          closed.push({ x1: drawPoints[i].x, y1: drawPoints[i].y, x2: drawPoints[i+1].x, y2: drawPoints[i+1].y })
-        }
-        closed.push({ x1: drawPoints[drawPoints.length-1].x, y1: drawPoints[drawPoints.length-1].y, x2: drawPoints[0].x, y2: drawPoints[0].y })
-        setWalls(closed); setDrawPoints([]); setDrawMode(false)
-        return
-      }
-    }
-    if (drawPoints.length > 0) {
-      const last = drawPoints[drawPoints.length - 1]
-      setWalls(prev => [...prev, { x1: last.x, y1: last.y, x2: pos.x, y2: pos.y }])
-    }
-    setDrawPoints(newP => [...newP, { x: pos.x, y: pos.y }])
-  }, [drawMode, drawPoints, walls, getSVGPos])
+  const pushHistory = useCallback((newWalls) => {
+    setHistory(h => [...h.slice(-20), newWalls])
+    setWalls(newWalls)
+  }, [setWalls])
 
-  const handleMouseMove = useCallback((e) => {
-    const rect = svgRef.current?.getBoundingClientRect()
-    if (!rect) return
-    const rawX = e.clientX - rect.left
-    const rawY = e.clientY - rect.top
-    setMousePos({ x: snap(rawX / scale) * scale, y: snap(rawY / scale) * scale })
-    if (dragging !== null) {
-      const snapResult = snapToWall(rawX, rawY, walls, SNAP_DIST)
-      let x, y
-      if (snapResult) {
-        x = snapResult.x / scale; y = snapResult.y / scale; setWallSnap(snapResult)
-      } else {
-        x = Math.max(0, snap((rawX - offset.x) / scale))
-        y = Math.max(0, snap((rawY - offset.y) / scale))
-        setWallSnap(null)
-      }
-      if (dragType === 'cabinet') setCabinets(p => p.map(c => c.id === dragging ? { ...c, x, y } : c))
-      else if (dragType === 'element') setElements(p => p.map(el => el.id === dragging ? { ...el, x, y } : el))
+  const undo = useCallback(() => {
+    setHistory(h => {
+      if (h.length <= 1) return h
+      const prev = h[h.length - 2]
+      setWalls(prev)
+      return h.slice(0, -1)
+    })
+  }, [setWalls])
+
+  const getPreviewEnd = useCallback(() => {
+    if (!startPoint || !mousePos) return null
+    const snapPt = findNearestEndpoint(mousePos.x, mousePos.y, walls, -1, ENDPOINT_SNAP_DIST * 2)
+    if (snapPt && !lockedLength && !lockedAngle) {
+      const len = ptDist(startPoint.x, startPoint.y, snapPt.x, snapPt.y)
+      const halfT = (wallThickness * scale) / 2
+      return { x: snapPt.x, y: snapPt.y, innerLenMm: Math.max(0, Math.round((len - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(Math.atan2(snapPt.y - startPoint.y, snapPt.x - startPoint.x))), snapped: true }
     }
-  }, [dragging, offset, dragType, scale, walls, setCabinets, setElements])
-
-  const startDrag = useCallback((e, id, type) => {
-    if (drawMode) return
-    e.stopPropagation()
-    const rect = svgRef.current.getBoundingClientRect()
-    const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
-    setDragging(id); setDragType(type); setSelected(id); setSelectedType(type)
-    setOffset({ x: e.clientX - rect.left - item.x * scale, y: e.clientY - rect.top - item.y * scale })
-  }, [drawMode, cabinets, elements, scale, setSelected, setSelectedType])
-
-  const stopDrag = () => { setDragging(null); setDragType(null); setWallSnap(null) }
+    let angle, length
+    if (lockedLength !== null && lockedAngle !== null) {
+      angle = degToRad(lockedAngle); length = (lockedLength + wallThickness) * scale
+    } else if (lockedLength !== null) {
+      angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
+      length = (lockedLength + wallThickness) * scale
+    } else if (lockedAngle !== null) {
+      angle = degToRad(lockedAngle)
+      length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
+    } else {
+      angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
+      length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
+    }
+    const halfT = (wallThickness * scale) / 2
+    return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: Math.max(0, Math.round((length - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(angle)), snapped: false }
+  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale])
 
   useEffect(() => {
+    if (mode !== 'draw') return
     const handler = (e) => {
+      if (e.target.tagName === 'INPUT') return
+      if (e.key === 'Escape') {
+        if (startPoint) { setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }
+        else setMode('select')
+        return
+      }
+      if (e.key === 'Enter') {
+        const end = getPreviewEnd()
+        if (end && startPoint && end.innerLenMm > 0) {
+          pushHistory([...walls, { x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y }])
+          setStartPoint({ x: end.x, y: end.y })
+          setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+        }
+        return
+      }
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        if (inputMode === 'length') { const l = parseFloat(inputVal); if (!isNaN(l) && l > 0) { setLockedLength(l); setInputMode('angle'); setInputVal('') } }
+        else if (inputMode === 'angle') { const a = parseFloat(inputVal); if (!isNaN(a)) { setLockedAngle(a); setInputMode(null); setInputVal('') } }
+        return
+      }
+      if (/^[0-9.\-]$/.test(e.key) && startPoint) {
+        if (inputMode === null) { setInputMode('length'); setInputVal(e.key) }
+        else setInputVal(v => v + e.key)
+        return
+      }
+      if (e.key === 'Backspace' && inputMode) setInputVal(v => v.slice(0, -1))
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [mode, startPoint, inputMode, inputVal, getPreviewEnd, walls, pushHistory])
+
+  useEffect(() => {
+    if (inputMode === 'length') { const l = parseFloat(inputVal); setLockedLength(!isNaN(l) && l > 0 ? l : null) }
+    else if (inputMode === 'angle') { const a = parseFloat(inputVal); setLockedAngle(!isNaN(a) ? a : null) }
+  }, [inputVal, inputMode])
+
+  useEffect(() => {
+    if (mode !== 'select') return
+    const handler = (e) => {
+      if (e.target.tagName === 'INPUT') return
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWall !== null) {
+        pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); return }
       if (e.key === 'r' || e.key === 'R') {
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: ((c.rotation || 0) + 90) % 360 } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, rotation: ((el.rotation || 0) + 90) % 360 } : el))
       }
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWall !== null) {
-        setWalls(p => p.filter((_, i) => i !== selectedWall)); setSelectedWall(null)
-      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [selected, selectedType, selectedWall, setCabinets, setElements])
+  }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements])
+
+  const handleCanvasClick = useCallback((e) => {
+if (mode === 'select') { setSelectedWall(null); return }
+    const pos = getSVGPos(e)
+    const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, ENDPOINT_SNAP_DIST * 2)
+    const finalPos = snapPt || pos
+    if (!startPoint) { setStartPoint(finalPos); return }
+    const end = getPreviewEnd()
+    if (end && end.innerLenMm > 0) {
+      pushHistory([...walls, { x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y }])
+      setStartPoint({ x: end.x, y: end.y })
+      setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+    }
+  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType])
+
+  const handleMouseMove = useCallback((e) => {
+    const rect = svgRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const rawX = (e.clientX - rect.left) * (W / rect.width)
+    const rawY = (e.clientY - rect.top) * (H / rect.height)
+    setMousePos({ x: rawX, y: rawY })
+    if (mode === 'draw' && startPoint) setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, ENDPOINT_SNAP_DIST * 2))
+    if (!dragging) return
+
+    if (dragging.type === 'wall') {
+      const dx = rawX - dragStart.x, dy = rawY - dragStart.y
+      const orig = dragging.origWall
+      const nx1 = orig.x1 + dx, ny1 = orig.y1 + dy, nx2 = orig.x2 + dx, ny2 = orig.y2 + dy
+      const s1 = findNearestEndpoint(nx1, ny1, walls, dragging.index, ENDPOINT_SNAP_DIST * 2)
+      const s2 = findNearestEndpoint(nx2, ny2, walls, dragging.index, ENDPOINT_SNAP_DIST * 2)
+      let fx1 = nx1, fy1 = ny1, fx2 = nx2, fy2 = ny2
+      if (s1) { fx2 += s1.x - nx1; fy2 += s1.y - ny1; fx1 = s1.x; fy1 = s1.y }
+      else if (s2) { fx1 += s2.x - nx2; fy1 += s2.y - ny2; fx2 = s2.x; fy2 = s2.y }
+      setWalls(p => p.map((w, i) => i === dragging.index ? { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w))
+    } else if (dragging.type === 'endpoint') {
+      const snapPt = findNearestEndpoint(rawX, rawY, walls, dragging.wallIndex, ENDPOINT_SNAP_DIST * 2)
+      const fx = snapPt ? snapPt.x : rawX, fy = snapPt ? snapPt.y : rawY
+      setWalls(p => p.map((w, i) => i !== dragging.wallIndex ? w : dragging.ep === 0 ? { ...w, x1: fx, y1: fy } : { ...w, x2: fx, y2: fy }))
+    } else if (dragging.type === 'element') {
+      const item = elements.find(el => el.id === dragging.id)
+      if (!item) return
+      const wallSnap = findWallSnap(rawX, rawY, walls, wallThickness, scale, 40)
+      if (wallSnap && (item.type === 'window' || item.type === 'door')) {
+        setWallSnapPreview(wallSnap)
+        setElements(p => p.map(el => el.id === dragging.id ? {
+          ...el, x: wallSnap.centerX / scale, y: wallSnap.centerY / scale,
+          wallAngle: wallSnap.wallAngle, wallThickness, embeddedInWall: true, wallIndex: wallSnap.wallIndex,
+        } : el))
+      } else {
+        setWallSnapPreview(null)
+        const corner = dragCorner || { ox: 0.5, oy: 0.5 }
+        const itemW = item.w * scale, itemH = item.h * scale
+        const x = Math.max(0, snap((rawX - (corner.ox - 0.5) * itemW) / scale))
+        const y = Math.max(0, snap((rawY - (corner.oy - 0.5) * itemH) / scale))
+        setElements(p => p.map(el => el.id === dragging.id ? { ...el, x, y, wallAngle: undefined, embeddedInWall: false } : el))
+      }
+    } else if (dragging.type === 'cabinet') {
+      const x = Math.max(0, snap(rawX / scale)), y = Math.max(0, snap(rawY / scale))
+      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x, y } : c))
+    }
+  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, W, H, elements, setWalls, setCabinets, setElements])
+
+  const handleMouseUp = useCallback(() => {
+    if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint')) setHistory(h => [...h.slice(-20), walls])
+    setDragging(null); setDragStart(null); setDragCorner(null); setWallSnapPreview(null)
+  }, [dragging, walls])
+
+  const startWallDrag = useCallback((e, index) => {
+    if (mode !== 'select') return
+    e.stopPropagation()
+    setDragging({ type: 'wall', index, origWall: { ...walls[index] } })
+    setDragStart(getSVGPos(e))
+  }, [mode, walls, getSVGPos])
+
+  const startEndpointDrag = useCallback((e, wallIndex, ep) => {
+    if (mode !== 'select') return
+    e.stopPropagation()
+    setDragging({ type: 'endpoint', wallIndex, ep })
+    setDragStart(getSVGPos(e))
+  }, [mode, getSVGPos])
+
+  const startElementDrag = useCallback((e, id, type) => {
+    if (mode !== 'select') return
+    e.stopPropagation()
+    const pos = getSVGPos(e)
+    const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
+    if (!item) return
+    const itemX = item.x * scale, itemY = item.y * scale
+    const itemW = (type === 'cabinet' ? item.width : item.w) * scale
+    const itemH = (type === 'cabinet' ? item.depth : item.h) * scale
+    const corners = [
+      { ox: 0, oy: 0, cx: itemX - itemW/2, cy: itemY - itemH/2 },
+      { ox: 1, oy: 0, cx: itemX + itemW/2, cy: itemY - itemH/2 },
+      { ox: 1, oy: 1, cx: itemX + itemW/2, cy: itemY + itemH/2 },
+      { ox: 0, oy: 1, cx: itemX - itemW/2, cy: itemY + itemH/2 },
+      { ox: 0.5, oy: 0.5, cx: itemX, cy: itemY },
+    ]
+    let nearest = corners[4], nearestDist = Infinity
+    corners.forEach(c => { const d = ptDist(pos.x, pos.y, c.cx, c.cy); if (d < nearestDist) { nearestDist = d; nearest = c } })
+    setDragging({ type, id })
+    setDragStart(pos)
+    setDragCorner({ ox: nearest.ox, oy: nearest.oy })
+    setSelected(id); setSelectedType(type)
+  }, [mode, cabinets, elements, scale, getSVGPos, setSelected, setSelectedType])
+
+  const confirmWallEdit = useCallback(() => {
+    if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); return }
+    pushHistory(walls.map((w, i) => {
+      if (i !== editingWall) return w
+      const angle = Math.atan2(w.y2 - w.y1, w.x2 - w.x1)
+      const outerLen = (editingLenVal + wallThickness) * scale
+      return { ...w, x2: w.x1 + outerLen * Math.cos(angle), y2: w.y1 + outerLen * Math.sin(angle) }
+    }))
+    setEditingWall(null); setEditingLenVal(null)
+  }, [editingWall, editingLenVal, walls, wallThickness, scale, pushHistory])
 
   const gridLines = []
   if (showGrid) {
@@ -144,80 +395,160 @@ export default function RoomCanvas({
     for (let y = 0; y <= H; y += GRID * scale) gridLines.push(<line key={'gy'+y} x1={0} y1={y} x2={W} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
   }
 
+  const previewEnd = getPreviewEnd()
+
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button onClick={() => { setDrawMode(!drawMode); setDrawPoints([]) }}
-          style={{ padding: '6px 14px', borderRadius: 6, border: '1.5px solid', borderColor: drawMode ? ACCENT : '#E0DAD4', background: drawMode ? ACCENT + '18' : '#fff', color: drawMode ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          {drawMode ? '✏️ Drawing… click points, click green dot to close' : '✏️ Draw walls'}
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+        <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }}
+          style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          ↖ Select
         </button>
-        {drawMode && drawPoints.length > 0 && (
-          <button onClick={() => { setDrawMode(false); setDrawPoints([]) }}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#888', fontSize: 12, cursor: 'pointer' }}>Cancel</button>
+        <button onClick={() => { setMode('draw'); setSelectedWall(null) }}
+          style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          ✏️ Draw walls
+        </button>
+        <button onClick={undo} disabled={history.length <= 1} title="Undo (Ctrl+Z)"
+          style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
+          ↩
+        </button>
+        {walls.length > 1 && (
+          <button onClick={() => setFlipWinding(f => -f)}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            ⇄ Flip sides
+          </button>
         )}
-        {walls.length > 0 && (
-          <button onClick={() => { setWalls([]); setSelectedWall(null) }}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>Clear walls</button>
+        {mode === 'draw' && startPoint && (
+          <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
+            {inputMode === 'length' ? <><strong style={{ color: ACCENT }}>{inputVal}mm</strong> inner · Tab→° · Enter</>
+           : inputMode === 'angle'  ? <><strong>{lockedLength}mm</strong> @ <strong style={{ color: ACCENT }}>{inputVal}°</strong> · Enter</>
+           : <>Type inner length · Tab for angle · Enter · Esc cancel</>}
+          </span>
         )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 8, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-          <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wall thickness</span>
-          <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 80, accentColor: ACCENT }} />
-          <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 40 }}>{wallThickness}mm</span>
+        {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place first point</span>}
+        {mode === 'select' && selectedWall !== null && (
+          <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            🗑 Delete wall
+          </button>
+        )}
+        {mode === 'select' && selectedWall === null && walls.length > 0 && (
+          <button onClick={() => { pushHistory([]); setSelectedWall(null) }}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>
+            Clear all
+          </button>
+        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+          <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wall</span>
+          <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
+          <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
         </div>
-        <span style={{ fontSize: 11, color: '#999' }}>Press <kbd style={{ background: '#f0f0f0', padding: '1px 5px', borderRadius: 3 }}>R</kbd> to rotate · Drag near wall to snap</span>
+        {mode === 'select' && selected && selectedType === 'element' && (() => {
+          const el = elements.find(e => e.id === selected)
+          if (!el) return null
+          const isWallEl = el.type === 'window' || el.type === 'door'
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+              {!isWallEl && <>
+                <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+                <input type="number" min={0} max={359} step={1} value={el.rotation || 0}
+                  onChange={e => { const val = (+e.target.value + 360) % 360; setElements(p => p.map(el2 => el2.id === selected ? { ...el2, rotation: val } : el2)) }}
+                  style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
+                <span style={{ fontSize: 11, color: '#888' }}>°</span>
+              </>}
+              {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>✓ In wall {(el.wallIndex || 0) + 1}</span>}
+            </div>
+          )
+        })()}
+        {mode === 'select' && selected && selectedType === 'cabinet' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+            <input type="number" min={0} max={359} step={1}
+              value={cabinets.find(c => c.id === selected)?.rotation || 0}
+              onChange={e => { const val = (+e.target.value + 360) % 360; setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: val } : c)) }}
+              style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
+            <span style={{ fontSize: 11, color: '#888' }}>° <kbd style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3 }}>R</kbd></span>
+          </div>
+        )}
       </div>
 
-      <svg ref={svgRef} width={W} height={H}
-        style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: drawMode ? 'crosshair' : 'default', display: 'block' }}
-        onClick={handleCanvasClick} onMouseMove={handleMouseMove} onMouseUp={stopDrag} onMouseLeave={stopDrag}
-        onDoubleClick={() => { if (drawMode && drawPoints.length > 1) { setDrawMode(false); setDrawPoints([]) } }}>
-        {gridLines}
-        <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ddd" strokeWidth={1} strokeDasharray="4,4" />
-        {showDimensions && <>
-          <text x={W/2} y={-8} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600}>{room.width}mm</text>
-          <text x={-8} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -8, ${H/2})`}>{room.depth}mm</text>
-        </>}
-        {walls.map((w, i) => (
-          <WallSegment key={i} x1={w.x1} y1={w.y1} x2={w.x2} y2={w.y2} selected={selectedWall === i} thickness={wallPx}
-            onClick={(e) => { e.stopPropagation(); setSelectedWall(i); setSelected(null) }} />
-        ))}
-        {wallSnap && <circle cx={wallSnap.x} cy={wallSnap.y} r={8} fill={ACCENT + '44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
-        {drawMode && drawPoints.length > 0 && mousePos && (
-          <line x1={drawPoints[drawPoints.length-1].x} y1={drawPoints[drawPoints.length-1].y} x2={mousePos.x} y2={mousePos.y}
-            stroke={ACCENT} strokeWidth={3} strokeDasharray="6,4" strokeLinecap="round" style={{ pointerEvents: 'none' }} />
-        )}
-        {drawPoints.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r={6} fill={i === 0 ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ cursor: 'pointer' }} />
-        ))}
-        {elements.map(el => {
-          const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
-          const rot = el.rotation || 0, cx = x + w/2, cy = y + h/2
-          const isSelected = selected === el.id && selectedType === 'element'
-          return (
-            <g key={el.id} transform={`rotate(${rot}, ${cx}, ${cy})`} onMouseDown={e => startDrag(e, el.id, 'element')} style={{ cursor: drawMode ? 'crosshair' : 'grab' }}>
-              <rect x={x} y={y} width={w} height={h} fill={el.color + '44'} stroke={isSelected ? ACCENT : el.color} strokeWidth={isSelected ? 2.5 : 1.5} rx={3} />
-              <text x={cx} y={cy - 2} textAnchor="middle" fontSize={13} style={{ userSelect: 'none', pointerEvents: 'none' }}>{el.icon}</text>
-              {showDimensions && <text x={cx} y={cy + 9} textAnchor="middle" fontSize={7} fill="#555" style={{ pointerEvents: 'none' }}>{el.w}×{el.h}</text>}
-              {isSelected && <rect x={x-2} y={y-2} width={w+4} height={h+4} fill="none" stroke={ACCENT} strokeWidth={1.5} strokeDasharray="4,3" rx={4} style={{ pointerEvents: 'none' }} />}
-              {isSelected && rot !== 0 && <text x={cx} y={y - 8} textAnchor="middle" fontSize={8} fill={ACCENT} style={{ pointerEvents: 'none' }}>{rot}°</text>}
-            </g>
-          )
-        })}
-        {cabinets.map(cab => {
-          const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
-          const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
-          const isSelected = selected === cab.id && selectedType === 'cabinet'
-          return (
-            <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`} onMouseDown={e => startDrag(e, cab.id, 'cabinet')} style={{ cursor: drawMode ? 'crosshair' : 'grab' }}>
-              <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
-              <rect x={x} y={y + h - 4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
-              <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
-              {showDimensions && <text x={cx} y={cy + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
-              {isSelected && rot !== 0 && <text x={cx} y={y - 8} textAnchor="middle" fontSize={8} fill={ACCENT} style={{ pointerEvents: 'none' }}>{rot}°</text>}
-            </g>
-          )
-        })}
-      </svg>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <svg ref={svgRef} width="100%" height="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: mode === 'draw' ? 'crosshair' : 'default', display: 'block' }}
+          onClick={handleCanvasClick}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}>
+          {gridLines}
+          <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ddd" strokeWidth={1} strokeDasharray="4,4" />
+          {showDimensions && <>
+            <text x={W/2} y={-10} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600}>{room.width}mm</text>
+            <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
+          </>}
+          {walls.map((w, i) => (
+            <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
+              thickness={wallPx} scale={scale} winding={winding}
+              innerLenMm={getInnerLength(w, wallThickness, scale)}
+              onSelect={() => setSelectedWall(i)}
+              onDragStart={startWallDrag}
+              onEndpointDragStart={startEndpointDrag}
+              onLabelClick={() => { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) }}
+              editingLength={editingWall === i}
+              onLengthChange={v => setEditingLenVal(v)}
+              onLengthConfirm={confirmWallEdit}
+            />
+          ))}
+          {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'draw' && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'draw' && startPoint && previewEnd && previewEnd.innerLenMm > 0 && (
+            <>
+              <line x1={startPoint.x} y1={startPoint.y} x2={previewEnd.x} y2={previewEnd.y}
+                stroke={ACCENT} strokeWidth={wallPx} strokeLinecap="square" opacity={0.3} style={{ pointerEvents: 'none' }} />
+              <g transform={`translate(${(startPoint.x+previewEnd.x)/2},${(startPoint.y+previewEnd.y)/2})`}>
+                <rect x={-36} y={-13} width={72} height={20} rx={4} fill={ACCENT} opacity={0.9} />
+                <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{previewEnd.innerLenMm}mm · {previewEnd.angleDeg}°</text>
+              </g>
+              <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+            </>
+          )}
+          {mode === 'draw' && startPoint && <circle cx={startPoint.x} cy={startPoint.y} r={7} fill="#2AC87A" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {elements.filter(el => el.type !== 'window' && el.type !== 'door').map(el => {
+            const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
+            const rot = el.rotation || 0, isSelected = selected === el.id && selectedType === 'element'
+            return (
+              <g key={el.id} transform={`translate(${x},${y}) rotate(${rot})`}
+                onMouseDown={e => startElementDrag(e, el.id, 'element')}
+                style={{ cursor: mode === 'select' ? 'move' : 'crosshair' }}>
+                <rect x={-w/2} y={-h/2} width={w} height={h} fill={el.color+'44'} stroke={isSelected ? ACCENT : el.color} strokeWidth={isSelected ? 2.5 : 1.5} rx={3} />
+                <text x={0} y={2} textAnchor="middle" fontSize={13} style={{ userSelect: 'none', pointerEvents: 'none' }}>{el.icon}</text>
+                {isSelected && <rect x={-w/2-2} y={-h/2-2} width={w+4} height={h+4} fill="none" stroke={ACCENT} strokeWidth={1.5} strokeDasharray="4,3" rx={4} style={{ pointerEvents: 'none' }} />}
+              </g>
+            )
+          })}
+          {elements.filter(el => el.type === 'window' || el.type === 'door').map(el => (
+            <EmbeddedElement key={el.id} el={el} scale={scale}
+              selected={selected === el.id && selectedType === 'element'}
+              onMouseDown={e => startElementDrag(e, el.id, 'element')} />
+          ))}
+          {cabinets.map(cab => {
+            const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
+            const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
+            const isSelected = selected === cab.id && selectedType === 'cabinet'
+            return (
+              <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
+                onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
+                style={{ cursor: mode === 'select' ? 'move' : 'crosshair' }}>
+                <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
+                <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
+                {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+              </g>
+            )
+          })}
+        </svg>
+      </div>
     </div>
   )
 }
