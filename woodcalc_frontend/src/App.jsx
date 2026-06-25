@@ -7,6 +7,7 @@ import RegisterArchitect from './pages/auth/RegisterArchitect';
 import RegisterManufacturer from './pages/auth/RegisterManufacturer';
 import RegisterSupplier from './pages/auth/RegisterSupplier';
 import Dashboard from './pages/Dashboard';
+import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -24,6 +25,11 @@ export default function App() {
         <Route path="/register/architect" element={<RegisterArchitect />} />
         <Route path="/register/manufacturer" element={<RegisterManufacturer />} />
         <Route path="/register/supplier" element={<RegisterSupplier />} />
+<Route path="/kitchen-planner" element={
+  <PrivateRoute>
+    <KitchenPlannerModule />
+  </PrivateRoute>
+} />
 
         {/* Default redirect */}
         <Route path="/" element={<Navigate to="/login" />} />
