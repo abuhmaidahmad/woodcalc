@@ -7,13 +7,13 @@ import CRMModule from './features/crm/CRMModule'
 import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule'
 
 function LoginPage({ setToken, setDemoMode }) {
-  const [u, setU] = useState('')
+  const [email, setEmail] = useState('')
   const [p, setP] = useState('')
   const [err, setErr] = useState('')
   const login = async (e) => {
     e.preventDefault()
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login/`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u,password:p}) })
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/login/`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password:p}) })
       const data = await res.json()
       if (data.access) { localStorage.setItem('access_token', data.access); setToken(data.access) }
       else setErr('Invalid credentials')
@@ -25,12 +25,12 @@ function LoginPage({ setToken, setDemoMode }) {
         <h1 style={{textAlign:'center',marginBottom:8}}>🪵 WoodCalc ERP</h1>
         <p style={{textAlign:'center',color:'#666',marginBottom:24}}>Jordan Cabinet Manufacturing</p>
         <form onSubmit={login}>
-          <input style={{width:'100%',padding:10,marginBottom:12,border:'1px solid #ddd',borderRadius:6,fontSize:14,boxSizing:'border-box'}} placeholder="Username" value={u} onChange={e=>setU(e.target.value)} />
+          <input style={{width:'100%',padding:10,marginBottom:12,border:'1px solid #ddd',borderRadius:6,fontSize:14,boxSizing:'border-box'}} type="email" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} />
           <input style={{width:'100%',padding:10,marginBottom:12,border:'1px solid #ddd',borderRadius:6,fontSize:14,boxSizing:'border-box'}} type="password" placeholder="Password" value={p} onChange={e=>setP(e.target.value)} />
           {err && <p style={{color:'red',marginBottom:8}}>{err}</p>}
           <button style={{width:'100%',padding:12,background:'#2c3e50',color:'white',border:'none',borderRadius:6,fontSize:16,cursor:'pointer'}} type="submit">Login</button>
         </form>
-        <p style={{textAlign:'center',marginTop:16,color:'#999',fontSize:12}}>admin / admin123</p>
+        <p style={{textAlign:'center',marginTop:16,color:'#999',fontSize:12}}>admin@woodcalc.local / admin123</p>
         <div style={{textAlign:'center',marginTop:12}}>
           <button onClick={()=>setDemoMode(true)} style={{background:'none',border:'1px solid #ddd',borderRadius:6,padding:'8px 20px',color:'#666',cursor:'pointer',fontSize:13}}>
             👀 View Demo (no login)
