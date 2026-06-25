@@ -4,5 +4,5 @@ __pycache__/
 *.pyc
 db.sqlite3
 .DS_Store
-.claude/settings.local.json
+.claude/
 *.tmp
