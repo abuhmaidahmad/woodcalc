@@ -7,20 +7,19 @@ const ROOM_H = 2.8
 const px2m = px => px / SCALE / 1000
 
 const FLOOR_TILES = {
-  white_large:  { color: '#F5F5F5' },
-  marble:       { color: '#E8E0D8' },
-  dark_slate:   { color: '#4A4A4A' },
-  wood_parquet: { color: '#C8A96E' },
-  terracotta:   { color: '#C4703A' },
-  concrete:     { color: '#9E9E9E' },
+  white_large:  { color: '#F0EEE9', roughness: 0.15, metalness: 0.02 },
+  marble:       { color: '#E8E0D8', roughness: 0.08, metalness: 0.04 },
+  dark_slate:   { color: '#3A3A3A', roughness: 0.3,  metalness: 0.05 },
+  wood_parquet: { color: '#C8A96E', roughness: 0.75, metalness: 0.0  },
+  terracotta:   { color: '#C4703A', roughness: 0.85, metalness: 0.0  },
+  concrete:     { color: '#9E9E9E', roughness: 0.9,  metalness: 0.0  },
 }
 
-// Laminate material properties — roughness/metalness per finish type
 const LAMINATE_PROPS = {
-  gloss:  { roughness: 0.05, metalness: 0.08 },
-  matt:   { roughness: 0.85, metalness: 0.0  },
-  wood:   { roughness: 0.75, metalness: 0.0  },
-  metal:  { roughness: 0.3,  metalness: 0.6  },
+  gloss:  { roughness: 0.02, metalness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.02 },
+  matt:   { roughness: 0.85, metalness: 0.0,  clearcoat: 0.0, clearcoatRoughness: 0.0  },
+  wood:   { roughness: 0.70, metalness: 0.0,  clearcoat: 0.15, clearcoatRoughness: 0.25 },
+  metal:  { roughness: 0.20, metalness: 0.8,  clearcoat: 0.3,  clearcoatRoughness: 0.1  },
 }
 
 function getMaterialProps(materialName) {
@@ -38,101 +37,194 @@ const GOLA_COLORS = {
   champagne: '#c8a96e',
 }
 
-function Floor({ width, depth, floorTile }) {
+function Floor({ cx, cz, width, depth, floorTile }) {
   const W = width / 1000, D = depth / 1000
   const tile = FLOOR_TILES[floorTile] || FLOOR_TILES.white_large
   return (
-    <mesh rotation={[-Math.PI/2, 0, 0]} position={[W/2, 0, D/2]} receiveShadow>
-      <planeGeometry args={[W + 4, D + 4]} />
-      <meshStandardMaterial color={tile.color} roughness={0.85} metalness={0.05} />
+    <group>
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[cx, 0, cz]} receiveShadow>
+        <planeGeometry args={[W + 6, D + 6]} />
+        <meshPhysicalMaterial color={tile.color} roughness={tile.roughness} metalness={tile.metalness} reflectivity={0.6} envMapIntensity={1.0} />
+      </mesh>
+      <mesh rotation={[-Math.PI/2, 0, 0]} position={[cx, 0.001, cz]}>
+        <planeGeometry args={[W + 6, D + 6]} />
+        <meshStandardMaterial color="#c8c0b8" roughness={1} transparent opacity={0.06} />
+      </mesh>
+    </group>
+  )
+}
+
+function Ceiling({ cx, cz, width, depth }) {
+  const W = width / 1000, D = depth / 1000
+  return (
+    <mesh rotation={[Math.PI/2, 0, 0]} position={[cx, ROOM_H, cz]}>
+      <planeGeometry args={[W + 6, D + 6]} />
+      <meshStandardMaterial color="#faf8f5" roughness={1} metalness={0} side={THREE.BackSide} />
     </mesh>
   )
 }
 
+function CeilingLight({ x, z }) {
+  return (
+    <group position={[x, ROOM_H - 0.01, z]}>
+      <mesh rotation={[Math.PI/2, 0, 0]}>
+        <circleGeometry args={[0.08, 16]} />
+        <meshStandardMaterial color="#fffde7" emissive="#fffde7" emissiveIntensity={3} />
+      </mesh>
+      <pointLight intensity={1.2} color="#fff5e0" distance={4} decay={2} castShadow
+        shadow-mapSize={[512, 512]} shadow-bias={-0.001} />
+    </group>
+  )
+}
+
+// Door front panel — proud of carcass with gap
+function DoorPanel({ x, y, D, doorW, doorH, frontColor, matProps, doorStyle, golaHex, golaColor, handlePosition, isDrawer, drawerIndex, drawerTotal }) {
+  const GAP = 0.002        // 2mm gap around each door
+  const PROUD = 0.020      // door sticks out 20mm from carcass front face
+  const DOOR_T = 0.019     // door thickness 19mm
+  const frontZ = D / 2 + PROUD  // door face position
+
+  const panelW = doorW - GAP * 2
+  const panelH = doorH - GAP * 2
+
+  // Handle Y position
+  const handleY = handlePosition === 'top' ? panelH / 2 - 0.065 : -panelH / 2 + 0.065
+
+  return (
+    <group position={[x, y, 0]}>
+      {/* Door panel — proud of carcass */}
+      <mesh position={[0, 0, frontZ - DOOR_T / 2]} castShadow receiveShadow>
+        <boxGeometry args={[panelW, panelH, DOOR_T]} />
+        <meshPhysicalMaterial
+          color={frontColor}
+          roughness={matProps.roughness}
+          metalness={matProps.metalness}
+          clearcoat={matProps.clearcoat}
+          clearcoatRoughness={matProps.clearcoatRoughness}
+          envMapIntensity={matProps.clearcoat > 0.5 ? 2.5 : 1.0}
+          reflectivity={matProps.clearcoat > 0.5 ? 1.0 : 0.3}
+        />
+      </mesh>
+
+      {/* Shadow line — thin dark strip behind door edge to show it's mounted */}
+      <mesh position={[0, 0, D / 2 + 0.001]}>
+        <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
+        <meshStandardMaterial color="#111111" roughness={1} />
+      </mesh>
+
+      {/* Handle style */}
+      {doorStyle === 'Handle' && (
+        <group position={[0, handleY, frontZ + 0.006]}>
+          {/* Handle bar */}
+          <mesh castShadow>
+            <boxGeometry args={[panelW * 0.55, 0.013, 0.013]} />
+            <meshPhysicalMaterial color="#c0c0c0" metalness={0.95} roughness={0.05} clearcoat={1} clearcoatRoughness={0.02} envMapIntensity={3} reflectivity={1} />
+          </mesh>
+          {/* Brackets */}
+          {[-panelW * 0.21, panelW * 0.21].map((bx, bi) => (
+            <mesh key={bi} position={[bx, 0, -0.018]}>
+              <boxGeometry args={[0.011, 0.011, 0.036]} />
+              <meshPhysicalMaterial color="#c0c0c0" metalness={0.95} roughness={0.05} clearcoat={1} clearcoatRoughness={0.02} envMapIntensity={3} />
+            </mesh>
+          ))}
+        </group>
+      )}
+
+      {/* Gola channel — recessed at top of door */}
+      {doorStyle === 'Gola' && (
+        <group position={[0, panelH / 2 - 0.018, frontZ + 0.002]}>
+          {/* Gola body */}
+          <mesh castShadow>
+            <boxGeometry args={[panelW, 0.034, 0.010]} />
+            <meshPhysicalMaterial
+              color={golaHex}
+              roughness={0.25}
+              metalness={golaColor === 'silver' || golaColor === 'champagne' ? 0.85 : 0.05}
+              clearcoat={0.8}
+              clearcoatRoughness={0.05}
+              envMapIntensity={2}
+            />
+          </mesh>
+          {/* Inner shadow groove */}
+          <mesh position={[0, -0.007, 0.003]}>
+            <boxGeometry args={[panelW - 0.002, 0.016, 0.005]} />
+            <meshStandardMaterial color="#050505" roughness={1} />
+          </mesh>
+        </group>
+      )}
+    </group>
+  )
+}
+
 function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors, isDrawers, handlePosition, golaColor }) {
-  const doors = []
-  const doorW = W / numDoors
-  const doorH = H
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
+  const doorW = W / numDoors
+  const doors = []
 
-  // Handle position: 'top' = near top of door, 'bottom' = near bottom
-  const getHandleY = (doorHeight, pos) => pos === 'top' ? doorHeight/2 - 0.06 : -doorHeight/2 + 0.06
-
-  for (let i = 0; i < numDoors; i++) {
-    const xOff = -W/2 + doorW * i + doorW/2
-
-    if (isDrawers) {
-      const drawerH = H / 4
-      for (let d = 0; d < 4; d++) {
-        const yOff = -H/2 + drawerH * d + drawerH/2
-        doors.push(
-          <group key={`drawer-${i}-${d}`}>
-            <mesh position={[xOff, yOff, D/2 + 0.001]} castShadow>
-              <boxGeometry args={[doorW - 0.001, drawerH - 0.002, 0.018]} />
-              <meshStandardMaterial color={frontColor} roughness={matProps.roughness} metalness={matProps.metalness} />
-            </mesh>
-            {doorStyle === 'Handle' && (
-              <mesh position={[xOff, yOff, D/2 + 0.026]}>
-                <boxGeometry args={[doorW * 0.55, 0.01, 0.01]} />
-                <meshStandardMaterial color="#aaa" metalness={0.9} roughness={0.1} />
-              </mesh>
-            )}
-            {doorStyle === 'Gola' && (
-              <mesh position={[xOff, yOff + drawerH/2 - 0.012, D/2 + 0.016]}>
-                <boxGeometry args={[doorW - 0.001, 0.022, 0.006]} />
-                <meshStandardMaterial color={golaHex} roughness={0.4} metalness={golaColor === 'silver' || golaColor === 'champagne' ? 0.7 : 0.1} />
-              </mesh>
-            )}
-          </group>
-        )
-      }
-    } else {
-      const hY = getHandleY(doorH, handlePosition || 'bottom')
+  if (isDrawers) {
+    const drawerCount = 4
+    const drawerH = H / drawerCount
+    for (let d = 0; d < drawerCount; d++) {
+      const y = -H / 2 + drawerH * d + drawerH / 2
       doors.push(
-        <group key={i}>
-          {/* Door panel */}
-          <mesh position={[xOff, 0, D/2 + 0.001]} castShadow>
-            <boxGeometry args={[doorW - 0.001, doorH - 0.001, 0.018]} />
-            <meshStandardMaterial color={frontColor} roughness={matProps.roughness} metalness={matProps.metalness} />
-          </mesh>
-          {/* Handle */}
-          {doorStyle === 'Handle' && (
-            <group position={[xOff, hY, D/2 + 0.026]}>
-              {/* Handle bar */}
-              <mesh>
-                <boxGeometry args={[doorW * 0.55, 0.012, 0.012]} />
-                <meshStandardMaterial color="#b0b0b0" metalness={0.9} roughness={0.1} />
-              </mesh>
-              {/* Handle brackets */}
-              {[-doorW*0.22, doorW*0.22].map((bx, bi) => (
-                <mesh key={bi} position={[bx, 0, -0.02]}>
-                  <boxGeometry args={[0.012, 0.012, 0.04]} />
-                  <meshStandardMaterial color="#b0b0b0" metalness={0.9} roughness={0.1} />
-                </mesh>
-              ))}
-            </group>
-          )}
-          {/* Gola channel */}
-          {doorStyle === 'Gola' && (
-            <group position={[xOff, doorH/2 - 0.018, D/2 + 0.014]}>
-              {/* Channel body */}
-              <mesh>
-                <boxGeometry args={[doorW - 0.001, 0.030, 0.008]} />
-                <meshStandardMaterial color={golaHex} roughness={0.3} metalness={golaColor === 'silver' || golaColor === 'champagne' ? 0.8 : 0.1} />
-              </mesh>
-              {/* Inner shadow groove */}
-              <mesh position={[0, -0.006, 0.002]}>
-                <boxGeometry args={[doorW - 0.003, 0.016, 0.004]} />
-                <meshStandardMaterial color="#0a0a0a" roughness={1} metalness={0} />
-              </mesh>
-            </group>
-          )}
-        </group>
+        <DoorPanel
+          key={`drawer-${d}`}
+          x={0} y={y} D={D}
+          doorW={W} doorH={drawerH}
+          frontColor={frontColor}
+          matProps={matProps}
+          doorStyle={doorStyle}
+          golaHex={golaHex}
+          golaColor={golaColor}
+          handlePosition="center"
+          isDrawer={true}
+          drawerIndex={d}
+          drawerTotal={drawerCount}
+        />
+      )
+    }
+  } else {
+    for (let i = 0; i < numDoors; i++) {
+      const x = -W / 2 + doorW * i + doorW / 2
+      doors.push(
+        <DoorPanel
+          key={i}
+          x={x} y={0} D={D}
+          doorW={doorW} doorH={H}
+          frontColor={frontColor}
+          matProps={matProps}
+          doorStyle={doorStyle}
+          golaHex={golaHex}
+          golaColor={golaColor}
+          handlePosition={handlePosition || 'bottom'}
+          isDrawer={false}
+        />
       )
     }
   }
+
   return <>{doors}</>
+}
+
+function Countertop({ W, D, carcassColor }) {
+  const TOP_T = 0.038   // 38mm thick countertop
+  const OVERHANG_F = 0.040  // 40mm overhang at front
+  const OVERHANG_S = 0.020  // 20mm overhang sides
+  return (
+    <mesh position={[0, 0, OVERHANG_F / 2 - OVERHANG_S / 2]} castShadow receiveShadow>
+      <boxGeometry args={[W + OVERHANG_S * 2, TOP_T, D + OVERHANG_F + OVERHANG_S]} />
+      <meshPhysicalMaterial
+        color="#e8e2da"
+        roughness={0.18}
+        metalness={0.02}
+        clearcoat={0.6}
+        clearcoatRoughness={0.08}
+        envMapIntensity={1.5}
+        reflectivity={0.7}
+      />
+    </mesh>
+  )
 }
 
 function Cabinet({ cab }) {
@@ -143,35 +235,49 @@ function Cabinet({ cab }) {
   const z = cab.y / 1000
   const rot = (cab.rotation || 0) * Math.PI / 180
 
-  const legH = cab.height >= 800 ? 0.080 : 0.150
-  const legR = 0.015
-
+  const legH = 0.120
+  const legR = 0.008
+  const isBase = cab.type?.includes('base') || (!cab.type?.includes('wall') && !cab.type?.includes('tall'))
   const isDrawers = cab.type?.includes('drawers') || cab.subtype === 'Drawers'
   const numDoors = cab.width >= 600 ? 2 : 1
   const doorStyle = cab.doorStyle || 'Handle'
   const frontColor = cab.frontColor || '#FFFFFF'
-  const carcassColor = cab.carcassColor || '#F5F0E8'
-  const carcassProps = getMaterialProps(cab.carcassMaterial)
+  const carcassColor = cab.carcassColor || '#F0EDE8'
   const elevation = cab.elevation || 0
+  const isWall = cab.type?.includes('wall')
+  const showLegs = !isWall && elevation === 0
 
   return (
-    <group position={[x + W/2, legH + elevation/1000, z + D/2]} rotation={[0, -rot, 0]}>
-      {/* Legs */}
-      {elevation === 0 && [[-W/2+legR*1.5, -D/2+legR*1.5], [W/2-legR*1.5, -D/2+legR*1.5],
-        [-W/2+legR*1.5, D/2-legR*1.5], [W/2-legR*1.5, D/2-legR*1.5]].map(([lx, lz], i) => (
+    <group position={[x + W/2, (showLegs ? legH : 0) + elevation/1000, z + D/2]} rotation={[0, -rot, 0]}>
+
+      {/* Legs — slim modern style */}
+      {showLegs && [[-W/2 + 0.025, -D/2 + 0.025], [W/2 - 0.025, -D/2 + 0.025],
+        [-W/2 + 0.025, D/2 - 0.025], [W/2 - 0.025, D/2 - 0.025]].map(([lx, lz], i) => (
         <mesh key={i} position={[lx, -legH/2, lz]}>
           <cylinderGeometry args={[legR, legR, legH, 8]} />
-          <meshStandardMaterial color="#111111" metalness={0.5} roughness={0.5} />
+          <meshPhysicalMaterial color="#1a1a1a" metalness={0.85} roughness={0.15} envMapIntensity={2} />
         </mesh>
       ))}
 
-      {/* Carcass */}
+      {/* Carcass body */}
       <mesh castShadow receiveShadow position={[0, H/2, 0]}>
         <boxGeometry args={[W, H, D]} />
-        <meshStandardMaterial color={carcassColor} roughness={carcassProps.roughness} metalness={carcassProps.metalness} />
+        <meshPhysicalMaterial
+          color={carcassColor}
+          roughness={0.75}
+          metalness={0.0}
+          envMapIntensity={0.4}
+        />
       </mesh>
 
-      {/* Doors */}
+      {/* Countertop on base cabinets */}
+      {isBase && (
+        <group position={[0, H, 0]}>
+          <Countertop W={W} D={D} carcassColor={carcassColor} />
+        </group>
+      )}
+
+      {/* Door fronts — mounted proud of carcass */}
       <group position={[0, H/2, 0]}>
         <CabinetDoors
           W={W} H={H} D={D}
@@ -198,7 +304,7 @@ function Wall3D({ wall, wallThickness }) {
   return (
     <mesh position={[cx, ROOM_H/2, cz]} rotation={[0, -angle, 0]} castShadow receiveShadow>
       <boxGeometry args={[len, ROOM_H, T]} />
-      <meshStandardMaterial color="#e8e0d8" roughness={0.9} metalness={0} />
+      <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
     </mesh>
   )
 }
@@ -214,16 +320,17 @@ function WindowElement({ el, wallThickness }) {
     <group position={[x, elev + H/2, z]} rotation={[0, -angle, 0]}>
       <mesh>
         <boxGeometry args={[W - 0.08, H - 0.08, T + 0.01]} />
-        <meshStandardMaterial color="#87CEEB" transparent opacity={0.35} roughness={0.05} metalness={0.1} />
+        <meshPhysicalMaterial color="#a8d8f0" transparent opacity={0.22} roughness={0.0} metalness={0.05} transmission={0.7} thickness={0.5} envMapIntensity={1.5} />
       </mesh>
       {[[0, H/2-0.02, 0, [W, 0.04, T+0.02]], [0, -H/2+0.02, 0, [W, 0.04, T+0.02]],
         [-W/2+0.02, 0, 0, [0.04, H, T+0.02]], [W/2-0.02, 0, 0, [0.04, H, T+0.02]],
         [0, 0, 0, [0.03, H-0.04, T+0.02]]].map(([fx, fy, fz, dims], i) => (
         <mesh key={i} position={[fx, fy, fz]}>
           <boxGeometry args={dims} />
-          <meshStandardMaterial color="#e0e0e0" roughness={0.4} />
+          <meshStandardMaterial color="#e8e8e8" roughness={0.3} metalness={0.1} />
         </mesh>
       ))}
+      <rectAreaLight width={W * 0.9} height={H * 0.9} intensity={4} color="#fff8f0" position={[0, 0, -T]} rotation={[0, Math.PI, 0]} />
     </group>
   )
 }
@@ -240,16 +347,16 @@ function DoorElement({ el, wallThickness }) {
         [0, H/2, 0, [W, 0.05, T+0.02]]].map(([px, py, pz, dims], i) => (
         <mesh key={i} position={[px, py, pz]}>
           <boxGeometry args={dims} />
-          <meshStandardMaterial color="#ccc" roughness={0.5} />
+          <meshStandardMaterial color="#d0ccc8" roughness={0.5} />
         </mesh>
       ))}
       <mesh position={[0, 0, T/2+0.022]} castShadow>
         <boxGeometry args={[W-0.06, H-0.02, 0.04]} />
-        <meshStandardMaterial color="#D2A679" roughness={0.6} metalness={0} />
+        <meshPhysicalMaterial color="#C8A070" roughness={0.55} metalness={0} clearcoat={0.2} clearcoatRoughness={0.3} />
       </mesh>
       <mesh position={[W/2-0.1, 0, T/2+0.05]}>
         <cylinderGeometry args={[0.007, 0.007, 0.12, 8]} />
-        <meshStandardMaterial color="#999" metalness={0.85} roughness={0.15} />
+        <meshPhysicalMaterial color="#c0c0c0" metalness={0.92} roughness={0.08} envMapIntensity={2} />
       </mesh>
     </group>
   )
@@ -280,28 +387,68 @@ function OtherElement({ el }) {
 }
 
 export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large' }) {
-  const W = (room?.width || 4000) / 1000
-  const D = (room?.depth || 3000) / 1000
   const wallThickness = 120
   const wallEls  = elements.filter(e => e.type === 'window' || e.type === 'door')
   const otherEls = elements.filter(e => e.type !== 'window' && e.type !== 'door')
 
+  // Bounding box from actual drawn walls
+  const allX = walls.flatMap(w => [px2m(w.x1), px2m(w.x2)])
+  const allZ = walls.flatMap(w => [px2m(w.y1), px2m(w.y2)])
+  const minX = allX.length ? Math.min(...allX) : 0
+  const maxX = allX.length ? Math.max(...allX) : (room?.width || 4000) / 1000
+  const minZ = allZ.length ? Math.min(...allZ) : 0
+  const maxZ = allZ.length ? Math.max(...allZ) : (room?.depth || 3000) / 1000
+  const cx = (minX + maxX) / 2
+  const cz = (minZ + maxZ) / 2
+  const span = Math.max(maxX - minX, maxZ - minZ, 2)
+
+  const lightPositions = [
+    [cx - span * 0.2, cz - span * 0.2],
+    [cx + span * 0.2, cz - span * 0.2],
+    [cx - span * 0.2, cz + span * 0.2],
+    [cx + span * 0.2, cz + span * 0.2],
+  ]
+
   return (
     <div style={{ width: '100%', height: 'calc(100vh - 180px)', borderRadius: 12, overflow: 'hidden', border: '1px solid #ddd' }}>
-      <Canvas shadows="soft"
-        camera={{ position: [W/2+1, 2.2, D+2.8], fov: 40 }}
-        gl={{ toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.1, antialias: true }}>
-        <color attach="background" args={['#f0ece6']} />
-        <fog attach="fog" args={['#f0ece6', 8, 20]} />
-        <ambientLight intensity={0.5} color="#fff5e6" />
-        <directionalLight position={[W+3, 6, D+2]} intensity={1.8} castShadow
+      <Canvas
+        shadows="soft"
+        camera={{ position: [cx + span * 0.6, span * 0.9, cz + span * 1.3], fov: 38 }}
+        gl={{
+          toneMapping: THREE.ACESFilmicToneMapping,
+          toneMappingExposure: 1.3,
+          antialias: true,
+          outputColorSpace: THREE.SRGBColorSpace,
+        }}
+      >
+        <color attach="background" args={['#ede9e3']} />
+        <fog attach="fog" args={['#ede9e3', 12, 24]} />
+
+        <ambientLight intensity={0.4} color="#fff8f0" />
+
+        <directionalLight
+          position={[cx + span, span * 2, cz + span]}
+          intensity={2.5}
+          color="#fffaf0"
+          castShadow
           shadow-mapSize={[2048, 2048]}
-          shadow-camera-left={-8} shadow-camera-right={8}
-          shadow-camera-top={8} shadow-camera-bottom={-8}
-          shadow-bias={-0.001} />
-        <directionalLight position={[-2, 3, -1]} intensity={0.4} color="#c8d8ff" />
-        <pointLight position={[W/2, 2.4, D/2]} intensity={0.6} color="#fff8f0" distance={8} />
-        <Floor width={room?.width || 4000} depth={room?.depth || 3000} floorTile={floorTile} />
+          shadow-camera-left={-10}
+          shadow-camera-right={10}
+          shadow-camera-top={10}
+          shadow-camera-bottom={-10}
+          shadow-bias={-0.0004}
+          shadow-radius={4}
+        />
+        <directionalLight position={[cx - span, span, cz - span]} intensity={0.5} color="#c8d8ff" />
+        <hemisphereLight skyColor="#fff5e0" groundColor="#c8a060" intensity={0.45} />
+
+        {lightPositions.map(([lx, lz], i) => (
+          <CeilingLight key={i} x={lx} z={lz} />
+        ))}
+
+        <Floor cx={cx} cz={cz} width={room?.width || 4000} depth={room?.depth || 3000} floorTile={floorTile} />
+        <Ceiling cx={cx} cz={cz} width={room?.width || 4000} depth={room?.depth || 3000} />
+
         {walls.map((w, i) => <Wall3D key={i} wall={w} wallThickness={wallThickness} />)}
         {wallEls.map(el => el.type === 'window'
           ? <WindowElement key={el.id} el={el} wallThickness={wallThickness} />
@@ -309,13 +456,25 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
         )}
         {otherEls.map(el => <OtherElement key={el.id} el={el} />)}
         {cabinets.map(cab => <Cabinet key={cab.id} cab={cab} />)}
-        <ContactShadows position={[W/2, 0.002, D/2]}
-          width={W+2} height={D+2} far={1.5} blur={2.5} opacity={0.6} />
-        <Environment preset="apartment" intensity={0.4} />
-        <OrbitControls target={[W/2, 0.8, D/3]}
-          minPolarAngle={0.1} maxPolarAngle={Math.PI/2.05}
-          minDistance={0.5} maxDistance={14}
-          enableDamping dampingFactor={0.05} />
+
+        <ContactShadows
+          position={[cx, 0.003, cz]}
+          width={span + 4} height={span + 4}
+          far={2.5} blur={4} opacity={0.6}
+          color="#1a0a00"
+        />
+
+        <Environment preset="apartment" intensity={0.8} />
+
+        <OrbitControls
+          target={[cx, 0.9, cz]}
+          minPolarAngle={0.05}
+          maxPolarAngle={Math.PI / 2.05}
+          minDistance={0.5}
+          maxDistance={18}
+          enableDamping
+          dampingFactor={0.05}
+        />
       </Canvas>
     </div>
   )

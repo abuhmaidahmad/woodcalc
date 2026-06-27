@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import MaterialLibrary, { MATERIAL_DB } from './MaterialLibrary'
 import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D from './KitchenPlanner3D'
@@ -10,15 +11,6 @@ const GRID = 50
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const LIGHT = '#F7F4F0'
-
-const COLORS = [
-  { name: 'White',    hex: '#FFFFFF' },
-  { name: 'Cream',    hex: '#F5F0E8' },
-  { name: 'Graphite', hex: '#4A4A4A' },
-  { name: 'Oak',      hex: '#C8A96E' },
-  { name: 'Walnut',   hex: '#7B5B3A' },
-  { name: 'Navy',     hex: '#1B3A5C' },
-]
 
 const ROOM_ELEMENTS = [
   { type: 'window',   label: 'Window',         icon: '🪟', color: '#87CEEB', w: 900,  h: 1200 },
@@ -70,8 +62,8 @@ export default function KitchenPlannerModule() {
   const [wallThickness, setWallThickness]   = useState(120)
   const [walls, setWalls]                   = useState([])
   const [floorTile, setFloorTile]           = useState('white_large')
-  const [baseHeight, setBaseHeight]         = useState(null) // null = setup not done yet
-const [projectDefaults, setProjectDefaults] = useState(null)
+  const [baseHeight, setBaseHeight]         = useState(null)
+  const [projectDefaults, setProjectDefaults] = useState(null)
 
   const addCabinet = useCallback((t) => {
     const cab = {
@@ -79,8 +71,7 @@ const [projectDefaults, setProjectDefaults] = useState(null)
       id: Date.now(),
       x: snap(200), y: snap(200),
       material: 'Particleboard',
-doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
-
+      doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
       carcassColor: '#F5F0E8',
       frontColor: '#FFFFFF',
       zonePreset: null,
@@ -88,7 +79,7 @@ doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
-  }, [])
+  }, [projectDefaults])
 
   const addElement = (t) => {
     const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
@@ -135,8 +126,6 @@ doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
 
   return (
     <div style={s.page}>
-      {/* Project setup modal — shown until baseHeight is chosen */}
-
       <div style={s.topBar}>
         <div style={s.topLeft}>
           {editingName ? (
@@ -250,15 +239,13 @@ doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
 
       {tab === 'planner' && (
         <div style={s.workspace}>
-          {/* Left panel: full CabinetCatalog */}
           <div style={{ ...s.leftPanel, width: 220, padding: 0 }}>
-           <CabinetCatalog
-  baseHeight={baseHeight}
-  projectDefaults={projectDefaults}
-  onSetupComplete={(setup) => { setBaseHeight(setup.baseHeight); setProjectDefaults({ doorStyle: setup.doorStyle, golaColor: setup.golaColor, handlePos: setup.handlePos }) }}
-  onAddCabinet={addCabinet}
-/>
-
+            <CabinetCatalog
+              baseHeight={baseHeight}
+              projectDefaults={projectDefaults}
+              onSetupComplete={(setup) => { setBaseHeight(setup.baseHeight); setProjectDefaults({ doorStyle: setup.doorStyle, golaColor: setup.golaColor, handlePos: setup.handlePos }) }}
+              onAddCabinet={addCabinet}
+            />
           </div>
 
           <div style={s.canvasWrap}>
@@ -267,15 +254,16 @@ doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
-   readOnly={false}
-hideToolbar={true} />
-
+              readOnly={false}
+              hideToolbar={true} />
           </div>
 
-          <div style={s.rightPanel}>
+          {/* RIGHT PANEL — wider for material library */}
+          <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
               <div>
                 <div style={s.propTitle}>{selCab.label}</div>
+
                 <div style={s.propSection}>Dimensions</div>
                 {[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
                   <div key={key} style={{ marginBottom: 10 }}>
@@ -283,9 +271,10 @@ hideToolbar={true} />
                     <input type="number" value={selCab[key]} onChange={e => updateCab(key, +e.target.value)} style={s.propInput} />
                   </div>
                 ))}
+
                 <div style={s.propSection}>Material & Style</div>
                 <div style={{ marginBottom: 10 }}>
-                  <div style={s.propLabel}>Material</div>
+                  <div style={s.propLabel}>Board Material</div>
                   <select value={selCab.material} onChange={e => updateCab('material', e.target.value)} style={s.propSelect}>
                     {['Particleboard', 'Plywood', 'MDF'].map(m => <option key={m}>{m}</option>)}
                   </select>
@@ -296,24 +285,37 @@ hideToolbar={true} />
                     {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
+
                 <div style={s.propSection}>Interior Layout</div>
                 <ZonePresetPicker height={selCab.height} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
-                <div style={s.propSection}>Colors</div>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={s.propLabel}>Carcass</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {COLORS.map(c => <div key={c.hex} title={c.name} onClick={() => updateCab('carcassColor', c.hex)}
-                      style={{ width: 24, height: 24, borderRadius: 5, background: c.hex, cursor: 'pointer', border: selCab.carcassColor === c.hex ? `2.5px solid ${ACCENT}` : '1.5px solid #ccc' }} />)}
-                  </div>
+
+                <div style={s.propSection}>Front Material</div>
+                <MaterialLibrary
+                  target="front"
+                  selectedCode={selCab.frontMaterialCode}
+                  onSelect={mat => {
+                    updateCab('frontColor', mat.hex)
+                    updateCab('frontMaterial', mat.finish)
+                    updateCab('frontMaterialCode', mat.code)
+                    updateCab('frontMaterialName', mat.name)
+                  }}
+                />
+
+                <div style={s.propSection}>Carcass Material</div>
+                <MaterialLibrary
+                  target="carcass"
+                  selectedCode={selCab.carcassMaterialCode}
+                  onSelect={mat => {
+                    updateCab('carcassColor', mat.hex)
+                    updateCab('carcassMaterial', mat.finish)
+                    updateCab('carcassMaterialCode', mat.code)
+                    updateCab('carcassMaterialName', mat.name)
+                  }}
+                />
+
+                <div style={{ marginTop: 8 }}>
+                  <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete cabinet</button>
                 </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={s.propLabel}>Front</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {COLORS.map(c => <div key={c.hex} title={c.name} onClick={() => updateCab('frontColor', c.hex)}
-                      style={{ width: 24, height: 24, borderRadius: 5, background: c.hex, cursor: 'pointer', border: selCab.frontColor === c.hex ? `2.5px solid ${ACCENT}` : '1.5px solid #ccc' }} />)}
-                  </div>
-                </div>
-                <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete cabinet</button>
               </div>
             ) : (
               <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>🗄</div>Click a cabinet to configure it</div>
@@ -365,8 +367,14 @@ hideToolbar={true} />
                         <td style={{ padding: '10px 14px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>{c.width}×{c.height}×{c.depth}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.material}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.doorStyle}</td>
-                        <td style={{ padding: '10px 14px' }}><div style={{ width: 20, height: 20, borderRadius: 4, background: c.carcassColor, border: '1.5px solid #ddd' }} /></td>
-                        <td style={{ padding: '10px 14px' }}><div style={{ width: 20, height: 20, borderRadius: 4, background: c.frontColor, border: '1.5px solid #ddd' }} /></td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <div title={c.carcassMaterialName || c.carcassColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.carcassColor, border: '1.5px solid #ddd' }} />
+                          {c.carcassMaterialCode && <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{c.carcassMaterialCode}</div>}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <div title={c.frontMaterialName || c.frontColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.frontColor, border: '1.5px solid #ddd' }} />
+                          {c.frontMaterialCode && <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{c.frontMaterialCode}</div>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -401,9 +409,8 @@ const s = {
   saveBtn:     { padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
-  rightPanel:  { width: 200, background: '#fff', borderLeft: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
+  rightPanel:  { width: 280, background: '#fff', borderLeft: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
   canvasWrap:  { flex: 1, overflow: 'auto', background: '#E8E4DF', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 40 },
-  canvas:      { background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, position: 'relative', cursor: 'crosshair', flexShrink: 0 },
   panelSection:{ marginBottom: 20 },
   panelLabel:  { fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 },
   dimLabel:    { fontSize: 12, color: '#555', display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 },

@@ -455,27 +455,8 @@ const [wallThickness, setWallThickness] = useState(120)
                 <div style={s.propSection}>Interior Layout</div>
                 <ZonePresetPicker height={selCab.height} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
 
-                <div style={s.propSection}>Colors</div>
                 <div style={{ marginBottom: 10 }}>
-                  <div style={s.propLabel}>Carcass</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {COLORS.map(c => (
-                      <div key={c.hex} title={c.name} onClick={() => updateCab('carcassColor', c.hex)}
-                        style={{ width: 24, height: 24, borderRadius: 5, background: c.hex, cursor: 'pointer',
-                          border: selCab.carcassColor === c.hex ? `2.5px solid ${ACCENT}` : '1.5px solid #ccc' }} />
-                    ))}
-                  </div>
-                </div>
-                <div style={{ marginBottom: 16 }}>
-                  <div style={s.propLabel}>Front</div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
-                    {COLORS.map(c => (
-                      <div key={c.hex} title={c.name} onClick={() => updateCab('frontColor', c.hex)}
-                        style={{ width: 24, height: 24, borderRadius: 5, background: c.hex, cursor: 'pointer',
-                          border: selCab.frontColor === c.hex ? `2.5px solid ${ACCENT}` : '1.5px solid #ccc' }} />
-                    ))}
-                  </div>
-                </div>
+                 
 
                 <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>
                   Delete cabinet
