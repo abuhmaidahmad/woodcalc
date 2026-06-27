@@ -167,14 +167,20 @@ export default function RoomCanvas({
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
   const [flipWinding, setFlipWinding] = useState(1)
 
-  // Zoom & Pan — stored as SVG viewBox values
-  const [vx, setVx] = useState(-20)        // viewBox x
-  const [vy, setVy] = useState(-20)        // viewBox y
-  const [vw, setVw] = useState(null)     // viewBox width (null = fit)
-  const [vh, setVh] = useState(null)     // viewBox height (null = fit)
+  // Zoom & Pan
+  const [vx, setVx] = useState(0)
+  const [vy, setVy] = useState(0)
+  const [vw, setVw] = useState(null)
+  const [vh, setVh] = useState(null)
+
+  // Refs for always-current viewBox values (avoids stale closures in callbacks)
+  const vxRef = useRef(0)
+  const vyRef = useRef(0)
+  const vwRef = useRef(null)
+  const vhRef = useRef(null)
+
   const isPanningRef = useRef(false)
   const panLastRef = useRef(null)
-
   const wallClickedRef = useRef(false)
   const svgRef = useRef(null)
 
@@ -185,41 +191,53 @@ export default function RoomCanvas({
   const wallPx = wallThickness * scale
   const winding = getWindingDirection(walls) * flipWinding
 
-  // Current viewBox dimensions — default to full canvas
   const cvw = vw ?? W
   const cvh = vh ?? H
-  const zoom = W / cvw  // zoom level relative to fit
+  const zoom = W / cvw
 
-  // Convert screen coords to SVG coords using current viewBox
+  // Keep refs in sync with current state every render
+  vxRef.current = vx
+  vyRef.current = vy
+  vwRef.current = cvw
+  vhRef.current = cvh
+
+  // Convert screen coords to SVG coords — reads from refs, never stale
   const getSVGPos = useCallback((e) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    const scaleX = cvw / rect.width
-    const scaleY = cvh / rect.height
+    const _cvw = vwRef.current
+    const _cvh = vhRef.current
+    const _vx = vxRef.current
+    const _vy = vyRef.current
+    const scaleX = _cvw / rect.width
+    const scaleY = _cvh / rect.height
     return {
-      x: (e.clientX - rect.left) * scaleX + vx,
-      y: (e.clientY - rect.top) * scaleY + vy,
+      x: (e.clientX - rect.left) * scaleX + _vx,
+      y: (e.clientY - rect.top) * scaleY + _vy,
     }
-  }, [cvw, cvh, vx, vy])
+  }, [])
 
-  // Zoom toward a point in screen coords
+  // Zoom toward a point in screen coords — reads from refs
   const zoomAt = useCallback((screenX, screenY, factor) => {
     const svg = svgRef.current
     if (!svg) return
     const rect = svg.getBoundingClientRect()
-    const scaleX = cvw / rect.width
-    const scaleY = cvh / rect.height
-    const svgX = (screenX - rect.left) * scaleX + vx
-    const svgY = (screenY - rect.top) * scaleY + vy
-    const newVw = Math.min(Math.max(cvw * factor, 50), W * 10)
-    const newVh = Math.min(Math.max(cvh * factor, 50), H * 10)
-    // Keep svgX/svgY under the mouse
+    const _cvw = vwRef.current
+    const _cvh = vhRef.current
+    const _vx = vxRef.current
+    const _vy = vyRef.current
+    const scaleX = _cvw / rect.width
+    const scaleY = _cvh / rect.height
+    const svgX = (screenX - rect.left) * scaleX + _vx
+    const svgY = (screenY - rect.top) * scaleY + _vy
+    const newVw = Math.min(Math.max(_cvw * factor, 50), W * 10)
+    const newVh = Math.min(Math.max(_cvh * factor, 50), H * 10)
     setVx(svgX - (screenX - rect.left) * (newVw / rect.width))
     setVy(svgY - (screenY - rect.top) * (newVh / rect.height))
     setVw(newVw)
     setVh(newVh)
-  }, [cvw, cvh, vx, vy, W, H])
+  }, [W, H])
 
   // Mouse wheel zoom
   const handleWheel = useCallback((e) => {
@@ -352,28 +370,33 @@ export default function RoomCanvas({
     }
   }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold])
 
+  // Pan: store screen coords in panLastRef (not SVG coords)
   const handleMouseDown = useCallback((e) => {
-    // Middle mouse or Alt+left = pan
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       e.preventDefault()
       isPanningRef.current = true
-      panLastRef.current = getSVGPos(e)
+      panLastRef.current = { x: e.clientX, y: e.clientY }
     }
-  }, [getSVGPos])
+  }, [])
 
   const handleMouseMove = useCallback((e) => {
-    const pos = getSVGPos(e)
-
-    // Pan
+    // Pan using screen coords delta converted to SVG space
     if (isPanningRef.current && panLastRef.current) {
-      const dx = pos.x - panLastRef.current.x
-      const dy = pos.y - panLastRef.current.y
+      const _cvw = vwRef.current
+      const _cvh = vhRef.current
+      const rect = svgRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const scaleX = _cvw / rect.width
+      const scaleY = _cvh / rect.height
+      const dx = (e.clientX - panLastRef.current.x) * scaleX
+      const dy = (e.clientY - panLastRef.current.y) * scaleY
+      panLastRef.current = { x: e.clientX, y: e.clientY }
       setVx(v => v - dx)
       setVy(v => v - dy)
-      // Don't update panLastRef since viewBox changed
       return
     }
 
+    const pos = getSVGPos(e)
     const rawX = pos.x, rawY = pos.y
     setMousePos({ x: rawX, y: rawY })
     if (mode === 'draw' && startPoint) setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
@@ -550,7 +573,6 @@ export default function RoomCanvas({
               ⇄ Flip sides
             </button>
           )}
-          {/* Zoom controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 10 }}>
             <button onClick={() => zoomAt(W/2, H/2, 0.77)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>+</button>
             <span style={{ fontSize: 10, color: '#888', minWidth: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
