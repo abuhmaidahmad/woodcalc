@@ -203,7 +203,12 @@ export default function KitchenPlannerModule() {
               ))}
             </div>
             <div style={s.panelSection}>
+              <div style={s.panelLabel}>Countertop</div>
+              <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
+            </div>
+            <div style={s.panelSection}>
               <div style={s.panelLabel}>View Options</div>
+
               <label style={s.toggle}><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Show grid</label>
               <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />Show dimensions</label>
             </div>
