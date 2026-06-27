@@ -253,7 +253,17 @@ export default function KitchenPlannerModule() {
             <CabinetCatalog
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
-              onSetupComplete={(setup) => { setBaseHeight(setup.baseHeight); setProjectDefaults({ doorStyle: setup.doorStyle, golaColor: setup.golaColor, handlePos: setup.handlePos }) }}
+onSetupComplete={(setup) => {
+  setBaseHeight(setup.baseHeight)
+  setProjectDefaults({
+    doorStyle: setup.doorStyle,
+    golaColor: setup.golaColor,
+    handlePos: setup.handlePos,
+    carcassColor: setup.carcassColor,
+    frontColor: setup.frontColor,
+    frontFinish: setup.frontFinish,
+  })
+}}
               onAddCabinet={addCabinet}
             />
           </div>
