@@ -396,7 +396,7 @@ export default function KitchenPlannerModule() {
 
       {tab === '3d' && (
         <div style={{ flex: 1 }}>
-          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} />
+<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} />
           {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
         </div>
       )}
