@@ -4,13 +4,15 @@ import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
-import CabinetCatalog from './CabinetCatalog'
+import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './CabinetCatalog'
+
 
 const SCALE = 0.16
 const GRID = 50
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const LIGHT = '#F7F4F0'
+
 
 const ROOM_ELEMENTS = [
   { type: 'window',   label: 'Window',         icon: '🪟', color: '#87CEEB', w: 900,  h: 1200 },
@@ -64,6 +66,8 @@ export default function KitchenPlannerModule() {
   const [floorTile, setFloorTile]           = useState('white_large')
   const [baseHeight, setBaseHeight]         = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
+  const [countertop, setCountertop] = useState('sil_white_storm')
+
 
   const addCabinet = useCallback((t) => {
     const cab = {

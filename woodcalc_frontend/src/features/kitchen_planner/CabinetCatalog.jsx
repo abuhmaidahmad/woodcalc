@@ -27,6 +27,41 @@ export const LAMINATE_MATERIALS = [
   { id: 'wood_pine',        label: 'Pine',             color: '#E0C080', finish: 'wood' },
 ]
 
+export const COUNTERTOP_MATERIALS = [
+  // Silestone
+  { id: 'sil_eternal_calacatta', brand: 'Silestone', code: 'ET-C', name: 'Eternal Calacatta Gold', color: '#F5F0E8', roughness: 0.08, metalness: 0.02, category: 'marble' },
+  { id: 'sil_white_storm',       brand: 'Silestone', code: 'WS-1', name: 'White Storm',            color: '#F0EEE9', roughness: 0.10, metalness: 0.02, category: 'quartz' },
+  { id: 'sil_cemento_spa',       brand: 'Silestone', code: 'CS-1', name: 'Cemento Spa',            color: '#A8A49E', roughness: 0.55, metalness: 0.00, category: 'concrete' },
+  { id: 'sil_negro_tebas',       brand: 'Silestone', code: 'NT-1', name: 'Negro Tebas',            color: '#1E1E1E', roughness: 0.12, metalness: 0.03, category: 'dark' },
+  { id: 'sil_charcoal_soapstone',brand: 'Silestone', code: 'CH-S', name: 'Charcoal Soapstone',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'dark' },
+  { id: 'sil_bianco_river',      brand: 'Silestone', code: 'BR-1', name: 'Bianco River',           color: '#E8E4DC', roughness: 0.09, metalness: 0.02, category: 'marble' },
+  { id: 'sil_cala_blue',         brand: 'Silestone', code: 'CB-1', name: 'Cala Blue',              color: '#6A7A8A', roughness: 0.12, metalness: 0.02, category: 'marble' },
+  // Caesarstone
+  { id: 'cae_fresh_concrete',    brand: 'Caesarstone', code: '4044', name: 'Fresh Concrete',       color: '#C8C4BC', roughness: 0.60, metalness: 0.00, category: 'concrete' },
+  { id: 'cae_cloudburst',        brand: 'Caesarstone', code: '4011', name: 'Cloudburst Concrete',  color: '#A0A09A', roughness: 0.55, metalness: 0.00, category: 'concrete' },
+  { id: 'cae_white_attica',      brand: 'Caesarstone', code: '5031', name: 'White Attica',         color: '#F2EEE8', roughness: 0.08, metalness: 0.02, category: 'marble' },
+  { id: 'cae_statuario',         brand: 'Caesarstone', code: '5003', name: 'Piatra Grey',          color: '#C0BCB4', roughness: 0.15, metalness: 0.01, category: 'marble' },
+  { id: 'cae_vanilla_noir',      brand: 'Caesarstone', code: '6600', name: 'Vanilla Noir',         color: '#3A3530', roughness: 0.10, metalness: 0.02, category: 'dark' },
+  { id: 'cae_oxidian',           brand: 'Caesarstone', code: '0046', name: 'Oxidian',              color: '#1A1A1A', roughness: 0.05, metalness: 0.08, category: 'dark' },
+  { id: 'cae_wooland_brown',     brand: 'Caesarstone', code: '6310', name: 'Coastal Grey',         color: '#888480', roughness: 0.25, metalness: 0.01, category: 'quartz' },
+  // Dekton
+  { id: 'dek_kelya',             brand: 'Dekton', code: 'DK-KL', name: 'Kelya',                   color: '#2A2A28', roughness: 0.08, metalness: 0.05, category: 'dark' },
+  { id: 'dek_sirius',            brand: 'Dekton', code: 'DK-SR', name: 'Sirius',                   color: '#E8E4DC', roughness: 0.06, metalness: 0.02, category: 'marble' },
+  { id: 'dek_kreta',             brand: 'Dekton', code: 'DK-KR', name: 'Kreta',                    color: '#D0C8BC', roughness: 0.40, metalness: 0.00, category: 'concrete' },
+  { id: 'dek_opera',             brand: 'Dekton', code: 'DK-OP', name: 'Opera',                    color: '#F8F4EE', roughness: 0.07, metalness: 0.02, category: 'marble' },
+  { id: 'dek_zenith',            brand: 'Dekton', code: 'DK-ZN', name: 'Zenith',                   color: '#F0F0EE', roughness: 0.05, metalness: 0.03, category: 'quartz' },
+  { id: 'dek_domoos',            brand: 'Dekton', code: 'DK-DM', name: 'Domoos',                   color: '#4A4640', roughness: 0.35, metalness: 0.00, category: 'dark' },
+  // Egger Worktops
+  { id: 'egg_white_levanto',     brand: 'Egger', code: 'F812 ST10', name: 'White Levanto Marble',  color: '#F0EBE4', roughness: 0.10, metalness: 0.01, category: 'marble' },
+  { id: 'egg_anthracite_stein',  brand: 'Egger', code: 'F246 ST10', name: 'Anthracite Stein',      color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'concrete' },
+  { id: 'egg_natural_hamilton',  brand: 'Egger', code: 'H010 ST10', name: 'Natural Hamilton Oak',  color: '#C8A060', roughness: 0.70, metalness: 0.00, category: 'wood' },
+  { id: 'egg_dark_cromwell',     brand: 'Egger', code: 'H022 ST10', name: 'Dark Cromwell Oak',     color: '#6A4830', roughness: 0.72, metalness: 0.00, category: 'wood' },
+  { id: 'egg_black_marquina',    brand: 'Egger', code: 'F028 ST89', name: 'Black Marquina',        color: '#1A1818', roughness: 0.08, metalness: 0.03, category: 'dark' },
+]
+
+const COUNTERTOP_CATEGORIES = ['all', 'marble', 'quartz', 'concrete', 'dark', 'wood']
+const COUNTERTOP_BRANDS = ['All', 'Silestone', 'Caesarstone', 'Dekton', 'Egger']
+
 const Icons = {
   base_standard: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="24" y1="8" x2="24" y2="34" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="21" r="1.5" fill="#2c3e50"/><circle cx="27" cy="21" r="1.5" fill="#2c3e50"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
   base_sink: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><rect x="12" y="13" width="24" height="16" rx="2" stroke="#4FC3F7" strokeWidth="1.5" fill="#e8f4fd"/><circle cx="24" cy="21" r="2" fill="#4FC3F7"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
@@ -100,60 +135,206 @@ function buildLibrary(baseHeight) {
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }
 }
 
+// ─── Countertop Picker ────────────────────────────────────────────────────────
+export function CountertopPicker({ selected, onSelect }) {
+  const [brand, setBrand] = useState('All')
+  const [category, setCategory] = useState('all')
+  const [search, setSearch] = useState('')
+
+  const filtered = COUNTERTOP_MATERIALS.filter(m => {
+    if (brand !== 'All' && m.brand !== brand) return false
+    if (category !== 'all' && m.category !== category) return false
+    if (search) {
+      const q = search.toLowerCase()
+      return m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || m.brand.toLowerCase().includes(q)
+    }
+    return true
+  })
+
+  const selectedMat = COUNTERTOP_MATERIALS.find(m => m.id === selected)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Brand filter */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+        {COUNTERTOP_BRANDS.map(b => (
+          <button key={b} onClick={() => setBrand(b)}
+            style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              borderColor: brand === b ? ACCENT : '#E0DAD4',
+              background: brand === b ? ACCENT + '18' : '#fff',
+              color: brand === b ? ACCENT : '#666' }}>
+            {b}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <input placeholder="Search countertop..." value={search} onChange={e => setSearch(e.target.value)}
+        style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+
+      {/* Category filter */}
+      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+        {COUNTERTOP_CATEGORIES.map(c => (
+          <button key={c} onClick={() => setCategory(c)}
+            style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+              borderColor: category === c ? ACCENT : '#E0DAD4',
+              background: category === c ? ACCENT + '18' : '#fff',
+              color: category === c ? ACCENT : '#666' }}>
+            {c}
+          </button>
+        ))}
+      </div>
+
+      {/* Swatch grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, maxHeight: 260, overflowY: 'auto' }}>
+        {filtered.map(mat => {
+          const isSel = selected === mat.id
+          return (
+            <div key={mat.id} onClick={() => onSelect(mat)}
+              style={{ borderRadius: 7, border: `2px solid ${isSel ? ACCENT : '#E0DAD4'}`,
+                background: isSel ? ACCENT + '08' : '#FAFAFA', cursor: 'pointer', overflow: 'hidden' }}
+              onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#C8A06A' }}
+              onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#E0DAD4' }}>
+              <div style={{ height: 32, background: mat.color,
+                backgroundImage: mat.category === 'marble' ? `linear-gradient(125deg, rgba(255,255,255,0.15) 0%, transparent 40%, rgba(255,255,255,0.08) 60%, transparent 100%)` :
+                  mat.category === 'wood' ? `repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 5px)` :
+                  mat.category === 'concrete' ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='rgba(0,0,0,0.08)'/%3E%3C/svg%3E")` : 'none' }} />
+              <div style={{ padding: '4px 6px' }}>
+                <div style={{ fontSize: 9, fontWeight: 700, color: '#333', lineHeight: 1.2 }}>{mat.name}</div>
+                <div style={{ fontSize: 8, color: '#888' }}>{mat.brand} · {mat.code}</div>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Selected */}
+      {selectedMat && (
+        <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 7, border: `1.5px solid ${ACCENT}33`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ width: 28, height: 28, borderRadius: 4, background: selectedMat.color, border: '1px solid #ddd', flexShrink: 0 }} />
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: DARK }}>{selectedMat.name}</div>
+            <div style={{ fontSize: 9, color: '#888' }}>{selectedMat.brand} · {selectedMat.code}</div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ProjectSetup({ onConfirm }) {
-  const [baseHeight, setBaseHeight] = useState(null)
-  const [doorStyle, setDoorStyle]   = useState(null)
-  const [golaColor, setGolaColor]   = useState('black')
-  const [handlePos, setHandlePos]   = useState('bottom')
+  const [baseHeight, setBaseHeight]   = useState(null)
+  const [doorStyle, setDoorStyle]     = useState(null)
+  const [golaColor, setGolaColor]     = useState('black')
+  const [handlePos, setHandlePos]     = useState('bottom')
+  const [carcassColor, setCarcassColor] = useState('#F5F0E8')
+  const [frontColor, setFrontColor]   = useState('#FFFFFF')
+  const [frontFinish, setFrontFinish] = useState('matt')
+
   const ready = baseHeight && doorStyle
+
+  const CARCASS_OPTIONS = [
+    { color: '#F5F0E8', label: 'Cream White' },
+    { color: '#FFFFFF', label: 'White' },
+    { color: '#E8E4DC', label: 'Off White' },
+    { color: '#C8C4BE', label: 'Light Grey' },
+    { color: '#4A4846', label: 'Anthracite' },
+    { color: '#1A1A1A', label: 'Black' },
+  ]
+
+  const FRONT_OPTIONS = [
+    { color: '#FFFFFF', label: 'White', finish: 'gloss' },
+    { color: '#F5F0E8', label: 'Cream', finish: 'matt' },
+    { color: '#C8C8C8', label: 'Lt Grey', finish: 'matt' },
+    { color: '#4A4A4A', label: 'Graphite', finish: 'matt' },
+    { color: '#1A1A1A', label: 'Black', finish: 'gloss' },
+    { color: '#C8902A', label: 'Oak', finish: 'wood' },
+    { color: '#7B5B3A', label: 'Walnut', finish: 'wood' },
+    { color: '#1B3A5C', label: 'Navy', finish: 'matt' },
+    { color: '#7A9E7E', label: 'Sage', finish: 'matt' },
+    { color: '#C4703A', label: 'Terra', finish: 'matt' },
+  ]
+
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 32, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '92vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 4 }}>Project Setup</div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 24 }}>Set your kitchen standards. You can change per cabinet later.</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Base Cabinet Height</div>
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Set your kitchen standards. You can change per cabinet later.</div>
+
+        {/* Base Height */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Base Cabinet Height</div>
+        <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           {[720, 800].map(h => (
-            <div key={h} onClick={() => setBaseHeight(h)} style={{ flex: 1, padding: '14px 10px', border: `2px solid ${baseHeight === h ? ACCENT : '#E0DAD4'}`, borderRadius: 10, cursor: 'pointer', background: baseHeight === h ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
+            <div key={h} onClick={() => setBaseHeight(h)} style={{ flex: 1, padding: '12px 10px', border: `2px solid ${baseHeight === h ? ACCENT : '#E0DAD4'}`, borderRadius: 10, cursor: 'pointer', background: baseHeight === h ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: baseHeight === h ? ACCENT : DARK }}>{h}mm</div>
-              <div style={{ fontSize: 10, color: '#888', marginTop: 3 }}>{h === 720 ? '180mm wall increments' : '200mm wall increments'}</div>
-              <div style={{ fontSize: 10, color: '#aaa' }}>{h === 720 ? 'Wall elevation: 1470mm' : 'Wall elevation: 1480mm'}</div>
+              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{h === 720 ? '180mm wall increments' : '200mm wall increments'}</div>
             </div>
           ))}
         </div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Default Door Style</div>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-          {[{ id: 'Handle', label: 'Handle', desc: 'Bar handle on door', icon: '🔲' }, { id: 'Push', label: 'Push', desc: 'Push-to-open, no handle', icon: '👆' }, { id: 'Gola', label: 'Gola', desc: 'Aluminum channel grip', icon: '▬' }].map(s => (
+
+        {/* Door Style */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Door Style</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+          {[{ id: 'Handle', icon: '🔲', desc: 'Bar handle' }, { id: 'Push', icon: '👆', desc: 'Push-to-open' }, { id: 'Gola', icon: '▬', desc: 'Aluminum channel' }].map(s => (
             <div key={s.id} onClick={() => setDoorStyle(s.id)} style={{ flex: 1, padding: '10px 6px', border: `2px solid ${doorStyle === s.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: doorStyle === s.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
-              <div style={{ fontSize: 18, marginBottom: 3 }}>{s.icon}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: doorStyle === s.id ? ACCENT : DARK }}>{s.label}</div>
-              <div style={{ fontSize: 9, color: '#999', marginTop: 2 }}>{s.desc}</div>
+              <div style={{ fontSize: 18, marginBottom: 2 }}>{s.icon}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: doorStyle === s.id ? ACCENT : DARK }}>{s.id}</div>
+              <div style={{ fontSize: 9, color: '#999' }}>{s.desc}</div>
             </div>
           ))}
         </div>
-        {doorStyle === 'Handle' && <>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Handle Position</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {[{ id: 'top', label: 'Top', icon: '⬆' }, { id: 'bottom', label: 'Bottom', icon: '⬇' }].map(p => (
-              <div key={p.id} onClick={() => setHandlePos(p.id)} style={{ flex: 1, padding: '10px', border: `2px solid ${handlePos === p.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: handlePos === p.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
-                <div style={{ fontSize: 16 }}>{p.icon}</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: handlePos === p.id ? ACCENT : DARK }}>{p.label}</div>
-              </div>
-            ))}
-          </div>
-        </>}
-        {doorStyle === 'Gola' && <>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10 }}>Gola Channel Color</div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            {[{ id: 'black', label: 'Black', color: '#1a1a1a' }, { id: 'silver', label: 'Silver', color: '#c0c0c0' }, { id: 'champagne', label: 'Champagne', color: '#c8a96e' }].map(g => (
-              <div key={g.id} onClick={() => setGolaColor(g.id)} style={{ flex: 1, padding: '10px 6px', border: `2px solid ${golaColor === g.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: golaColor === g.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
-                <div style={{ width: 28, height: 8, borderRadius: 4, background: g.color, margin: '0 auto 5px' }} />
-                <div style={{ fontSize: 10, fontWeight: 700, color: golaColor === g.id ? ACCENT : DARK }}>{g.label}</div>
-              </div>
-            ))}
-          </div>
-        </>}
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos })} disabled={!ready} style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
+
+        {doorStyle === 'Handle' && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Handle Position</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              {[{ id: 'top', icon: '⬆' }, { id: 'bottom', icon: '⬇' }].map(p => (
+                <div key={p.id} onClick={() => setHandlePos(p.id)} style={{ flex: 1, padding: '10px', border: `2px solid ${handlePos === p.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: handlePos === p.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
+                  <div style={{ fontSize: 16 }}>{p.icon}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: handlePos === p.id ? ACCENT : DARK }}>{p.id}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {doorStyle === 'Gola' && (
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Gola Color</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
+              {[{ id: 'black', color: '#1a1a1a' }, { id: 'silver', color: '#c0c0c0' }, { id: 'champagne', color: '#c8a96e' }].map(g => (
+                <div key={g.id} onClick={() => setGolaColor(g.id)} style={{ flex: 1, padding: '10px 6px', border: `2px solid ${golaColor === g.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: golaColor === g.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
+                  <div style={{ width: 28, height: 8, borderRadius: 4, background: g.color, margin: '0 auto 5px' }} />
+                  <div style={{ fontSize: 10, fontWeight: 700, color: golaColor === g.id ? ACCENT : DARK, textTransform: 'capitalize' }}>{g.id}</div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Carcass Color */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Carcass Color</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
+          {CARCASS_OPTIONS.map(opt => (
+            <div key={opt.color} onClick={() => setCarcassColor(opt.color)} title={opt.label}
+              style={{ width: 32, height: 32, borderRadius: 6, background: opt.color, cursor: 'pointer', border: `2.5px solid ${carcassColor === opt.color ? ACCENT : '#ddd'}`, boxShadow: carcassColor === opt.color ? `0 0 0 2px ${ACCENT}40` : 'none' }} />
+          ))}
+        </div>
+
+        {/* Front Color */}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Color</div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 24 }}>
+          {FRONT_OPTIONS.map(opt => (
+            <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish) }} title={opt.label}
+              style={{ width: 32, height: 32, borderRadius: 6, background: opt.color, cursor: 'pointer', border: `2.5px solid ${frontColor === opt.color ? ACCENT : '#ddd'}`, boxShadow: frontColor === opt.color ? `0 0 0 2px ${ACCENT}40` : 'none',
+                backgroundImage: opt.finish === 'gloss' ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 60%)' :
+                  opt.finish === 'wood' ? 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)' : 'none' }} />
+          ))}
+        </div>
+
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish })}
+          disabled={!ready}
+          style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           Start Designing →
         </button>
       </div>
@@ -207,7 +388,9 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
   const [wallHeightFilter, setWallHeightFilter] = useState(null)
   const [subtypeFilter, setSubtypeFilter] = useState(null)
   const [search, setSearch] = useState('')
+
   if (!baseHeight || !projectDefaults) return <ProjectSetup onConfirm={onSetupComplete} />
+
   const library = buildLibrary(baseHeight)
   const items = library[activeCategory] || []
   let filtered = items
@@ -217,7 +400,18 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
   const displayItems = activeCategory === 'wall' && !subtypeFilter
     ? filtered.filter((item, idx, arr) => arr.findIndex(x => x.label === item.label && x.wallHeight === item.wallHeight) === idx)
     : filtered
-  const handleAdd = (item) => onAddCabinet({ ...item, doorStyle: projectDefaults.doorStyle, golaColor: projectDefaults.golaColor, handlePosition: projectDefaults.handlePos, elevation: item.elevation || 0 })
+
+  const handleAdd = (item) => onAddCabinet({
+    ...item,
+    doorStyle: projectDefaults.doorStyle,
+    golaColor: projectDefaults.golaColor,
+    handlePosition: projectDefaults.handlePos,
+    elevation: item.elevation || 0,
+    carcassColor: projectDefaults.carcassColor || '#F5F0E8',
+    frontColor: projectDefaults.frontColor || '#FFFFFF',
+    frontMaterial: projectDefaults.frontFinish || 'matt',
+  })
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
@@ -239,16 +433,17 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
           <span>{activeCategory === 'wall' && <span>Elev: <strong style={{ color: ACCENT }}>{library.wallElevation}mm</strong> · </span>}Default: <strong style={{ color: ACCENT }}>{projectDefaults.doorStyle}</strong></span>
           <span style={{ color: '#ccc' }}>{displayItems.length}</span>
         </div>
-        {displayItems.length === 0 ? <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>No items found</div>
+        {displayItems.length === 0
+          ? <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>No items found</div>
           : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>{displayItems.map(item => <CabinetCard key={item.id} item={item} onAdd={handleAdd} />)}</div>}
       </div>
       <div style={{ padding: '8px', borderTop: '1px solid #E8E4DF', flexShrink: 0, background: '#FAFAFA' }}>
         <div style={{ fontSize: 9, color: '#999', marginBottom: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Project Defaults</div>
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 9, background: ACCENT+'15', color: ACCENT, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>H{baseHeight}</span>
           <span style={{ fontSize: 9, background: '#f0f0f0', color: '#555', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>{projectDefaults.doorStyle}</span>
-          {projectDefaults.doorStyle === 'Gola' && <span style={{ fontSize: 9, background: '#f0f0f0', color: '#555', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>{projectDefaults.golaColor}</span>}
-          {projectDefaults.doorStyle === 'Handle' && <span style={{ fontSize: 9, background: '#f0f0f0', color: '#555', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>Handle {projectDefaults.handlePos}</span>}
+          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.carcassColor || '#F5F0E8', border: '1px solid #ddd' }} title="Carcass" />
+          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.frontColor || '#FFFFFF', border: '1px solid #ddd' }} title="Front" />
         </div>
       </div>
     </div>
