@@ -196,28 +196,39 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, matProps,
 }
 
 function GolaProfile({ W, D, golaHex, golaColor }) {
-  const GOLA_H = 0.034
-  const GOLA_LIP = 0.015
-  const GOLA_BACK = 0.006
-  const GOLA_FRONT_T = 0.005
+  const BACK_H  = 0.060
+  const LIP_OUT = 0.022
+  const BACK_T  = 0.006
+  const LIP_T   = 0.006
   const isMetallic = golaColor === 'silver' || golaColor === 'champagne'
+  const mat = {
+    roughness: isMetallic ? 0.12 : 0.4,
+    metalness: isMetallic ? 0.92 : 0.05,
+    clearcoat: isMetallic ? 1.0 : 0.3,
+    clearcoatRoughness: isMetallic ? 0.04 : 0.2,
+    envMapIntensity: isMetallic ? 3.0 : 1.0,
+  }
   return (
     <group>
-      <mesh position={[0, -GOLA_H / 2, -D / 2 + GOLA_BACK / 2]} castShadow>
-        <boxGeometry args={[W, GOLA_H, GOLA_BACK]} />
-        <meshPhysicalMaterial color={golaHex} roughness={0.3} metalness={isMetallic ? 0.85 : 0.05} clearcoat={0.8} clearcoatRoughness={0.05} envMapIntensity={2} />
+      {/* Vertical back plate */}
+      <mesh position={[0, -BACK_H / 2, D / 2 - BACK_T / 2]} castShadow>
+        <boxGeometry args={[W, BACK_H, BACK_T]} />
+        <meshPhysicalMaterial color={golaHex} roughness={mat.roughness} metalness={mat.metalness} clearcoat={mat.clearcoat} clearcoatRoughness={mat.clearcoatRoughness} envMapIntensity={mat.envMapIntensity} />
       </mesh>
-      <mesh position={[0, -0.004, -D / 2 + GOLA_BACK + GOLA_LIP / 2]} castShadow>
-        <boxGeometry args={[W, GOLA_FRONT_T, GOLA_LIP]} />
-        <meshPhysicalMaterial color={golaHex} roughness={0.2} metalness={isMetallic ? 0.9 : 0.05} clearcoat={1.0} clearcoatRoughness={0.02} envMapIntensity={2.5} />
+      {/* Horizontal lip — finger grips here */}
+      <mesh position={[0, -LIP_T / 2, D / 2 - BACK_T + LIP_OUT / 2]} castShadow>
+        <boxGeometry args={[W, LIP_T, LIP_OUT]} />
+        <meshPhysicalMaterial color={golaHex} roughness={mat.roughness} metalness={mat.metalness} clearcoat={mat.clearcoat} clearcoatRoughness={mat.clearcoatRoughness} envMapIntensity={mat.envMapIntensity} />
       </mesh>
-      <mesh position={[0, -GOLA_H * 0.4, -D / 2 + GOLA_BACK + 0.003]}>
-        <boxGeometry args={[W - 0.002, GOLA_H * 0.5, 0.004]} />
+      {/* Shadow groove under lip */}
+      <mesh position={[0, -LIP_T - 0.008, D / 2 - BACK_T + LIP_OUT / 2]}>
+        <boxGeometry args={[W - 0.002, 0.014, LIP_OUT - 0.002]} />
         <meshStandardMaterial color="#050505" roughness={1} metalness={0} />
       </mesh>
     </group>
   )
 }
+
 
 function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors, isDrawers, handlePosition, golaColor }) {
   const matProps = getMaterialProps(frontMaterial)
