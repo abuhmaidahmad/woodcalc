@@ -28,35 +28,31 @@ export const LAMINATE_MATERIALS = [
 ]
 
 export const COUNTERTOP_MATERIALS = [
-  // Silestone
-  { id: 'sil_eternal_calacatta', brand: 'Silestone', code: 'ET-C', name: 'Eternal Calacatta Gold', color: '#F5F0E8', roughness: 0.08, metalness: 0.02, category: 'marble' },
-  { id: 'sil_white_storm',       brand: 'Silestone', code: 'WS-1', name: 'White Storm',            color: '#F0EEE9', roughness: 0.10, metalness: 0.02, category: 'quartz' },
-  { id: 'sil_cemento_spa',       brand: 'Silestone', code: 'CS-1', name: 'Cemento Spa',            color: '#A8A49E', roughness: 0.55, metalness: 0.00, category: 'concrete' },
-  { id: 'sil_negro_tebas',       brand: 'Silestone', code: 'NT-1', name: 'Negro Tebas',            color: '#1E1E1E', roughness: 0.12, metalness: 0.03, category: 'dark' },
-  { id: 'sil_charcoal_soapstone',brand: 'Silestone', code: 'CH-S', name: 'Charcoal Soapstone',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'dark' },
-  { id: 'sil_bianco_river',      brand: 'Silestone', code: 'BR-1', name: 'Bianco River',           color: '#E8E4DC', roughness: 0.09, metalness: 0.02, category: 'marble' },
-  { id: 'sil_cala_blue',         brand: 'Silestone', code: 'CB-1', name: 'Cala Blue',              color: '#6A7A8A', roughness: 0.12, metalness: 0.02, category: 'marble' },
-  // Caesarstone
-  { id: 'cae_fresh_concrete',    brand: 'Caesarstone', code: '4044', name: 'Fresh Concrete',       color: '#C8C4BC', roughness: 0.60, metalness: 0.00, category: 'concrete' },
-  { id: 'cae_cloudburst',        brand: 'Caesarstone', code: '4011', name: 'Cloudburst Concrete',  color: '#A0A09A', roughness: 0.55, metalness: 0.00, category: 'concrete' },
-  { id: 'cae_white_attica',      brand: 'Caesarstone', code: '5031', name: 'White Attica',         color: '#F2EEE8', roughness: 0.08, metalness: 0.02, category: 'marble' },
-  { id: 'cae_statuario',         brand: 'Caesarstone', code: '5003', name: 'Piatra Grey',          color: '#C0BCB4', roughness: 0.15, metalness: 0.01, category: 'marble' },
-  { id: 'cae_vanilla_noir',      brand: 'Caesarstone', code: '6600', name: 'Vanilla Noir',         color: '#3A3530', roughness: 0.10, metalness: 0.02, category: 'dark' },
-  { id: 'cae_oxidian',           brand: 'Caesarstone', code: '0046', name: 'Oxidian',              color: '#1A1A1A', roughness: 0.05, metalness: 0.08, category: 'dark' },
-  { id: 'cae_wooland_brown',     brand: 'Caesarstone', code: '6310', name: 'Coastal Grey',         color: '#888480', roughness: 0.25, metalness: 0.01, category: 'quartz' },
-  // Dekton
-  { id: 'dek_kelya',             brand: 'Dekton', code: 'DK-KL', name: 'Kelya',                   color: '#2A2A28', roughness: 0.08, metalness: 0.05, category: 'dark' },
-  { id: 'dek_sirius',            brand: 'Dekton', code: 'DK-SR', name: 'Sirius',                   color: '#E8E4DC', roughness: 0.06, metalness: 0.02, category: 'marble' },
-  { id: 'dek_kreta',             brand: 'Dekton', code: 'DK-KR', name: 'Kreta',                    color: '#D0C8BC', roughness: 0.40, metalness: 0.00, category: 'concrete' },
-  { id: 'dek_opera',             brand: 'Dekton', code: 'DK-OP', name: 'Opera',                    color: '#F8F4EE', roughness: 0.07, metalness: 0.02, category: 'marble' },
-  { id: 'dek_zenith',            brand: 'Dekton', code: 'DK-ZN', name: 'Zenith',                   color: '#F0F0EE', roughness: 0.05, metalness: 0.03, category: 'quartz' },
-  { id: 'dek_domoos',            brand: 'Dekton', code: 'DK-DM', name: 'Domoos',                   color: '#4A4640', roughness: 0.35, metalness: 0.00, category: 'dark' },
-  // Egger Worktops
-  { id: 'egg_white_levanto',     brand: 'Egger', code: 'F812 ST10', name: 'White Levanto Marble',  color: '#F0EBE4', roughness: 0.10, metalness: 0.01, category: 'marble' },
-  { id: 'egg_anthracite_stein',  brand: 'Egger', code: 'F246 ST10', name: 'Anthracite Stein',      color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'concrete' },
-  { id: 'egg_natural_hamilton',  brand: 'Egger', code: 'H010 ST10', name: 'Natural Hamilton Oak',  color: '#C8A060', roughness: 0.70, metalness: 0.00, category: 'wood' },
-  { id: 'egg_dark_cromwell',     brand: 'Egger', code: 'H022 ST10', name: 'Dark Cromwell Oak',     color: '#6A4830', roughness: 0.72, metalness: 0.00, category: 'wood' },
-  { id: 'egg_black_marquina',    brand: 'Egger', code: 'F028 ST89', name: 'Black Marquina',        color: '#1A1818', roughness: 0.08, metalness: 0.03, category: 'dark' },
+  { id: 'sil_eternal_calacatta', brand: 'Silestone', code: 'ET-C',     name: 'Eternal Calacatta Gold', color: '#F5F0E8', roughness: 0.08, metalness: 0.02, category: 'marble' },
+  { id: 'sil_white_storm',       brand: 'Silestone', code: 'WS-1',     name: 'White Storm',            color: '#F0EEE9', roughness: 0.10, metalness: 0.02, category: 'quartz' },
+  { id: 'sil_cemento_spa',       brand: 'Silestone', code: 'CS-1',     name: 'Cemento Spa',            color: '#A8A49E', roughness: 0.55, metalness: 0.00, category: 'concrete' },
+  { id: 'sil_negro_tebas',       brand: 'Silestone', code: 'NT-1',     name: 'Negro Tebas',            color: '#1E1E1E', roughness: 0.12, metalness: 0.03, category: 'dark' },
+  { id: 'sil_charcoal_soapstone',brand: 'Silestone', code: 'CH-S',     name: 'Charcoal Soapstone',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'dark' },
+  { id: 'sil_bianco_river',      brand: 'Silestone', code: 'BR-1',     name: 'Bianco River',           color: '#E8E4DC', roughness: 0.09, metalness: 0.02, category: 'marble' },
+  { id: 'sil_cala_blue',         brand: 'Silestone', code: 'CB-1',     name: 'Cala Blue',              color: '#6A7A8A', roughness: 0.12, metalness: 0.02, category: 'marble' },
+  { id: 'cae_fresh_concrete',    brand: 'Caesarstone', code: '4044',   name: 'Fresh Concrete',         color: '#C8C4BC', roughness: 0.60, metalness: 0.00, category: 'concrete' },
+  { id: 'cae_cloudburst',        brand: 'Caesarstone', code: '4011',   name: 'Cloudburst Concrete',    color: '#A0A09A', roughness: 0.55, metalness: 0.00, category: 'concrete' },
+  { id: 'cae_white_attica',      brand: 'Caesarstone', code: '5031',   name: 'White Attica',           color: '#F2EEE8', roughness: 0.08, metalness: 0.02, category: 'marble' },
+  { id: 'cae_statuario',         brand: 'Caesarstone', code: '5003',   name: 'Piatra Grey',            color: '#C0BCB4', roughness: 0.15, metalness: 0.01, category: 'marble' },
+  { id: 'cae_vanilla_noir',      brand: 'Caesarstone', code: '6600',   name: 'Vanilla Noir',           color: '#3A3530', roughness: 0.10, metalness: 0.02, category: 'dark' },
+  { id: 'cae_oxidian',           brand: 'Caesarstone', code: '0046',   name: 'Oxidian',                color: '#1A1A1A', roughness: 0.05, metalness: 0.08, category: 'dark' },
+  { id: 'cae_wooland_brown',     brand: 'Caesarstone', code: '6310',   name: 'Coastal Grey',           color: '#888480', roughness: 0.25, metalness: 0.01, category: 'quartz' },
+  { id: 'dek_kelya',             brand: 'Dekton',      code: 'DK-KL',  name: 'Kelya',                  color: '#2A2A28', roughness: 0.08, metalness: 0.05, category: 'dark' },
+  { id: 'dek_sirius',            brand: 'Dekton',      code: 'DK-SR',  name: 'Sirius',                 color: '#E8E4DC', roughness: 0.06, metalness: 0.02, category: 'marble' },
+  { id: 'dek_kreta',             brand: 'Dekton',      code: 'DK-KR',  name: 'Kreta',                  color: '#D0C8BC', roughness: 0.40, metalness: 0.00, category: 'concrete' },
+  { id: 'dek_opera',             brand: 'Dekton',      code: 'DK-OP',  name: 'Opera',                  color: '#F8F4EE', roughness: 0.07, metalness: 0.02, category: 'marble' },
+  { id: 'dek_zenith',            brand: 'Dekton',      code: 'DK-ZN',  name: 'Zenith',                 color: '#F0F0EE', roughness: 0.05, metalness: 0.03, category: 'quartz' },
+  { id: 'dek_domoos',            brand: 'Dekton',      code: 'DK-DM',  name: 'Domoos',                 color: '#4A4640', roughness: 0.35, metalness: 0.00, category: 'dark' },
+  { id: 'egg_white_levanto',     brand: 'Egger',       code: 'F812 ST10', name: 'White Levanto Marble',color: '#F0EBE4', roughness: 0.10, metalness: 0.01, category: 'marble' },
+  { id: 'egg_anthracite_stein',  brand: 'Egger',       code: 'F246 ST10', name: 'Anthracite Stein',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'concrete' },
+  { id: 'egg_natural_hamilton',  brand: 'Egger',       code: 'H010 ST10', name: 'Natural Hamilton Oak',color: '#C8A060', roughness: 0.70, metalness: 0.00, category: 'wood' },
+  { id: 'egg_dark_cromwell',     brand: 'Egger',       code: 'H022 ST10', name: 'Dark Cromwell Oak',   color: '#6A4830', roughness: 0.72, metalness: 0.00, category: 'wood' },
+  { id: 'egg_black_marquina',    brand: 'Egger',       code: 'F028 ST89', name: 'Black Marquina',      color: '#1A1818', roughness: 0.08, metalness: 0.03, category: 'dark' },
 ]
 
 const COUNTERTOP_CATEGORIES = ['all', 'marble', 'quartz', 'concrete', 'dark', 'wood']
@@ -66,11 +62,17 @@ const Icons = {
   base_standard: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="24" y1="8" x2="24" y2="34" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="21" r="1.5" fill="#2c3e50"/><circle cx="27" cy="21" r="1.5" fill="#2c3e50"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
   base_sink: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><rect x="12" y="13" width="24" height="16" rx="2" stroke="#4FC3F7" strokeWidth="1.5" fill="#e8f4fd"/><circle cx="24" cy="21" r="2" fill="#4FC3F7"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
   base_drawers: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="4" y1="18" x2="44" y2="18" stroke="#2c3e50" strokeWidth="1"/><line x1="4" y1="26" x2="44" y2="26" stroke="#2c3e50" strokeWidth="1"/><rect x="18" y="12" width="12" height="4" rx="1" fill="#C8902A" opacity="0.4"/><rect x="18" y="20" width="12" height="4" rx="1" fill="#C8902A" opacity="0.4"/><rect x="18" y="28" width="12" height="4" rx="1" fill="#C8902A" opacity="0.4"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
+  base_drawer_door: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="4" y1="18" x2="44" y2="18" stroke="#2c3e50" strokeWidth="1"/><line x1="4" y1="24" x2="44" y2="24" stroke="#2c3e50" strokeWidth="1"/><rect x="6" y="10" width="36" height="6" rx="1" fill="#C8902A" opacity="0.3"/><rect x="6" y="16" width="36" height="6" rx="1" fill="#C8902A" opacity="0.3"/><line x1="24" y1="24" x2="24" y2="34" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="29" r="1.5" fill="#2c3e50"/><circle cx="27" cy="29" r="1.5" fill="#2c3e50"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
+  base_island: (<svg viewBox="0 0 48 48" fill="none"><rect x="2" y="10" width="44" height="28" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="2" y="34" width="44" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="24" y1="10" x2="24" y2="34" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="22" r="1.5" fill="#2c3e50"/><circle cx="27" cy="22" r="1.5" fill="#2c3e50"/><rect x="4" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="20" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="40" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
   wall_standard: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="6" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><line x1="24" y1="6" x2="24" y2="38" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="22" r="1.5" fill="#2c3e50"/><circle cx="27" cy="22" r="1.5" fill="#2c3e50"/></svg>),
   wall_open: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="6" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><line x1="4" y1="22" x2="44" y2="22" stroke="#2c3e50" strokeWidth="1"/></svg>),
+  wall_glass: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="6" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8f4fd"/><line x1="24" y1="6" x2="24" y2="38" stroke="#2c3e50" strokeWidth="1"/><rect x="6" y="8" width="16" height="28" rx="1" fill="#87CEEB" opacity="0.3" stroke="#87CEEB" strokeWidth="1"/><rect x="26" y="8" width="16" height="28" rx="1" fill="#87CEEB" opacity="0.3" stroke="#87CEEB" strokeWidth="1"/></svg>),
+  wall_appliance: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="6" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="8" y="10" width="32" height="24" rx="1" fill="#333" opacity="0.15" stroke="#555" strokeWidth="1"/><circle cx="38" cy="12" r="2" fill="#C8902A"/><line x1="24" y1="14" x2="24" y2="30" stroke="#888" strokeWidth="0.5" strokeDasharray="2,2"/></svg>),
   tall_pantry: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><line x1="24" y1="2" x2="24" y2="46" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="16" r="1.5" fill="#2c3e50"/><circle cx="27" cy="16" r="1.5" fill="#2c3e50"/><circle cx="21" cy="30" r="1.5" fill="#2c3e50"/><circle cx="27" cy="30" r="1.5" fill="#2c3e50"/><line x1="10" y1="24" x2="38" y2="24" stroke="#2c3e50" strokeWidth="0.75"/></svg>),
   tall_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="13" y="18" width="22" height="18" rx="1" stroke="#888" strokeWidth="1" fill="#e0e0e0"/><rect x="15" y="20" width="18" height="14" rx="1" fill="#555" opacity="0.3"/><line x1="10" y1="16" x2="38" y2="16" stroke="#2c3e50" strokeWidth="1"/><line x1="10" y1="38" x2="38" y2="38" stroke="#2c3e50" strokeWidth="1"/></svg>),
   tall_fridge: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8f0f8"/><line x1="10" y1="20" x2="38" y2="20" stroke="#2c3e50" strokeWidth="1.5"/><circle cx="34" cy="11" r="1.5" fill="#2c3e50"/><circle cx="34" cy="30" r="1.5" fill="#2c3e50"/></svg>),
+  tall_broom: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><circle cx="24" cy="24" r="2" fill="#2c3e50"/><line x1="24" y1="6" x2="24" y2="42" stroke="#2c3e50" strokeWidth="0.75" strokeDasharray="3,3"/></svg>),
+  tall_double_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="13" y="6" width="22" height="14" rx="1" stroke="#888" strokeWidth="1" fill="#e0e0e0"/><rect x="15" y="8" width="18" height="10" rx="1" fill="#555" opacity="0.3"/><rect x="13" y="24" width="22" height="14" rx="1" stroke="#888" strokeWidth="1" fill="#e0e0e0"/><rect x="15" y="26" width="18" height="10" rx="1" fill="#555" opacity="0.3"/></svg>),
   vanity_sink: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="10" width="40" height="26" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="32" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><ellipse cx="24" cy="21" rx="10" ry="7" stroke="#4FC3F7" strokeWidth="1.5" fill="#e8f4fd"/><circle cx="24" cy="21" r="2" fill="#4FC3F7"/><rect x="6" y="36" width="4" height="6" rx="1" fill="#888"/><rect x="38" y="36" width="4" height="6" rx="1" fill="#888"/></svg>),
   vanity_drawers: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="10" width="40" height="26" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="32" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="4" y1="22" x2="44" y2="22" stroke="#2c3e50" strokeWidth="1"/><rect x="16" y="14" width="16" height="6" rx="1" fill="#C8902A" opacity="0.4"/><rect x="16" y="24" width="16" height="6" rx="1" fill="#C8902A" opacity="0.4"/><rect x="6" y="36" width="4" height="6" rx="1" fill="#888"/><rect x="38" y="36" width="4" height="6" rx="1" fill="#888"/></svg>),
   corner_blind: (<svg viewBox="0 0 48 48" fill="none"><path d="M4 8 L44 8 L44 38 L24 38 L24 44 L4 44 Z" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><line x1="24" y1="8" x2="24" y2="38" stroke="#2c3e50" strokeWidth="1"/><circle cx="33" cy="23" r="1.5" fill="#2c3e50"/><circle cx="14" cy="36" r="1.5" fill="#2c3e50"/></svg>),
@@ -87,55 +89,75 @@ function buildLibrary(baseHeight) {
   const wallHeights = []
   for (let h = wallInc; h <= wallInc * 6; h += wallInc) wallHeights.push(h)
   const wallElevation = baseHeight === 720 ? 1470 : 1480
-  const baseWidths = [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200]
-  const wallWidths = [200, 300, 400, 500, 600, 700, 800, 900]
-  const tallWidths = [300, 400, 500, 600, 700, 800, 900, 1000]
+  const baseWidths  = [200, 300, 400, 500, 600, 700, 800, 900, 1000, 1200]
+  const wallWidths  = [200, 300, 400, 500, 600, 700, 800, 900]
+  const tallWidths  = [300, 400, 500, 600, 700, 800, 900, 1000]
   const vanityWidths = [450, 600, 750, 900]
+  const islandWidths = [600, 700, 800, 900, 1000, 1200]
+
   const base = [
     ...baseWidths.map(w => ({ id: `base_std_${w}`, label: `Base ${w}`, subtype: 'Standard', width: w, height: baseHeight, depth: 560, icon: 'base_standard', category: 'base' })),
     ...baseWidths.filter(w => w >= 400).map(w => ({ id: `base_sink_${w}`, label: `Sink ${w}`, subtype: 'Sink', width: w, height: baseHeight, depth: 560, icon: 'base_sink', category: 'base' })),
     ...[300, 400, 450, 500, 600].map(w => ({ id: `base_drw_${w}`, label: `Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 560, icon: 'base_drawers', category: 'base' })),
+    ...[400, 500, 600, 700, 800].map(w => ({ id: `base_dd_${w}`, label: `2Drw+Door ${w}`, subtype: '2Drw+Door', width: w, height: baseHeight, depth: 560, icon: 'base_drawer_door', category: 'base' })),
+    ...islandWidths.map(w => ({ id: `base_isl_${w}`, label: `Island ${w}`, subtype: 'Island', width: w, height: baseHeight, depth: 600, icon: 'base_island', category: 'base' })),
   ]
+
   const wall = wallWidths.flatMap(w => wallHeights.flatMap(h => [
-    { id: `wall_std_${w}_${h}`, label: `Wall ${w}`, subtype: 'Standard', width: w, height: h, depth: 300, icon: 'wall_standard', category: 'wall', wallHeight: h, elevation: wallElevation },
-    { id: `wall_open_${w}_${h}`, label: `Open ${w}`, subtype: 'Open Shelf', width: w, height: h, depth: 300, icon: 'wall_open', category: 'wall', wallHeight: h, elevation: wallElevation },
+    { id: `wall_std_${w}_${h}`,  label: `Wall ${w}`,      subtype: 'Standard',   width: w, height: h, depth: 300, icon: 'wall_standard',  category: 'wall', wallHeight: h, elevation: wallElevation },
+    { id: `wall_open_${w}_${h}`, label: `Open ${w}`,      subtype: 'Open Shelf', width: w, height: h, depth: 300, icon: 'wall_open',       category: 'wall', wallHeight: h, elevation: wallElevation },
+    { id: `wall_glass_${w}_${h}`,label: `Glass ${w}`,     subtype: 'Glass Door', width: w, height: h, depth: 300, icon: 'wall_glass',      category: 'wall', wallHeight: h, elevation: wallElevation },
+    { id: `wall_app_${w}_${h}`,  label: `Appliance ${w}`, subtype: 'Appliance',  width: w, height: h, depth: 350, icon: 'wall_appliance',  category: 'wall', wallHeight: h, elevation: wallElevation },
   ]))
+
   const tall = [
-    ...tallWidths.map(w => ({ id: `tall_pantry_${w}`, label: `Pantry ${w}`, subtype: 'Pantry', width: w, height: 2220, depth: 560, icon: 'tall_pantry', category: 'tall' })),
+    ...tallWidths.map(w => ({ id: `tall_pantry_${w}`,      label: `Pantry ${w}`,       subtype: 'Pantry',       width: w, height: 2220, depth: 560, icon: 'tall_pantry',      category: 'tall' })),
     ...tallWidths.filter(w => w >= 600).map(w => ({ id: `tall_oven_${w}`, label: `Oven Tower ${w}`, subtype: 'Oven Tower', width: w, height: 2220, depth: 560, icon: 'tall_oven', category: 'tall' })),
-    ...[600, 700, 800, 900].map(w => ({ id: `tall_fridge_${w}`, label: `Fridge ${w}`, subtype: 'Fridge', width: w, height: 2220, depth: 600, icon: 'tall_fridge', category: 'tall' })),
+    ...tallWidths.filter(w => w >= 600).map(w => ({ id: `tall_doven_${w}`,label: `Dbl Oven ${w}`,   subtype: 'Double Oven',width: w, height: 2220, depth: 560, icon: 'tall_double_oven', category: 'tall' })),
+    ...[600, 700, 800, 900].map(w => ({ id: `tall_fridge_${w}`, label: `Fridge ${w}`,  subtype: 'Fridge',       width: w, height: 2220, depth: 600, icon: 'tall_fridge',      category: 'tall' })),
+    ...tallWidths.map(w => ({ id: `tall_broom_${w}`,        label: `Broom ${w}`,        subtype: 'Broom/Linen',  width: w, height: 2220, depth: 560, icon: 'tall_broom',       category: 'tall' })),
   ]
+
   const vanity = [
-    ...vanityWidths.map(w => ({ id: `van_sink_${w}`, label: `Vanity ${w}`, subtype: 'Single Sink', width: w, height: baseHeight, depth: 550, icon: 'vanity_sink', category: 'vanity' })),
-    ...[750, 900].map(w => ({ id: `van_dsink_${w}`, label: `Double Sink ${w}`, subtype: 'Double Sink', width: w, height: baseHeight, depth: 550, icon: 'vanity_sink', category: 'vanity' })),
-    ...vanityWidths.map(w => ({ id: `van_drw_${w}`, label: `Vanity Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 550, icon: 'vanity_drawers', category: 'vanity' })),
+    ...vanityWidths.map(w => ({ id: `van_sink_${w}`,  label: `Vanity ${w}`,       subtype: 'Single Sink',  width: w, height: baseHeight, depth: 550, icon: 'vanity_sink',    category: 'vanity' })),
+    ...[750, 900].map(w =>    ({ id: `van_dsink_${w}`, label: `Double Sink ${w}`,  subtype: 'Double Sink',  width: w, height: baseHeight, depth: 550, icon: 'vanity_sink',    category: 'vanity' })),
+    ...vanityWidths.map(w => ({ id: `van_drw_${w}`,   label: `Vanity Drw ${w}`,   subtype: 'Drawers',      width: w, height: baseHeight, depth: 550, icon: 'vanity_drawers', category: 'vanity' })),
   ]
+
   const corner = [
-    { id: 'corner_blind_1000', label: 'Blind 1000', subtype: 'Blind', width: 1000, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
-    { id: 'corner_blind_1100', label: 'Blind 1100', subtype: 'Blind', width: 1100, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
-    { id: 'corner_blind_1200', label: 'Blind 1200', subtype: 'Blind', width: 1200, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
-    { id: 'corner_l_900', label: 'L-Shape 900', subtype: 'L-Shape', width: 900, height: baseHeight, depth: 900, icon: 'corner_l', category: 'corner' },
-    { id: 'corner_l_1000', label: 'L-Shape 1000', subtype: 'L-Shape', width: 1000, height: baseHeight, depth: 1000, icon: 'corner_l', category: 'corner' },
-    { id: 'corner_diag', label: 'Diagonal Wall', subtype: 'Diagonal', width: 900, height: wallHeights[1] || wallInc * 2, depth: 300, icon: 'corner_diagonal', category: 'corner' },
+    { id: 'corner_blind_1000', label: 'Blind 1000',    subtype: 'Blind',   width: 1000, height: baseHeight, depth: 560,  icon: 'corner_blind',    category: 'corner' },
+    { id: 'corner_blind_1100', label: 'Blind 1100',    subtype: 'Blind',   width: 1100, height: baseHeight, depth: 560,  icon: 'corner_blind',    category: 'corner' },
+    { id: 'corner_blind_1200', label: 'Blind 1200',    subtype: 'Blind',   width: 1200, height: baseHeight, depth: 560,  icon: 'corner_blind',    category: 'corner' },
+    { id: 'corner_l_900',      label: 'L-Shape 900',   subtype: 'L-Shape', width: 900,  height: baseHeight, depth: 900,  icon: 'corner_l',        category: 'corner' },
+    { id: 'corner_l_1000',     label: 'L-Shape 1000',  subtype: 'L-Shape', width: 1000, height: baseHeight, depth: 1000, icon: 'corner_l',        category: 'corner' },
+    { id: 'corner_diag',       label: 'Diagonal Wall', subtype: 'Diagonal',width: 900,  height: wallHeights[1] || wallInc * 2, depth: 300, icon: 'corner_diagonal', category: 'corner' },
   ]
+
   const specialty = [
-    { id: 'spec_tv', label: 'TV Unit', subtype: 'Custom', width: 1800, height: 600, depth: 400, icon: 'specialty_tv', category: 'specialty', isCustom: true },
-    { id: 'spec_laundry', label: 'Laundry', subtype: 'Custom', width: 600, height: baseHeight, depth: 560, icon: 'specialty_custom', category: 'specialty', isCustom: true },
-    { id: 'spec_linen', label: 'Linen Tower', subtype: 'Custom', width: 450, height: 2220, depth: 400, icon: 'tall_pantry', category: 'specialty', isCustom: true },
+    { id: 'spec_tv',      label: 'TV Unit',      subtype: 'Custom', width: 1800, height: 600,        depth: 400, icon: 'specialty_tv',     category: 'specialty', isCustom: true },
+    { id: 'spec_laundry', label: 'Laundry',      subtype: 'Custom', width: 600,  height: baseHeight, depth: 560, icon: 'specialty_custom', category: 'specialty', isCustom: true },
+    { id: 'spec_linen',   label: 'Linen Tower',  subtype: 'Custom', width: 450,  height: 2220,       depth: 400, icon: 'tall_pantry',      category: 'specialty', isCustom: true },
+    { id: 'spec_bar',     label: 'Bar Unit',     subtype: 'Custom', width: 900,  height: baseHeight, depth: 560, icon: 'base_standard',    category: 'specialty', isCustom: true },
+    { id: 'spec_coffee',  label: 'Coffee Station',subtype: 'Custom', width: 600,  height: 2220,       depth: 400, icon: 'tall_oven',        category: 'specialty', isCustom: true },
   ]
+
   const accessories = [
-    { id: 'acc_filler_50', label: 'Filler 50mm', subtype: 'Filler', width: 50, height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
-    { id: 'acc_filler_100', label: 'Filler 100mm', subtype: 'Filler', width: 100, height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
-    { id: 'acc_sidepanel', label: 'Side Panel', subtype: 'Panel', width: 18, height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
-    { id: 'acc_shelf_600', label: 'Shelf 600', subtype: 'Shelf', width: 600, height: 30, depth: 250, icon: 'accessory_shelf', category: 'accessories' },
-    { id: 'acc_shelf_900', label: 'Shelf 900', subtype: 'Shelf', width: 900, height: 30, depth: 250, icon: 'accessory_shelf', category: 'accessories' },
-    { id: 'acc_shelf_1200', label: 'Shelf 1200', subtype: 'Shelf', width: 1200, height: 30, depth: 250, icon: 'accessory_shelf', category: 'accessories' },
-    { id: 'acc_toekick', label: 'Toe Kick', subtype: 'Toe Kick', width: 600, height: 100, depth: 60, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_filler_50',   label: 'Filler 50mm',   subtype: 'Filler',    width: 50,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_filler_100',  label: 'Filler 100mm',  subtype: 'Filler',    width: 100,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_filler_150',  label: 'Filler 150mm',  subtype: 'Filler',    width: 150,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_sidepanel',   label: 'Side Panel',    subtype: 'Panel',     width: 18,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_shelf_400',   label: 'Shelf 400',     subtype: 'Shelf',     width: 400,  height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
+    { id: 'acc_shelf_600',   label: 'Shelf 600',     subtype: 'Shelf',     width: 600,  height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
+    { id: 'acc_shelf_900',   label: 'Shelf 900',     subtype: 'Shelf',     width: 900,  height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
+    { id: 'acc_shelf_1200',  label: 'Shelf 1200',    subtype: 'Shelf',     width: 1200, height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
+    { id: 'acc_toekick_600', label: 'Toe Kick 600',  subtype: 'Toe Kick',  width: 600,  height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_toekick_900', label: 'Toe Kick 900',  subtype: 'Toe Kick',  width: 900,  height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_toekick_1200',label: 'Toe Kick 1200', subtype: 'Toe Kick',  width: 1200, height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
   ]
+
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }
 }
 
-// ─── Countertop Picker ────────────────────────────────────────────────────────
 export function CountertopPicker({ selected, onSelect }) {
   const [brand, setBrand] = useState('All')
   const [category, setCategory] = useState('all')
@@ -155,44 +177,32 @@ export function CountertopPicker({ selected, onSelect }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {/* Brand filter */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
         {COUNTERTOP_BRANDS.map(b => (
           <button key={b} onClick={() => setBrand(b)}
             style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
-              borderColor: brand === b ? ACCENT : '#E0DAD4',
-              background: brand === b ? ACCENT + '18' : '#fff',
-              color: brand === b ? ACCENT : '#666' }}>
+              borderColor: brand === b ? ACCENT : '#E0DAD4', background: brand === b ? ACCENT+'18' : '#fff', color: brand === b ? ACCENT : '#666' }}>
             {b}
           </button>
         ))}
       </div>
-
-      {/* Search */}
       <input placeholder="Search countertop..." value={search} onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-
-      {/* Category filter */}
       <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
         {COUNTERTOP_CATEGORIES.map(c => (
           <button key={c} onClick={() => setCategory(c)}
             style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
-              borderColor: category === c ? ACCENT : '#E0DAD4',
-              background: category === c ? ACCENT + '18' : '#fff',
-              color: category === c ? ACCENT : '#666' }}>
+              borderColor: category === c ? ACCENT : '#E0DAD4', background: category === c ? ACCENT+'18' : '#fff', color: category === c ? ACCENT : '#666' }}>
             {c}
           </button>
         ))}
       </div>
-
-      {/* Swatch grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, maxHeight: 260, overflowY: 'auto' }}>
         {filtered.map(mat => {
           const isSel = selected === mat.id
           return (
             <div key={mat.id} onClick={() => onSelect(mat)}
-              style={{ borderRadius: 7, border: `2px solid ${isSel ? ACCENT : '#E0DAD4'}`,
-                background: isSel ? ACCENT + '08' : '#FAFAFA', cursor: 'pointer', overflow: 'hidden' }}
+              style={{ borderRadius: 7, border: `2px solid ${isSel ? ACCENT : '#E0DAD4'}`, background: isSel ? ACCENT+'08' : '#FAFAFA', cursor: 'pointer', overflow: 'hidden' }}
               onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#C8A06A' }}
               onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#E0DAD4' }}>
               <div style={{ height: 32, background: mat.color,
@@ -207,8 +217,6 @@ export function CountertopPicker({ selected, onSelect }) {
           )
         })}
       </div>
-
-      {/* Selected */}
       {selectedMat && (
         <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 7, border: `1.5px solid ${ACCENT}33`, display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ width: 28, height: 28, borderRadius: 4, background: selectedMat.color, border: '1px solid #ddd', flexShrink: 0 }} />
@@ -223,36 +231,26 @@ export function CountertopPicker({ selected, onSelect }) {
 }
 
 function ProjectSetup({ onConfirm }) {
-  const [baseHeight, setBaseHeight]   = useState(null)
-  const [doorStyle, setDoorStyle]     = useState(null)
-  const [golaColor, setGolaColor]     = useState('black')
-  const [handlePos, setHandlePos]     = useState('bottom')
+  const [baseHeight, setBaseHeight]     = useState(null)
+  const [doorStyle, setDoorStyle]       = useState(null)
+  const [golaColor, setGolaColor]       = useState('black')
+  const [handlePos, setHandlePos]       = useState('bottom')
   const [carcassColor, setCarcassColor] = useState('#F5F0E8')
-  const [frontColor, setFrontColor]   = useState('#FFFFFF')
-  const [frontFinish, setFrontFinish] = useState('matt')
-
+  const [frontColor, setFrontColor]     = useState('#FFFFFF')
+  const [frontFinish, setFrontFinish]   = useState('matt')
   const ready = baseHeight && doorStyle
 
   const CARCASS_OPTIONS = [
-    { color: '#F5F0E8', label: 'Cream White' },
-    { color: '#FFFFFF', label: 'White' },
-    { color: '#E8E4DC', label: 'Off White' },
-    { color: '#C8C4BE', label: 'Light Grey' },
-    { color: '#4A4846', label: 'Anthracite' },
-    { color: '#1A1A1A', label: 'Black' },
+    { color: '#F5F0E8', label: 'Cream White' }, { color: '#FFFFFF', label: 'White' },
+    { color: '#E8E4DC', label: 'Off White' },   { color: '#C8C4BE', label: 'Light Grey' },
+    { color: '#4A4846', label: 'Anthracite' },  { color: '#1A1A1A', label: 'Black' },
   ]
-
   const FRONT_OPTIONS = [
-    { color: '#FFFFFF', label: 'White', finish: 'gloss' },
-    { color: '#F5F0E8', label: 'Cream', finish: 'matt' },
-    { color: '#C8C8C8', label: 'Lt Grey', finish: 'matt' },
-    { color: '#4A4A4A', label: 'Graphite', finish: 'matt' },
-    { color: '#1A1A1A', label: 'Black', finish: 'gloss' },
-    { color: '#C8902A', label: 'Oak', finish: 'wood' },
-    { color: '#7B5B3A', label: 'Walnut', finish: 'wood' },
-    { color: '#1B3A5C', label: 'Navy', finish: 'matt' },
-    { color: '#7A9E7E', label: 'Sage', finish: 'matt' },
-    { color: '#C4703A', label: 'Terra', finish: 'matt' },
+    { color: '#FFFFFF', label: 'White',    finish: 'gloss' }, { color: '#F5F0E8', label: 'Cream',    finish: 'matt' },
+    { color: '#C8C8C8', label: 'Lt Grey',  finish: 'matt'  }, { color: '#4A4A4A', label: 'Graphite', finish: 'matt' },
+    { color: '#1A1A1A', label: 'Black',    finish: 'gloss' }, { color: '#C8902A', label: 'Oak',      finish: 'wood' },
+    { color: '#7B5B3A', label: 'Walnut',   finish: 'wood'  }, { color: '#1B3A5C', label: 'Navy',     finish: 'matt' },
+    { color: '#7A9E7E', label: 'Sage',     finish: 'matt'  }, { color: '#C4703A', label: 'Terra',    finish: 'matt' },
   ]
 
   return (
@@ -261,7 +259,6 @@ function ProjectSetup({ onConfirm }) {
         <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 4 }}>Project Setup</div>
         <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Set your kitchen standards. You can change per cabinet later.</div>
 
-        {/* Base Height */}
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Base Cabinet Height</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           {[720, 800].map(h => (
@@ -272,7 +269,6 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        {/* Door Style */}
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Door Style</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
           {[{ id: 'Handle', icon: '🔲', desc: 'Bar handle' }, { id: 'Push', icon: '👆', desc: 'Push-to-open' }, { id: 'Gola', icon: '▬', desc: 'Aluminum channel' }].map(s => (
@@ -312,7 +308,6 @@ function ProjectSetup({ onConfirm }) {
           </>
         )}
 
-        {/* Carcass Color */}
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Carcass Color</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
           {CARCASS_OPTIONS.map(opt => (
@@ -321,7 +316,6 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        {/* Front Color */}
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Color</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 24 }}>
           {FRONT_OPTIONS.map(opt => (
@@ -377,10 +371,13 @@ function SubtypeFilter({ items, selected, onChange }) {
 }
 
 const CATEGORIES = [
-  { id: 'base', icon: '🗄', label: 'Base' }, { id: 'wall', icon: '🪟', label: 'Wall' },
-  { id: 'tall', icon: '🏛', label: 'Tall' }, { id: 'vanity', icon: '🚿', label: 'Vanity' },
-  { id: 'corner', icon: '📐', label: 'Corner' }, { id: 'specialty', icon: '✨', label: 'Special' },
-  { id: 'accessories', icon: '🔧', label: 'Acc.' },
+  { id: 'base',        icon: '🗄',  label: 'Base'    },
+  { id: 'wall',        icon: '🪟',  label: 'Wall'    },
+  { id: 'tall',        icon: '🏛',  label: 'Tall'    },
+  { id: 'vanity',      icon: '🚿',  label: 'Vanity'  },
+  { id: 'corner',      icon: '📐',  label: 'Corner'  },
+  { id: 'specialty',   icon: '✨',  label: 'Special' },
+  { id: 'accessories', icon: '🔧',  label: 'Acc.'    },
 ]
 
 export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet }) {
@@ -403,12 +400,12 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
 
   const handleAdd = (item) => onAddCabinet({
     ...item,
-    doorStyle: projectDefaults.doorStyle,
-    golaColor: projectDefaults.golaColor,
+    doorStyle:    projectDefaults.doorStyle,
+    golaColor:    projectDefaults.golaColor,
     handlePosition: projectDefaults.handlePos,
-    elevation: item.elevation || 0,
+    elevation:    item.elevation || 0,
     carcassColor: projectDefaults.carcassColor || '#F5F0E8',
-    frontColor: projectDefaults.frontColor || '#FFFFFF',
+    frontColor:   projectDefaults.frontColor   || '#FFFFFF',
     frontMaterial: projectDefaults.frontFinish || 'matt',
   })
 
@@ -426,7 +423,9 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ width: '100%', padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box', color: DARK }} />
       </div>
       <div style={{ padding: '0 8px', flexShrink: 0 }}>
-        {activeCategory === 'wall' ? <WallHeightFilter baseHeight={baseHeight} selected={wallHeightFilter} onChange={setWallHeightFilter} /> : <SubtypeFilter items={items} selected={subtypeFilter} onChange={setSubtypeFilter} />}
+        {activeCategory === 'wall'
+          ? <WallHeightFilter baseHeight={baseHeight} selected={wallHeightFilter} onChange={setWallHeightFilter} />
+          : <SubtypeFilter items={items} selected={subtypeFilter} onChange={setSubtypeFilter} />}
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px' }}>
         <div style={{ fontSize: 9, color: '#aaa', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
