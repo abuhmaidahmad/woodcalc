@@ -167,15 +167,15 @@ export default function RoomCanvas({
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
   const [flipWinding, setFlipWinding] = useState(1)
 
-  // ─── Zoom & Pan state ───────────────────────────────────────────────────────
-  const [zoom, setZoom] = useState(1)
-  const [pan, setPan] = useState({ x: 0, y: 0 })
-  const [isPanning, setIsPanning] = useState(false)
-  const panStart = useRef(null)
-  const panOrigin = useRef(null)
+  // Zoom & Pan — stored as SVG viewBox values
+  const [vx, setVx] = useState(0)        // viewBox x
+  const [vy, setVy] = useState(0)        // viewBox y
+  const [vw, setVw] = useState(null)     // viewBox width (null = fit)
+  const [vh, setVh] = useState(null)     // viewBox height (null = fit)
+  const isPanningRef = useRef(false)
+  const panLastRef = useRef(null)
 
   const wallClickedRef = useRef(false)
-  const containerRef = useRef(null)
   const svgRef = useRef(null)
 
   useEffect(() => { if (hideToolbar) setMode('select') }, [hideToolbar])
@@ -185,68 +185,55 @@ export default function RoomCanvas({
   const wallPx = wallThickness * scale
   const winding = getWindingDirection(walls) * flipWinding
 
-  // ─── Convert screen coords → SVG coords (accounting for zoom/pan) ──────────
-  const getSVGPos = useCallback((e) => {
-    const rect = containerRef.current.getBoundingClientRect()
-    const screenX = e.clientX - rect.left
-    const screenY = e.clientY - rect.top
-    // Reverse the transform: screen = pan + svgCoord * zoom * (containerSize/W or H)
-    const scaleX = rect.width / W
-    const scaleY = rect.height / H
-    const uniformScale = Math.min(scaleX, scaleY)
-    const offsetX = (rect.width - W * uniformScale) / 2
-    const offsetY = (rect.height - H * uniformScale) / 2
-    const svgX = (screenX - pan.x - offsetX) / (uniformScale * zoom)
-    const svgY = (screenY - pan.y - offsetY) / (uniformScale * zoom)
-    return { x: svgX, y: svgY }
-  }, [W, H, zoom, pan])
+  // Current viewBox dimensions — default to full canvas
+  const cvw = vw ?? W
+  const cvh = vh ?? H
+  const zoom = W / cvw  // zoom level relative to fit
 
-  // ─── Zoom with mouse wheel ──────────────────────────────────────────────────
+  // Convert screen coords to SVG coords using current viewBox
+  const getSVGPos = useCallback((e) => {
+    const svg = svgRef.current
+    if (!svg) return { x: 0, y: 0 }
+    const rect = svg.getBoundingClientRect()
+    const scaleX = cvw / rect.width
+    const scaleY = cvh / rect.height
+    return {
+      x: (e.clientX - rect.left) * scaleX + vx,
+      y: (e.clientY - rect.top) * scaleY + vy,
+    }
+  }, [cvw, cvh, vx, vy])
+
+  // Zoom toward a point in screen coords
+  const zoomAt = useCallback((screenX, screenY, factor) => {
+    const svg = svgRef.current
+    if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const scaleX = cvw / rect.width
+    const scaleY = cvh / rect.height
+    const svgX = (screenX - rect.left) * scaleX + vx
+    const svgY = (screenY - rect.top) * scaleY + vy
+    const newVw = Math.min(Math.max(cvw * factor, 50), W * 10)
+    const newVh = Math.min(Math.max(cvh * factor, 50), H * 10)
+    // Keep svgX/svgY under the mouse
+    setVx(svgX - (screenX - rect.left) * (newVw / rect.width))
+    setVy(svgY - (screenY - rect.top) * (newVh / rect.height))
+    setVw(newVw)
+    setVh(newVh)
+  }, [cvw, cvh, vx, vy, W, H])
+
+  // Mouse wheel zoom
   const handleWheel = useCallback((e) => {
     e.preventDefault()
-    const rect = containerRef.current.getBoundingClientRect()
-    const mouseX = e.clientX - rect.left
-    const mouseY = e.clientY - rect.top
-    const delta = e.deltaY > 0 ? 0.85 : 1.18
-    const newZoom = Math.min(Math.max(zoom * delta, 0.1), 10)
-    // Zoom toward mouse position
-    const zoomRatio = newZoom / zoom
-    setPan(p => ({
-      x: mouseX - zoomRatio * (mouseX - p.x),
-      y: mouseY - zoomRatio * (mouseY - p.y),
-    }))
-    setZoom(newZoom)
-  }, [zoom])
+    const factor = e.deltaY > 0 ? 1.18 : 0.85
+    zoomAt(e.clientX, e.clientY, factor)
+  }, [zoomAt])
 
   useEffect(() => {
-    const el = containerRef.current
+    const el = svgRef.current
     if (!el) return
     el.addEventListener('wheel', handleWheel, { passive: false })
     return () => el.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
-
-  // ─── Pan with middle mouse or space+drag ───────────────────────────────────
-  const handleContainerMouseDown = useCallback((e) => {
-    if (e.button === 1 || (e.button === 0 && e.altKey)) {
-      e.preventDefault()
-      setIsPanning(true)
-      panStart.current = { x: e.clientX, y: e.clientY }
-      panOrigin.current = { ...pan }
-    }
-  }, [pan])
-
-  const handleContainerMouseMove = useCallback((e) => {
-    if (isPanning && panStart.current) {
-      const dx = e.clientX - panStart.current.x
-      const dy = e.clientY - panStart.current.y
-      setPan({ x: panOrigin.current.x + dx, y: panOrigin.current.y + dy })
-    }
-  }, [isPanning])
-
-  const handleContainerMouseUp = useCallback(() => {
-    setIsPanning(false)
-    panStart.current = null
-  }, [])
 
   const pushHistory = useCallback((newWalls) => {
     setHistory(h => [...h.slice(-20), newWalls])
@@ -262,11 +249,11 @@ export default function RoomCanvas({
     })
   }, [setWalls])
 
+  const snapThreshold = ENDPOINT_SNAP_DIST * 2 / zoom
+
   const getPreviewEnd = useCallback(() => {
     if (!startPoint || !mousePos) return null
-    // Increase snap threshold when zoomed out
-    const snapThresh = ENDPOINT_SNAP_DIST * 2 / zoom
-    const snapPt = findNearestEndpoint(mousePos.x, mousePos.y, walls, -1, snapThresh)
+    const snapPt = findNearestEndpoint(mousePos.x, mousePos.y, walls, -1, snapThreshold)
     if (snapPt && !lockedLength && !lockedAngle) {
       const len = ptDist(startPoint.x, startPoint.y, snapPt.x, snapPt.y)
       const halfT = (wallThickness * scale) / 2
@@ -287,7 +274,7 @@ export default function RoomCanvas({
     }
     const halfT = (wallThickness * scale) / 2
     return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: Math.max(0, Math.round((length - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(angle)), snapped: false }
-  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, zoom])
+  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
 
   useEffect(() => {
     if (mode !== 'draw') return
@@ -347,15 +334,14 @@ export default function RoomCanvas({
   }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements])
 
   const handleCanvasClick = useCallback((e) => {
-    if (isPanning) return
+    if (isPanningRef.current) return
     if (wallClickedRef.current) { wallClickedRef.current = false; return }
     if (e.target !== svgRef.current && e.target.tagName !== 'svg') return
     if (mode === 'select') {
       setSelectedWall(null); setSelected(null); setSelectedType(null); return
     }
     const pos = getSVGPos(e)
-    const snapThresh = ENDPOINT_SNAP_DIST * 2 / zoom
-    const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThresh)
+    const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThreshold)
     const finalPos = snapPt || pos
     if (!startPoint) { setStartPoint(finalPos); return }
     const end = getPreviewEnd()
@@ -364,29 +350,47 @@ export default function RoomCanvas({
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
-  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, isPanning, zoom])
+  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold])
+
+  const handleMouseDown = useCallback((e) => {
+    // Middle mouse or Alt+left = pan
+    if (e.button === 1 || (e.button === 0 && e.altKey)) {
+      e.preventDefault()
+      isPanningRef.current = true
+      panLastRef.current = getSVGPos(e)
+    }
+  }, [getSVGPos])
 
   const handleMouseMove = useCallback((e) => {
-    if (isPanning) return
     const pos = getSVGPos(e)
+
+    // Pan
+    if (isPanningRef.current && panLastRef.current) {
+      const dx = pos.x - panLastRef.current.x
+      const dy = pos.y - panLastRef.current.y
+      setVx(v => v - dx)
+      setVy(v => v - dy)
+      // Don't update panLastRef since viewBox changed
+      return
+    }
+
     const rawX = pos.x, rawY = pos.y
     setMousePos({ x: rawX, y: rawY })
-    const snapThresh = ENDPOINT_SNAP_DIST * 2 / zoom
-    if (mode === 'draw' && startPoint) setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThresh))
+    if (mode === 'draw' && startPoint) setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
     if (!dragging) return
 
     if (dragging.type === 'wall') {
       const dx = rawX - dragStart.x, dy = rawY - dragStart.y
       const orig = dragging.origWall
       const nx1 = orig.x1 + dx, ny1 = orig.y1 + dy, nx2 = orig.x2 + dx, ny2 = orig.y2 + dy
-      const s1 = findNearestEndpoint(nx1, ny1, walls, dragging.index, snapThresh)
-      const s2 = findNearestEndpoint(nx2, ny2, walls, dragging.index, snapThresh)
+      const s1 = findNearestEndpoint(nx1, ny1, walls, dragging.index, snapThreshold)
+      const s2 = findNearestEndpoint(nx2, ny2, walls, dragging.index, snapThreshold)
       let fx1 = nx1, fy1 = ny1, fx2 = nx2, fy2 = ny2
       if (s1) { fx2 += s1.x - nx1; fy2 += s1.y - ny1; fx1 = s1.x; fy1 = s1.y }
       else if (s2) { fx1 += s2.x - nx2; fy1 += s2.y - ny2; fx2 = s2.x; fy2 = s2.y }
       setWalls(p => p.map((w, i) => i === dragging.index ? { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w))
     } else if (dragging.type === 'endpoint') {
-      const snapPt = findNearestEndpoint(rawX, rawY, walls, dragging.wallIndex, snapThresh)
+      const snapPt = findNearestEndpoint(rawX, rawY, walls, dragging.wallIndex, snapThreshold)
       const fx = snapPt ? snapPt.x : rawX, fy = snapPt ? snapPt.y : rawY
       setWalls(p => p.map((w, i) => i !== dragging.wallIndex ? w : dragging.ep === 0 ? { ...w, x1: fx, y1: fy } : { ...w, x2: fx, y2: fy }))
     } else if (dragging.type === 'element') {
@@ -462,9 +466,11 @@ export default function RoomCanvas({
       if (!snappedY) finalY = Math.round(rawCabY / (GRID * scale)) * (GRID * scale)
       setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: Math.max(0, finalX / scale), y: Math.max(0, finalY / scale) } : c))
     }
-  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, W, H, elements, cabinets, setWalls, setCabinets, setElements, isPanning, zoom, getSVGPos])
+  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, getSVGPos, snapThreshold, zoom])
 
   const handleMouseUp = useCallback(() => {
+    isPanningRef.current = false
+    panLastRef.current = null
     if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint')) setHistory(h => [...h.slice(-20), walls])
     setDragging(null); setDragStart(null); setDragCorner(null); setWallSnapPreview(null)
   }, [dragging, walls])
@@ -507,6 +513,8 @@ export default function RoomCanvas({
     setEditingWall(null); setEditingLenVal(null)
   }, [editingWall, editingLenVal, walls, wallThickness, scale, pushHistory])
 
+  const fitView = () => { setVx(0); setVy(0); setVw(null); setVh(null) }
+
   const gridLines = []
   if (showGrid) {
     for (let x = 0; x <= W; x += GRID * scale) {
@@ -518,9 +526,7 @@ export default function RoomCanvas({
   }
 
   const previewEnd = getPreviewEnd()
-
-  // ─── Compute SVG transform for zoom/pan ────────────────────────────────────
-  const svgTransform = `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
+  const viewBox = `${vx} ${vy} ${cvw} ${cvh}`
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
@@ -546,10 +552,10 @@ export default function RoomCanvas({
           )}
           {/* Zoom controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 10 }}>
-            <button onClick={() => setZoom(z => Math.min(z * 1.3, 10))} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14 }}>+</button>
+            <button onClick={() => zoomAt(W/2, H/2, 0.77)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>+</button>
             <span style={{ fontSize: 10, color: '#888', minWidth: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
-            <button onClick={() => setZoom(z => Math.max(z * 0.77, 0.1))} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14 }}>−</button>
-            <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }) }} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Fit</button>
+            <button onClick={() => zoomAt(W/2, H/2, 1.3)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>−</button>
+            <button onClick={fitView} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Fit</button>
           </div>
           {mode === 'draw' && startPoint && (
             <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
@@ -558,7 +564,7 @@ export default function RoomCanvas({
                : <>Type length · Tab angle · Enter · Esc cancel · Alt+drag to pan</>}
             </span>
           )}
-          {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place first point · Scroll to zoom · Alt+drag to pan</span>}
+          {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place · Scroll to zoom · Alt+drag to pan</span>}
           {mode === 'select' && selectedWall !== null && (
             <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -605,97 +611,87 @@ export default function RoomCanvas({
           )}
         </div>
       )}
-
-      {/* Canvas container with zoom/pan */}
-      <div
-        ref={containerRef}
-        style={{ flex: 1, minHeight: 0, overflow: 'hidden', position: 'relative', background: '#E8E4DF', borderRadius: 4, border: '2px solid #2c3e50', cursor: isPanning ? 'grabbing' : mode === 'draw' ? 'crosshair' : 'default' }}
-        onMouseDown={handleContainerMouseDown}
-        onMouseMove={handleContainerMouseMove}
-        onMouseUp={handleContainerMouseUp}
-        onMouseLeave={handleContainerMouseUp}
-      >
-        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <div style={{ transform: svgTransform, transformOrigin: '0 0', pointerEvents: 'auto' }}>
-            <svg
-              ref={svgRef}
-              width={W}
-              height={H}
-              viewBox={`0 0 ${W} ${H}`}
-              style={{ background: '#fff', display: 'block' }}
-              onClick={handleCanvasClick}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-            >
-              {gridLines}
-              <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ddd" strokeWidth={1} strokeDasharray="4,4" />
-              {showDimensions && <>
-                <text x={W/2} y={-10} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600}>{room.width}mm</text>
-                <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
-              </>}
-              {walls.map((w, i) => (
-                <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
-                  thickness={wallPx} scale={scale} winding={winding}
-                  innerLenMm={getInnerLength(w, wallThickness, scale)}
-                  onSelect={() => { wallClickedRef.current = true; setSelectedWall(i) }}
-                  onDragStart={hideToolbar ? () => {} : startWallDrag}
-                  onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
-                  onLabelClick={() => { if (!hideToolbar) { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) } }}
-                  editingLength={!hideToolbar && editingWall === i}
-                  onLengthChange={v => setEditingLenVal(v)}
-                  onLengthConfirm={confirmWallEdit}
-                />
-              ))}
-              {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
-              {mode === 'draw' && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
-              {mode === 'draw' && startPoint && previewEnd && previewEnd.innerLenMm > 0 && (
-                <>
-                  <line x1={startPoint.x} y1={startPoint.y} x2={previewEnd.x} y2={previewEnd.y}
-                    stroke={ACCENT} strokeWidth={wallPx} strokeLinecap="square" opacity={0.3} style={{ pointerEvents: 'none' }} />
-                  <g transform={`translate(${(startPoint.x+previewEnd.x)/2},${(startPoint.y+previewEnd.y)/2})`}>
-                    <rect x={-36} y={-13} width={72} height={20} rx={4} fill={ACCENT} opacity={0.9} />
-                    <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{previewEnd.innerLenMm}mm · {previewEnd.angleDeg}°</text>
-                  </g>
-                  <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
-                </>
-              )}
-              {mode === 'draw' && startPoint && <circle cx={startPoint.x} cy={startPoint.y} r={7} fill="#2AC87A" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
-              {elements.filter(el => el.type !== 'window' && el.type !== 'door').map(el => {
-                const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
-                const rot = el.rotation || 0, isSelected = selected === el.id && selectedType === 'element'
-                return (
-                  <g key={el.id} transform={`translate(${x},${y}) rotate(${rot})`}
-                    onMouseDown={e => startElementDrag(e, el.id, 'element')}
-                    style={{ cursor: 'move' }}>
-                    <rect x={-w/2} y={-h/2} width={w} height={h} fill={el.color+'44'} stroke={isSelected ? ACCENT : el.color} strokeWidth={isSelected ? 2.5 : 1.5} rx={3} />
-                    <text x={0} y={2} textAnchor="middle" fontSize={13} style={{ userSelect: 'none', pointerEvents: 'none' }}>{el.icon}</text>
-                    {isSelected && <rect x={-w/2-2} y={-h/2-2} width={w+4} height={h+4} fill="none" stroke={ACCENT} strokeWidth={1.5} strokeDasharray="4,3" rx={4} style={{ pointerEvents: 'none' }} />}
-                  </g>
-                )
-              })}
-              {elements.filter(el => el.type === 'window' || el.type === 'door').map(el => (
-                <EmbeddedElement key={el.id} el={el} scale={scale}
-                  selected={selected === el.id && selectedType === 'element'}
-                  onMouseDown={e => startElementDrag(e, el.id, 'element')} />
-              ))}
-              {cabinets.map(cab => {
-                const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
-                const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
-                const isSelected = selected === cab.id && selectedType === 'cabinet'
-                return (
-                  <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
-                    onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
-                    style={{ cursor: 'move' }}>
-                    <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
-                    <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
-                    <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
-                    {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
-                  </g>
-                )
-              })}
-            </svg>
-          </div>
-        </div>
+      <div style={{ flex: 1, minHeight: 0 }}>
+        <svg
+          ref={svgRef}
+          width="100%"
+          height="100%"
+          viewBox={viewBox}
+          preserveAspectRatio="xMidYMid meet"
+          style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: isPanningRef.current ? 'grabbing' : mode === 'draw' ? 'crosshair' : 'default', display: 'block' }}
+          onClick={handleCanvasClick}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+        >
+          {gridLines}
+          <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ddd" strokeWidth={1} strokeDasharray="4,4" />
+          {showDimensions && <>
+            <text x={W/2} y={-10} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600}>{room.width}mm</text>
+            <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
+          </>}
+          {walls.map((w, i) => (
+            <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
+              thickness={wallPx} scale={scale} winding={winding}
+              innerLenMm={getInnerLength(w, wallThickness, scale)}
+              onSelect={() => { wallClickedRef.current = true; setSelectedWall(i) }}
+              onDragStart={hideToolbar ? () => {} : startWallDrag}
+              onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
+              onLabelClick={() => { if (!hideToolbar) { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) } }}
+              editingLength={!hideToolbar && editingWall === i}
+              onLengthChange={v => setEditingLenVal(v)}
+              onLengthConfirm={confirmWallEdit}
+            />
+          ))}
+          {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'draw' && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'draw' && startPoint && previewEnd && previewEnd.innerLenMm > 0 && (
+            <>
+              <line x1={startPoint.x} y1={startPoint.y} x2={previewEnd.x} y2={previewEnd.y}
+                stroke={ACCENT} strokeWidth={wallPx} strokeLinecap="square" opacity={0.3} style={{ pointerEvents: 'none' }} />
+              <g transform={`translate(${(startPoint.x+previewEnd.x)/2},${(startPoint.y+previewEnd.y)/2})`}>
+                <rect x={-36} y={-13} width={72} height={20} rx={4} fill={ACCENT} opacity={0.9} />
+                <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{previewEnd.innerLenMm}mm · {previewEnd.angleDeg}°</text>
+              </g>
+              <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+            </>
+          )}
+          {mode === 'draw' && startPoint && <circle cx={startPoint.x} cy={startPoint.y} r={7} fill="#2AC87A" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {elements.filter(el => el.type !== 'window' && el.type !== 'door').map(el => {
+            const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
+            const rot = el.rotation || 0, isSelected = selected === el.id && selectedType === 'element'
+            return (
+              <g key={el.id} transform={`translate(${x},${y}) rotate(${rot})`}
+                onMouseDown={e => startElementDrag(e, el.id, 'element')}
+                style={{ cursor: 'move' }}>
+                <rect x={-w/2} y={-h/2} width={w} height={h} fill={el.color+'44'} stroke={isSelected ? ACCENT : el.color} strokeWidth={isSelected ? 2.5 : 1.5} rx={3} />
+                <text x={0} y={2} textAnchor="middle" fontSize={13} style={{ userSelect: 'none', pointerEvents: 'none' }}>{el.icon}</text>
+                {isSelected && <rect x={-w/2-2} y={-h/2-2} width={w+4} height={h+4} fill="none" stroke={ACCENT} strokeWidth={1.5} strokeDasharray="4,3" rx={4} style={{ pointerEvents: 'none' }} />}
+              </g>
+            )
+          })}
+          {elements.filter(el => el.type === 'window' || el.type === 'door').map(el => (
+            <EmbeddedElement key={el.id} el={el} scale={scale}
+              selected={selected === el.id && selectedType === 'element'}
+              onMouseDown={e => startElementDrag(e, el.id, 'element')} />
+          ))}
+          {cabinets.map(cab => {
+            const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
+            const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
+            const isSelected = selected === cab.id && selectedType === 'cabinet'
+            return (
+              <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
+                onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
+                style={{ cursor: 'move' }}>
+                <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
+                <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
+                {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+              </g>
+            )
+          })}
+        </svg>
       </div>
     </div>
   )
