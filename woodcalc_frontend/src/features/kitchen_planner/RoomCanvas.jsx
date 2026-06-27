@@ -65,7 +65,6 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
   const { nx, ny } = getInnerNormal(wall, winding)
   const labelX = cx + nx * thickness * 0.7
   const labelY = cy + ny * thickness * 0.7
-
   return (
     <g>
       <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent"
@@ -119,7 +118,6 @@ function EmbeddedElement({ el, scale, selected, onMouseDown }) {
   const angle = el.wallAngle || 0
   const isWindow = el.type === 'window'
   const isDoor = el.type === 'door'
-
   return (
     <g transform={`translate(${x},${y}) rotate(${angle})`}
       onMouseDown={onMouseDown} style={{ cursor: 'move' }}>
@@ -148,25 +146,30 @@ export default function RoomCanvas({
   selected, setSelected, selectedType, setSelectedType,
   wallThickness, setWallThickness,
   walls, setWalls,
+  readOnly,
+  hideToolbar,
 }) {
-  const [mode, setMode]                     = useState('select')
-  const [startPoint, setStartPoint]         = useState(null)
-  const [mousePos, setMousePos]             = useState(null)
-  const [endpointSnap, setEndpointSnap]     = useState(null)
-  const [selectedWall, setSelectedWall]     = useState(null)
-  const [editingWall, setEditingWall]       = useState(null)
-  const [editingLenVal, setEditingLenVal]   = useState(null)
-  const [inputVal, setInputVal]             = useState('')
-  const [inputMode, setInputMode]           = useState(null)
-  const [lockedLength, setLockedLength]     = useState(null)
-  const [lockedAngle, setLockedAngle]       = useState(null)
-  const [history, setHistory]               = useState([[]])
-  const [dragging, setDragging]             = useState(null)
-  const [dragStart, setDragStart]           = useState(null)
-  const [dragCorner, setDragCorner]         = useState(null)
+  const [mode, setMode] = useState('select')
+  const [startPoint, setStartPoint] = useState(null)
+  const [mousePos, setMousePos] = useState(null)
+  const [endpointSnap, setEndpointSnap] = useState(null)
+  const [selectedWall, setSelectedWall] = useState(null)
+  const [editingWall, setEditingWall] = useState(null)
+  const [editingLenVal, setEditingLenVal] = useState(null)
+  const [inputVal, setInputVal] = useState('')
+  const [inputMode, setInputMode] = useState(null)
+  const [lockedLength, setLockedLength] = useState(null)
+  const [lockedAngle, setLockedAngle] = useState(null)
+  const [history, setHistory] = useState([[]])
+  const [dragging, setDragging] = useState(null)
+  const [dragStart, setDragStart] = useState(null)
+  const [dragCorner, setDragCorner] = useState(null)
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
-  const [flipWinding, setFlipWinding]       = useState(1)
+  const [flipWinding, setFlipWinding] = useState(1)
+  const wallClickedRef = useRef(false)
   const svgRef = useRef(null)
+
+  useEffect(() => { if (hideToolbar) setMode('select') }, [hideToolbar])
 
   const W = room.width * scale
   const H = room.depth * scale
@@ -274,8 +277,13 @@ export default function RoomCanvas({
     return () => window.removeEventListener('keydown', handler)
   }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements])
 
-  const handleCanvasClick = useCallback((e) => {
-if (mode === 'select') { setSelectedWall(null); return }
+const handleCanvasClick = useCallback((e) => {
+  if (wallClickedRef.current) { wallClickedRef.current = false; return }
+  if (e.target !== svgRef.current && e.target.tagName !== 'svg') return
+  if (mode === 'select') {
+    setSelectedWall(null); setSelected(null); setSelectedType(null); return
+  }
+
     const pos = getSVGPos(e)
     const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, ENDPOINT_SNAP_DIST * 2)
     const finalPos = snapPt || pos
@@ -330,10 +338,61 @@ if (mode === 'select') { setSelectedWall(null); return }
         setElements(p => p.map(el => el.id === dragging.id ? { ...el, x, y, wallAngle: undefined, embeddedInWall: false } : el))
       }
     } else if (dragging.type === 'cabinet') {
-      const x = Math.max(0, snap(rawX / scale)), y = Math.max(0, snap(rawY / scale))
-      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x, y } : c))
+      const cab = cabinets.find(c => c.id === dragging.id)
+      if (!cab) return
+      const SNAP_PX = 15
+      const rawCabX = rawX - cab.width * scale / 2
+      const rawCabY = rawY - cab.depth * scale / 2
+      const cabWpx = cab.width * scale
+      const cabDpx = cab.depth * scale
+      let finalX = rawCabX, finalY = rawCabY
+      let snappedX = false, snappedY = false
+
+      cabinets.forEach(other => {
+        if (other.id === dragging.id) return
+        const ox = other.x * scale, oy = other.y * scale
+        const ow = other.width * scale, od = other.depth * scale
+        if (!snappedX) {
+          if (Math.abs(rawCabX + cabWpx - ox) < SNAP_PX) { finalX = ox - cabWpx; snappedX = true }
+          else if (Math.abs(rawCabX - (ox + ow)) < SNAP_PX) { finalX = ox + ow; snappedX = true }
+          else if (Math.abs(rawCabX - ox) < SNAP_PX) { finalX = ox; snappedX = true }
+          else if (Math.abs(rawCabX + cabWpx - (ox + ow)) < SNAP_PX) { finalX = ox + ow - cabWpx; snappedX = true }
+        }
+        if (!snappedY) {
+          if (Math.abs(rawCabY + cabDpx - oy) < SNAP_PX) { finalY = oy - cabDpx; snappedY = true }
+          else if (Math.abs(rawCabY - (oy + od)) < SNAP_PX) { finalY = oy + od; snappedY = true }
+          else if (Math.abs(rawCabY - oy) < SNAP_PX) { finalY = oy; snappedY = true }
+          else if (Math.abs(rawCabY + cabDpx - (oy + od)) < SNAP_PX) { finalY = oy + od - cabDpx; snappedY = true }
+        }
+      })
+
+      walls.forEach(w => {
+        const dx = w.x2 - w.x1, dy = w.y2 - w.y1
+        const len = Math.hypot(dx, dy)
+        if (len === 0) return
+        const ux = dx / len, uy = dy / len
+        const nx = uy, ny = -ux
+        const halfT = wallThickness * scale / 2
+        const ccx = rawCabX + cabWpx / 2
+        const ccy = rawCabY + cabDpx / 2
+        const t = Math.max(0, Math.min(1, ((ccx - w.x1) * ux + (ccy - w.y1) * uy) / len))
+        const projX = w.x1 + t * dx, projY = w.y1 + t * dy
+        const distToWall = (ccx - projX) * nx + (ccy - projY) * ny
+        const backFaceDist = Math.abs(Math.abs(distToWall) - (halfT + cabDpx / 2))
+        if (backFaceDist < SNAP_PX) {
+          const sign = distToWall >= 0 ? 1 : -1
+          const snapCCX = projX + nx * sign * (halfT + cabDpx / 2)
+          const snapCCY = projY + ny * sign * (halfT + cabDpx / 2)
+          if (!snappedX) { finalX = snapCCX - cabWpx / 2; snappedX = true }
+          if (!snappedY) { finalY = snapCCY - cabDpx / 2; snappedY = true }
+        }
+      })
+
+      if (!snappedX) finalX = Math.round(rawCabX / (GRID * scale)) * (GRID * scale)
+      if (!snappedY) finalY = Math.round(rawCabY / (GRID * scale)) * (GRID * scale)
+      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: Math.max(0, finalX / scale), y: Math.max(0, finalY / scale) } : c))
     }
-  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, W, H, elements, setWalls, setCabinets, setElements])
+  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, W, H, elements, cabinets, setWalls, setCabinets, setElements])
 
   const handleMouseUp = useCallback(() => {
     if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint')) setHistory(h => [...h.slice(-20), walls])
@@ -343,6 +402,7 @@ if (mode === 'select') { setSelectedWall(null); return }
   const startWallDrag = useCallback((e, index) => {
     if (mode !== 'select') return
     e.stopPropagation()
+    wallClickedRef.current = true
     setDragging({ type: 'wall', index, origWall: { ...walls[index] } })
     setDragStart(getSVGPos(e))
   }, [mode, walls, getSVGPos])
@@ -355,28 +415,16 @@ if (mode === 'select') { setSelectedWall(null); return }
   }, [mode, getSVGPos])
 
   const startElementDrag = useCallback((e, id, type) => {
-    if (mode !== 'select') return
     e.stopPropagation()
     const pos = getSVGPos(e)
     const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
     if (!item) return
-    const itemX = item.x * scale, itemY = item.y * scale
-    const itemW = (type === 'cabinet' ? item.width : item.w) * scale
-    const itemH = (type === 'cabinet' ? item.depth : item.h) * scale
-    const corners = [
-      { ox: 0, oy: 0, cx: itemX - itemW/2, cy: itemY - itemH/2 },
-      { ox: 1, oy: 0, cx: itemX + itemW/2, cy: itemY - itemH/2 },
-      { ox: 1, oy: 1, cx: itemX + itemW/2, cy: itemY + itemH/2 },
-      { ox: 0, oy: 1, cx: itemX - itemW/2, cy: itemY + itemH/2 },
-      { ox: 0.5, oy: 0.5, cx: itemX, cy: itemY },
-    ]
-    let nearest = corners[4], nearestDist = Infinity
-    corners.forEach(c => { const d = ptDist(pos.x, pos.y, c.cx, c.cy); if (d < nearestDist) { nearestDist = d; nearest = c } })
     setDragging({ type, id })
     setDragStart(pos)
-    setDragCorner({ ox: nearest.ox, oy: nearest.oy })
-    setSelected(id); setSelectedType(type)
-  }, [mode, cabinets, elements, scale, getSVGPos, setSelected, setSelectedType])
+    setDragCorner({ ox: 0.5, oy: 0.5 })
+    setSelected(id)
+    setSelectedType(type)
+  }, [cabinets, elements, getSVGPos, setSelected, setSelectedType])
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); return }
@@ -391,87 +439,92 @@ if (mode === 'select') { setSelectedWall(null); return }
 
   const gridLines = []
   if (showGrid) {
-    for (let x = 0; x <= W; x += GRID * scale) gridLines.push(<line key={'gx'+x} x1={x} y1={0} x2={x} y2={H} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
-    for (let y = 0; y <= H; y += GRID * scale) gridLines.push(<line key={'gy'+y} x1={0} y1={y} x2={W} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+    for (let x = 0; x <= W; x += GRID * scale) {
+      gridLines.push(<line key={'gx'+x} x1={x} y1={0} x2={x} y2={H} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+    }
+    for (let y = 0; y <= H; y += GRID * scale) {
+      gridLines.push(<line key={'gy'+y} x1={0} y1={y} x2={W} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+    }
   }
 
   const previewEnd = getPreviewEnd()
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
-        <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }}
-          style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          ↖ Select
-        </button>
-        <button onClick={() => { setMode('draw'); setSelectedWall(null) }}
-          style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-          ✏️ Draw walls
-        </button>
-        <button onClick={undo} disabled={history.length <= 1} title="Undo (Ctrl+Z)"
-          style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
-          ↩
-        </button>
-        {walls.length > 1 && (
-          <button onClick={() => setFlipWinding(f => -f)}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            ⇄ Flip sides
+      {!readOnly && !hideToolbar && (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
+          <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            ↖ Select
           </button>
-        )}
-        {mode === 'draw' && startPoint && (
-          <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
-            {inputMode === 'length' ? <><strong style={{ color: ACCENT }}>{inputVal}mm</strong> inner · Tab→° · Enter</>
-           : inputMode === 'angle'  ? <><strong>{lockedLength}mm</strong> @ <strong style={{ color: ACCENT }}>{inputVal}°</strong> · Enter</>
-           : <>Type inner length · Tab for angle · Enter · Esc cancel</>}
-          </span>
-        )}
-        {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place first point</span>}
-        {mode === 'select' && selectedWall !== null && (
-          <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
-            style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            🗑 Delete wall
+          <button onClick={() => { setMode('draw'); setSelectedWall(null) }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            ✏️ Draw walls
           </button>
-        )}
-        {mode === 'select' && selectedWall === null && walls.length > 0 && (
-          <button onClick={() => { pushHistory([]); setSelectedWall(null) }}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>
-            Clear all
+          <button onClick={undo} disabled={history.length <= 1}
+            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
+            ↩
           </button>
-        )}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-          <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wall</span>
-          <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
-          <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
-        </div>
-        {mode === 'select' && selected && selectedType === 'element' && (() => {
-          const el = elements.find(e => e.id === selected)
-          if (!el) return null
-          const isWallEl = el.type === 'window' || el.type === 'door'
-          return (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-              {!isWallEl && <>
-                <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
-                <input type="number" min={0} max={359} step={1} value={el.rotation || 0}
-                  onChange={e => { const val = (+e.target.value + 360) % 360; setElements(p => p.map(el2 => el2.id === selected ? { ...el2, rotation: val } : el2)) }}
-                  style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
-                <span style={{ fontSize: 11, color: '#888' }}>°</span>
-              </>}
-              {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>✓ In wall {(el.wallIndex || 0) + 1}</span>}
-            </div>
-          )
-        })()}
-        {mode === 'select' && selected && selectedType === 'cabinet' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
-            <input type="number" min={0} max={359} step={1}
-              value={cabinets.find(c => c.id === selected)?.rotation || 0}
-              onChange={e => { const val = (+e.target.value + 360) % 360; setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: val } : c)) }}
-              style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
-            <span style={{ fontSize: 11, color: '#888' }}>° <kbd style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3 }}>R</kbd></span>
+          {walls.length > 1 && (
+            <button onClick={() => setFlipWinding(f => -f)}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              ⇄ Flip sides
+            </button>
+          )}
+          {mode === 'draw' && startPoint && (
+            <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
+              {inputMode === 'length' ? <><strong style={{ color: ACCENT }}>{inputVal}mm</strong> inner · Tab→° · Enter</>
+               : inputMode === 'angle' ? <><strong>{lockedLength}mm</strong> @ <strong style={{ color: ACCENT }}>{inputVal}°</strong> · Enter</>
+               : <>Type inner length · Tab for angle · Enter · Esc cancel</>}
+            </span>
+          )}
+          {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place first point</span>}
+          {mode === 'select' && selectedWall !== null && (
+            <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              🗑 Delete wall
+            </button>
+          )}
+          {mode === 'select' && selectedWall === null && walls.length > 0 && (
+            <button onClick={() => { pushHistory([]); setSelectedWall(null) }}
+              style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>
+              Clear all
+            </button>
+          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wall</span>
+            <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
+            <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
           </div>
-        )}
-      </div>
-
+          {mode === 'select' && selected && selectedType === 'element' && (() => {
+            const el = elements.find(e => e.id === selected)
+            if (!el) return null
+            const isWallEl = el.type === 'window' || el.type === 'door'
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+                {!isWallEl && <>
+                  <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+                  <input type="number" min={0} max={359} step={1} value={el.rotation || 0}
+                    onChange={e => { const val = (+e.target.value + 360) % 360; setElements(p => p.map(el2 => el2.id === selected ? { ...el2, rotation: val } : el2)) }}
+                    style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
+                  <span style={{ fontSize: 11, color: '#888' }}>°</span>
+                </>}
+                {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>✓ In wall {(el.wallIndex || 0) + 1}</span>}
+              </div>
+            )
+          })()}
+          {mode === 'select' && selected && selectedType === 'cabinet' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+              <input type="number" min={0} max={359} step={1}
+                value={cabinets.find(c => c.id === selected)?.rotation || 0}
+                onChange={e => { const val = (+e.target.value + 360) % 360; setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: val } : c)) }}
+                style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
+              <span style={{ fontSize: 11, color: '#888' }}>° <kbd style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3 }}>R</kbd></span>
+            </div>
+          )}
+        </div>
+      )}
       <div style={{ flex: 1, minHeight: 0 }}>
         <svg ref={svgRef} width="100%" height="100%"
           viewBox={`0 0 ${W} ${H}`}
@@ -491,11 +544,11 @@ if (mode === 'select') { setSelectedWall(null); return }
             <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
               thickness={wallPx} scale={scale} winding={winding}
               innerLenMm={getInnerLength(w, wallThickness, scale)}
-              onSelect={() => setSelectedWall(i)}
-              onDragStart={startWallDrag}
-              onEndpointDragStart={startEndpointDrag}
-              onLabelClick={() => { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) }}
-              editingLength={editingWall === i}
+              onSelect={() => { wallClickedRef.current = true; setSelectedWall(i) }}
+              onDragStart={hideToolbar ? () => {} : startWallDrag}
+              onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
+              onLabelClick={() => { if (!hideToolbar) { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) } }}
+              editingLength={!hideToolbar && editingWall === i}
               onLengthChange={v => setEditingLenVal(v)}
               onLengthConfirm={confirmWallEdit}
             />
@@ -520,7 +573,7 @@ if (mode === 'select') { setSelectedWall(null); return }
             return (
               <g key={el.id} transform={`translate(${x},${y}) rotate(${rot})`}
                 onMouseDown={e => startElementDrag(e, el.id, 'element')}
-                style={{ cursor: mode === 'select' ? 'move' : 'crosshair' }}>
+                style={{ cursor: 'move' }}>
                 <rect x={-w/2} y={-h/2} width={w} height={h} fill={el.color+'44'} stroke={isSelected ? ACCENT : el.color} strokeWidth={isSelected ? 2.5 : 1.5} rx={3} />
                 <text x={0} y={2} textAnchor="middle" fontSize={13} style={{ userSelect: 'none', pointerEvents: 'none' }}>{el.icon}</text>
                 {isSelected && <rect x={-w/2-2} y={-h/2-2} width={w+4} height={h+4} fill="none" stroke={ACCENT} strokeWidth={1.5} strokeDasharray="4,3" rx={4} style={{ pointerEvents: 'none' }} />}
@@ -539,7 +592,7 @@ if (mode === 'select') { setSelectedWall(null); return }
             return (
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
-                style={{ cursor: mode === 'select' ? 'move' : 'crosshair' }}>
+                style={{ cursor: 'move' }}>
                 <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
                 <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
                 <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
