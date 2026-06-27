@@ -168,8 +168,8 @@ export default function RoomCanvas({
   const [flipWinding, setFlipWinding] = useState(1)
 
   // Zoom & Pan — stored as SVG viewBox values
-  const [vx, setVx] = useState(0)        // viewBox x
-  const [vy, setVy] = useState(0)        // viewBox y
+  const [vx, setVx] = useState(-20)        // viewBox x
+  const [vy, setVy] = useState(-20)        // viewBox y
   const [vw, setVw] = useState(null)     // viewBox width (null = fit)
   const [vh, setVh] = useState(null)     // viewBox height (null = fit)
   const isPanningRef = useRef(false)

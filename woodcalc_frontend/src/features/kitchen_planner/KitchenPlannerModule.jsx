@@ -76,10 +76,11 @@ export default function KitchenPlannerModule() {
       x: snap(200), y: snap(200),
       material: 'Particleboard',
       doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
-      carcassColor: '#F5F0E8',
-      frontColor: '#FFFFFF',
-      zonePreset: null,
-    }
+    carcassColor: t.carcassColor || projectDefaults?.carcassColor || '#F5F0E8',
+    frontColor: t.frontColor || projectDefaults?.frontColor || '#FFFFFF',
+    frontMaterial: t.frontMaterial || projectDefaults?.frontFinish || 'matt',
+    zonePreset: null,
+  }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
@@ -419,7 +420,7 @@ const s = {
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
   rightPanel:  { width: 280, background: '#fff', borderLeft: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
-  canvasWrap:  { flex: 1, overflow: 'auto', background: '#E8E4DF', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', padding: 40 },
+canvasWrap: { flex: 1, overflow: 'hidden', background: '#E8E4DF', display: 'flex', padding: 16 },
   panelSection:{ marginBottom: 20 },
   panelLabel:  { fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 },
   dimLabel:    { fontSize: 12, color: '#555', display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 },
