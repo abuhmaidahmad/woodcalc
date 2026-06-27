@@ -4,7 +4,6 @@ import * as THREE from 'three'
 import { useMemo, Suspense } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 
-
 const SCALE = 0.16
 const ROOM_H = 2.8
 const px2m = px => px / SCALE / 1000
@@ -28,23 +27,15 @@ const LAMINATE_PROPS = {
 function getMaterialProps(materialName) {
   if (!materialName) return LAMINATE_PROPS.matt
   const n = materialName.toLowerCase()
-  if (n.includes('gloss') || n.includes('high gloss')) return LAMINATE_PROPS.gloss
-  if (n.includes('oak') || n.includes('walnut') || n.includes('wood') || n.includes('pine') || n.includes('teak') || n.includes('birch') || n.includes('ash') || n.includes('maple') || n.includes('acacia') || n.includes('chestnut')) return LAMINATE_PROPS.wood
-  if (n.includes('metal') || n.includes('steel') || n.includes('alumin')) return LAMINATE_PROPS.metal
+  if (n === 'gloss') return LAMINATE_PROPS.gloss
+  if (n === 'wood') return LAMINATE_PROPS.wood
+  if (n === 'metal') return LAMINATE_PROPS.metal
   return LAMINATE_PROPS.matt
 }
 
 function isWoodMaterial(materialName) {
   if (!materialName) return false
-  const n = materialName.toLowerCase()
-  return n.includes('oak') || n.includes('walnut') || n.includes('wood') ||
-    n.includes('pine') || n.includes('teak') || n.includes('birch') ||
-    n.includes('ash') || n.includes('maple') || n.includes('acacia') ||
-    n.includes('chestnut') || n.includes('fineline') || n.includes('bardolino') ||
-    n.includes('belmont') || n.includes('vicenza') || n.includes('sevilla') ||
-    n.includes('sheffield') || n.includes('mandal') || n.includes('gladstone') ||
-    n.includes('sherman') || n.includes('halifax') || n.includes('kentucky') ||
-    n.includes('rovere') || n.includes('noce') || n.includes('frassino')
+  return materialName.toLowerCase() === 'wood'
 }
 
 const GOLA_COLORS = {
@@ -53,8 +44,6 @@ const GOLA_COLORS = {
   champagne: '#c8a96e',
 }
 
-// ─── WOOD TEXTURE — proper hook in proper component ──────────────────────────
-// Base64 wood grain — no external URL needed
 const WOOD_B64 = 'data:image/svg+xml;base64,' + btoa(`
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
   <rect width="256" height="256" fill="#C49858"/>
@@ -73,7 +62,7 @@ const WOOD_B64 = 'data:image/svg+xml;base64,' + btoa(`
   <line x1="150" y1="40" x2="190" y2="80" stroke="#5A3818" stroke-width="1" opacity="0.12"/>
 </svg>`)
 
-function WoodPanelMaterial({ matProps, envMapIntensity = 1.0 }) {
+function WoodPanelMaterial({ color, matProps, envMapIntensity = 1.0 }) {
   const texture = useLoader(THREE.TextureLoader, WOOD_B64)
   const t = useMemo(() => {
     if (!texture) return null
@@ -83,10 +72,10 @@ function WoodPanelMaterial({ matProps, envMapIntensity = 1.0 }) {
     texture.needsUpdate = true
     return texture
   }, [texture])
-
   return (
     <meshPhysicalMaterial
       map={t}
+      color={color}
       roughness={matProps.roughness}
       metalness={matProps.metalness}
       clearcoat={matProps.clearcoat}
@@ -96,8 +85,6 @@ function WoodPanelMaterial({ matProps, envMapIntensity = 1.0 }) {
   )
 }
 
-
-// Box mesh with wood texture — proper component so hooks work
 function WoodBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity }) {
   return (
     <Suspense fallback={
@@ -114,7 +101,6 @@ function WoodBox({ args, position, castShadow, receiveShadow, color, matProps, e
   )
 }
 
-// Standard (non-wood) box mesh
 function StandardBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity = 1.0 }) {
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
@@ -132,7 +118,6 @@ function StandardBox({ args, position, castShadow, receiveShadow, color, matProp
   )
 }
 
-// Smart box — picks wood or standard automatically
 function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0 }) {
   if (isWoodMaterial(materialName)) {
     return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} />
@@ -149,23 +134,11 @@ function Floor({ cx, cz, width, depth, floorTile }) {
         <planeGeometry args={[W + 6, D + 6]} />
         <meshPhysicalMaterial color={tile.color} roughness={tile.roughness} metalness={tile.metalness} reflectivity={0.6} envMapIntensity={1.0} />
       </mesh>
-      <mesh rotation={[-Math.PI/2, 0, 0]} position={[cx, 0.001, cz]}>
-        <planeGeometry args={[W + 6, D + 6]} />
-        <meshStandardMaterial color="#c8c0b8" roughness={1} transparent opacity={0.06} />
-      </mesh>
     </group>
   )
 }
 
-function Ceiling({ cx, cz, width, depth }) {
-  const W = width / 1000, D = depth / 1000
-  return (
-    <mesh rotation={[Math.PI/2, 0, 0]} position={[cx, ROOM_H, cz]}>
-      <planeGeometry args={[W + 6, D + 6]} />
-      <meshStandardMaterial color="#faf8f5" roughness={1} metalness={0} side={THREE.BackSide} />
-    </mesh>
-  )
-}
+// No ceiling mesh — it blocks the view. Use ambient light instead.
 
 function CeilingLight({ x, z }) {
   return (
@@ -191,13 +164,10 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, matProps,
 
   return (
     <group position={[x, y, 0]}>
-      {/* Shadow line behind door */}
       <mesh position={[0, 0, D / 2 + 0.001]}>
         <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
         <meshStandardMaterial color="#111111" roughness={1} />
       </mesh>
-
-      {/* Door panel — SmartBox handles wood vs standard */}
       <SmartBox
         args={[panelW, panelH, DOOR_T]}
         position={[0, 0, frontZ - DOOR_T / 2]}
@@ -207,8 +177,6 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, matProps,
         matProps={matProps}
         envMapIntensity={1.2}
       />
-
-      {/* Handle */}
       {doorStyle === 'Handle' && (
         <group position={[0, handleY, frontZ + 0.006]}>
           <mesh castShadow>
@@ -228,22 +196,22 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, matProps,
 }
 
 function GolaProfile({ W, D, golaHex, golaColor }) {
-  const GOLA_H = 0.040
-  const GOLA_LIP = 0.018
-  const GOLA_BACK = 0.008
-  const GOLA_FRONT_T = 0.006
+  const GOLA_H = 0.034
+  const GOLA_LIP = 0.015
+  const GOLA_BACK = 0.006
+  const GOLA_FRONT_T = 0.005
   const isMetallic = golaColor === 'silver' || golaColor === 'champagne'
   return (
     <group>
-      <mesh position={[0, GOLA_H / 2, -D / 2 + GOLA_BACK / 2]} castShadow>
+      <mesh position={[0, -GOLA_H / 2, -D / 2 + GOLA_BACK / 2]} castShadow>
         <boxGeometry args={[W, GOLA_H, GOLA_BACK]} />
         <meshPhysicalMaterial color={golaHex} roughness={0.3} metalness={isMetallic ? 0.85 : 0.05} clearcoat={0.8} clearcoatRoughness={0.05} envMapIntensity={2} />
       </mesh>
-      <mesh position={[0, GOLA_H - 0.005, -D / 2 + GOLA_BACK + GOLA_LIP / 2]} castShadow>
+      <mesh position={[0, -0.004, -D / 2 + GOLA_BACK + GOLA_LIP / 2]} castShadow>
         <boxGeometry args={[W, GOLA_FRONT_T, GOLA_LIP]} />
         <meshPhysicalMaterial color={golaHex} roughness={0.2} metalness={isMetallic ? 0.9 : 0.05} clearcoat={1.0} clearcoatRoughness={0.02} envMapIntensity={2.5} />
       </mesh>
-      <mesh position={[0, GOLA_H * 0.45, -D / 2 + GOLA_BACK + 0.003]}>
+      <mesh position={[0, -GOLA_H * 0.4, -D / 2 + GOLA_BACK + 0.003]}>
         <boxGeometry args={[W - 0.002, GOLA_H * 0.5, 0.004]} />
         <meshStandardMaterial color="#050505" roughness={1} metalness={0} />
       </mesh>
@@ -295,7 +263,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors,
     <>
       {doors}
       {doorStyle === 'Gola' && (
-        <group position={[0, H / 2 - GOLA_RECESS / 2, 0]}>
+        <group position={[0, H / 2, 0]}>
           <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
         </group>
       )}
@@ -306,9 +274,17 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors,
 function Countertop({ W, D, material }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   return (
-    <mesh position={[0, 0, 0.010]} castShadow receiveShadow>
+    <mesh position={[0, 0.019, 0.010]} castShadow receiveShadow>
       <boxGeometry args={[W + 0.040, 0.038, D + 0.060]} />
-      <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
+      <meshPhysicalMaterial
+        color={mat.color}
+        roughness={mat.roughness}
+        metalness={mat.metalness}
+        clearcoat={0.8}
+        clearcoatRoughness={0.06}
+        envMapIntensity={1.8}
+        reflectivity={0.8}
+      />
     </mesh>
   )
 }
@@ -328,9 +304,9 @@ function Cabinet({ cab, countertopMat }) {
   const numDoors = cab.width >= 600 ? 2 : 1
   const doorStyle = cab.doorStyle || 'Handle'
   const frontColor = cab.frontColor || '#FFFFFF'
-  const frontMaterial = cab.frontMaterialName || cab.frontMaterial || ''
+  const frontMaterial = cab.frontMaterial || ''
   const carcassColor = cab.carcassColor || '#F0EDE8'
-  const carcassMaterial = cab.carcassMaterialName || cab.carcassMaterial || ''
+  const carcassMaterial = cab.carcassMaterial || ''
   const carcassMatProps = getMaterialProps(carcassMaterial)
   const elevation = cab.elevation || 0
   const showLegs = !isWall && elevation === 0
@@ -343,8 +319,6 @@ function Cabinet({ cab, countertopMat }) {
           <meshPhysicalMaterial color="#1a1a1a" metalness={0.85} roughness={0.15} envMapIntensity={2} />
         </mesh>
       ))}
-
-      {/* Carcass */}
       <SmartBox
         args={[W, H, D]}
         position={[0, H/2, 0]}
@@ -354,9 +328,11 @@ function Cabinet({ cab, countertopMat }) {
         matProps={carcassMatProps}
         envMapIntensity={0.5}
       />
-
-{isBase && <group position={[0, H, 0]}><Countertop W={W} D={D} material={countertopMat} /></group>}
-
+      {isBase && (
+        <group position={[0, H, 0]}>
+          <Countertop W={W} D={D} material={countertopMat} />
+        </group>
+      )}
       <group position={[0, H/2, 0]}>
         <CabinetDoors W={W} H={H} D={D}
           doorStyle={doorStyle}
@@ -470,11 +446,11 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows="soft"
-        camera={{position:[cx+span*0.6,span*0.9,cz+span*1.3],fov:38}}
+        camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
         gl={{toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:1.3,antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
         <color attach="background" args={['#ede9e3']} />
-        <fog attach="fog" args={['#ede9e3',12,24]} />
-        <ambientLight intensity={0.4} color="#fff8f0" />
+        <fog attach="fog" args={['#ede9e3',14,30]} />
+        <ambientLight intensity={0.5} color="#fff8f0" />
         <directionalLight position={[cx+span,span*2,cz+span]} intensity={2.5} color="#fffaf0" castShadow
           shadow-mapSize={[2048,2048]} shadow-camera-left={-10} shadow-camera-right={10}
           shadow-camera-top={10} shadow-camera-bottom={-10} shadow-bias={-0.0004} shadow-radius={4} />
@@ -482,16 +458,15 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
         <hemisphereLight skyColor="#fff5e0" groundColor="#c8a060" intensity={0.45} />
         {lightPositions.map(([lx,lz],i)=><CeilingLight key={i} x={lx} z={lz} />)}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
-        <Ceiling cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} />
         {walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} />)}
         {wallEls.map(el=>el.type==='window'
           ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el}/>)}
-{cabinets.map(cab => <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} />)}
+        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat}/>)}
         <ContactShadows position={[cx,0.003,cz]} width={span+4} height={span+4} far={2.5} blur={4} opacity={0.6} color="#1a0a00" />
         <Environment preset="apartment" intensity={0.8} />
-        <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/2.05} minDistance={0.5} maxDistance={18} enableDamping dampingFactor={0.05} />
+        <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
       </Canvas>
     </div>
   )
