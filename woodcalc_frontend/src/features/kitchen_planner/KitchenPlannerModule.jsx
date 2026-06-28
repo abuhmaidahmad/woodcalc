@@ -220,10 +220,7 @@ export default function KitchenPlannerModule() {
               <div style={s.panelLabel}>Countertop</div>
               <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
             </div>
-            <div style={s.panelSection}>
-  <div style={s.panelLabel}>Countertop</div>
-  <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
-</div>
+  
 
 <div style={s.panelSection}>
   <div style={s.panelLabel}>Countertop Thickness</div>
@@ -279,38 +276,63 @@ export default function KitchenPlannerModule() {
       </div>
     </div>
 
-    {/* X position */}
-    <div style={{ marginBottom: 10 }}>
-      <div style={s.propLabel}>Distance from left (mm)</div>
-      <input type="number" value={Math.round((selEl.x || 0) / SCALE)}
-        onChange={e => updateEl('x', +e.target.value * SCALE)}
-        style={s.propInput} />
-    </div>
-
-    {/* Y position */}
-    <div style={{ marginBottom: 10 }}>
-      <div style={s.propLabel}>Distance from top (mm)</div>
-      <input type="number" value={Math.round((selEl.y || 0) / SCALE)}
-        onChange={e => updateEl('y', +e.target.value * SCALE)}
-        style={s.propInput} />
-    </div>
-
-    {/* Elevation — wall elements only */}
-    {(selEl.surface || 'wall') === 'wall' && (
-      <div style={{ marginBottom: 10 }}>
-        <div style={s.propLabel}>Elevation from floor (mm)</div>
-        <input type="number" value={selEl.elevation || 0} onChange={e => updateEl('elevation', +e.target.value)} style={s.propInput} />
-      </div>
-    )}
-
-    {selEl.embeddedInWall && (
-      <div style={{ marginBottom: 10 }}>
-        <div style={s.propLabel}>Embedded in</div>
-        <div style={{ fontSize: 12, color: '#2AC87A', fontWeight: 600, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6 }}>
-          ✓ Wall {(selEl.wallIndex || 0) + 1}
+    {selEl.embeddedInWall && walls[selEl.wallIndex] !== undefined ? (() => {
+      const w = walls[selEl.wallIndex]
+      const dx = w.x2 - w.x1, dy = w.y2 - w.y1
+      const wallLenPx = Math.hypot(dx, dy)
+      const wallLenMm = Math.round(wallLenPx / SCALE)
+      const ux = dx / wallLenPx, uy = dy / wallLenPx
+      const ex = selEl.x * SCALE - w.x1, ey = selEl.y * SCALE - w.y1
+      const distPx = ex * ux + ey * uy
+      const distMm = Math.round(distPx / SCALE)
+      return (
+        <>
+          <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
+            ✓ Wall {(selEl.wallIndex || 0) + 1} · {wallLenMm}mm long
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={s.propLabel}>Distance from wall start (mm)</div>
+            <input type="number" value={distMm} min={0} max={wallLenMm}
+              onChange={e => {
+                const newDistPx = +e.target.value * SCALE
+                const newX = (w.x1 + ux * newDistPx) / SCALE
+                const newY = (w.y1 + uy * newDistPx) / SCALE
+                updateEl('x', newX)
+                updateEl('y', newY)
+              }}
+              style={s.propInput} />
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <div style={s.propLabel}>Elevation from floor (mm)</div>
+            <input type="number" value={selEl.elevation || 0}
+              onChange={e => updateEl('elevation', +e.target.value)}
+              style={s.propInput} />
+          </div>
+        </>
+      )
+    })() : (
+      <>
+        <div style={{ marginBottom: 10 }}>
+          <div style={s.propLabel}>Distance from left (mm)</div>
+          <input type="number" value={Math.round((selEl.x || 0))}
+            onChange={e => updateEl('x', +e.target.value)}
+            style={s.propInput} />
         </div>
-      </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={s.propLabel}>Distance from top (mm)</div>
+          <input type="number" value={Math.round((selEl.y || 0))}
+            onChange={e => updateEl('y', +e.target.value)}
+            style={s.propInput} />
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={s.propLabel}>Elevation from floor (mm)</div>
+          <input type="number" value={selEl.elevation || 0}
+            onChange={e => updateEl('elevation', +e.target.value)}
+            style={s.propInput} />
+        </div>
+      </>
     )}
+
 
     {selEl.type !== 'window' && selEl.type !== 'door' && (
       <div style={{ marginBottom: 10 }}>
@@ -493,7 +515,7 @@ export default function KitchenPlannerModule() {
 
       {tab === '3d' && (
         <div style={{ flex: 1 }}>
-          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} />
+<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} countertopThickness={countertopThickness} />
           {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
         </div>
       )}
