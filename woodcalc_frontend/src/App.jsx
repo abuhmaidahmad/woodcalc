@@ -8,6 +8,9 @@ import RegisterManufacturer from './pages/auth/RegisterManufacturer';
 import RegisterSupplier from './pages/auth/RegisterSupplier';
 import Dashboard from './pages/Dashboard';
 import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule';
+import CustomerList from './pages/CustomerList';
+import CustomerDetail from './pages/CustomerDetail';
+import ProjectDetail from './pages/ProjectDetail';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -25,23 +28,30 @@ export default function App() {
         <Route path="/register/architect" element={<RegisterArchitect />} />
         <Route path="/register/manufacturer" element={<RegisterManufacturer />} />
         <Route path="/register/supplier" element={<RegisterSupplier />} />
-<Route path="/kitchen-planner" element={
-  <PrivateRoute>
-    <KitchenPlannerModule />
-  </PrivateRoute>
-} />
 
-        {/* Default redirect */}
-        <Route path="/" element={<Navigate to="/login" />} />
+        {/* Kitchen Planner */}
+        <Route path="/kitchen-planner" element={
+          <PrivateRoute><KitchenPlannerModule /></PrivateRoute>
+        } />
 
-        {/* Dashboard placeholder */}
+        {/* CRM */}
+        <Route path="/customers" element={
+          <PrivateRoute><CustomerList /></PrivateRoute>
+        } />
+        <Route path="/customers/:id" element={
+          <PrivateRoute><CustomerDetail /></PrivateRoute>
+        } />
+        <Route path="/projects/:id" element={
+          <PrivateRoute><ProjectDetail /></PrivateRoute>
+        } />
+
+        {/* Dashboard */}
         <Route path="/dashboard" element={
-  <PrivateRoute>
-    <Dashboard />
-  </PrivateRoute>
-} />
+          <PrivateRoute><Dashboard /></PrivateRoute>
+        } />
 
-         
+        {/* Default */}
+        <Route path="/" element={<Navigate to="/customers" />} />
       </Routes>
     </BrowserRouter>
   );
