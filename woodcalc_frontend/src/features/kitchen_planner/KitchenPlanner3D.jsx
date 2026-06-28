@@ -487,11 +487,12 @@ const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
      />
 
      {/* Countertop — base cabinets only, not shelves */}
-     {isBase && !isShelf && (
-       <group position={[0, H, 0]}>
-         <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} />
-       </group>
-     )}
+{isBase && !isShelf && (
+  <group position={[0, H, 0]}>
+    <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} />
+  </group>
+)}
+
 
      {/* Doors / drawers / glass */}
      {!isShelf && (
@@ -504,16 +505,18 @@ const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
              isWallCabinet={isWall}
            />
          ) : (
-           <CabinetDoors W={W} H={H} D={D}
-             doorStyle={doorStyle}
-             frontColor={frontColor}
-             frontMaterial={frontMaterial}
-             numDoors={numDoors}
-             isDrawers={isDrawers}
-             handlePosition={cab.handlePosition || 'bottom'}
-             golaColor={cab.golaColor || 'black'}
-             isWallCabinet={isWall}
-           />
+   <CabinetDoors W={W} H={H} D={D}
+  doorStyle={doorStyle}
+  frontColor={frontColor}
+  frontMaterial={frontMaterial}
+  numDoors={numDoors}
+  isDrawers={isDrawers}
+  handlePosition={cab.handlePosition || 'bottom'}
+  golaColor={cab.golaColor || 'black'}
+  isWallCabinet={isWall}
+  isTall={isTall}
+/>
+
          )}
        </group>
      )}
