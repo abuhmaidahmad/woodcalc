@@ -181,11 +181,13 @@ export default function KitchenPlannerModule() {
       {tab === 'room' && (
         <div style={s.workspace}>
           <div style={s.leftPanel}>
-            <div style={s.panelSection}>
-              <div style={s.panelLabel}>Room Size</div>
-              <label style={s.dimLabel}>Width (mm)<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
-              <label style={s.dimLabel}>Depth (mm)<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
-            </div>
+<div style={s.panelSection}>
+  <div style={s.panelLabel}>Room Size</div>
+  <label style={s.dimLabel}>Width (mm)<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>Depth (mm)<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>Ceiling Height (mm)<input type="number" value={room.ceilingHeight || 2800} onChange={e => setRoom(r => ({ ...r, ceilingHeight: +e.target.value }))} style={s.dimInput} /></label>
+</div>
+
             <div style={s.panelSection}>
               <div style={s.panelLabel}>Room Elements</div>
               {ROOM_ELEMENTS.map(el => (

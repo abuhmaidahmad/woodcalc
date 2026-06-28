@@ -5,7 +5,7 @@ import { useMemo, Suspense } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 
 const SCALE = 0.16
-const ROOM_H = 2.8
+const DEFAULT_ROOM_H = 2.8
 const px2m = px => px / SCALE / 1000
 
 const FLOOR_TILES = {
@@ -138,9 +138,10 @@ function Floor({ cx, cz, width, depth, floorTile }) {
  )
 }
 
-function CeilingLight({ x, z }) {
- return (
-   <group position={[x, ROOM_H - 0.01, z]}>
+function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
+  return (
+    <group position={[x, roomH - 0.01, z]}>
+
      <mesh rotation={[Math.PI/2, 0, 0]}>
        <circleGeometry args={[0.08, 16]} />
        <meshStandardMaterial color="#fffde7" emissive="#fffde7" emissiveIntensity={3} />
@@ -468,16 +469,17 @@ const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
  )
 }
 
-function Wall3D({ wall, wallThickness }) {
- const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
- const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
- const len = Math.hypot(x2-x1, z2-z1)
- const angle = Math.atan2(z2-z1, x2-x1)
- const cx = (x1+x2)/2, cz = (z1+z2)/2
- const T = (wallThickness || 120) / 1000
- return (
-   <mesh position={[cx, ROOM_H/2, cz]} rotation={[0, -angle, 0]} castShadow receiveShadow>
-     <boxGeometry args={[len, ROOM_H, T]} />
+function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H }) {
+  const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
+  const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
+  const len = Math.hypot(x2-x1, z2-z1)
+  const angle = Math.atan2(z2-z1, x2-x1)
+  const cx = (x1+x2)/2, cz = (z1+z2)/2
+  const T = (wallThickness || 120) / 1000
+  return (
+    <mesh position={[cx, roomH/2, cz]} rotation={[0, -angle, 0]} castShadow receiveShadow>
+      <boxGeometry args={[len, roomH, T]} />
+
      <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
    </mesh>
  )
@@ -524,15 +526,16 @@ function DoorElement({ el, wallThickness }) {
  )
 }
 
-function OtherElement({ el }) {
- const x = el.x/1000, z = el.y/1000
- const elev = (el.elevation||1200)/1000
- const rot = (el.rotation||0)*Math.PI/180
- const colors = { electric:'#FFD700', water:'#4FC3F7', drain:'#90A4AE', gas:'#FF7043', column:'#9E9E9E' }
- const color = colors[el.type]||'#888'
- if (el.type==='column') return (
-   <mesh position={[x,ROOM_H/2,z]} castShadow>
-     <boxGeometry args={[el.w/1000,ROOM_H,el.h/1000]} />
+function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
+  const x = el.x/1000, z = el.y/1000
+  const elev = (el.elevation||1200)/1000
+  const rot = (el.rotation||0)*Math.PI/180
+  const colors = { electric:'#FFD700', water:'#4FC3F7', drain:'#90A4AE', gas:'#FF7043', column:'#9E9E9E' }
+  const color = colors[el.type]||'#888'
+  if (el.type==='column') return (
+    <mesh position={[x,roomH/2,z]} castShadow>
+      <boxGeometry args={[el.w/1000,roomH,el.h/1000]} />
+
      <meshStandardMaterial color="#9E9E9E" roughness={0.8} />
    </mesh>
  )
@@ -544,7 +547,8 @@ function OtherElement({ el }) {
 }
 
 export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopThickness = 30 }) {
- const countertopMat = COUNTERTOP_MATERIALS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
+const countertopMat = COUNTERTOP_MATERIALS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
+const ROOM_H = (room?.ceilingHeight || 2800) / 1000
  const wallThickness = 120
  const wallEls  = elements.filter(e => e.type==='window'||e.type==='door')
  const otherEls = elements.filter(e => e.type!=='window'&&e.type!=='door')
@@ -576,13 +580,13 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
          shadow-camera-top={10} shadow-camera-bottom={-10} shadow-bias={-0.0004} shadow-radius={4} />
        <directionalLight position={[cx-span,span,cz-span]} intensity={0.5} color="#c8d8ff" />
        <hemisphereLight skyColor="#fff5e0" groundColor="#c8a060" intensity={0.45} />
-       {lightPositions.map(([lx,lz],i)=><CeilingLight key={i} x={lx} z={lz} />)}
+{lightPositions.map(([lx,lz],i)=><CeilingLight key={i} x={lx} z={lz} roomH={ROOM_H} />)}
        <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
-       {walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} />)}
+{walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} roomH={ROOM_H} />)}
        {wallEls.map(el=>el.type==='window'
          ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
          :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
-       {otherEls.map(el=><OtherElement key={el.id} el={el}/>)}
+{otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness}/>)}
        <ContactShadows position={[cx,0.003,cz]} width={span+4} height={span+4} far={2.5} blur={4} opacity={0.6} color="#1a0a00" />
        <Environment preset="apartment" intensity={0.8} />
