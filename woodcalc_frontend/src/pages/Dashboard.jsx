@@ -71,7 +71,7 @@ function getCards(userType, navigate, isVerified) {
         {
           icon: 'projects', title: 'My Projects',
           description: 'Your saved cabinet configurations and active designs.',
-          cta: 'View projects', ctaAction: () => navigate('/projects'),
+          cta: 'View projects', ctaAction: () => navigate('/customers'),
           accent: '#C8902A',
         },
         {
@@ -99,7 +99,7 @@ function getCards(userType, navigate, isVerified) {
         {
           icon: 'clients', title: 'My Client Projects',
           description: 'All active and completed projects for your clients.',
-          cta: 'View projects', ctaAction: () => navigate('/projects'),
+          cta: 'View projects', ctaAction: () => navigate('/customers'),
           accent: '#C8902A',
         },
         {
