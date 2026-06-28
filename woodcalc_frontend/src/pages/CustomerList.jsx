@@ -19,15 +19,16 @@ export default function CustomerList() {
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
 
-  const fetchCustomers = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch(API + '/api/crm/clients/', { headers: headers() })
-      const data = await res.json()
-      setCustomers(data)
-    } catch {}
-    setLoading(false)
-  }
+const fetchCustomers = async () => {
+  setLoading(true)
+  try {
+    const res = await fetch(API + '/api/crm/clients/', { headers: headers() })
+    if (res.status === 401) { navigate('/login'); return }
+    const data = await res.json()
+    setCustomers(Array.isArray(data) ? data : [])
+  } catch {}
+  setLoading(false)
+}
 
   useEffect(() => { fetchCustomers() }, [])
 
