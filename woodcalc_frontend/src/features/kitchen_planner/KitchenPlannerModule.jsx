@@ -6,6 +6,8 @@ import KitchenPlanner3D from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import ProposalTab from './ProposalTab'
+import ContractTab from './ContractTab'
+
 
 const SCALE = 0.16
 const GRID = 50
@@ -158,6 +160,7 @@ export default function KitchenPlannerModule() {
             ['bom',      '📋 BOM'],
             ['3d',       '🎮 3D'],
             ['proposal', '💰 Proposal'],
+            ['contract', '📝 Contract'],
           ].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               style={{ ...s.tab, ...(tab === id ? s.tabActive : {}) }}>
@@ -527,6 +530,15 @@ export default function KitchenPlannerModule() {
           projectName={projectName}
         />
       )}
+      {tab === 'contract' && (
+        <ContractTab
+          cabinets={cabinets}
+          projectName={projectName}
+          countertopId={countertop}
+          grandTotal={0}
+        />
+      )}
+
     </div>
   )
 }
