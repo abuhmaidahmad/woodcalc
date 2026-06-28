@@ -309,13 +309,20 @@ export default function KitchenPlannerModule() {
             {selCab ? (
               <div>
                 <div style={s.propTitle}>{selCab.label}</div>
-                <div style={s.propSection}>Dimensions</div>
-                {[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
-                  <div key={key} style={{ marginBottom: 10 }}>
-                    <div style={s.propLabel}>{label}</div>
-                    <input type="number" value={selCab[key]} onChange={e => updateCab(key, +e.target.value)} style={s.propInput} />
-                  </div>
-                ))}
+<div style={s.propSection}>Dimensions</div>
+{[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
+  <div key={key} style={{ marginBottom: 10 }}>
+    <div style={s.propLabel}>{label}</div>
+    <input type="number" value={selCab[key]} onChange={e => updateCab(key, +e.target.value)} style={s.propInput} />
+  </div>
+))}
+{(selCab.category === 'wall' || selCab.subtype === 'Shelf' || selCab.subtype === 'Open Shelf' || selCab.category === 'accessories') && (
+  <div style={{ marginBottom: 10 }}>
+    <div style={s.propLabel}>Elevation from floor (mm)</div>
+    <input type="number" value={selCab.elevation || 0} onChange={e => updateCab('elevation', +e.target.value)} style={s.propInput} />
+  </div>
+)}
+
                 <div style={s.propSection}>Material & Style</div>
                 <div style={{ marginBottom: 10 }}>
                   <div style={s.propLabel}>Board Material</div>
