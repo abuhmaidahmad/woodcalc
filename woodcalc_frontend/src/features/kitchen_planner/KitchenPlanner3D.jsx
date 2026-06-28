@@ -296,24 +296,76 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors,
 
 }
 
-function Countertop({ W, D, material, thickness = 0.030 }) {
- const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
- const T = thickness
- return (
-   <mesh position={[0, T / 2, 0.010]} castShadow receiveShadow>
-     <boxGeometry args={[W + 0.040, T, D + 0.060]} />
-     <meshPhysicalMaterial
-       color={mat.color}
-       roughness={mat.roughness}
-       metalness={mat.metalness}
-       clearcoat={0.8}
-       clearcoatRoughness={0.06}
-       envMapIntensity={1.8}
-       reflectivity={0.8}
-     />
-   </mesh>
- )
+function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
+  const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
+  const T = thickness
+  const cutW = W - 0.100  // 100mm border
+  const cutD = 0.500      // 500mm depth fixed
+
+  const ctMat = (
+    <meshPhysicalMaterial
+      color={mat.color}
+      roughness={mat.roughness}
+      metalness={mat.metalness}
+      clearcoat={0.8}
+      clearcoatRoughness={0.06}
+      envMapIntensity={1.8}
+      reflectivity={0.8}
+    />
+  )
+
+  if (!isSink) {
+    return (
+      <mesh position={[0, T / 2, 0.010]} castShadow receiveShadow>
+        <boxGeometry args={[W + 0.040, T, D + 0.060]} />
+        {ctMat}
+      </mesh>
+    )
+  }
+
+  // Sink countertop — 4 pieces around the cutout
+  const totalW = W + 0.040
+  const totalD = D + 0.060
+  const borderW = (totalW - cutW) / 2  // left and right strips
+  const frontD = (totalD - cutD) / 2   // front strip (wider — tap area)
+  const backD = totalD - cutD - frontD  // back strip
+
+  return (
+    <group position={[0, T / 2, 0.010]}>
+      {/* Left strip */}
+      <mesh position={[-(cutW / 2 + borderW / 2), 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[borderW, T, totalD]} />
+        {ctMat}
+      </mesh>
+      {/* Right strip */}
+      <mesh position={[cutW / 2 + borderW / 2, 0, 0]} castShadow receiveShadow>
+        <boxGeometry args={[borderW, T, totalD]} />
+        {ctMat}
+      </mesh>
+      {/* Front strip */}
+      <mesh position={[0, 0, cutD / 2 + frontD / 2]} castShadow receiveShadow>
+        <boxGeometry args={[cutW, T, frontD]} />
+        {ctMat}
+      </mesh>
+      {/* Back strip */}
+      <mesh position={[0, 0, -(cutD / 2 + backD / 2)]} castShadow receiveShadow>
+        <boxGeometry args={[cutW, T, backD]} />
+        {ctMat}
+      </mesh>
+      {/* Sink bowl */}
+      <mesh position={[0, -0.080, 0]}>
+        <boxGeometry args={[cutW - 0.040, 0.160, cutD - 0.040]} />
+        <meshPhysicalMaterial color="#c8c8c8" metalness={0.85} roughness={0.15} clearcoat={1} envMapIntensity={2} />
+      </mesh>
+      {/* Faucet */}
+      <mesh position={[0, 0.040, -(cutD / 2 + frontD * 0.3)]} castShadow>
+        <cylinderGeometry args={[0.012, 0.012, 0.080, 8]} />
+        <meshPhysicalMaterial color="#c0c0c0" metalness={0.95} roughness={0.05} envMapIntensity={3} />
+      </mesh>
+    </group>
+  )
 }
+
 
 function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet }) {
  const doorW = W / numDoors
