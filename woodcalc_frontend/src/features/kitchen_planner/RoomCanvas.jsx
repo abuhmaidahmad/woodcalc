@@ -173,9 +173,7 @@ export default function RoomCanvas({
   const [vw, setVw] = useState(null)
   const [vh, setVh] = useState(null)
 
-  // Refs for always-current viewBox values (avoids stale closures in callbacks)
-  const vxRef = useRef(0)
-  const vyRef = useRef(0)
+  // Refs for always-current viewBox values
   const vwRef = useRef(null)
   const vhRef = useRef(null)
 
@@ -195,46 +193,38 @@ export default function RoomCanvas({
   const cvh = vh ?? H
   const zoom = W / cvw
 
-  // Keep refs in sync with current state every render
-  vxRef.current = vx
-  vyRef.current = vy
+  // Keep refs in sync
   vwRef.current = cvw
   vhRef.current = cvh
 
-  // Convert screen coords to SVG coords — reads from refs, never stale
+  // THE KEY FIX: use browser-native SVG matrix to convert screen → SVG coords
+  // This automatically handles preserveAspectRatio letterboxing, zoom, pan, CSS transforms
   const getSVGPos = useCallback((e) => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
-    const rect = svg.getBoundingClientRect()
-    const _cvw = vwRef.current
-    const _cvh = vhRef.current
-    const _vx = vxRef.current
-    const _vy = vyRef.current
-    const scaleX = _cvw / rect.width
-    const scaleY = _cvh / rect.height
-    return {
-      x: (e.clientX - rect.left) * scaleX + _vx,
-      y: (e.clientY - rect.top) * scaleY + _vy,
-    }
+    const pt = svg.createSVGPoint()
+    pt.x = e.clientX
+    pt.y = e.clientY
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+    return { x: svgP.x, y: svgP.y }
   }, [])
 
-  // Zoom toward a point in screen coords — reads from refs
+  // Zoom toward a point in screen coords
   const zoomAt = useCallback((screenX, screenY, factor) => {
     const svg = svgRef.current
     if (!svg) return
-    const rect = svg.getBoundingClientRect()
+    // Convert zoom center to SVG coords using the matrix
+    const pt = svg.createSVGPoint()
+    pt.x = screenX
+    pt.y = screenY
+    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
     const _cvw = vwRef.current
     const _cvh = vhRef.current
-    const _vx = vxRef.current
-    const _vy = vyRef.current
-    const scaleX = _cvw / rect.width
-    const scaleY = _cvh / rect.height
-    const svgX = (screenX - rect.left) * scaleX + _vx
-    const svgY = (screenY - rect.top) * scaleY + _vy
     const newVw = Math.min(Math.max(_cvw * factor, 50), W * 10)
     const newVh = Math.min(Math.max(_cvh * factor, 50), H * 10)
-    setVx(svgX - (screenX - rect.left) * (newVw / rect.width))
-    setVy(svgY - (screenY - rect.top) * (newVh / rect.height))
+    const rect = svg.getBoundingClientRect()
+    setVx(svgP.x - (screenX - rect.left) * (newVw / rect.width))
+    setVy(svgP.y - (screenY - rect.top) * (newVh / rect.height))
     setVw(newVw)
     setVh(newVh)
   }, [W, H])
@@ -370,7 +360,6 @@ export default function RoomCanvas({
     }
   }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold])
 
-  // Pan: store screen coords in panLastRef (not SVG coords)
   const handleMouseDown = useCallback((e) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       e.preventDefault()
@@ -380,7 +369,7 @@ export default function RoomCanvas({
   }, [])
 
   const handleMouseMove = useCallback((e) => {
-    // Pan using screen coords delta converted to SVG space
+    // Pan using screen coord delta
     if (isPanningRef.current && panLastRef.current) {
       const _cvw = vwRef.current
       const _cvh = vhRef.current
@@ -639,7 +628,7 @@ export default function RoomCanvas({
           width="100%"
           height="100%"
           viewBox={viewBox}
-          preserveAspectRatio="xMidYMid meet"
+          preserveAspectRatio="xMinYMin meet"
           style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: isPanningRef.current ? 'grabbing' : mode === 'draw' ? 'crosshair' : 'default', display: 'block' }}
           onClick={handleCanvasClick}
           onMouseDown={handleMouseDown}
