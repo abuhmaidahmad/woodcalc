@@ -349,17 +349,22 @@ export default function KitchenPlannerModule() {
                     updateCab('frontMaterialName', mat.name)
                   }}
                 />
-                <div style={s.propSection}>Carcass Material</div>
-                <MaterialLibrary
-                  target="carcass"
-                  selectedCode={selCab.carcassMaterialCode}
-                  onSelect={mat => {
-                    updateCab('carcassColor', mat.hex)
-                    updateCab('carcassMaterial', mat.finish)
-                    updateCab('carcassMaterialCode', mat.code)
-                    updateCab('carcassMaterialName', mat.name)
-                  }}
-                />
+               {selCab.subtype !== 'Shelf' && selCab.subtype !== 'Open Shelf' && (
+  <>
+    <div style={s.propSection}>Carcass Material</div>
+    <MaterialLibrary
+      target="carcass"
+      selectedCode={selCab.carcassMaterialCode}
+      onSelect={mat => {
+        updateCab('carcassColor', mat.hex)
+        updateCab('carcassMaterial', mat.finish)
+        updateCab('carcassMaterialCode', mat.code)
+        updateCab('carcassMaterialName', mat.name)
+      }}
+    />
+  </>
+)}
+
                 <div style={{ marginTop: 8 }}>
                   <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete cabinet</button>
                 </div>

@@ -237,7 +237,7 @@ function GolaProfile({ W, D, golaHex, golaColor }) {
  )
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall }) {
  const matProps = getMaterialProps(frontMaterial)
  const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
  // Wall cabinets never get Gola — use finger pull instead
@@ -281,17 +281,18 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors,
    }
  }
 
- return (
-   <>
-     {doors}
-     {/* Gola only for base/tall cabinets */}
-     {effectiveDoorStyle === 'Gola' && !isWallCabinet && (
-       <group position={[0, H / 2, 0]}>
-         <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
-       </group>
-     )}
-   </>
- )
+  return (
+    <>
+      {doors}
+      {/* Gola at bottom for tall cabinets, at top for base cabinets */}
+      {effectiveDoorStyle === 'Gola' && !isWallCabinet && (
+        <group position={[0, isTall ? -H / 2 : H / 2, 0]}>
+          <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
+        </group>
+      )}
+    </>
+  )
+
 }
 
 function Countertop({ W, D, material, thickness = 0.030 }) {
@@ -400,7 +401,7 @@ function Cabinet({ cab, countertopMat, countertopThickness = 30 }) {
  const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
  const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
  const isGlass   = cab.subtype === 'Glass Door'
- const showLegs  = isBase && (cab.elevation || 0) === 0
+const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
  const numDoors = cab.width >= 600 ? 2 : 1
  const doorStyle = cab.doorStyle || 'Handle'
