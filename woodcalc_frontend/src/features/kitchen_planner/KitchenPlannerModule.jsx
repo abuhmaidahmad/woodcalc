@@ -253,24 +253,76 @@ export default function KitchenPlannerModule() {
               walls={walls} setWalls={setWalls} />
           </div>
           <div style={s.rightPanel}>
-            {selEl ? (
-              <div>
-                <div style={s.propTitle}>{selEl.icon} {selEl.label}</div>
-                <div style={s.propSection}>Dimensions</div>
-                <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Width (mm)</div><input type="number" value={selEl.w} onChange={e => updateEl('w', +e.target.value)} style={s.propInput} /></div>
-                <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Height (mm)</div><input type="number" value={selEl.h} onChange={e => updateEl('h', +e.target.value)} style={s.propInput} /></div>
-                <div style={s.propSection}>Position</div>
-                <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Elevation from floor (mm)</div><input type="number" value={selEl.elevation || 0} onChange={e => updateEl('elevation', +e.target.value)} style={s.propInput} /></div>
-                {selEl.embeddedInWall && (
-                  <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Embedded in</div>
-                    <div style={{ fontSize: 12, color: '#2AC87A', fontWeight: 600, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6 }}>✓ Wall {(selEl.wallIndex || 0) + 1}</div>
-                  </div>
-                )}
-                {selEl.type !== 'window' && selEl.type !== 'door' && (
-                  <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Rotation (°)</div><input type="number" min={0} max={359} value={selEl.rotation || 0} onChange={e => updateEl('rotation', (+e.target.value + 360) % 360)} style={s.propInput} /></div>
-                )}
-                <button onClick={() => { setElements(p => p.filter(e => e.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete</button>
-              </div>
+        {selEl ? (
+  <div>
+    <div style={s.propTitle}>{selEl.icon} {selEl.label}</div>
+
+    <div style={s.propSection}>Dimensions</div>
+    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Width (mm)</div><input type="number" value={selEl.w} onChange={e => updateEl('w', +e.target.value)} style={s.propInput} /></div>
+    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Height (mm)</div><input type="number" value={selEl.h} onChange={e => updateEl('h', +e.target.value)} style={s.propInput} /></div>
+
+    <div style={s.propSection}>Position</div>
+
+    {/* Surface toggle */}
+    <div style={{ marginBottom: 10 }}>
+      <div style={s.propLabel}>Surface</div>
+      <div style={{ display: 'flex', gap: 6 }}>
+        {['wall', 'floor'].map(surface => (
+          <button key={surface} onClick={() => updateEl('surface', surface)}
+            style={{ flex: 1, padding: '6px', border: `1.5px solid ${(selEl.surface || 'wall') === surface ? ACCENT : '#E0DAD4'}`,
+              borderRadius: 6, background: (selEl.surface || 'wall') === surface ? ACCENT+'18' : '#fff',
+              color: (selEl.surface || 'wall') === surface ? ACCENT : '#666',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>
+            {surface === 'wall' ? '🧱 Wall' : '⬛ Floor'}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    {/* X position */}
+    <div style={{ marginBottom: 10 }}>
+      <div style={s.propLabel}>Distance from left (mm)</div>
+      <input type="number" value={Math.round((selEl.x || 0) / SCALE)}
+        onChange={e => updateEl('x', +e.target.value * SCALE)}
+        style={s.propInput} />
+    </div>
+
+    {/* Y position */}
+    <div style={{ marginBottom: 10 }}>
+      <div style={s.propLabel}>Distance from top (mm)</div>
+      <input type="number" value={Math.round((selEl.y || 0) / SCALE)}
+        onChange={e => updateEl('y', +e.target.value * SCALE)}
+        style={s.propInput} />
+    </div>
+
+    {/* Elevation — wall elements only */}
+    {(selEl.surface || 'wall') === 'wall' && (
+      <div style={{ marginBottom: 10 }}>
+        <div style={s.propLabel}>Elevation from floor (mm)</div>
+        <input type="number" value={selEl.elevation || 0} onChange={e => updateEl('elevation', +e.target.value)} style={s.propInput} />
+      </div>
+    )}
+
+    {selEl.embeddedInWall && (
+      <div style={{ marginBottom: 10 }}>
+        <div style={s.propLabel}>Embedded in</div>
+        <div style={{ fontSize: 12, color: '#2AC87A', fontWeight: 600, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6 }}>
+          ✓ Wall {(selEl.wallIndex || 0) + 1}
+        </div>
+      </div>
+    )}
+
+    {selEl.type !== 'window' && selEl.type !== 'door' && (
+      <div style={{ marginBottom: 10 }}>
+        <div style={s.propLabel}>Rotation (°)</div>
+        <input type="number" min={0} max={359} value={selEl.rotation || 0}
+          onChange={e => updateEl('rotation', (+e.target.value + 360) % 360)} style={s.propInput} />
+      </div>
+    )}
+
+    <button onClick={() => { setElements(p => p.filter(e => e.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete</button>
+  </div>
+
             ) : (
               <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>👆</div>Click any element to edit</div>
             )}
