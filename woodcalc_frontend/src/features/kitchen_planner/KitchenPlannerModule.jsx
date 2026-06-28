@@ -69,6 +69,7 @@ export default function KitchenPlannerModule() {
   const [projectDefaults, setProjectDefaults] = useState(null)
   const [countertop, setCountertop]           = useState('sil_white_storm')
   const [countertopThickness, setCountertopThickness] = useState(30)
+  const [grandTotal, setGrandTotal] = useState(0)
 
 
   const addCabinet = useCallback((t) => {
@@ -523,21 +524,23 @@ export default function KitchenPlannerModule() {
         </div>
       )}
 
-      {tab === 'proposal' && (
-        <ProposalTab
-          cabinets={cabinets}
-          countertopId={countertop}
-          projectName={projectName}
-        />
-      )}
-      {tab === 'contract' && (
-        <ContractTab
-          cabinets={cabinets}
-          projectName={projectName}
-          countertopId={countertop}
-          grandTotal={0}
-        />
-      )}
+{tab === 'proposal' && (
+  <ProposalTab
+    cabinets={cabinets}
+    countertopId={countertop}
+    projectName={projectName}
+    onGrandTotalChange={setGrandTotal}
+  />
+)}
+
+{tab === 'contract' && (
+  <ContractTab
+    cabinets={cabinets}
+    projectName={projectName}
+    countertopId={countertop}
+    grandTotal={grandTotal}
+  />
+)}
 
     </div>
   )

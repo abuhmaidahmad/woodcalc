@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { calculateCabinet } from './formulaEngine'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 
@@ -142,7 +142,7 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopId, projectName }) {
+export default function ProposalTab({ cabinets, countertopId, projectName, onGrandTotalChange }) {
   const [prices, setPrices]           = useState(DEFAULT_PRICES)
   const [margin, setMargin]           = useState(30)
   const [usdRate, setUsdRate]         = useState(USD_RATE)
@@ -175,6 +175,10 @@ export default function ProposalTab({ cabinets, countertopId, projectName }) {
   const vatAmount        = afterMargin * 0.16
   const grandTotal       = afterMargin + vatAmount
   const grandTotalUSD    = grandTotal / usdRate
+  useEffect(() => {
+  if (onGrandTotalChange) onGrandTotalChange(grandTotal)
+}, [grandTotal])
+
 
   const fmt = (n) => n.toFixed(2)
   const fmtC = (n) => currency === 'JD' ? `${fmt(n)} JD` : `$${fmt(n / usdRate)}`
