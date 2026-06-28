@@ -58,7 +58,7 @@ function findWallSnap(px, py, walls, wallThickness, scale, threshold) {
   return best
 }
 
-function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm }) {
+function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm }) {
   const { x1, y1, x2, y2 } = wall
   const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
@@ -95,10 +95,11 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
               style={{ width: '100%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
           </foreignObject>
         ) : (
-          <text x={0} y={3} textAnchor="middle" fontSize={9}
-            fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
-            {innerLenMm}mm
-          </text>
+   <text x={0} y={3} textAnchor="middle" fontSize={9}
+  fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
+  {winding !== 0 ? innerLenMm : outerLenMm}mm
+</text>
+
         )}
       </g>
       {selected && [{ x: x1, y: y1, ep: 0 }, { x: x2, y: y2, ep: 1 }].map(({ x, y, ep }) => (
@@ -642,10 +643,12 @@ export default function RoomCanvas({
             <text x={W/2} y={-10} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600}>{room.width}mm</text>
             <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
           </>}
-          {walls.map((w, i) => (
-            <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
-              thickness={wallPx} scale={scale} winding={winding}
-              innerLenMm={getInnerLength(w, wallThickness, scale)}
+    {walls.map((w, i) => (
+  <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
+    thickness={wallPx} scale={scale} winding={winding}
+    innerLenMm={getInnerLength(w, wallThickness, scale)}
+    outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
+
               onSelect={() => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
               onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
