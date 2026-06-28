@@ -282,11 +282,13 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, numDoors,
   )
 }
 
-function Countertop({ W, D, material }) {
+function Countertop({ W, D, material, thickness = 0.030 }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
+  const T = thickness
   return (
-    <mesh position={[0, 0.019, 0.010]} castShadow receiveShadow>
-      <boxGeometry args={[W + 0.040, 0.038, D + 0.060]} />
+    <mesh position={[0, T / 2, 0.010]} castShadow receiveShadow>
+      <boxGeometry args={[W + 0.040, T, D + 0.060]} />
+
       <meshPhysicalMaterial
         color={mat.color}
         roughness={mat.roughness}
@@ -300,7 +302,7 @@ function Countertop({ W, D, material }) {
   )
 }
 
-function Cabinet({ cab, countertopMat }) {
+function Cabinet({ cab, countertopMat, countertopThickness = 30 }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
   const D = cab.depth / 1000
@@ -339,11 +341,12 @@ function Cabinet({ cab, countertopMat }) {
         matProps={carcassMatProps}
         envMapIntensity={0.5}
       />
-      {isBase && (
-        <group position={[0, H, 0]}>
-          <Countertop W={W} D={D} material={countertopMat} />
-        </group>
-      )}
+{isBase && (
+  <group position={[0, H, 0]}>
+    <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} />
+  </group>
+)}
+
       <group position={[0, H/2, 0]}>
         <CabinetDoors W={W} H={H} D={D}
           doorStyle={doorStyle}
@@ -434,7 +437,7 @@ function OtherElement({ el }) {
   )
 }
 
-export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm' }) {
+export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopThickness = 30 }) {
   const countertopMat = COUNTERTOP_MATERIALS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const wallThickness = 120
   const wallEls  = elements.filter(e => e.type==='window'||e.type==='door')
@@ -474,7 +477,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
           ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el}/>)}
-        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat}/>)}
+{cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness}/>)}
         <ContactShadows position={[cx,0.003,cz]} width={span+4} height={span+4} far={2.5} blur={4} opacity={0.6} color="#1a0a00" />
         <Environment preset="apartment" intensity={0.8} />
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />

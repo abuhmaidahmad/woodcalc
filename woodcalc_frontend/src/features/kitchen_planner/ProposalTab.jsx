@@ -148,7 +148,6 @@ export default function ProposalTab({ cabinets, countertopId, projectName }) {
   const [usdRate, setUsdRate]         = useState(USD_RATE)
   const [extras, setExtras]           = useState([
     { id: 1, label: 'Countertop (installed)', qty: 3, unitPrice: prices.countertop_lm },
-    { id: 2, label: 'Electrical points',      qty: 2, unitPrice: prices.electric_point },
     { id: 3, label: 'Delivery',               qty: 1, unitPrice: prices.delivery },
     { id: 4, label: 'Installation',           qty: cabinets.length || 1, unitPrice: prices.installation_cab },
   ])

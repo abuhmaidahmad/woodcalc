@@ -66,6 +66,8 @@ export default function KitchenPlannerModule() {
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
   const [countertop, setCountertop]           = useState('sil_white_storm')
+  const [countertopThickness, setCountertopThickness] = useState(30)
+
 
   const addCabinet = useCallback((t) => {
     const cab = {
@@ -216,6 +218,25 @@ export default function KitchenPlannerModule() {
               <div style={s.panelLabel}>Countertop</div>
               <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
             </div>
+            <div style={s.panelSection}>
+  <div style={s.panelLabel}>Countertop</div>
+  <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
+</div>
+
+<div style={s.panelSection}>
+  <div style={s.panelLabel}>Countertop Thickness</div>
+  {[16, 20, 30].map(t => (
+    <div key={t} onClick={() => setCountertopThickness(t)}
+      style={{ display: 'inline-block', marginRight: 6, marginBottom: 6, padding: '5px 10px',
+        borderRadius: 6, border: `1.5px solid ${countertopThickness === t ? ACCENT : '#E0DAD4'}`,
+        background: countertopThickness === t ? ACCENT+'18' : '#fff',
+        color: countertopThickness === t ? ACCENT : '#555',
+        fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+      {t}mm
+    </div>
+  ))}
+</div>
+
             <div style={s.panelSection}>
               <div style={s.panelLabel}>View Options</div>
               <label style={s.toggle}><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Show grid</label>
