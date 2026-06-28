@@ -1,18 +1,17 @@
 import React, { useState, useCallback } from 'react'
-import MaterialLibrary, { MATERIAL_DB } from './MaterialLibrary'
+import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './CabinetCatalog'
-
+import ProposalTab from './ProposalTab'
 
 const SCALE = 0.16
 const GRID = 50
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const LIGHT = '#F7F4F0'
-
 
 const ROOM_ELEMENTS = [
   { type: 'window',   label: 'Window',         icon: '🪟', color: '#87CEEB', w: 900,  h: 1200 },
@@ -47,27 +46,26 @@ function aggregateBOM(cabinets) {
 }
 
 export default function KitchenPlannerModule() {
-  const [projectName, setProjectName]       = useState('Untitled Kitchen')
-  const [editingName, setEditingName]       = useState(false)
-  const [cabinets, setCabinets]             = useState([])
-  const [elements, setElements]             = useState([])
-  const [selected, setSelected]             = useState(null)
-  const [selectedType, setSelectedType]     = useState(null)
-  const [room, setRoom]                     = useState({ width: 4000, depth: 3000 })
-  const [tab, setTab]                       = useState('room')
-  const [showGrid, setShowGrid]             = useState(true)
-  const [showDimensions, setShowDimensions] = useState(true)
-  const [sending, setSending]               = useState(false)
-  const [sentMsg, setSentMsg]               = useState('')
-  const [saving, setSaving]                 = useState(false)
-  const [savedMsg, setSavedMsg]             = useState('')
-  const [wallThickness, setWallThickness]   = useState(120)
-  const [walls, setWalls]                   = useState([])
-  const [floorTile, setFloorTile]           = useState('white_large')
-  const [baseHeight, setBaseHeight]         = useState(null)
+  const [projectName, setProjectName]         = useState('Untitled Kitchen')
+  const [editingName, setEditingName]         = useState(false)
+  const [cabinets, setCabinets]               = useState([])
+  const [elements, setElements]               = useState([])
+  const [selected, setSelected]               = useState(null)
+  const [selectedType, setSelectedType]       = useState(null)
+  const [room, setRoom]                       = useState({ width: 4000, depth: 3000 })
+  const [tab, setTab]                         = useState('room')
+  const [showGrid, setShowGrid]               = useState(true)
+  const [showDimensions, setShowDimensions]   = useState(true)
+  const [sending, setSending]                 = useState(false)
+  const [sentMsg, setSentMsg]                 = useState('')
+  const [saving, setSaving]                   = useState(false)
+  const [savedMsg, setSavedMsg]               = useState('')
+  const [wallThickness, setWallThickness]     = useState(120)
+  const [walls, setWalls]                     = useState([])
+  const [floorTile, setFloorTile]             = useState('white_large')
+  const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
-  const [countertop, setCountertop] = useState('sil_white_storm')
-
+  const [countertop, setCountertop]           = useState('sil_white_storm')
 
   const addCabinet = useCallback((t) => {
     const cab = {
@@ -75,12 +73,12 @@ export default function KitchenPlannerModule() {
       id: Date.now(),
       x: snap(200), y: snap(200),
       material: 'Particleboard',
-      doorStyle: t.doorStyle || projectDefaults?.doorStyle || 'Handle',
-    carcassColor: t.carcassColor || projectDefaults?.carcassColor || '#F5F0E8',
-    frontColor: t.frontColor || projectDefaults?.frontColor || '#FFFFFF',
-    frontMaterial: t.frontMaterial || projectDefaults?.frontFinish || 'matt',
-    zonePreset: null,
-  }
+      doorStyle:    t.doorStyle    || projectDefaults?.doorStyle    || 'Handle',
+      carcassColor: t.carcassColor || projectDefaults?.carcassColor || '#F5F0E8',
+      frontColor:   t.frontColor   || projectDefaults?.frontColor   || '#FFFFFF',
+      frontMaterial:t.frontMaterial|| projectDefaults?.frontFinish  || 'matt',
+      zonePreset: null,
+    }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
@@ -88,7 +86,9 @@ export default function KitchenPlannerModule() {
 
   const addElement = (t) => {
     const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
-    setElements(p => [...p, el]); setSelected(el.id); setSelectedType('element')
+    setElements(p => [...p, el])
+    setSelected(el.id)
+    setSelectedType('element')
   }
 
   const updateCab = (key, val) => setCabinets(p => p.map(c => c.id === selected ? { ...c, [key]: val } : c))
@@ -150,8 +150,17 @@ export default function KitchenPlannerModule() {
           )}
         </div>
         <div style={s.tabs}>
-          {[['room', '📐 Room'], ['planner', '🗄 Cabinets'], ['bom', '📋 BOM'], ['3d', '🎮 3D']].map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)} style={{ ...s.tab, ...(tab === id ? s.tabActive : {}) }}>{label}</button>
+          {[
+            ['room',     '📐 Room'],
+            ['planner',  '🗄 Cabinets'],
+            ['bom',      '📋 BOM'],
+            ['3d',       '🎮 3D'],
+            ['proposal', '💰 Proposal'],
+          ].map(([id, label]) => (
+            <button key={id} onClick={() => setTab(id)}
+              style={{ ...s.tab, ...(tab === id ? s.tabActive : {}) }}>
+              {label}
+            </button>
           ))}
         </div>
         <div style={s.topRight}>
@@ -209,7 +218,6 @@ export default function KitchenPlannerModule() {
             </div>
             <div style={s.panelSection}>
               <div style={s.panelLabel}>View Options</div>
-
               <label style={s.toggle}><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Show grid</label>
               <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />Show dimensions</label>
             </div>
@@ -253,21 +261,20 @@ export default function KitchenPlannerModule() {
             <CabinetCatalog
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
-onSetupComplete={(setup) => {
-  setBaseHeight(setup.baseHeight)
-  setProjectDefaults({
-    doorStyle: setup.doorStyle,
-    golaColor: setup.golaColor,
-    handlePos: setup.handlePos,
-    carcassColor: setup.carcassColor,
-    frontColor: setup.frontColor,
-    frontFinish: setup.frontFinish,
-  })
-}}
+              onSetupComplete={(setup) => {
+                setBaseHeight(setup.baseHeight)
+                setProjectDefaults({
+                  doorStyle:    setup.doorStyle,
+                  golaColor:    setup.golaColor,
+                  handlePos:    setup.handlePos,
+                  carcassColor: setup.carcassColor,
+                  frontColor:   setup.frontColor,
+                  frontFinish:  setup.frontFinish,
+                })
+              }}
               onAddCabinet={addCabinet}
             />
           </div>
-
           <div style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
@@ -277,13 +284,10 @@ onSetupComplete={(setup) => {
               readOnly={false}
               hideToolbar={true} />
           </div>
-
-          {/* RIGHT PANEL — wider for material library */}
           <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
               <div>
                 <div style={s.propTitle}>{selCab.label}</div>
-
                 <div style={s.propSection}>Dimensions</div>
                 {[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
                   <div key={key} style={{ marginBottom: 10 }}>
@@ -291,7 +295,6 @@ onSetupComplete={(setup) => {
                     <input type="number" value={selCab[key]} onChange={e => updateCab(key, +e.target.value)} style={s.propInput} />
                   </div>
                 ))}
-
                 <div style={s.propSection}>Material & Style</div>
                 <div style={{ marginBottom: 10 }}>
                   <div style={s.propLabel}>Board Material</div>
@@ -305,10 +308,8 @@ onSetupComplete={(setup) => {
                     {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
-
                 <div style={s.propSection}>Interior Layout</div>
                 <ZonePresetPicker height={selCab.height} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
-
                 <div style={s.propSection}>Front Material</div>
                 <MaterialLibrary
                   target="front"
@@ -320,7 +321,6 @@ onSetupComplete={(setup) => {
                     updateCab('frontMaterialName', mat.name)
                   }}
                 />
-
                 <div style={s.propSection}>Carcass Material</div>
                 <MaterialLibrary
                   target="carcass"
@@ -332,7 +332,6 @@ onSetupComplete={(setup) => {
                     updateCab('carcassMaterialName', mat.name)
                   }}
                 />
-
                 <div style={{ marginTop: 8 }}>
                   <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete cabinet</button>
                 </div>
@@ -407,9 +406,17 @@ onSetupComplete={(setup) => {
 
       {tab === '3d' && (
         <div style={{ flex: 1 }}>
-<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} />
+          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} />
           {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
         </div>
+      )}
+
+      {tab === 'proposal' && (
+        <ProposalTab
+          cabinets={cabinets}
+          countertopId={countertop}
+          projectName={projectName}
+        />
       )}
     </div>
   )
@@ -430,7 +437,7 @@ const s = {
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
   rightPanel:  { width: 280, background: '#fff', borderLeft: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
-canvasWrap: { flex: 1, overflow: 'hidden', background: '#E8E4DF', display: 'flex', padding: 16 },
+  canvasWrap:  { flex: 1, overflow: 'hidden', background: '#E8E4DF', display: 'flex', padding: 16 },
   panelSection:{ marginBottom: 20 },
   panelLabel:  { fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 },
   dimLabel:    { fontSize: 12, color: '#555', display: 'flex', flexDirection: 'column', gap: 3, marginBottom: 8 },
@@ -447,7 +454,6 @@ canvasWrap: { flex: 1, overflow: 'hidden', background: '#E8E4DF', display: 'flex
   deleteBtn:   { width: '100%', padding: '8px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, marginTop: 4 },
   emptyProp:   { color: '#bbb', fontSize: 12, textAlign: 'center', paddingTop: 40, lineHeight: 1.6 },
   emptyState:  { textAlign: 'center', paddingTop: 80, color: '#bbb' },
-  dimTag:      { position: 'absolute', fontSize: 10, color: '#888', fontWeight: 600, background: '#fff', padding: '1px 5px', borderRadius: 3, pointerEvents: 'none', whiteSpace: 'nowrap' },
   erpBtn:      { padding: '10px 20px', background: '#2AC87A', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 },
   toast:       { color: '#fff', padding: '10px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, marginBottom: 16 },
 }
