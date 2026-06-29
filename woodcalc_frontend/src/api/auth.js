@@ -63,3 +63,33 @@ export function logout() {
   localStorage.removeItem('refresh_token');
   localStorage.removeItem('user');
 }
+
+export async function refreshAccessToken() {
+  const refresh = localStorage.getItem('refresh_token')
+  if (!refresh) return null
+  const res = await fetch(`${BASE_URL}/api/auth/refresh/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh }),
+  })
+  if (res.ok) {
+    const data = await res.json()
+    localStorage.setItem('access_token', data.access)
+    return data.access
+  }
+  return null
+}
+
+export async function authFetch(url, options = {}) {
+  const token = localStorage.getItem('access_token')
+  const headers = { 'Content-Type': 'application/json', ...options.headers, 'Authorization': 'Bearer ' + token }
+  let res = await fetch(url, { ...options, headers })
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken()
+    if (newToken) {
+      headers['Authorization'] = 'Bearer ' + newToken
+      res = await fetch(url, { ...options, headers })
+    }
+  }
+  return res
+}
