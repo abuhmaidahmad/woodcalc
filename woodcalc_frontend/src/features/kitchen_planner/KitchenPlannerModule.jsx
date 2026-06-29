@@ -338,7 +338,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults, grandTotal }
+      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { doorStyle: projectDefaults.doorStyle, carcassColor: projectDefaults.carcassColor, frontColor: projectDefaults.frontColor } : null, grandTotal }
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
