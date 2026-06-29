@@ -120,7 +120,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       } else {
         setSavedMsg('✗ No room linked')
       }
-    } catch { setSavedMsg('✗ No connection') }
+    } catch(err) { console.error("Save error:", err); setSavedMsg('✗ No connection') }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
   }
