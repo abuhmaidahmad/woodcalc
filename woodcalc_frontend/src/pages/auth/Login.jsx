@@ -13,13 +13,17 @@ export default function Login() {
     setLoading(true);
     setError('');
     const res = await loginUser(email, password);
-    setLoading(false);
     if (res.access) {
-      saveSession({ access: res.access, refresh: res.refresh }, res.user || {});
+      const userRes = await fetch('https://woodcalc-production.up.railway.app/api/auth/me/', {
+        headers: { 'Authorization': 'Bearer ' + res.access, 'Content-Type': 'application/json' }
+      });
+      const userData = await userRes.json();
+      saveSession({ access: res.access, refresh: res.refresh }, userData);
       navigate('/dashboard');
     } else {
       setError('Invalid email or password.');
     }
+    setLoading(false);
   };
 
   return (
