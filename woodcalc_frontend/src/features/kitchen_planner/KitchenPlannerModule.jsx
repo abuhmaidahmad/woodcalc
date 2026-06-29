@@ -343,6 +343,20 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
           body: JSON.stringify({ planner_data: plannerData, grand_total: grandTotal })
         })
+        if (res.ok && projectId) {
+          // fetch all rooms for this project and sum grand totals
+          const roomsRes = await fetch(API + `/api/crm/rooms/?project=${projectId}`, {
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') }
+          })
+          const roomsData = await roomsRes.json()
+          const rooms = Array.isArray(roomsData) ? roomsData : (roomsData.results || [])
+          const totalValue = rooms.reduce((s, r) => s + parseFloat(r.grand_total || 0), 0) + grandTotal
+          await fetch(API + `/api/crm/projects/${projectId}/`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
+            body: JSON.stringify({ total_value: totalValue.toFixed(2) })
+          })
+        }
         setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
       } else {
         setSavedMsg('✗ No room linked')
