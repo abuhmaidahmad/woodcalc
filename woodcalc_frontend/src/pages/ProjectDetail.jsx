@@ -40,7 +40,7 @@ export default function ProjectDetail() {
         fetch(API + `/api/crm/rooms/?project=${id}`, { headers: headers() }),
         fetch(API + `/api/crm/payments/?project=${id}`, { headers: headers() }),
       ])
-      setProject(await pRes.json())
+      const pd = await pRes.json(); setProject({...pd, total_value: parseFloat(pd.total_value || 0), created_at: pd.created_at || new Date().toISOString()})
       setRooms(await rRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
       setPayments(await pyRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
     } catch {}
