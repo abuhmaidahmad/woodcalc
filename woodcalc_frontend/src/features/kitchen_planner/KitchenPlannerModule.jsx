@@ -341,7 +341,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
-          body: JSON.stringify({ planner_data: plannerData, grand_total: grandTotal })
+          body: JSON.stringify({ planner_data: plannerData, ...(grandTotal > 0 ? { grand_total: grandTotal } : {}) })
         })
         if (res.ok && projectId) {
           // fetch all rooms for this project and sum grand totals
