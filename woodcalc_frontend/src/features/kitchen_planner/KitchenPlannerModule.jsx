@@ -348,7 +348,10 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
           const roomsRes = await authFetch(API + `/api/crm/rooms/?project=${projectId}`, {})
           const roomsData = await roomsRes.json()
           const rooms = Array.isArray(roomsData) ? roomsData : (roomsData.results || [])
-          const totalValue = rooms.reduce((s, r) => s + parseFloat(r.grand_total || 0), 0) + grandTotal
+          // sum all rooms except current one, then add current grandTotal
+          const totalValue = rooms
+            .filter(r => String(r.id) !== String(roomId))
+            .reduce((s, r) => s + parseFloat(r.grand_total || 0), 0) + grandTotal
           await authFetch(API + `/api/crm/projects/${projectId}/`, {
             method: 'PATCH',
             body: JSON.stringify({ total_value: totalValue.toFixed(2) })
