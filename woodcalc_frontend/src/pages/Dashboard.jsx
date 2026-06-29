@@ -125,22 +125,34 @@ function getCards(userType, navigate, isVerified) {
     case 'manufacturer':
       return [
         {
+          icon: 'clients', title: 'Customers',
+          description: 'Manage your clients, projects, rooms and payments.',
+          cta: 'View customers', ctaAction: () => navigate('/customers'),
+          accent: '#C8902A',
+        },
+        {
+          icon: 'design', title: 'Kitchen Planner',
+          description: 'Design kitchens and generate proposals for clients.',
+          cta: 'Open planner', ctaAction: () => navigate('/kitchen-planner'),
+          accent: '#2AC87A',
+        },
+        {
           icon: 'incoming', title: 'Incoming Orders',
           description: 'New cabinet orders waiting for your confirmation.',
           cta: 'View orders', ctaAction: () => navigate('/orders'),
-          accent: '#C8902A',
+          accent: '#2A7AC8',
         },
         {
           icon: 'production', title: 'Production Board',
           description: 'Track active production jobs and station progress.',
           cta: 'Open board', ctaAction: () => navigate('/production'),
-          accent: '#2A7AC8',
+          accent: '#8A2AC8',
         },
         {
           icon: 'revenue', title: 'Revenue',
           description: 'Monthly earnings and payment summaries.',
           cta: 'View revenue', ctaAction: () => navigate('/revenue'),
-          accent: '#2AC87A',
+          accent: '#2A7AC8',
         },
         {
           icon: 'verify',
