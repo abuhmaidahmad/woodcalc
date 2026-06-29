@@ -73,6 +73,16 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   const [grandTotal, setGrandTotal] = useState(0)
 
 
+  // Restore saved data on mount
+  React.useEffect(() => {
+    if (initialData && Object.keys(initialData).length > 0) {
+      if (initialData.walls) setWalls(initialData.walls)
+      if (initialData.elements) setElements(initialData.elements)
+      if (initialData.cabinets) setCabinets(initialData.cabinets)
+      if (initialData.projectName) setProjectName(initialData.projectName)
+    }
+  }, [initialData])
+
   const addCabinet = useCallback((t) => {
     const cab = {
       ...t,
