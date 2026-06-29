@@ -25,7 +25,7 @@ const fetchCustomers = async () => {
     const res = await fetch(API + '/api/crm/clients/', { headers: headers() })
     if (res.status === 401) { navigate('/login'); return }
     const data = await res.json()
-    setCustomers(Array.isArray(data) ? data : [])
+setCustomers(Array.isArray(data) ? data : (data.results || []))
   } catch {}
   setLoading(false)
 }
