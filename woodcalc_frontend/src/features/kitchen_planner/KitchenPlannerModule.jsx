@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react'
+import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -338,22 +339,18 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     try {
       const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults }
       if (roomId) {
-        const res = await fetch(API + `/api/crm/rooms/${roomId}/`, {
+        const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
           body: JSON.stringify({ planner_data: plannerData, grand_total: grandTotal })
         })
         if (res.ok && projectId) {
           // fetch all rooms for this project and sum grand totals
-          const roomsRes = await fetch(API + `/api/crm/rooms/?project=${projectId}`, {
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') }
-          })
+          const roomsRes = await authFetch(API + `/api/crm/rooms/?project=${projectId}`, {})
           const roomsData = await roomsRes.json()
           const rooms = Array.isArray(roomsData) ? roomsData : (roomsData.results || [])
           const totalValue = rooms.reduce((s, r) => s + parseFloat(r.grand_total || 0), 0) + grandTotal
-          await fetch(API + `/api/crm/projects/${projectId}/`, {
+          await authFetch(API + `/api/crm/projects/${projectId}/`, {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
             body: JSON.stringify({ total_value: totalValue.toFixed(2) })
           })
         }
