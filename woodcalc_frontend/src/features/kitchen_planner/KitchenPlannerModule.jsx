@@ -48,6 +48,7 @@ function aggregateBOM(cabinets) {
 }
 
 export default function KitchenPlannerModule({ roomId, roomName, roomType, projectId, initialData, onBack } = {}) {
+  window.__roomId = roomId;
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
