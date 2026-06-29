@@ -80,6 +80,8 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       if (initialData.elements) setElements(initialData.elements)
       if (initialData.cabinets) setCabinets(initialData.cabinets)
       if (initialData.projectName) setProjectName(initialData.projectName)
+      if (initialData.baseHeight) setBaseHeight(initialData.baseHeight)
+      if (initialData.projectDefaults) setProjectDefaults(initialData.projectDefaults)
     }
   }, [initialData])
 
