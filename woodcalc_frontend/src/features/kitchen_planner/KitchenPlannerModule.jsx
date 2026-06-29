@@ -47,7 +47,7 @@ function aggregateBOM(cabinets) {
   return totals
 }
 
-export default function KitchenPlannerModule() {
+export default function KitchenPlannerModule(props) {
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
@@ -107,12 +107,17 @@ export default function KitchenPlannerModule() {
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const res = await fetch(API + '/api/manufacturing/work-orders/', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
-        body: JSON.stringify({ order_number: 'KP-' + Date.now(), product_name: projectName, customer_name: 'Kitchen Planner', quantity: cabinets.length, status: 'DRAFT' })
-      })
-      setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
+      const plannerData = { walls, elements, cabinets, projectSetup, projectName }
+      if (props.roomId) {
+        const res = await fetch(API + `/api/crm/rooms/${props.roomId}/`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
+          body: JSON.stringify({ planner_data: plannerData })
+        })
+        setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
+      } else {
+        setSavedMsg('✗ No room linked')
+      }
     } catch { setSavedMsg('✗ No connection') }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
