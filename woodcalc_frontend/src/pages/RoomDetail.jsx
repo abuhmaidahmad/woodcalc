@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import KitchenPlannerModule from '../features/kitchen_planner/KitchenPlannerModule'
+import { authFetch } from '../api/auth'
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
@@ -18,7 +19,7 @@ export default function RoomDetail() {
   useEffect(() => {
     const fetchRoom = async () => {
       try {
-        const res = await fetch(API + `/api/crm/rooms/${id}/`, { headers: headers() })
+        const res = await authFetch(API + `/api/crm/rooms/${id}/`)
         if (res.status === 401) { navigate('/login'); return }
         const data = await res.json()
         setRoom(data)
