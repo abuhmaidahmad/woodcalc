@@ -35,7 +35,7 @@ export default function CustomerDetail() {
       const cData = await cRes.json()
       const pData = await pRes.json()
       setCustomer(cData)
-      setProjects(pData)
+setProjects(Array.isArray(pData) ? pData : (pData.results || []))
     } catch {}
     setLoading(false)
   }
