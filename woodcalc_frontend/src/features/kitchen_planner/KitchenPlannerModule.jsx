@@ -108,7 +108,7 @@ export default function KitchenPlannerModule(props) {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
       const plannerData = { walls, elements, cabinets, projectSetup, projectName }
-      console.log("roomId:", props.roomId);
+      console.log("roomId v2:", props.roomId, "props:", props);
       if (props.roomId) {
         const res = await fetch(API + `/api/crm/rooms/${props.roomId}/`, {
           method: 'PATCH',
