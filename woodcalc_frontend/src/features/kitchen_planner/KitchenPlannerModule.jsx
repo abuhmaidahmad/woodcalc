@@ -299,6 +299,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       if (initialData.projectName) setProjectName(initialData.projectName)
       if (initialData.baseHeight) setBaseHeight(initialData.baseHeight)
       if (initialData.projectDefaults) setProjectDefaults(initialData.projectDefaults)
+      if (initialData.grandTotal) setGrandTotal(initialData.grandTotal)
     }
   }, [initialData])
 
@@ -337,7 +338,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults }
+      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults, grandTotal }
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
