@@ -753,72 +753,9 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                 </table>
               </div>
 
-              {/* Detailed Cut List */}
-              <div style={{ marginTop: 24 }}>
-                <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>📐 Detailed Cut List</div>
-                {cabinets.map((c, i) => {
-                  let result
-                  try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0 }) } catch { return null }
-                  return (
-                    <div key={c.id} style={{ background: '#fff', borderRadius: 12, marginBottom: 16, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                      <div style={{ padding: '12px 16px', background: ACCENT + '12', borderBottom: '1px solid ' + ACCENT + '30', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>
-                          {String(i+1).padStart(2,'0')} · {c.label} <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>{c.width}×{c.height}×{c.depth}mm · {c.material} · {c.doorStyle}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: '#888' }}>{result.panels.reduce((s,p) => s + p.qty, 0)} panels · {result.doors.length} door{result.doors.length !== 1 ? 's' : ''}</div>
-                      </div>
-                      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ background: '#FAFAFA' }}>
-                            {['Part', 'Qty', 'Width (mm)', 'Height (mm)', 'Thickness', 'Material', 'Edge Banding'].map(h => (
-                              <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {result.panels.map((p, pi) => (
-                            <tr key={pi} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{p.name}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{p.qty}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace', color: DARK }}>{p.width}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace', color: DARK }}>{p.depth}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{p.thickness}mm {p.thickness === 8 ? 'HDF' : 'Board'}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.name.includes('Back') ? 'HDF' : c.material}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 11, color: '#9B59B6' }}>
-                                {p.name.includes('Side') ? 'Front edge · Carcass color' :
-                                 p.name.includes('Bottom') || p.name.includes('Rail') ? 'Front edge · Carcass color' :
-                                 p.name.includes('Back') ? 'None' :
-                                 p.name.includes('Shelf') ? 'Front edge · Carcass color' :
-                                 p.name.includes('Toe') ? 'Top edge · Carcass color' : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                          {result.doors.map((d, di) => (
-                            <tr key={'door'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>Door {di+1}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace', color: DARK }}>{d.width}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace', color: DARK }}>{d.height}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>18mm Board</td>
-                              <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{c.material}</td>
-                              <td style={{ padding: '8px 12px', fontSize: 11, color: '#9B59B6' }}>All 4 edges · Front color</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: '1px solid #F0EBE5', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, color: '#666' }}>🔩 Confirmats: <strong>{result.hardware.confirmats}</strong></span>
-                        <span style={{ fontSize: 11, color: '#666' }}>🪛 Dowels: <strong>{result.hardware.dowels}</strong></span>
-                        <span style={{ fontSize: 11, color: '#666' }}>🦵 Legs: <strong>{result.hardware.legs}</strong></span>
-                        <span style={{ fontSize: 11, color: '#666' }}>🔧 Hinges: <strong>{result.doors.reduce((s,d) => s+d.hinges, 0)}</strong></span>
-                        {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>🖐 Handles: <strong>{result.hardware.handles}</strong></span>}
-                        {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>👆 Tip-On: <strong>{result.hardware.tip_on}</strong></span>}
-                        <span style={{ fontSize: 11, color: '#666' }}>📌 Back screws: <strong>{result.hardware.back_screws}</strong></span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              {/* Cut Lists */}
+              <PerCabinetCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
+              <MasterCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
 
             </div>
           )}
