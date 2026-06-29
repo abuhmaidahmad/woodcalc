@@ -341,7 +341,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         const res = await fetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
-          body: JSON.stringify({ planner_data: plannerData })
+          body: JSON.stringify({ planner_data: plannerData, grand_total: grandTotal })
         })
         setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
       } else {
