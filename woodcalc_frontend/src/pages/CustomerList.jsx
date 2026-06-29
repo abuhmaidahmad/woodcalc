@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { authFetch } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 
 const ACCENT = '#C8902A'
@@ -22,7 +23,7 @@ export default function CustomerList() {
 const fetchCustomers = async () => {
   setLoading(true)
   try {
-    const res = await fetch(API + '/api/crm/clients/', { headers: headers() })
+    const res = await authFetch(API + '/api/crm/clients/')
     if (res.status === 401) { navigate('/login'); return }
     const data = await res.json()
 setCustomers(Array.isArray(data) ? data : (data.results || []))
@@ -42,9 +43,7 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      const res = await fetch(API + '/api/crm/clients/', {
-        method: 'POST',
-        headers: headers(),
+      const res = await authFetch(API + '/api/crm/clients/', { method: 'POST',
         body: JSON.stringify(form),
       })
       if (res.ok) {

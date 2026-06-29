@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { authFetch } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 
 const ACCENT = '#C8902A'
@@ -53,9 +54,7 @@ export default function ProjectDetail() {
     if (!form.name.trim()) return
     setSaving(true)
     try {
-      const res = await fetch(API + '/api/crm/rooms/', {
-        method: 'POST',
-        headers: headers(),
+      const res = await authFetch(API + '/api/crm/rooms/', { method: 'POST',
         body: JSON.stringify({ ...form, project: id }),
       })
       if (res.ok) {
@@ -70,9 +69,7 @@ export default function ProjectDetail() {
 
   const updateStatus = async (status) => {
     try {
-      await fetch(API + `/api/crm/projects/${id}/`, {
-        method: 'PATCH',
-        headers: headers(),
+      await authFetch(API + `/api/crm/projects/${id}/`, { method: 'PATCH',
         body: JSON.stringify({ status }),
       })
       fetchData()
