@@ -27,6 +27,223 @@ const ROOM_ELEMENTS = [
 
 const snap = v => Math.round(v / GRID) * GRID
 
+
+// ─── Edge banding helper ────────────────────────────────────────────
+function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat) {
+  const cc = carcassMat || carcassColor || 'Carcass'
+  const fc = frontMat || frontColor || 'Front'
+  if (partName.includes('Back')) {
+    return { T: 'None', B: 'None', L: 'None', R: 'None' }
+  }
+  if (partName.includes('Door') || partName.includes('Front')) {
+    return { T: fc, B: fc, L: fc, R: fc }
+  }
+  if (partName.includes('Side')) {
+    return { T: 'None', B: 'None', L: 'None', R: cc }
+  }
+  if (partName.includes('Bottom') || partName.includes('Rail') || partName.includes('Shelf')) {
+    return { T: 'None', B: 'None', L: 'None', R: cc }
+  }
+  if (partName.includes('Toe')) {
+    return { T: cc, B: 'None', L: 'None', R: 'None' }
+  }
+  return { T: 'None', B: 'None', L: 'None', R: 'None' }
+}
+
+function EBCell({ eb }) {
+  const sides = [['T', eb.T], ['B', eb.B], ['L', eb.L], ['R', eb.R]]
+  return (
+    <div style={{ fontSize: 10, lineHeight: 1.6 }}>
+      {sides.map(([s, v]) => (
+        <div key={s} style={{ color: v === 'None' ? '#ccc' : '#9B59B6' }}>
+          <strong>{s}:</strong> {v}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Per-Cabinet Cut List ────────────────────────────────────────────
+function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const [expanded, setExpanded] = React.useState({})
+  const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>📦 Per-Cabinet Cut List</div>
+      {cabinets.map((c, i) => {
+        let result
+        try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0 }) } catch { return null }
+        const isOpen = expanded[c.id]
+        const carcassMat = c.carcassMaterialName || c.carcassColor || 'Carcass'
+        const frontMat = c.frontMaterialName || c.frontColor || 'Front'
+        // exclude toe kick from per-cabinet list
+        const panels = result.panels.filter(p => !p.name.includes('Toe'))
+        return (
+          <div key={c.id} style={{ background: '#fff', borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div onClick={() => toggle(c.id)}
+              style={{ padding: '12px 16px', background: isOpen ? ACCENT+'12' : '#FAFAFA', borderBottom: isOpen ? '1px solid '+ACCENT+'30' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>
+                {String(i+1).padStart(2,'0')} · {c.label}
+                <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 8 }}>{c.width}×{c.height}×{c.depth}mm · {c.doorStyle}</span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length} parts</span>
+                <span style={{ color: ACCENT, fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
+              </div>
+            </div>
+            {isOpen && (
+              <>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#FAFAFA' }}>
+                      {['Part', 'Qty', 'W (mm)', 'H (mm)', 'Thick', 'Material', 'Edge Banding (T/B/L/R)'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {panels.map((p, pi) => {
+                      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      return (
+                        <tr key={pi} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{p.name}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{p.qty}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.width}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.depth}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.thickness}mm{p.thickness===8?' HDF':''}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.name.includes('Back') ? 'HDF 8mm' : c.material}</td>
+                          <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
+                        </tr>
+                      )
+                    })}
+                    {result.doors.map((d, di) => {
+                      const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      return (
+                        <tr key={'d'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>Door {di+1}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>18mm</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{frontMat}</td>
+                          <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: '1px solid #F0EBE5', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <span style={{ fontSize: 11, color: '#666' }}>🔩 Confirmats: <strong>{result.hardware.confirmats}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>🪛 Dowels: <strong>{result.hardware.dowels}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>🦵 Legs: <strong>{result.hardware.legs}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>🔧 Hinges: <strong>{result.doors.reduce((s,d)=>s+d.hinges,0)}</strong></span>
+                  {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>🖐 Handles: <strong>{result.hardware.handles}</strong></span>}
+                  {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>👆 Tip-On: <strong>{result.hardware.tip_on}</strong></span>}
+                  <span style={{ fontSize: 11, color: '#666' }}>📌 Back screws: <strong>{result.hardware.back_screws}</strong></span>
+                </div>
+              </>
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ─── Master Cut List for Workshop ───────────────────────────────────
+function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const [expanded, setExpanded] = React.useState(true)
+
+  // Build master grouped list
+  const masterMap = {}
+  let toeKickTotal = 0
+
+  cabinets.forEach(c => {
+    let result
+    try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0 }) } catch { return }
+    const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
+    const frontMat = c.frontMaterialName || 'Front'
+
+    result.panels.forEach(p => {
+      if (p.name.includes('Toe')) {
+        toeKickTotal += c.width / 1000
+        return
+      }
+      const mat = p.name.includes('Back') ? 'HDF 8mm' : carcassMat
+      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+      const key = `${p.width}×${p.depth}×${p.thickness}|${mat}|${JSON.stringify(eb)}`
+      if (!masterMap[key]) masterMap[key] = { ...p, material: mat, eb, qty: 0, name: p.name }
+      masterMap[key].qty += p.qty
+    })
+
+    result.doors.forEach(d => {
+      const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
+      const mat = c.frontMaterialName || 'Front material'
+      const key = `${d.width}×${d.height}×18|${mat}|door`
+      if (!masterMap[key]) masterMap[key] = { name: 'Door/Front', width: d.width, depth: d.height, thickness: 18, material: mat, eb, qty: 0 }
+      masterMap[key].qty += 1
+    })
+  })
+
+  const rows = Object.values(masterMap).sort((a, b) => {
+    if (a.thickness !== b.thickness) return b.thickness - a.thickness
+    return a.material.localeCompare(b.material)
+  })
+
+  return (
+    <div style={{ marginTop: 24, marginBottom: 32 }}>
+      <div onClick={() => setExpanded(p => !p)}
+        style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>🏭 Master Cut List (Workshop)</span>
+        <span style={{ color: ACCENT, fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
+      </div>
+      {expanded && (
+        <>
+          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 12 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#FAFAFA' }}>
+                  {['#', 'Part', 'W (mm)', 'H (mm)', 'Thick', 'Material', 'Qty', 'Edge Banding (T/B/L/R)'].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid #F7F4F0', background: i % 2 === 0 ? '#fff' : '#FDFAF6' }}>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>{String(i+1).padStart(2,'0')}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness}mm{r.thickness===8?' HDF':''}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.material}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 14, fontWeight: 800, color: ACCENT }}>{r.qty}</td>
+                    <td style={{ padding: '8px 12px' }}><EBCell eb={r.eb} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {toeKickTotal > 0 && (
+            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontSize: 20 }}>🦶</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Toe Kick (separate item)</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Runs along adjustable legs — hides front gap</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{toeKickTotal.toFixed(2)} m</div>
+                <div style={{ fontSize: 11, color: '#888' }}>linear meters needed</div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
 function aggregateBOM(cabinets) {
   const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0 }
   cabinets.forEach(cab => {
