@@ -183,7 +183,7 @@ export default function KitchenPlannerModule(props) {
             </button>
           )}
           <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
-            {saving ? 'Saving…' : savedMsg || '💾 Save'}
+            {saving ? 'Saving…' : savedMsg || '💾 Save v2'}
           </button>
         </div>
       </div>
