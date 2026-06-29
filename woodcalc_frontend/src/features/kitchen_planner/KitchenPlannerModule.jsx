@@ -48,7 +48,6 @@ function aggregateBOM(cabinets) {
 }
 
 export default function KitchenPlannerModule({ roomId, roomName, roomType, projectId, initialData, onBack } = {}) {
-  window.__roomId = roomId;
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
@@ -121,7 +120,6 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
       const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults }
-      console.log("roomId destructured:", roomId);
       if (roomId) {
         const res = await fetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
@@ -132,7 +130,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       } else {
         setSavedMsg('✗ No room linked')
       }
-    } catch(err) { console.error("Save error:", err); setSavedMsg('✗ No connection') }
+    } catch { setSavedMsg('✗ No connection') }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
   }
