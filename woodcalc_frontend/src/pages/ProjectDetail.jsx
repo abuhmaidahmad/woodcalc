@@ -41,8 +41,8 @@ export default function ProjectDetail() {
         fetch(API + `/api/crm/payments/?project=${id}`, { headers: headers() }),
       ])
       setProject(await pRes.json())
-      setRooms(await rRes.json())
-      setPayments(await pyRes.json())
+      setRooms(await rRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
+      setPayments(await pyRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
     } catch {}
     setLoading(false)
   }
