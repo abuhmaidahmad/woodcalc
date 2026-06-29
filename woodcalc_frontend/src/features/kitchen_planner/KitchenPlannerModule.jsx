@@ -47,7 +47,7 @@ function aggregateBOM(cabinets) {
   return totals
 }
 
-export default function KitchenPlannerModule(props) {
+export default function KitchenPlannerModule({ roomId, roomName, roomType, projectId, initialData, onBack } = {}) {
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
@@ -108,9 +108,9 @@ export default function KitchenPlannerModule(props) {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
       const plannerData = { walls, elements, cabinets, projectSetup, projectName }
-      console.log("roomId v2:", props.roomId, "props:", props);
-      if (props.roomId) {
-        const res = await fetch(API + `/api/crm/rooms/${props.roomId}/`, {
+      console.log("roomId destructured:", roomId);
+      if (roomId) {
+        const res = await fetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
           body: JSON.stringify({ planner_data: plannerData })
@@ -183,7 +183,7 @@ export default function KitchenPlannerModule(props) {
             </button>
           )}
           <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
-            {saving ? 'Saving…' : savedMsg || '💾 Save v2'}
+            {saving ? 'Saving…' : savedMsg || '💾 Save'}
           </button>
         </div>
       </div>
