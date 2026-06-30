@@ -1,4 +1,7 @@
 from django.db import models
+from django.core.files.base import ContentFile
+from io import BytesIO
+from PIL import Image
 
 
 class Supplier(models.Model):
@@ -71,3 +74,33 @@ class MaterialTexture(models.Model):
 
     def __str__(self):
         return f'{self.name} ({self.get_material_type_display()})'
+
+    # Max dimension (px) any uploaded texture is resized down to. Large enough for crisp
+    # close-up cabinet/countertop rendering, small enough to keep page loads fast.
+    MAX_DIMENSION = 2048
+    JPEG_QUALITY = 85
+
+    def save(self, *args, **kwargs):
+        if self.texture_image and hasattr(self.texture_image, 'file'):
+            # Only re-process if this is a new/changed file (has an in-memory file object,
+            # not an already-saved FieldFile pointing at existing storage).
+            try:
+                img = Image.open(self.texture_image)
+                img = img.convert('RGB')  # drops alpha/CMYK edge cases, ensures clean JPEG output
+
+                w, h = img.size
+                if max(w, h) > self.MAX_DIMENSION:
+                    scale = self.MAX_DIMENSION / max(w, h)
+                    img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
+                buffer.seek(0)
+
+                original_name = self.texture_image.name.rsplit('.', 1)[0]
+                self.texture_image = ContentFile(buffer.read(), name=f'{original_name}.jpg')
+            except Exception:
+                # If optimization fails for any reason, fall back to saving the original
+                # rather than blocking the upload entirely.
+                pass
+        super().save(*args, **kwargs)
