@@ -27,6 +27,8 @@ class StockAlertSerializer(serializers.ModelSerializer):
 
 
 class MaterialTextureSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+
     class Meta:
         model = MaterialTexture
         fields = '__all__'

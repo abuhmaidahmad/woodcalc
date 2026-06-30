@@ -62,14 +62,22 @@ class MaterialTexture(models.Model):
     separate from the inventory Material model which tracks stock/cost.
     Used by the Kitchen Planner 3D view to texture-map cabinet fronts and countertops."""
     TYPE_CHOICES = [('front', 'Front/Door'), ('worktop', 'Worktop/Countertop')]
+    FINISH_CHOICES = [
+        ('matt', 'Matt'), ('gloss', 'Gloss'), ('wood', 'Wood'), ('metal', 'Metal'), ('other', 'Other'),
+    ]
     code = models.CharField(max_length=50, blank=True)
     name = models.CharField(max_length=200)
     material_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    finish = models.CharField(max_length=10, choices=FINISH_CHOICES, default='matt')
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='textures')
     texture_image = models.ImageField(upload_to='material_textures/')
     fallback_hex = models.CharField(max_length=7, default='#FFFFFF', help_text='Used if texture fails to load')
     roughness = models.FloatField(default=0.4)
     metalness = models.FloatField(default=0.0)
+    board_width = models.PositiveIntegerField(default=2440, help_text='Board width in mm')
+    board_height = models.PositiveIntegerField(default=1220, help_text='Board height in mm')
+    thickness = models.PositiveIntegerField(default=18, help_text='Board thickness in mm')
+    price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

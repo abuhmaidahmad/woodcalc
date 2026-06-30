@@ -13,6 +13,7 @@ import RoomDetail from './pages/RoomDetail'
 import ProductionBoard from './pages/ProductionBoard';
 import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
+import MaterialCatalog from './pages/MaterialCatalog';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -55,6 +56,11 @@ export default function App() {
         {/* Production */}
         <Route path="/production" element={
           <PrivateRoute><ProductionBoard /></PrivateRoute>
+        } />
+
+        {/* Materials Catalog */}
+        <Route path="/catalog" element={
+          <PrivateRoute><MaterialCatalog /></PrivateRoute>
         } />
 
         {/* Dashboard */}
