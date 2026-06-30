@@ -24,11 +24,25 @@ class WorkOrderItemViewSet(ModelViewSet):
     serializer_class = WorkOrderItemSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = WorkOrderItem.objects.all()
+        work_order_id = self.request.query_params.get('work_order')
+        if work_order_id:
+            qs = qs.filter(work_order_id=work_order_id)
+        return qs
+
 
 class StationLogViewSet(ModelViewSet):
     queryset = StationLog.objects.all()
     serializer_class = StationLogSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = StationLog.objects.all()
+        work_order_id = self.request.query_params.get('work_order')
+        if work_order_id:
+            qs = qs.filter(work_order_id=work_order_id)
+        return qs
 
 
 class MaterialConsumptionViewSet(ModelViewSet):
