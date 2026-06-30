@@ -331,11 +331,13 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       id: Date.now(),
       x: snap(200), y: snap(200),
       material: 'Particleboard',
-      doorStyle:    t.doorStyle    || projectDefaults?.doorStyle    || 'Handle',
-      carcassColor: t.carcassColor || projectDefaults?.carcassColor || '#F5F0E8',
-      frontColor:   t.frontColor   || projectDefaults?.frontColor   || '#FFFFFF',
-      frontMaterial:t.frontMaterial|| projectDefaults?.frontFinish  || 'matt',
+      doorStyle:         t.doorStyle         || projectDefaults?.doorStyle         || 'Handle',
+      carcassColor:      t.carcassColor      || projectDefaults?.carcassColor      || '#F5F0E8',
+      frontColor:        t.frontColor        || projectDefaults?.frontColor        || '#FFFFFF',
+      frontMaterial:     t.frontMaterial     || projectDefaults?.frontFinish       || 'matt',
       frontMaterialCode: t.frontMaterialCode || projectDefaults?.frontMaterialCode || null,
+      frontMaterialName: t.frontMaterialName || projectDefaults?.frontMaterialName || null,
+      frontTextureUrl:   t.frontTextureUrl   || projectDefaults?.frontTextureUrl   || null,
       zonePreset: null,
       skirtingSides: ['front'],
       skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
@@ -364,7 +366,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { doorStyle: projectDefaults.doorStyle, carcassColor: projectDefaults.carcassColor, frontColor: projectDefaults.frontColor } : null, grandTotal }
+      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal }
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
@@ -741,13 +743,14 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
               onSetupComplete={(setup) => {
                 setBaseHeight(setup.baseHeight)
                 setProjectDefaults({
-                  doorStyle:    setup.doorStyle,
-                  golaColor:    setup.golaColor,
-                  handlePos:    setup.handlePos,
-                  carcassColor: setup.carcassColor,
-                  frontColor:   setup.frontColor,
-                  frontFinish:  setup.frontFinish,
+                  doorStyle:         setup.doorStyle,
+                  golaColor:         setup.golaColor,
+                  handlePos:         setup.handlePos,
+                  carcassColor:      setup.carcassColor,
+                  frontColor:        setup.frontColor,
+                  frontFinish:       setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
+                  skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
                 })
                 // Retroactively resize all existing base cabinets to the new height,
                 // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
