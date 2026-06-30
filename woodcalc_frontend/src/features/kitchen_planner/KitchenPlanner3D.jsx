@@ -397,6 +397,55 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet }) {
   )
 }
 
+
+const SKIRTING_PVC_COLORS = {
+  pvc_black: '#1a1a1a',
+  pvc_champagne: '#c8a96e',
+  pvc_silver: '#c0c0c0',
+}
+
+function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
+  const T = 0.018
+  let color = '#1a1a1a'
+  let roughness = 0.4
+  let metalness = 0.0
+
+  if (skirtingMaterial === 'match_countertop' && countertopMat) {
+    color = countertopMat.color
+    roughness = countertopMat.roughness
+    metalness = countertopMat.metalness
+  } else if (SKIRTING_PVC_COLORS[skirtingMaterial]) {
+    color = SKIRTING_PVC_COLORS[skirtingMaterial]
+    roughness = 0.3
+    metalness = 0.1
+  }
+
+  const panels = []
+  if (sides.includes('front')) {
+    panels.push({ pos: [0, -legH / 2, D / 2 + T / 2], size: [W, legH, T] })
+  }
+  if (sides.includes('back')) {
+    panels.push({ pos: [0, -legH / 2, -D / 2 - T / 2], size: [W, legH, T] })
+  }
+  if (sides.includes('left')) {
+    panels.push({ pos: [-W / 2 - T / 2, -legH / 2, 0], size: [T, legH, D] })
+  }
+  if (sides.includes('right')) {
+    panels.push({ pos: [W / 2 + T / 2, -legH / 2, 0], size: [T, legH, D] })
+  }
+
+  return (
+    <>
+      {panels.map((p, i) => (
+        <mesh key={i} position={p.pos} castShadow receiveShadow>
+          <boxGeometry args={p.size} />
+          <meshPhysicalMaterial color={color} roughness={roughness} metalness={metalness} />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
 function Cabinet({ cab, countertopMat, countertopThickness = 30 }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
@@ -441,6 +490,9 @@ function Cabinet({ cab, countertopMat, countertopThickness = 30 }) {
         matProps={carcassMatProps}
         envMapIntensity={0.5}
       />
+      {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
+        <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
+      )}
       {isBase && !isShelf && (
         <group position={[0, H, 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} />
