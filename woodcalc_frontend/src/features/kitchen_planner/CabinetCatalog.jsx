@@ -348,6 +348,11 @@ function ProjectSetup({ onConfirm }) {
             setFrontMaterialCode(mat.code)
           }}
         />
+        {frontMaterialCode && (
+          <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+            Selected: <strong style={{ color: DARK }}>{frontMaterialCode}</strong>
+          </div>
+        )}
         <div style={{ marginBottom: 16 }} />
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>

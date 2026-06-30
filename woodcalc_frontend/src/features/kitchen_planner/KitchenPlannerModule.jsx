@@ -845,6 +845,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                     updateCab('frontMaterial', mat.finish)
                     updateCab('frontMaterialCode', mat.code)
                     updateCab('frontMaterialName', mat.name)
+                    updateCab('frontTextureUrl', mat.textureUrl || null)
                   }}
                 />
                {selCab.subtype !== 'Shelf' && selCab.subtype !== 'Open Shelf' && (
@@ -858,6 +859,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         updateCab('carcassMaterial', mat.finish)
         updateCab('carcassMaterialCode', mat.code)
         updateCab('carcassMaterialName', mat.name)
+        updateCab('carcassTextureUrl', mat.textureUrl || null)
       }}
     />
   </>
