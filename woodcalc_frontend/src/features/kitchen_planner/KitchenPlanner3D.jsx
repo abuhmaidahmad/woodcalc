@@ -405,7 +405,6 @@ const SKIRTING_PVC_COLORS = {
 }
 
 function hasNeighbor(cab, side, allCabinets) {
-  if (typeof window !== 'undefined') window.__skirtDebug = window.__skirtDebug || [];
   // Only handle straight, unrotated rows for adjacency (covers the common kitchen-run case)
   if ((cab.rotation || 0) !== 0) return false
   const TOL = 15 // mm tolerance for "touching"
@@ -414,7 +413,7 @@ function hasNeighbor(cab, side, allCabinets) {
   const myTop = cab.y
   const myBottom = cab.y + cab.depth
 
-  const result = allCabinets.some(other => {
+  return allCabinets.some(other => {
     if (other.id === cab.id) return false
     if ((other.rotation || 0) !== 0) return false
     const floorCategories = ['base', 'vanity', 'corner', 'tall']
@@ -436,8 +435,6 @@ function hasNeighbor(cab, side, allCabinets) {
     }
     return false
   })
-  if (typeof window !== 'undefined') window.__skirtDebug.push({ label: cab.label, side, result })
-  return result
 }
 
 function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab, allCabinets = [] }) {
