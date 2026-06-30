@@ -710,6 +710,10 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontColor:   setup.frontColor,
                   frontFinish:  setup.frontFinish,
                 })
+                // Retroactively resize all existing base cabinets to the new height
+                setCabinets(prev => prev.map(c =>
+                  c.category === 'base' ? { ...c, height: setup.baseHeight } : c
+                ))
               }}
               onAddCabinet={addCabinet}
             />
