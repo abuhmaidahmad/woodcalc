@@ -238,12 +238,19 @@ function ProjectSetup({ onConfirm }) {
   const [carcassColor, setCarcassColor] = useState('#F5F0E8')
   const [frontColor, setFrontColor]     = useState('#FFFFFF')
   const [frontFinish, setFrontFinish]   = useState('matt')
+  const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
   const ready = baseHeight && doorStyle
 
   const CARCASS_OPTIONS = [
     { color: '#F5F0E8', label: 'Cream White' }, { color: '#FFFFFF', label: 'White' },
     { color: '#E8E4DC', label: 'Off White' },   { color: '#C8C4BE', label: 'Light Grey' },
     { color: '#4A4846', label: 'Anthracite' },  { color: '#1A1A1A', label: 'Black' },
+  ]
+  const SKIRTING_OPTIONS = [
+    { id: 'match_countertop', label: 'Match Countertop', swatch: null },
+    { id: 'pvc_black', label: 'PVC Black', swatch: '#1a1a1a' },
+    { id: 'pvc_champagne', label: 'PVC Champagne', swatch: '#c8a96e' },
+    { id: 'pvc_silver', label: 'PVC Silver', swatch: '#c0c0c0' },
   ]
   const FRONT_OPTIONS = [
     { color: '#FFFFFF', label: 'White',    finish: 'gloss' }, { color: '#F5F0E8', label: 'Cream',    finish: 'matt' },
@@ -326,7 +333,21 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish })}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+          {SKIRTING_OPTIONS.map(opt => (
+            <div key={opt.id} onClick={() => setSkirtingMaterial(opt.id)} style={{ flex: '1 1 45%', padding: '8px 6px', border: `2px solid ${skirtingMaterial === opt.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: skirtingMaterial === opt.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
+              {opt.swatch ? (
+                <div style={{ width: 16, height: 16, borderRadius: 3, background: opt.swatch, flexShrink: 0 }} />
+              ) : (
+                <span style={{ fontSize: 13 }}>🪨</span>
+              )}
+              <div style={{ fontSize: 10, fontWeight: 700, color: skirtingMaterial === opt.id ? ACCENT : DARK }}>{opt.label}</div>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, skirtingMaterial })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           Start Designing →

@@ -314,6 +314,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       frontColor:   t.frontColor   || projectDefaults?.frontColor   || '#FFFFFF',
       frontMaterial:t.frontMaterial|| projectDefaults?.frontFinish  || 'matt',
       zonePreset: null,
+      skirtingSides: ['front'],
     }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
@@ -764,6 +765,27 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                     {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
+
+                {selCab.category === 'base' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>Skirting Board Sides</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                      {['front', 'back', 'left', 'right'].map(side => {
+                        const sides = selCab.skirtingSides || []
+                        const active = sides.includes(side)
+                        return (
+                          <div key={side} onClick={() => {
+                            const next = active ? sides.filter(s => s !== side) : [...sides, side]
+                            updateCab('skirtingSides', next)
+                          }}
+                            style={{ padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: active ? ACCENT : '#888', textTransform: 'capitalize' }}>{side}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
                 {['Drawers', '2Drw+Door'].includes(selCab.subtype) && (
                   <>
                     <div style={s.propSection}>Interior Layout</div>
