@@ -317,21 +317,39 @@ function ProjectSetup({ onConfirm }) {
         )}
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Carcass Color</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 18 }}>
-          {CARCASS_OPTIONS.map(opt => (
-            <div key={opt.color} onClick={() => setCarcassColor(opt.color)} title={opt.label}
-              style={{ width: 32, height: 32, borderRadius: 6, background: opt.color, cursor: 'pointer', border: `2.5px solid ${carcassColor === opt.color ? ACCENT : '#ddd'}`, boxShadow: carcassColor === opt.color ? `0 0 0 2px ${ACCENT}40` : 'none' }} />
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 18 }}>
+          {CARCASS_OPTIONS.map(opt => {
+            const active = carcassColor === opt.color
+            return (
+              <div key={opt.color} onClick={() => setCarcassColor(opt.color)}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, cursor: 'pointer', border: `2px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '10' : '#FAFAFA' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 5, flexShrink: 0, background: opt.color, border: '1.5px solid rgba(0,0,0,0.10)' }} />
+                <div style={{ fontSize: 10, fontWeight: 700, color: active ? ACCENT : DARK, lineHeight: 1.2 }}>{opt.label}</div>
+              </div>
+            )
+          })}
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Color</div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 24 }}>
-          {FRONT_OPTIONS.map(opt => (
-            <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish); setFrontMaterialCode(opt.code || null) }} title={opt.label}
-              style={{ width: 32, height: 32, borderRadius: 6, background: opt.color, cursor: 'pointer', border: `2.5px solid ${frontColor === opt.color ? ACCENT : '#ddd'}`, boxShadow: frontColor === opt.color ? `0 0 0 2px ${ACCENT}40` : 'none',
-                backgroundImage: opt.finish === 'gloss' ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 60%)' :
-                  opt.finish === 'wood' ? 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)' : 'none' }} />
-          ))}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, marginBottom: 24 }}>
+          {FRONT_OPTIONS.map(opt => {
+            const active = frontColor === opt.color && frontFinish === opt.finish
+            const bgImage = opt.finish === 'gloss'
+              ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 60%)'
+              : opt.finish === 'wood'
+                ? 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)'
+                : 'none'
+            return (
+              <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish); setFrontMaterialCode(opt.code || null) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, cursor: 'pointer', border: `2px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '10' : '#FAFAFA' }}>
+                <div style={{ width: 22, height: 22, borderRadius: 5, flexShrink: 0, background: opt.color, backgroundImage: bgImage, border: '1.5px solid rgba(0,0,0,0.10)' }} />
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: active ? ACCENT : DARK, lineHeight: 1.2 }}>{opt.label}</div>
+                  <div style={{ fontSize: 9, color: '#aaa', textTransform: 'capitalize' }}>{opt.finish}</div>
+                </div>
+              </div>
+            )
+          })}
         </div>
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>
