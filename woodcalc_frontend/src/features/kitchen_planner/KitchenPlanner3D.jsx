@@ -405,10 +405,6 @@ const SKIRTING_PVC_COLORS = {
 }
 
 function hasNeighbor(cab, side, allCabinets) {
-  if (typeof window !== 'undefined' && !window.__loggedCabs) {
-    window.__loggedCabs = true
-    console.log('CABINETS DEBUG:', allCabinets.map(c => ({id:c.id, x:c.x, y:c.y, width:c.width, depth:c.depth, category:c.category, rotation:c.rotation})))
-  }
   // Only handle straight, unrotated rows for adjacency (covers the common kitchen-run case)
   if ((cab.rotation || 0) !== 0) return false
   const TOL = 15 // mm tolerance for "touching"
@@ -464,9 +460,6 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
   const legInset = 0.025
   const hasLeftNeighbor = cab ? hasNeighbor(cab, 'left', allCabinets) : false
   const hasRightNeighbor = cab ? hasNeighbor(cab, 'right', allCabinets) : false
-  if (cab && typeof window !== 'undefined') {
-    console.log('SKIRT JOIN', cab.id, 'x:', cab.x, 'w:', cab.width, 'left:', hasLeftNeighbor, 'right:', hasRightNeighbor)
-  }
 
   const frontBackInsetL = hasLeftNeighbor ? 0 : legInset
   const frontBackInsetR = hasRightNeighbor ? 0 : legInset
