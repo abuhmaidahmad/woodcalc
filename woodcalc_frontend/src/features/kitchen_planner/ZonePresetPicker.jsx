@@ -18,16 +18,16 @@ function buildPresets(h) {
   ]
 }
 
-function ZoneVisual({ zones, scale = 0.30 }) {
+function ZoneVisual({ zones, scale = 0.16 }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column-reverse', border: '2px solid #bdc3c7', borderRadius: 4, overflow: 'hidden', width: 50 }}>
+    <div style={{ display: 'flex', flexDirection: 'column-reverse', border: '1.5px solid #bdc3c7', borderRadius: 3, overflow: 'hidden', width: 34 }}>
       {zones.map((z, i) => (
         <div key={i} style={{
           height: z.h * scale,
           background: z.type === 'drawer' ? '#3498db22' : '#2ecc7122',
           borderTop: i > 0 ? '1px solid #bdc3c7' : 'none',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontSize: 9, color: z.type === 'drawer' ? '#2980b9' : '#27ae60', fontWeight: 700
+          fontSize: 7, color: z.type === 'drawer' ? '#2980b9' : '#27ae60', fontWeight: 700, minHeight: 8
         }}>
           {z.type === 'drawer' ? 'D' : '🚪'}
         </div>
@@ -46,23 +46,22 @@ export default function ZonePresetPicker({ height = 720, width = 600, selected, 
   return (
     <div>
       <div style={{ fontSize: 11, color: '#666', marginBottom: 6 }}>Interior Layout</div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
         {presets.map(p => (
           <div key={p.id} onClick={() => onChange(p)}
             style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4,
-              padding: '8px 6px', borderRadius: 8, cursor: 'pointer',
-              border: selected?.id === p.id ? '2px solid #3498db' : '2px solid #e0e0e0',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+              padding: '4px 2px', borderRadius: 6, cursor: 'pointer',
+              border: selected?.id === p.id ? '1.5px solid #3498db' : '1.5px solid #e0e0e0',
               background: selected?.id === p.id ? '#ebf5fb' : 'white',
-              minWidth: 60
             }}>
             <ZoneVisual zones={p.zones} />
-            <div style={{ fontSize: 9, color: '#666', textAlign: 'center', lineHeight: 1.2 }}>{p.label}</div>
+            <div style={{ fontSize: 7, color: '#666', textAlign: 'center', lineHeight: 1.1 }}>{p.label}</div>
           </div>
         ))}
       </div>
       {selected && (
-        <div style={{ marginTop: 8, fontSize: 11, color: '#666' }}>
+        <div style={{ marginTop: 6, fontSize: 9, color: '#666' }}>
           Selected: <strong>{selected.label}</strong>
           {' — '}{selected.zones.map(z => `${z.type === 'drawer' ? 'Drawer' : 'Door'} ${z.h}mm`).join(', ')}
           {selected.doorCount === 2 ? ' (2 doors)' : ''}
