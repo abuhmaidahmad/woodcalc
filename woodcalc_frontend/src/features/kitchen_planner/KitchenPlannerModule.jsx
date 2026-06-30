@@ -167,7 +167,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
 
-    if (c.category === 'base' && c.skirtingSides && c.skirtingSides.length > 0) {
+    if (['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0) {
       const matKey = c.skirtingMaterial || 'match_countertop'
       if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = 0
       c.skirtingSides.forEach(side => {
@@ -793,7 +793,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   </select>
                 </div>
 
-                {selCab.category === 'base' && (
+                {['base', 'vanity', 'corner', 'tall'].includes(selCab.category) && (selCab.elevation || 0) === 0 && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={s.propLabel}>Skirting Board Sides</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
