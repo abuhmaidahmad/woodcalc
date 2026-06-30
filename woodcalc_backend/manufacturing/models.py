@@ -25,6 +25,9 @@ class WorkOrder(models.Model):
     due_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    room_id_ref = models.PositiveIntegerField(null=True, blank=True, help_text='CRM Room ID this work order was generated from')
+    is_back_order = models.BooleanField(default=False)
+    sent_cabinet_ids = models.JSONField(default=list, blank=True, help_text='List of cabinet ids from the room already included in this or prior work orders')
 
     def __str__(self):
         return self.order_number
