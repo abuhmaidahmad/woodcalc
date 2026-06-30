@@ -33,7 +33,8 @@ export default function ProductionBoard() {
     try {
       const res = await authFetch(API + '/api/manufacturing/stations/')
       const data = await res.json()
-      setStations(Array.isArray(data) ? data : (data.results || []))
+      const list = Array.isArray(data) ? data : (data.results || [])
+      setStations(list.sort((a, b) => a.id - b.id))
     } catch {}
   }
 
