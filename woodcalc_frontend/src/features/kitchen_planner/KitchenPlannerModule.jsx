@@ -264,7 +264,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 </div>
               </div>
             )
-          )}
+          })}
         </>
       )}
     </div>
