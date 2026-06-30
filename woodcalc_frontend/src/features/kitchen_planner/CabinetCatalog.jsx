@@ -174,11 +174,11 @@ export function CountertopPicker({ selected, onSelect }) {
   const [catalogWorktops, setCatalogWorktops] = useState([])
 
   useEffect(() => {
-    authFetch(API_URL + '/api/inventory/textures/?material_type=worktop')
+    authFetch(API_URL + '/api/inventory/textures/')
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
-        setCatalogWorktops(list.filter(t => t.material_type === 'worktop'))
+        setCatalogWorktops(list)
       })
       .catch(() => {})
   }, [])
