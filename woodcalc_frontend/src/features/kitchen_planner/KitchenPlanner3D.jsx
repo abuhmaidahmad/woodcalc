@@ -464,6 +464,9 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
   const legInset = 0.025
   const hasLeftNeighbor = cab ? hasNeighbor(cab, 'left', allCabinets) : false
   const hasRightNeighbor = cab ? hasNeighbor(cab, 'right', allCabinets) : false
+  if (cab && typeof window !== 'undefined') {
+    console.log('SKIRT JOIN', cab.id, 'x:', cab.x, 'w:', cab.width, 'left:', hasLeftNeighbor, 'right:', hasRightNeighbor)
+  }
 
   const frontBackInsetL = hasLeftNeighbor ? 0 : legInset
   const frontBackInsetR = hasRightNeighbor ? 0 : legInset
