@@ -137,6 +137,12 @@ function getCards(userType, navigate, isVerified) {
           accent: '#2AC87A',
         },
         {
+          icon: 'materials', title: 'Materials Catalog',
+          description: 'Upload and manage cabinet finishes, textures, board sizes and pricing.',
+          cta: 'Manage catalog', ctaAction: () => navigate('/catalog'),
+          accent: '#C8902A',
+        },
+        {
           icon: 'incoming', title: 'Incoming Orders',
           description: 'New cabinet orders waiting for your confirmation.',
           cta: 'View orders', ctaAction: () => navigate('/orders'),
