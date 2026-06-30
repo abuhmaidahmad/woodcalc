@@ -169,10 +169,15 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 
     if (['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0) {
       const matKey = c.skirtingMaterial || 'match_countertop'
-      if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = 0
+      if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = { meters: 0, elbows: 0 }
       c.skirtingSides.forEach(side => {
         const lengthM = (side === 'left' || side === 'right') ? (c.depth / 1000) : (c.width / 1000)
-        skirtingByMaterial[matKey] += lengthM
+        skirtingByMaterial[matKey].meters += lengthM
+      })
+      const sides = c.skirtingSides
+      const corners = [['front', 'left'], ['front', 'right'], ['back', 'left'], ['back', 'right']]
+      corners.forEach(([a, b]) => {
+        if (sides.includes(a) && sides.includes(b)) skirtingByMaterial[matKey].elbows += 1
       })
     }
 
@@ -249,7 +254,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
               </div>
             </div>
           )}
-          {Object.entries(skirtingByMaterial).map(([matKey, total]) => {
+          {Object.entries(skirtingByMaterial).map(([matKey, data]) => {
             const labels = { match_countertop: 'Skirting — Match Countertop', pvc_black: 'Skirting — PVC Black', pvc_champagne: 'Skirting — PVC Champagne', pvc_silver: 'Skirting — PVC Silver' }
             return (
               <div key={matKey} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
@@ -258,9 +263,17 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                   <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || 'Skirting Board'}</div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Covers adjustable legs on selected sides</div>
                 </div>
-                <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{total.toFixed(2)} m</div>
-                  <div style={{ fontSize: 11, color: '#888' }}>linear meters needed</div>
+                <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.meters.toFixed(2)} m</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+                  </div>
+                  {data.elbows > 0 && (
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.elbows}</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>corner elbows</div>
+                    </div>
+                  )}
                 </div>
               </div>
             )
