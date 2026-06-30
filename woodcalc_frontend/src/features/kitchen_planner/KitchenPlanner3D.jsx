@@ -292,11 +292,14 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
   const totalW = W + 0.040
-  const totalD = D + 0.060
+  const frontOverhang = 0.040
+  const totalD = D + frontOverhang
+  // shift forward by half the front overhang so the BACK edge stays flush with cabinet back (no back overhang)
+  const zOffset = frontOverhang / 2
 
   if (!isSink) {
     return (
-      <mesh position={[0, T / 2, 0.010]} castShadow receiveShadow>
+      <mesh position={[0, T / 2, zOffset]} castShadow receiveShadow>
         <boxGeometry args={[totalW, T, totalD]} />
         <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
       </mesh>
@@ -310,7 +313,7 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
   const backD = totalD - cutD - frontD
 
   return (
-    <group position={[0, T / 2, 0.010]}>
+    <group position={[0, T / 2, zOffset]}>
       <mesh position={[-(cutW / 2 + borderW / 2), 0, 0]} castShadow receiveShadow>
         <boxGeometry args={[borderW, T, totalD]} />
         <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
