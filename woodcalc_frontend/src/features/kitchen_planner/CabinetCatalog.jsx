@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import MaterialLibrary from './MaterialLibrary'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -240,6 +241,7 @@ function ProjectSetup({ onConfirm }) {
   const [frontMaterialCode, setFrontMaterialCode] = useState(null)
   const [frontFinish, setFrontFinish]   = useState('matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
+  const [carcassSearch, setCarcassSearch] = useState('')
   const ready = baseHeight && doorStyle
 
   const CARCASS_OPTIONS = [
@@ -253,13 +255,11 @@ function ProjectSetup({ onConfirm }) {
     { id: 'pvc_champagne', label: 'PVC Champagne', swatch: '#c8a96e' },
     { id: 'pvc_silver', label: 'PVC Silver', swatch: '#c0c0c0' },
   ]
-  const FRONT_OPTIONS = [
-    { color: '#FFFFFF', label: 'White',    finish: 'gloss' }, { color: '#F5F0E8', label: 'Cream',    finish: 'matt' },
-    { color: '#C8C8C8', label: 'Lt Grey',  finish: 'matt'  }, { color: '#4A4A4A', label: 'Graphite', finish: 'matt' },
-    { color: '#1A1A1A', label: 'Black',    finish: 'gloss' }, { color: '#C8902A', label: 'Oak',      finish: 'wood', code: '03R' },
-    { color: '#7B5B3A', label: 'Walnut',   finish: 'wood'  }, { color: '#1B3A5C', label: 'Navy',     finish: 'matt' },
-    { color: '#7A9E7E', label: 'Sage',     finish: 'matt'  }, { color: '#C4703A', label: 'Terra',    finish: 'matt' },
-  ]
+
+  const filteredCarcass = carcassSearch
+    ? CARCASS_OPTIONS.filter(o => o.label.toLowerCase().includes(carcassSearch.toLowerCase()))
+    : CARCASS_OPTIONS
+
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
@@ -316,9 +316,14 @@ function ProjectSetup({ onConfirm }) {
           </>
         )}
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Carcass Color</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Default Carcass Color</div>
+        <input
+          value={carcassSearch} onChange={e => setCarcassSearch(e.target.value)}
+          placeholder="Search carcass color..."
+          style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+        />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 18 }}>
-          {CARCASS_OPTIONS.map(opt => {
+          {filteredCarcass.map(opt => {
             const active = carcassColor === opt.color
             return (
               <div key={opt.color} onClick={() => setCarcassColor(opt.color)}
@@ -328,29 +333,22 @@ function ProjectSetup({ onConfirm }) {
               </div>
             )
           })}
+          {filteredCarcass.length === 0 && (
+            <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '8px 0' }}>No match</div>
+          )}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Color</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, marginBottom: 24 }}>
-          {FRONT_OPTIONS.map(opt => {
-            const active = frontColor === opt.color && frontFinish === opt.finish
-            const bgImage = opt.finish === 'gloss'
-              ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 60%)'
-              : opt.finish === 'wood'
-                ? 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)'
-                : 'none'
-            return (
-              <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish); setFrontMaterialCode(opt.code || null) }}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, cursor: 'pointer', border: `2px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '10' : '#FAFAFA' }}>
-                <div style={{ width: 22, height: 22, borderRadius: 5, flexShrink: 0, background: opt.color, backgroundImage: bgImage, border: '1.5px solid rgba(0,0,0,0.10)' }} />
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: active ? ACCENT : DARK, lineHeight: 1.2 }}>{opt.label}</div>
-                  <div style={{ fontSize: 9, color: '#aaa', textTransform: 'capitalize' }}>{opt.finish}</div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Material</div>
+        <MaterialLibrary
+          target="front"
+          selectedCode={frontMaterialCode}
+          onSelect={mat => {
+            setFrontColor(mat.hex)
+            setFrontFinish(mat.finish)
+            setFrontMaterialCode(mat.code)
+          }}
+        />
+        <div style={{ marginBottom: 16 }} />
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
