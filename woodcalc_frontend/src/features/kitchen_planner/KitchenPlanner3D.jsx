@@ -416,7 +416,8 @@ function hasNeighbor(cab, side, allCabinets) {
   return allCabinets.some(other => {
     if (other.id === cab.id) return false
     if ((other.rotation || 0) !== 0) return false
-    if (other.category !== cab.category) return false // only merge within same row type (e.g. base-to-base)
+    const floorCategories = ['base', 'vanity', 'corner', 'tall']
+    if (!floorCategories.includes(other.category) || !floorCategories.includes(cab.category)) return false
     const oLeft = other.x
     const oRight = other.x + other.width
     const oTop = other.y
