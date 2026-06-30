@@ -438,9 +438,6 @@ function hasNeighbor(cab, side, allCabinets) {
 }
 
 function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab, allCabinets = [] }) {
-  if (cab && typeof window !== 'undefined') {
-    console.log('SKIRT SIDES', cab.id, 'x:', cab.x, 'sides:', sides, 'category:', cab.category)
-  }
   const T = 0.018
   let color = '#1a1a1a'
   let roughness = 0.4
@@ -464,8 +461,11 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
   const hasLeftNeighbor = cab ? hasNeighbor(cab, 'left', allCabinets) : false
   const hasRightNeighbor = cab ? hasNeighbor(cab, 'right', allCabinets) : false
 
-  const frontBackInsetL = hasLeftNeighbor ? 0 : legInset
-  const frontBackInsetR = hasRightNeighbor ? 0 : legInset
+  // Slight negative inset (overlap) on joined sides prevents z-fighting between
+  // two flush coplanar faces, which otherwise renders as a flickering seam/gap line.
+  const joinOverlap = 0.003
+  const frontBackInsetL = hasLeftNeighbor ? -joinOverlap : legInset
+  const frontBackInsetR = hasRightNeighbor ? -joinOverlap : legInset
   const frontBackWidth = W - frontBackInsetL - frontBackInsetR
   const frontBackOffsetX = (frontBackInsetR - frontBackInsetL) / 2
 
