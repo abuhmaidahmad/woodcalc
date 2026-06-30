@@ -758,8 +758,12 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                     {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
-                <div style={s.propSection}>Interior Layout</div>
-                <ZonePresetPicker height={selCab.height} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
+                {selCab.category === 'base' && !['Sink', 'Open Shelf', 'Shelf'].includes(selCab.subtype) && (
+                  <>
+                    <div style={s.propSection}>Interior Layout</div>
+                    <ZonePresetPicker height={selCab.height} width={selCab.width} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
+                  </>
+                )}
                 <div style={s.propSection}>Front Material</div>
                 <MaterialLibrary
                   target="front"
