@@ -159,12 +159,22 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   // Build master grouped list
   const masterMap = {}
   let toeKickTotal = 0
+  const skirtingByMaterial = {}
 
   cabinets.forEach(c => {
     let result
     try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
+
+    if (c.category === 'base' && c.skirtingSides && c.skirtingSides.length > 0) {
+      const matKey = c.skirtingMaterial || 'match_countertop'
+      if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = 0
+      c.skirtingSides.forEach(side => {
+        const lengthM = (side === 'left' || side === 'right') ? (c.depth / 1000) : (c.width / 1000)
+        skirtingByMaterial[matKey] += lengthM
+      })
+    }
 
     result.panels.forEach(p => {
       if (p.name.includes('Toe')) {
@@ -238,6 +248,22 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 <div style={{ fontSize: 11, color: '#888' }}>linear meters needed</div>
               </div>
             </div>
+          )}
+          {Object.entries(skirtingByMaterial).map(([matKey, total]) => {
+            const labels = { match_countertop: 'Skirting — Match Countertop', pvc_black: 'Skirting — PVC Black', pvc_champagne: 'Skirting — PVC Champagne', pvc_silver: 'Skirting — PVC Silver' }
+            return (
+              <div key={matKey} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+                <span style={{ fontSize: 20 }}>📏</span>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || 'Skirting Board'}</div>
+                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Covers adjustable legs on selected sides</div>
+                </div>
+                <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{total.toFixed(2)} m</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>linear meters needed</div>
+                </div>
+              </div>
+            )
           )}
         </>
       )}
@@ -315,6 +341,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       frontMaterial:t.frontMaterial|| projectDefaults?.frontFinish  || 'matt',
       zonePreset: null,
       skirtingSides: ['front'],
+      skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
     }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
