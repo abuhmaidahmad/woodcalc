@@ -438,6 +438,9 @@ function hasNeighbor(cab, side, allCabinets) {
 }
 
 function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab, allCabinets = [] }) {
+  if (cab && typeof window !== 'undefined') {
+    console.log('SKIRT SIDES', cab.id, 'x:', cab.x, 'sides:', sides, 'category:', cab.category)
+  }
   const T = 0.018
   let color = '#1a1a1a'
   let roughness = 0.4
