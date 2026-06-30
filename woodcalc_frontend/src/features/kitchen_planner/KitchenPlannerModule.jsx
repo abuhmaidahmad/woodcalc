@@ -725,7 +725,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
               readOnly={false}
-              hideToolbar={true} />
+              hideToolbar={false} />
           </div>
           <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
