@@ -535,6 +535,21 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
               ⚙ H{baseHeight}mm
             </button>
           )}
+          {projectDefaults && (
+            <select
+              value={projectDefaults.skirtingMaterial || 'match_countertop'}
+              onChange={e => {
+                const newMat = e.target.value
+                setProjectDefaults(p => ({ ...p, skirtingMaterial: newMat }))
+                setCabinets(prev => prev.map(c => ({ ...c, skirtingMaterial: newMat })))
+              }}
+              style={{ ...s.saveBtn, fontSize: 11, color: '#888', cursor: 'pointer' }}>
+              <option value="match_countertop">🪨 Skirting: Countertop</option>
+              <option value="pvc_black">⬛ Skirting: PVC Black</option>
+              <option value="pvc_champagne">🟫 Skirting: PVC Champagne</option>
+              <option value="pvc_silver">⬜ Skirting: PVC Silver</option>
+            </select>
+          )}
           <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
             {saving ? 'Saving…' : savedMsg || '💾 Save'}
           </button>
