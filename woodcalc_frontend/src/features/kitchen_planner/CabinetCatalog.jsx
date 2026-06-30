@@ -237,6 +237,7 @@ function ProjectSetup({ onConfirm }) {
   const [handlePos, setHandlePos]       = useState('bottom')
   const [carcassColor, setCarcassColor] = useState('#F5F0E8')
   const [frontColor, setFrontColor]     = useState('#FFFFFF')
+  const [frontMaterialCode, setFrontMaterialCode] = useState(null)
   const [frontFinish, setFrontFinish]   = useState('matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
   const ready = baseHeight && doorStyle
@@ -255,7 +256,7 @@ function ProjectSetup({ onConfirm }) {
   const FRONT_OPTIONS = [
     { color: '#FFFFFF', label: 'White',    finish: 'gloss' }, { color: '#F5F0E8', label: 'Cream',    finish: 'matt' },
     { color: '#C8C8C8', label: 'Lt Grey',  finish: 'matt'  }, { color: '#4A4A4A', label: 'Graphite', finish: 'matt' },
-    { color: '#1A1A1A', label: 'Black',    finish: 'gloss' }, { color: '#C8902A', label: 'Oak',      finish: 'wood' },
+    { color: '#1A1A1A', label: 'Black',    finish: 'gloss' }, { color: '#C8902A', label: 'Oak',      finish: 'wood', code: '03R' },
     { color: '#7B5B3A', label: 'Walnut',   finish: 'wood'  }, { color: '#1B3A5C', label: 'Navy',     finish: 'matt' },
     { color: '#7A9E7E', label: 'Sage',     finish: 'matt'  }, { color: '#C4703A', label: 'Terra',    finish: 'matt' },
   ]
@@ -326,7 +327,7 @@ function ProjectSetup({ onConfirm }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Color</div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 24 }}>
           {FRONT_OPTIONS.map(opt => (
-            <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish) }} title={opt.label}
+            <div key={opt.color + opt.finish} onClick={() => { setFrontColor(opt.color); setFrontFinish(opt.finish); setFrontMaterialCode(opt.code || null) }} title={opt.label}
               style={{ width: 32, height: 32, borderRadius: 6, background: opt.color, cursor: 'pointer', border: `2.5px solid ${frontColor === opt.color ? ACCENT : '#ddd'}`, boxShadow: frontColor === opt.color ? `0 0 0 2px ${ACCENT}40` : 'none',
                 backgroundImage: opt.finish === 'gloss' ? 'linear-gradient(135deg, rgba(255,255,255,0.5) 0%, transparent 60%)' :
                   opt.finish === 'wood' ? 'repeating-linear-gradient(90deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)' : 'none' }} />
@@ -347,7 +348,7 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, skirtingMaterial })}
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, skirtingMaterial })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           Start Designing →

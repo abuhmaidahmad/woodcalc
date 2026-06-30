@@ -335,6 +335,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       carcassColor: t.carcassColor || projectDefaults?.carcassColor || '#F5F0E8',
       frontColor:   t.frontColor   || projectDefaults?.frontColor   || '#FFFFFF',
       frontMaterial:t.frontMaterial|| projectDefaults?.frontFinish  || 'matt',
+      frontMaterialCode: t.frontMaterialCode || projectDefaults?.frontMaterialCode || null,
       zonePreset: null,
       skirtingSides: ['front'],
       skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
@@ -746,6 +747,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   carcassColor: setup.carcassColor,
                   frontColor:   setup.frontColor,
                   frontFinish:  setup.frontFinish,
+                  frontMaterialCode: setup.frontMaterialCode || null,
                 })
                 // Retroactively resize all existing base cabinets to the new height,
                 // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
@@ -755,6 +757,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   ...c,
                   ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
                   baseHeight: setup.baseHeight,
+                  frontMaterialCode: setup.frontMaterialCode || null,
                 })))
               }}
               onAddCabinet={addCabinet}

@@ -52,3 +52,22 @@ class StockAlert(models.Model):
 
     def __str__(self):
         return self.message
+
+
+class MaterialTexture(models.Model):
+    """Visual render-facing material swatch (front/door laminate or worktop surface),
+    separate from the inventory Material model which tracks stock/cost.
+    Used by the Kitchen Planner 3D view to texture-map cabinet fronts and countertops."""
+    TYPE_CHOICES = [('front', 'Front/Door'), ('worktop', 'Worktop/Countertop')]
+    code = models.CharField(max_length=50, blank=True)
+    name = models.CharField(max_length=200)
+    material_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
+    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='textures')
+    texture_image = models.ImageField(upload_to='material_textures/')
+    fallback_hex = models.CharField(max_length=7, default='#FFFFFF', help_text='Used if texture fails to load')
+    roughness = models.FloatField(default=0.4)
+    metalness = models.FloatField(default=0.0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.name} ({self.get_material_type_display()})'
