@@ -1,7 +1,7 @@
 import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
 import * as THREE from 'three'
-import { useMemo, Suspense } from 'react'
+import { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 
 const SCALE = 0.16
@@ -67,8 +67,8 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up
 // Fetches all supplier-uploaded material textures once and returns a lookup by `code`.
 // Falls back gracefully (empty map) if the request fails, so flat colors still render.
 function useMaterialTextureMap() {
-  const [textureMap, setTextureMap] = React.useState({})
-  React.useEffect(() => {
+  const [textureMap, setTextureMap] = useState({})
+  useEffect(() => {
     fetch(API_BASE + '/api/inventory/textures/')
       .then(r => r.json())
       .then(data => {
