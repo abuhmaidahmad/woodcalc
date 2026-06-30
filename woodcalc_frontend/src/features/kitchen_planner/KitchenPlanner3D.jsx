@@ -1,7 +1,7 @@
 import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
 import * as THREE from 'three'
-import { useMemo, Suspense, useState, useEffect } from 'react'
+import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 
 const SCALE = 0.16
@@ -66,6 +66,11 @@ const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up
 
 // Fetches all supplier-uploaded material textures once and returns a lookup by `code`.
 // Falls back gracefully (empty map) if the request fails, so flat colors still render.
+function forceHttps(url) {
+  if (!url) return url
+  return url.replace(/^http:\/\//i, 'https://')
+}
+
 function useMaterialTextureMap() {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
@@ -74,7 +79,9 @@ function useMaterialTextureMap() {
       .then(data => {
         const results = data.results || data
         const map = {}
-        results.forEach(t => { if (t.code) map[t.code] = t })
+        results.forEach(t => {
+          if (t.code) map[t.code] = { ...t, texture_image: forceHttps(t.texture_image) }
+        })
         setTextureMap(map)
       })
       .catch(() => setTextureMap({}))
@@ -105,19 +112,39 @@ function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, 
   )
 }
 
+class TextureErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: false } }
+  static getDerivedStateFromError() { return { error: true } }
+  render() {
+    if (this.state.error) {
+      const { args, position, castShadow, receiveShadow, color, matProps } = this.props
+      return (
+        <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+          <boxGeometry args={args} />
+          <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness} />
+        </mesh>
+      )
+    }
+    return this.props.children
+  }
+}
+
 function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV }) {
+  const flatMesh = (
+    <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+      <boxGeometry args={args} />
+      <meshStandardMaterial color={color} roughness={0.7} />
+    </mesh>
+  )
   return (
-    <Suspense fallback={
-      <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-        <boxGeometry args={args} />
-        <meshStandardMaterial color={color} roughness={0.7} />
-      </mesh>
-    }>
-      <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-        <boxGeometry args={args} />
-        <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} />
-      </mesh>
-    </Suspense>
+    <TextureErrorBoundary args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps}>
+      <Suspense fallback={flatMesh}>
+        <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+          <boxGeometry args={args} />
+          <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} />
+        </mesh>
+      </Suspense>
+    </TextureErrorBoundary>
   )
 }
 
