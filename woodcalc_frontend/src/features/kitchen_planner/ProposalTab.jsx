@@ -35,7 +35,7 @@ function priceCabinet(cab, prices) {
   try {
     result = calculateCabinet({
       width: cab.width, height: cab.height, depth: cab.depth,
-      material: cab.material, doorStyle: cab.doorStyle, shelves: 0,
+      material: cab.material, doorStyle: cab.doorStyle, shelves: 0, cabinetType: cab.category,
     })
   } catch { return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] } }
 

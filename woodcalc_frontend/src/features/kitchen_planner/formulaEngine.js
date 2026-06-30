@@ -90,12 +90,16 @@ export function calculateCabinet(config) {
   const material = (config.material || 'particleboard').toLowerCase();
   const doorStyle = (config.doorStyle || 'Handle');
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
-  const shelves = Number(config.shelves || 0);
+  const shelves = Number(config.shelves || (config.cabinetType === 'tall' ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   const zones = config.zones || [];
-  const cabinetType = config.cabinetType || 'base';
+  const cabinetType = config.cabinetType || config.category || 'base';
 
-  const { toeKickH, legH, preset } = chooseToeKickAndLegs(H);
+  // Wall and tall cabinets don't sit on the floor with a toe kick + legs
+  const hasFloorBase = cabinetType === 'base';
+  const { toeKickH, legH, preset } = hasFloorBase
+    ? chooseToeKickAndLegs(H)
+    : { toeKickH: 0, legH: 0, preset: cabinetType === 'wall' ? 'WALL' : 'TALL' };
 
   const panels = [];
   panels.push({
@@ -160,14 +164,16 @@ export function calculateCabinet(config) {
     });
   }
 
-  panels.push({
-    name: 'Toe kick',
-    qty: 1,
-    width: round2(W),
-    depth: toeKickH,
-    thickness: 18,
-    notes: `Toe kick height ${toeKickH} (preset ${preset})`,
-  });
+  if (hasFloorBase) {
+    panels.push({
+      name: 'Toe kick',
+      qty: 1,
+      width: round2(W),
+      depth: toeKickH,
+      thickness: 18,
+      notes: `Toe kick height ${toeKickH} (preset ${preset})`,
+    });
+  }
 
   const opening = round2(H - T - 100);
   const golaDoorHeight = round2(opening - 25 - 3);

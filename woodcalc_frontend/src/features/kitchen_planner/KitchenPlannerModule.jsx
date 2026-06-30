@@ -74,7 +74,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
       <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>📦 Per-Cabinet Cut List</div>
       {cabinets.map((c, i) => {
         let result
-        try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0 }) } catch { return null }
+        try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return null }
         const isOpen = expanded[c.id]
         const carcassMat = c.carcassMaterialName || c.carcassColor || 'Carcass'
         const frontMat = c.frontMaterialName || c.frontColor || 'Front'
@@ -162,7 +162,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 
   cabinets.forEach(c => {
     let result
-    try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0 }) } catch { return }
+    try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
 
@@ -249,7 +249,7 @@ function aggregateBOM(cabinets) {
   const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0 }
   cabinets.forEach(cab => {
     try {
-      const r = calculateCabinet({ width: cab.width, height: cab.height, depth: cab.depth, material: cab.material, doorStyle: cab.doorStyle, shelves: 0 })
+      const r = calculateCabinet({ width: cab.width, height: cab.height, depth: cab.depth, material: cab.material, doorStyle: cab.doorStyle, shelves: 0, cabinetType: cab.category })
       totals.sheet18    += r.panels.filter(p => p.thickness === 18).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.hdf8       += r.panels.filter(p => p.thickness === 8).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.edgeM      += (2 * cab.height + (cab.width - 36) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
