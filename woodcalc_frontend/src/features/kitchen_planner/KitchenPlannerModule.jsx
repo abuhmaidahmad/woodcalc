@@ -371,14 +371,71 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
     if (!cabinets.length) return
     setSending(true); setSentMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-    const orderNumber = 'WO-KP-' + Date.now()
+    const orderNumber = 'WO-' + Date.now()
     try {
-      const res = await fetch(API + '/api/manufacturing/work-orders/', {
+      let customerName = 'N/A'
+      if (projectId) {
+        try {
+          const pRes = await authFetch(API + `/api/crm/projects/${projectId}/`)
+          if (pRes.ok) {
+            const pData = await pRes.json()
+            customerName = pData.client_name || 'N/A'
+          }
+        } catch {}
+      }
+
+      const res = await authFetch(API + '/api/manufacturing/work-orders/', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
-        body: JSON.stringify({ order_number: orderNumber, product_name: projectName + ' (' + cabinets.length + ' cabinets)', customer_name: 'Kitchen Planner', quantity: cabinets.length, status: 'NEW' })
+        body: JSON.stringify({
+          order_number: orderNumber,
+          product_name: projectName + ' — ' + (roomName || 'Room') + ' (' + cabinets.length + ' cabinets)',
+          customer_name: customerName,
+          quantity: cabinets.length,
+          status: 'NEW',
+        })
       })
-      setSentMsg(res.ok ? '✓ Work Order ' + orderNumber + ' sent!' : '✗ Failed (' + res.status + ')')
+
+      if (res.ok) {
+        const wo = await res.json()
+
+        // Build master cut-list items (panels grouped by size+material+thickness)
+        const masterMap = {}
+        let toeKickTotal = 0
+        cabinets.forEach(c => {
+          let result
+          try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
+          const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
+          result.panels.forEach(p => {
+            if (p.name.includes('Toe')) { toeKickTotal += c.width / 1000; return }
+            const mat = p.name.includes('Back') ? 'HDF 8mm' : carcassMat
+            const key = `${p.name}|${p.width}x${p.depth}x${p.thickness}|${mat}`
+            if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${p.thickness}mm (${mat})`, qty: 0, unit: 'pcs' }
+            masterMap[key].qty += p.qty
+          })
+          result.doors.forEach(d => {
+            const frontMat = c.frontMaterialName || 'Front'
+            const key = `Door|${d.width}x${d.height}x18|${frontMat}`
+            if (!masterMap[key]) masterMap[key] = { desc: `Door/Front ${d.width}x${d.height}x18mm (${frontMat})`, qty: 0, unit: 'pcs' }
+            masterMap[key].qty += 1
+          })
+        })
+
+        const items = Object.values(masterMap)
+        if (toeKickTotal > 0) items.push({ desc: 'Toe kick (linear)', qty: Math.round(toeKickTotal * 100) / 100, unit: 'm' })
+
+        for (const item of items) {
+          try {
+            await authFetch(API + '/api/manufacturing/work-order-items/', {
+              method: 'POST',
+              body: JSON.stringify({ work_order: wo.id, description: item.desc, quantity: Math.ceil(item.qty), unit: item.unit })
+            })
+          } catch {}
+        }
+
+        setSentMsg('✓ Work Order ' + orderNumber + ' sent!')
+      } else {
+        setSentMsg('✗ Failed (' + res.status + ')')
+      }
     } catch { setSentMsg('✗ Cannot connect') }
     setSending(false)
   }
