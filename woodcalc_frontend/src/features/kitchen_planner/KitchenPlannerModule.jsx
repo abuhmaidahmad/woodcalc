@@ -308,6 +308,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
   const [countertop, setCountertop]           = useState('sil_white_storm')
+  const [countertopTextureUrl, setCountertopTextureUrl] = useState(null)
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
 
@@ -600,7 +601,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
             </div>
             <div style={s.panelSection}>
               <div style={s.panelLabel}>Countertop</div>
-              <CountertopPicker selected={countertop} onSelect={mat => setCountertop(mat.id)} />
+              <CountertopPicker selected={countertop} onSelect={mat => { setCountertop(mat.id); setCountertopTextureUrl(mat.textureUrl || null) }} />
             </div>
   
 
@@ -944,7 +945,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
 
       {tab === '3d' && (
         <div style={{ flex: 1 }}>
-<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} countertopThickness={countertopThickness} />
+<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} countertopTextureUrl={countertopTextureUrl} countertopThickness={countertopThickness} />
           {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
         </div>
       )}

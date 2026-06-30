@@ -1,5 +1,13 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import MaterialLibrary from './MaterialLibrary'
+import { authFetch } from '../../api/auth'
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+
+function forceHttps(url) {
+  if (!url) return url
+  return url.replace(/^http:\/\//i, 'https://')
+}
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -160,45 +168,90 @@ function buildLibrary(baseHeight) {
 }
 
 export function CountertopPicker({ selected, onSelect }) {
-  const [brand, setBrand] = useState('All')
+  const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
+  const [catalogWorktops, setCatalogWorktops] = useState([])
 
-  const filtered = COUNTERTOP_MATERIALS.filter(m => {
-    if (brand !== 'All' && m.brand !== brand) return false
-    if (category !== 'all' && m.category !== category) return false
+  useEffect(() => {
+    authFetch(API_URL + '/api/inventory/textures/?material_type=worktop')
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        setCatalogWorktops(list.filter(t => t.material_type === 'worktop'))
+      })
+      .catch(() => {})
+  }, [])
+
+  const myMaterials = catalogWorktops.map(t => ({
+    id: `custom-${t.id}`,
+    name: t.name,
+    brand: t.supplier_name || 'My Library',
+    code: t.code || '',
+    color: t.fallback_hex || '#C0C0C0',
+    category: 'custom',
+    textureUrl: forceHttps(t.texture_image),
+    roughness: t.roughness ?? 0.3,
+    metalness: t.metalness ?? 0.0,
+  }))
+
+  const isMyLibrary = brand === 'my_library'
+  const activeMaterials = isMyLibrary ? myMaterials : COUNTERTOP_MATERIALS.filter(m => brand === 'All' || m.brand === brand)
+
+  const filtered = activeMaterials.filter(m => {
+    if (!isMyLibrary && category !== 'all' && m.category !== category) return false
     if (search) {
       const q = search.toLowerCase()
-      return m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || m.brand.toLowerCase().includes(q)
+      return m.name.toLowerCase().includes(q) || (m.code || '').toLowerCase().includes(q) || (m.brand || '').toLowerCase().includes(q)
     }
     return true
   })
 
-  const selectedMat = COUNTERTOP_MATERIALS.find(m => m.id === selected)
+  const allMaterials = [...myMaterials, ...COUNTERTOP_MATERIALS]
+  const selectedMat = allMaterials.find(m => m.id === selected)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {/* Brand tabs */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
+        <button onClick={() => { setBrand('my_library'); setCategory('all') }}
+          style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+            borderColor: brand === 'my_library' ? ACCENT : '#E0DAD4', background: brand === 'my_library' ? ACCENT+'18' : '#fff', color: brand === 'my_library' ? ACCENT : '#666' }}>
+          📁 My Library {catalogWorktops.length > 0 ? `(${catalogWorktops.length})` : ''}
+        </button>
         {COUNTERTOP_BRANDS.map(b => (
-          <button key={b} onClick={() => setBrand(b)}
+          <button key={b} onClick={() => { setBrand(b); setCategory('all') }}
             style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
               borderColor: brand === b ? ACCENT : '#E0DAD4', background: brand === b ? ACCENT+'18' : '#fff', color: brand === b ? ACCENT : '#666' }}>
             {b}
           </button>
         ))}
       </div>
+
+      {/* Search */}
       <input placeholder="Search countertop..." value={search} onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-      <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-        {COUNTERTOP_CATEGORIES.map(c => (
-          <button key={c} onClick={() => setCategory(c)}
-            style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
-              borderColor: category === c ? ACCENT : '#E0DAD4', background: category === c ? ACCENT+'18' : '#fff', color: category === c ? ACCENT : '#666' }}>
-            {c}
-          </button>
-        ))}
-      </div>
+
+      {/* Category filter — only for built-in brands */}
+      {!isMyLibrary && (
+        <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+          {COUNTERTOP_CATEGORIES.map(c => (
+            <button key={c} onClick={() => setCategory(c)}
+              style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
+                borderColor: category === c ? ACCENT : '#E0DAD4', background: category === c ? ACCENT+'18' : '#fff', color: category === c ? ACCENT : '#666' }}>
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Swatch grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, maxHeight: 260, overflowY: 'auto' }}>
+        {filtered.length === 0 && (
+          <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '12px 0', textAlign: 'center' }}>
+            {isMyLibrary ? 'No worktop materials in catalog yet. Add them at /catalog.' : 'No results'}
+          </div>
+        )}
         {filtered.map(mat => {
           const isSel = selected === mat.id
           return (
@@ -206,24 +259,39 @@ export function CountertopPicker({ selected, onSelect }) {
               style={{ borderRadius: 7, border: `2px solid ${isSel ? ACCENT : '#E0DAD4'}`, background: isSel ? ACCENT+'08' : '#FAFAFA', cursor: 'pointer', overflow: 'hidden' }}
               onMouseEnter={e => { if (!isSel) e.currentTarget.style.borderColor = '#C8A06A' }}
               onMouseLeave={e => { if (!isSel) e.currentTarget.style.borderColor = '#E0DAD4' }}>
-              <div style={{ height: 32, background: mat.color,
-                backgroundImage: mat.category === 'marble' ? `linear-gradient(125deg, rgba(255,255,255,0.15) 0%, transparent 40%, rgba(255,255,255,0.08) 60%, transparent 100%)` :
-                  mat.category === 'wood' ? `repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 5px)` :
-                  mat.category === 'concrete' ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='rgba(0,0,0,0.08)'/%3E%3C/svg%3E")` : 'none' }} />
+              {/* Swatch — photo if catalog, else color */}
+              <div style={{ height: 40, background: mat.color, position: 'relative', overflow: 'hidden',
+                backgroundImage: !mat.textureUrl ? (
+                  mat.category === 'marble' ? `linear-gradient(125deg, rgba(255,255,255,0.15) 0%, transparent 40%, rgba(255,255,255,0.08) 60%, transparent 100%)` :
+                  mat.category === 'wood'   ? `repeating-linear-gradient(90deg, transparent, transparent 4px, rgba(0,0,0,0.04) 4px, rgba(0,0,0,0.04) 5px)` :
+                  mat.category === 'concrete' ? `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='4'%3E%3Ccircle cx='1' cy='1' r='0.5' fill='rgba(0,0,0,0.08)'/%3E%3C/svg%3E")` : 'none'
+                ) : 'none' }}>
+                {mat.textureUrl && (
+                  <img src={mat.textureUrl} alt={mat.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    onError={e => { e.target.style.display = 'none' }} />
+                )}
+              </div>
               <div style={{ padding: '4px 6px' }}>
                 <div style={{ fontSize: 9, fontWeight: 700, color: '#333', lineHeight: 1.2 }}>{mat.name}</div>
-                <div style={{ fontSize: 8, color: '#888' }}>{mat.brand} · {mat.code}</div>
+                <div style={{ fontSize: 8, color: '#888' }}>{mat.brand}{mat.code ? ` · ${mat.code}` : ''}</div>
               </div>
             </div>
           )
         })}
       </div>
+
+      {/* Selected display */}
       {selectedMat && (
         <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 7, border: `1.5px solid ${ACCENT}33`, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 4, background: selectedMat.color, border: '1px solid #ddd', flexShrink: 0 }} />
+          <div style={{ width: 28, height: 28, borderRadius: 4, background: selectedMat.color, border: '1px solid #ddd', flexShrink: 0, overflow: 'hidden' }}>
+            {selectedMat.textureUrl && (
+              <img src={selectedMat.textureUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                onError={e => { e.target.style.display = 'none' }} />
+            )}
+          </div>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, color: DARK }}>{selectedMat.name}</div>
-            <div style={{ fontSize: 9, color: '#888' }}>{selectedMat.brand} · {selectedMat.code}</div>
+            <div style={{ fontSize: 9, color: '#888' }}>{selectedMat.brand}{selectedMat.code ? ` · ${selectedMat.code}` : ''}</div>
           </div>
         </div>
       )}
