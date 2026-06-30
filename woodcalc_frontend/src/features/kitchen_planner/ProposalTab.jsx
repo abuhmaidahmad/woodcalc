@@ -85,7 +85,10 @@ function priceCabinet(cab, prices) {
   breakdown.push({ label: 'Machining', qty: '1 cab', unit: prices.machining_cab, cost: machiningCost })
   breakdown.push({ label: 'Labor',     qty: '1 cab', unit: prices.labor_cab,     cost: laborCost })
 
-  const total = parseFloat((materialCost + hardwareCost + machiningCost + laborCost).toFixed(2))
+  let total = parseFloat((materialCost + hardwareCost + machiningCost + laborCost).toFixed(2))
+  if (!Number.isFinite(total)) {
+    return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+  }
   return { materialCost: parseFloat(materialCost.toFixed(2)), hardwareCost: parseFloat(hardwareCost.toFixed(2)), machiningCost, laborCost, total, breakdown }
 }
 
