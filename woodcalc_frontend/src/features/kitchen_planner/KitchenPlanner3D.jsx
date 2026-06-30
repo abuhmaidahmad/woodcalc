@@ -420,18 +420,21 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
     metalness = 0.1
   }
 
+  // Skirting sits at the leg line (same 25mm inset from the cabinet edge used for leg placement),
+  // not flush with the outer cabinet face — matching real toe-kick clip installation.
+  const legInset = 0.025
   const panels = []
   if (sides.includes('front')) {
-    panels.push({ pos: [0, -legH / 2, D / 2 + T / 2], size: [W, legH, T] })
+    panels.push({ pos: [0, -legH / 2, D / 2 - legInset], size: [W - legInset * 2, legH, T] })
   }
   if (sides.includes('back')) {
-    panels.push({ pos: [0, -legH / 2, -D / 2 - T / 2], size: [W, legH, T] })
+    panels.push({ pos: [0, -legH / 2, -D / 2 + legInset], size: [W - legInset * 2, legH, T] })
   }
   if (sides.includes('left')) {
-    panels.push({ pos: [-W / 2 - T / 2, -legH / 2, 0], size: [T, legH, D] })
+    panels.push({ pos: [-W / 2 + legInset, -legH / 2, 0], size: [T, legH, D - legInset * 2] })
   }
   if (sides.includes('right')) {
-    panels.push({ pos: [W / 2 + T / 2, -legH / 2, 0], size: [T, legH, D] })
+    panels.push({ pos: [W / 2 - legInset, -legH / 2, 0], size: [T, legH, D - legInset * 2] })
   }
 
   return (
