@@ -338,11 +338,12 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       zonePreset: null,
       skirtingSides: ['front'],
       skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
+      baseHeight: baseHeight || 800,
     }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
-  }, [projectDefaults])
+  }, [projectDefaults, baseHeight])
 
   const addElement = (t) => {
     const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
@@ -746,10 +747,15 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontColor:   setup.frontColor,
                   frontFinish:  setup.frontFinish,
                 })
-                // Retroactively resize all existing base cabinets to the new height
-                setCabinets(prev => prev.map(c =>
-                  c.category === 'base' ? { ...c, height: setup.baseHeight } : c
-                ))
+                // Retroactively resize all existing base cabinets to the new height,
+                // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
+                // can derive correct leg height (720->150mm legs, 800->80mm legs)
+                // regardless of the cabinet's own box height.
+                setCabinets(prev => prev.map(c => ({
+                  ...c,
+                  ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
+                  baseHeight: setup.baseHeight,
+                })))
               }}
               onAddCabinet={addCabinet}
             />

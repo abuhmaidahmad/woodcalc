@@ -499,9 +499,10 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const x = cab.x / 1000
   const z = cab.y / 1000
   const rot = (cab.rotation || 0) * Math.PI / 180
-  // Leg height follows the cabinet's own height preset (720mm -> 150mm legs, 800mm -> 80mm legs),
-  // matching formulaEngine.js chooseToeKickAndLegs(). cab.height holds the raw mm value for base cabinets.
-  const legHmm = cab.height === 720 ? 150 : cab.height === 800 ? 80 : 120
+  // Leg height follows the project's base height setting (720mm -> 150mm legs, 800mm -> 80mm legs),
+  // matching formulaEngine.js chooseToeKickAndLegs(). cab.baseHeight is stamped on every cabinet
+  // (base AND tall) at creation/setup time, independent of the cabinet's own box height (cab.height).
+  const legHmm = cab.baseHeight === 720 ? 150 : cab.baseHeight === 800 ? 80 : 80
   const legH = legHmm / 1000
   const legR = 0.008
 
