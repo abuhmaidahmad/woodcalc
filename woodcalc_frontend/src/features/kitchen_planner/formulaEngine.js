@@ -164,17 +164,6 @@ export function calculateCabinet(config) {
     });
   }
 
-  if (hasFloorBase) {
-    panels.push({
-      name: 'Toe kick',
-      qty: 1,
-      width: round2(W),
-      depth: toeKickH,
-      thickness: 18,
-      notes: `Toe kick height ${toeKickH} (preset ${preset})`,
-    });
-  }
-
   const opening = round2(H - T - 100);
   const golaDoorHeight = round2(opening - 25 - 3);
   const handlePushDoorHeight = round2(opening - 3 - 3);

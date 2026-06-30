@@ -158,7 +158,6 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 
   // Build master grouped list
   const masterMap = {}
-  let toeKickTotal = 0
   const skirtingByMaterial = {}
 
   cabinets.forEach(c => {
@@ -182,10 +181,6 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     }
 
     result.panels.forEach(p => {
-      if (p.name.includes('Toe')) {
-        toeKickTotal += c.width / 1000
-        return
-      }
       const mat = p.name.includes('Back') ? 'HDF 8mm' : carcassMat
       const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
       const key = `${p.width}×${p.depth}×${p.thickness}|${mat}|${JSON.stringify(eb)}`
@@ -241,19 +236,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
               </tbody>
             </table>
           </div>
-          {toeKickTotal > 0 && (
-            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16 }}>
-              <span style={{ fontSize: 20 }}>🦶</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Toe Kick (separate item)</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Runs along adjustable legs — hides front gap</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{toeKickTotal.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>linear meters needed</div>
-              </div>
-            </div>
-          )}
+
           {Object.entries(skirtingByMaterial).map(([matKey, data]) => {
             const labels = { match_countertop: 'Skirting — Match Countertop', pvc_black: 'Skirting — PVC Black', pvc_champagne: 'Skirting — PVC Champagne', pvc_silver: 'Skirting — PVC Silver' }
             return (
@@ -467,13 +450,11 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
 
         // Build master cut-list items (panels grouped by size+material+thickness) — NEW cabinets only
         const masterMap = {}
-        let toeKickTotal = 0
-        newCabinets.forEach(c => {
+              newCabinets.forEach(c => {
           let result
           try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
           const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
           result.panels.forEach(p => {
-            if (p.name.includes('Toe')) { toeKickTotal += c.width / 1000; return }
             const mat = p.name.includes('Back') ? 'HDF 8mm' : carcassMat
             const key = `${p.name}|${p.width}x${p.depth}x${p.thickness}|${mat}`
             if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${p.thickness}mm (${mat})`, qty: 0, unit: 'pcs' }
@@ -488,7 +469,6 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         })
 
         const items = Object.values(masterMap)
-        if (toeKickTotal > 0) items.push({ desc: 'Toe kick (linear)', qty: Math.round(toeKickTotal * 100) / 100, unit: 'm' })
 
         for (const item of items) {
           try {
