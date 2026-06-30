@@ -730,7 +730,13 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
           <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
               <div>
-                <div style={s.propTitle}>{selCab.label}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div style={s.propTitle}>{selCab.label}</div>
+                  <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }}
+                    style={{ padding: '4px 8px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                    🗑 Delete
+                  </button>
+                </div>
 <div style={s.propSection}>Dimensions</div>
 {[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
   <div key={key} style={{ marginBottom: 10 }}>
@@ -791,9 +797,6 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   </>
 )}
 
-                <div style={{ marginTop: 8 }}>
-                  <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete cabinet</button>
-                </div>
               </div>
             ) : (
               <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>🗄</div>Click a cabinet to configure it</div>
