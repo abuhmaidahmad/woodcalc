@@ -9,7 +9,8 @@ import RegisterSupplier from './pages/auth/RegisterSupplier';
 import Dashboard from './pages/Dashboard';
 import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule';
 import CustomerList from './pages/CustomerList'
-import RoomDetail from './pages/RoomDetail';
+import RoomDetail from './pages/RoomDetail'
+import ProductionBoard from './pages/ProductionBoard';
 import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
 
@@ -49,6 +50,11 @@ export default function App() {
         {/* Room */}
         <Route path="/rooms/:id" element={
           <PrivateRoute><RoomDetail /></PrivateRoute>
+        } />
+
+        {/* Production */}
+        <Route path="/production" element={
+          <PrivateRoute><ProductionBoard /></PrivateRoute>
         } />
 
         {/* Dashboard */}
