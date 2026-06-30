@@ -384,24 +384,50 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         } catch {}
       }
 
+      // Find prior work orders for this room and the cabinet ids already sent
+      let alreadySentIds = []
+      let isBackOrder = false
+      if (roomId) {
+        try {
+          const priorRes = await authFetch(API + `/api/manufacturing/work-orders/?room_id_ref=${roomId}`)
+          if (priorRes.ok) {
+            const priorData = await priorRes.json()
+            const priorOrders = Array.isArray(priorData) ? priorData : (priorData.results || [])
+            priorOrders.forEach(o => { alreadySentIds = alreadySentIds.concat(o.sent_cabinet_ids || []) })
+            isBackOrder = priorOrders.length > 0
+          }
+        } catch {}
+      }
+
+      const newCabinets = cabinets.filter(c => !alreadySentIds.includes(c.id))
+
+      if (newCabinets.length === 0) {
+        setSentMsg('✓ Already sent — no new cabinets to add')
+        setSending(false)
+        return
+      }
+
       const res = await authFetch(API + '/api/manufacturing/work-orders/', {
         method: 'POST',
         body: JSON.stringify({
           order_number: orderNumber,
-          product_name: projectName + ' — ' + (roomName || 'Room') + ' (' + cabinets.length + ' cabinets)',
+          product_name: projectName + ' — ' + (roomName || 'Room') + (isBackOrder ? ' (Back Order)' : '') + ' (' + newCabinets.length + ' cabinets)',
           customer_name: customerName,
-          quantity: cabinets.length,
+          quantity: newCabinets.length,
           status: 'NEW',
+          room_id_ref: roomId || null,
+          is_back_order: isBackOrder,
+          sent_cabinet_ids: newCabinets.map(c => c.id),
         })
       })
 
       if (res.ok) {
         const wo = await res.json()
 
-        // Build master cut-list items (panels grouped by size+material+thickness)
+        // Build master cut-list items (panels grouped by size+material+thickness) — NEW cabinets only
         const masterMap = {}
         let toeKickTotal = 0
-        cabinets.forEach(c => {
+        newCabinets.forEach(c => {
           let result
           try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
           const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
@@ -432,7 +458,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
           } catch {}
         }
 
-        setSentMsg('✓ Work Order ' + orderNumber + ' sent!')
+        setSentMsg('✓ ' + (isBackOrder ? 'Back Order ' : 'Work Order ') + orderNumber + ' sent! (' + newCabinets.length + ' new cabinets)')
       } else {
         setSentMsg('✗ Failed (' + res.status + ')')
       }

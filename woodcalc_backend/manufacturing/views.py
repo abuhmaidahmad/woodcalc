@@ -18,6 +18,13 @@ class WorkOrderViewSet(ModelViewSet):
     serializer_class = WorkOrderSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = WorkOrder.objects.all().order_by('-created_at')
+        room_id = self.request.query_params.get('room_id_ref')
+        if room_id:
+            qs = qs.filter(room_id_ref=room_id)
+        return qs
+
 
 class WorkOrderItemViewSet(ModelViewSet):
     queryset = WorkOrderItem.objects.all()
