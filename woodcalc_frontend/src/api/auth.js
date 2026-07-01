@@ -82,7 +82,9 @@ export async function refreshAccessToken() {
 
 export async function authFetch(url, options = {}) {
   const token = localStorage.getItem('access_token')
-  const headers = { 'Content-Type': 'application/json', ...options.headers, 'Authorization': 'Bearer ' + token }
+  // Don't set Content-Type for FormData — the browser sets it with the multipart boundary
+  const defaultHeaders = options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }
+  const headers = { ...defaultHeaders, ...options.headers, 'Authorization': 'Bearer ' + token }
   let res = await fetch(url, { ...options, headers })
   if (res.status === 401) {
     const newToken = await refreshAccessToken()
