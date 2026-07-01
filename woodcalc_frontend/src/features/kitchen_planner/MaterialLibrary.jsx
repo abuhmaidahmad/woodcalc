@@ -25,15 +25,18 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
   const [search, setSearch] = useState('')
   const [catalogMaterials, setCatalogMaterials] = useState([])
 
+  const typeFilter = target === 'front' ? 'front' : target === 'carcass' ? 'carcass' : ''
+
   useEffect(() => {
-    authFetch(API + '/api/inventory/textures/')
+    const url = API + '/api/inventory/textures/' + (typeFilter ? `?material_type=${typeFilter}` : '')
+    authFetch(url)
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setCatalogMaterials(list)
       })
       .catch(() => {})
-  }, [])
+  }, [typeFilter])
 
   const myLibraryMaterials = catalogMaterials.map(t => ({
     code: t.code || `custom-${t.id}`,
@@ -111,7 +114,9 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, maxHeight: 280, overflowY: 'auto' }}>
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '16px 0', textAlign: 'center' }}>
-            {isMyLibrary ? 'No materials in your catalog yet. Add them at /catalog.' : 'No results'}
+            {isMyLibrary
+            ? `No ${target === 'carcass' ? 'carcass' : 'front'} materials in your catalog yet. Add them at /catalog.`
+            : 'No results'}
           </div>
         )}
         {filtered.map(mat => {

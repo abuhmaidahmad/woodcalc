@@ -61,7 +61,7 @@ class MaterialTexture(models.Model):
     """Visual render-facing material swatch (front/door laminate or worktop surface),
     separate from the inventory Material model which tracks stock/cost.
     Used by the Kitchen Planner 3D view to texture-map cabinet fronts and countertops."""
-    TYPE_CHOICES = [('front', 'Front/Door'), ('worktop', 'Worktop/Countertop')]
+    TYPE_CHOICES = [('front', 'Front/Door'), ('worktop', 'Worktop/Countertop'), ('carcass', 'Carcass/Interior')]
     FINISH_CHOICES = [
         ('matt', 'Matt'), ('gloss', 'Gloss'), ('wood', 'Wood'), ('metal', 'Metal'), ('other', 'Other'),
     ]

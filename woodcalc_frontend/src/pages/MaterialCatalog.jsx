@@ -6,8 +6,8 @@ const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
-const TYPE_LABELS = { front: 'Front / Door', worktop: 'Worktop / Countertop' }
-const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8' }
+const TYPE_LABELS = { front: 'Front / Door', worktop: 'Worktop / Countertop', carcass: 'Carcass / Interior' }
+const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A' }
 const FINISH_OPTIONS = ['matt', 'gloss', 'wood', 'metal', 'other']
 
 const EMPTY_FORM = {
@@ -201,7 +201,7 @@ export default function MaterialCatalog() {
         {/* Filters + Search */}
         <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: 4 }}>
-            {[['all', 'All'], ['front', 'Front / Door'], ['worktop', 'Worktop']].map(([val, label]) => (
+            {[['all', 'All'], ['front', 'Front / Door'], ['worktop', 'Worktop'], ['carcass', 'Carcass']].map(([val, label]) => (
               <button key={val} onClick={() => setFilter(val)}
                 style={{ padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                   background: filter === val ? ACCENT : '#fff',
@@ -316,6 +316,7 @@ export default function MaterialCatalog() {
                   style={selectStyle}>
                   <option value="front">Front / Door</option>
                   <option value="worktop">Worktop / Countertop</option>
+                  <option value="carcass">Carcass / Interior</option>
                 </select>
               </div>
               <div>

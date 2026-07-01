@@ -31,6 +31,12 @@ class StockAlertViewSet(ModelViewSet):
 class MaterialTextureViewSet(ModelViewSet):
     # Read access (GET) is public so the Kitchen Planner can load material swatches
     # without requiring a logged-in session. Create/update/delete still require auth.
-    queryset = MaterialTexture.objects.all().order_by('material_type', 'name')
     serializer_class = MaterialTextureSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        qs = MaterialTexture.objects.all().order_by('material_type', 'name')
+        material_type = self.request.query_params.get('material_type')
+        if material_type:
+            qs = qs.filter(material_type=material_type)
+        return qs
