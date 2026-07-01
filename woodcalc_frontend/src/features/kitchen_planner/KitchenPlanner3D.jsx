@@ -1,7 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { OrbitControls, ContactShadows, Environment, AccumulativeShadows, RandomizedLight } from '@react-three/drei'
-import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
-import { BlendFunction } from 'postprocessing'
+import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
 import * as THREE from 'three'
 import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
@@ -799,23 +797,22 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
-      <Canvas shadows="soft"
+      <Canvas shadows
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
-        gl={{toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:1.1,antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
-        <color attach="background" args={['#ede9e3']} />
-        <fog attach="fog" args={['#ede9e3',14,30]} />
+        gl={{toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:0.82,antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
+        <color attach="background" args={['#ddd9d3']} />
+        <fog attach="fog" args={['#ddd9d3',14,30]} />
 
         {/* --- Lighting --- */}
-        {/* Reduced ambient — HDRI environment fills the scene */}
-        <ambientLight intensity={0.3} color="#fff8f0" />
-        {/* Key light: sun from upper-right, soft shadow radius */}
-        <directionalLight position={[cx+span,span*2,cz+span]} intensity={1.8} color="#fffaf0" castShadow
-          shadow-mapSize={[2048,2048]} shadow-camera-left={-12} shadow-camera-right={12}
-          shadow-camera-top={12} shadow-camera-bottom={-12} shadow-bias={-0.0003} shadow-radius={8} />
+        <ambientLight intensity={0.2} color="#fff8f0" />
+        {/* Key light from upper-right */}
+        <directionalLight position={[cx+span,span*2,cz+span]} intensity={1.1} color="#fffaf0" castShadow
+          shadow-mapSize={[1024,1024]} shadow-camera-left={-12} shadow-camera-right={12}
+          shadow-camera-top={12} shadow-camera-bottom={-12} shadow-bias={-0.0003} />
         {/* Cool fill from opposite side */}
-        <directionalLight position={[cx-span,span*0.8,cz-span]} intensity={0.35} color="#dce8ff" />
+        <directionalLight position={[cx-span,span*0.8,cz-span]} intensity={0.25} color="#dce8ff" />
         {/* Hemisphere for sky/ground gradient */}
-        <hemisphereLight skyColor="#fff5e0" groundColor="#b8966a" intensity={0.4} />
+        <hemisphereLight skyColor="#fff5e0" groundColor="#b8966a" intensity={0.3} />
         {/* Ceiling spot lights */}
         {lightPositions.map(([lx,lz],i)=><CeilingLight key={i} x={lx} z={lz} roomH={ROOM_H} />)}
 
@@ -836,23 +833,10 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
           resolution={512} color="#150800"
         />
 
-        {/* --- HDRI environment: "studio" gives clean neutral reflections on gloss surfaces --- */}
-        <Environment preset="studio" intensity={1.0} />
+        {/* Apartment preset: warm indoor reflections without the harsh studio overexposure */}
+        <Environment preset="apartment" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
-
-        {/* --- Post-processing: subtle bloom on bright surfaces + vignette --- */}
-        <Suspense fallback={null}>
-          <EffectComposer multisampling={4} disableNormalPass>
-            <Bloom
-              luminanceThreshold={0.85}
-              luminanceSmoothing={0.04}
-              intensity={0.4}
-              blendFunction={BlendFunction.ADD}
-            />
-            <Vignette eskil={false} offset={0.2} darkness={0.45} blendFunction={BlendFunction.NORMAL} />
-          </EffectComposer>
-        </Suspense>
       </Canvas>
     </div>
   )
