@@ -3,6 +3,12 @@ import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
 import * as THREE from 'three'
 import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
+import { MATERIAL_DB, lamToCt } from './materialData'
+
+const ALL_CT_MATS = [
+  ...COUNTERTOP_MATERIALS,
+  ...Object.entries(MATERIAL_DB).flatMap(([, b]) => b.materials.map(m => lamToCt(m, b.label))),
+]
 
 const SCALE = 0.16
 const DEFAULT_ROOM_H = 2.8
@@ -394,16 +400,22 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
   const totalW = W + 0.040
   const frontOverhang = 0.040
   const totalD = D + frontOverhang
-  // shift forward by half the front overhang so the BACK edge stays flush with cabinet back (no back overhang)
   const zOffset = frontOverhang / 2
+  const ctMatProps = { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.8, clearcoatRoughness: 0.06 }
+
+  const slab = (w, d, pos) => mat.textureUrl ? (
+    <PhotoTexturedBox key={`${w}_${d}`} args={[w, T, d]} position={pos} castShadow receiveShadow
+      imageUrl={mat.textureUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={1.8}
+      repeatU={Math.max(1, Math.ceil(w * 2))} repeatV={Math.max(1, Math.ceil(d * 2))} />
+  ) : (
+    <mesh key={`${w}_${d}`} position={pos} castShadow receiveShadow>
+      <boxGeometry args={[w, T, d]} />
+      <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
+    </mesh>
+  )
 
   if (!isSink) {
-    return (
-      <mesh position={[0, T / 2, zOffset]} castShadow receiveShadow>
-        <boxGeometry args={[totalW, T, totalD]} />
-        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
-      </mesh>
-    )
+    return slab(totalW, totalD, [0, T / 2, zOffset])
   }
 
   const cutW = W - 0.100
@@ -414,22 +426,10 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
 
   return (
     <group position={[0, T / 2, zOffset]}>
-      <mesh position={[-(cutW / 2 + borderW / 2), 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[borderW, T, totalD]} />
-        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
-      </mesh>
-      <mesh position={[cutW / 2 + borderW / 2, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[borderW, T, totalD]} />
-        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
-      </mesh>
-      <mesh position={[0, 0, cutD / 2 + frontD / 2]} castShadow receiveShadow>
-        <boxGeometry args={[cutW, T, frontD]} />
-        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
-      </mesh>
-      <mesh position={[0, 0, -(cutD / 2 + backD / 2)]} castShadow receiveShadow>
-        <boxGeometry args={[cutW, T, backD]} />
-        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
-      </mesh>
+      {slab(borderW, totalD, [-(cutW / 2 + borderW / 2), 0, 0])}
+      {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0])}
+      {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2])}
+      {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)])}
       <mesh position={[0, -0.080, 0]}>
         <boxGeometry args={[cutW - 0.040, 0.160, cutD - 0.040]} />
         <meshPhysicalMaterial color="#c8c8c8" metalness={0.85} roughness={0.15} clearcoat={1} envMapIntensity={2} />
@@ -756,8 +756,9 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopThickness = 30 }) {
-  const countertopMat = COUNTERTOP_MATERIALS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
+export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopTextureUrl = null, countertopThickness = 30 }) {
+  const _baseMat = ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
+  const countertopMat = countertopTextureUrl ? { ..._baseMat, textureUrl: countertopTextureUrl } : _baseMat
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
   const wallEls  = elements.filter(e => e.type==='window'||e.type==='door')

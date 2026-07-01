@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import MaterialLibrary from './MaterialLibrary'
 import { authFetch } from '../../api/auth'
+import { COUNTERTOP_MATERIALS, COUNTERTOP_CATEGORIES, COUNTERTOP_BRANDS, MATERIAL_DB, lamToCt } from './materialData'
+export { COUNTERTOP_MATERIALS }
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
@@ -36,36 +38,6 @@ export const LAMINATE_MATERIALS = [
   { id: 'wood_pine',        label: 'Pine',             color: '#E0C080', finish: 'wood' },
 ]
 
-export const COUNTERTOP_MATERIALS = [
-  { id: 'sil_eternal_calacatta', brand: 'Silestone', code: 'ET-C',     name: 'Eternal Calacatta Gold', color: '#F5F0E8', roughness: 0.08, metalness: 0.02, category: 'marble' },
-  { id: 'sil_white_storm',       brand: 'Silestone', code: 'WS-1',     name: 'White Storm',            color: '#F0EEE9', roughness: 0.10, metalness: 0.02, category: 'quartz' },
-  { id: 'sil_cemento_spa',       brand: 'Silestone', code: 'CS-1',     name: 'Cemento Spa',            color: '#A8A49E', roughness: 0.55, metalness: 0.00, category: 'concrete' },
-  { id: 'sil_negro_tebas',       brand: 'Silestone', code: 'NT-1',     name: 'Negro Tebas',            color: '#1E1E1E', roughness: 0.12, metalness: 0.03, category: 'dark' },
-  { id: 'sil_charcoal_soapstone',brand: 'Silestone', code: 'CH-S',     name: 'Charcoal Soapstone',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'dark' },
-  { id: 'sil_bianco_river',      brand: 'Silestone', code: 'BR-1',     name: 'Bianco River',           color: '#E8E4DC', roughness: 0.09, metalness: 0.02, category: 'marble' },
-  { id: 'sil_cala_blue',         brand: 'Silestone', code: 'CB-1',     name: 'Cala Blue',              color: '#6A7A8A', roughness: 0.12, metalness: 0.02, category: 'marble' },
-  { id: 'cae_fresh_concrete',    brand: 'Caesarstone', code: '4044',   name: 'Fresh Concrete',         color: '#C8C4BC', roughness: 0.60, metalness: 0.00, category: 'concrete' },
-  { id: 'cae_cloudburst',        brand: 'Caesarstone', code: '4011',   name: 'Cloudburst Concrete',    color: '#A0A09A', roughness: 0.55, metalness: 0.00, category: 'concrete' },
-  { id: 'cae_white_attica',      brand: 'Caesarstone', code: '5031',   name: 'White Attica',           color: '#F2EEE8', roughness: 0.08, metalness: 0.02, category: 'marble' },
-  { id: 'cae_statuario',         brand: 'Caesarstone', code: '5003',   name: 'Piatra Grey',            color: '#C0BCB4', roughness: 0.15, metalness: 0.01, category: 'marble' },
-  { id: 'cae_vanilla_noir',      brand: 'Caesarstone', code: '6600',   name: 'Vanilla Noir',           color: '#3A3530', roughness: 0.10, metalness: 0.02, category: 'dark' },
-  { id: 'cae_oxidian',           brand: 'Caesarstone', code: '0046',   name: 'Oxidian',                color: '#1A1A1A', roughness: 0.05, metalness: 0.08, category: 'dark' },
-  { id: 'cae_wooland_brown',     brand: 'Caesarstone', code: '6310',   name: 'Coastal Grey',           color: '#888480', roughness: 0.25, metalness: 0.01, category: 'quartz' },
-  { id: 'dek_kelya',             brand: 'Dekton',      code: 'DK-KL',  name: 'Kelya',                  color: '#2A2A28', roughness: 0.08, metalness: 0.05, category: 'dark' },
-  { id: 'dek_sirius',            brand: 'Dekton',      code: 'DK-SR',  name: 'Sirius',                 color: '#E8E4DC', roughness: 0.06, metalness: 0.02, category: 'marble' },
-  { id: 'dek_kreta',             brand: 'Dekton',      code: 'DK-KR',  name: 'Kreta',                  color: '#D0C8BC', roughness: 0.40, metalness: 0.00, category: 'concrete' },
-  { id: 'dek_opera',             brand: 'Dekton',      code: 'DK-OP',  name: 'Opera',                  color: '#F8F4EE', roughness: 0.07, metalness: 0.02, category: 'marble' },
-  { id: 'dek_zenith',            brand: 'Dekton',      code: 'DK-ZN',  name: 'Zenith',                 color: '#F0F0EE', roughness: 0.05, metalness: 0.03, category: 'quartz' },
-  { id: 'dek_domoos',            brand: 'Dekton',      code: 'DK-DM',  name: 'Domoos',                 color: '#4A4640', roughness: 0.35, metalness: 0.00, category: 'dark' },
-  { id: 'egg_white_levanto',     brand: 'Egger',       code: 'F812 ST10', name: 'White Levanto Marble',color: '#F0EBE4', roughness: 0.10, metalness: 0.01, category: 'marble' },
-  { id: 'egg_anthracite_stein',  brand: 'Egger',       code: 'F246 ST10', name: 'Anthracite Stein',    color: '#4A4846', roughness: 0.45, metalness: 0.00, category: 'concrete' },
-  { id: 'egg_natural_hamilton',  brand: 'Egger',       code: 'H010 ST10', name: 'Natural Hamilton Oak',color: '#C8A060', roughness: 0.70, metalness: 0.00, category: 'wood' },
-  { id: 'egg_dark_cromwell',     brand: 'Egger',       code: 'H022 ST10', name: 'Dark Cromwell Oak',   color: '#6A4830', roughness: 0.72, metalness: 0.00, category: 'wood' },
-  { id: 'egg_black_marquina',    brand: 'Egger',       code: 'F028 ST89', name: 'Black Marquina',      color: '#1A1818', roughness: 0.08, metalness: 0.03, category: 'dark' },
-]
-
-const COUNTERTOP_CATEGORIES = ['all', 'marble', 'quartz', 'concrete', 'dark', 'wood']
-const COUNTERTOP_BRANDS = ['All', 'Silestone', 'Caesarstone', 'Dekton', 'Egger']
 
 const Icons = {
   base_standard: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="30" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="34" width="40" height="4" rx="1" fill="#e0d5c5" stroke="#2c3e50" strokeWidth="1.5"/><line x1="24" y1="8" x2="24" y2="34" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="21" r="1.5" fill="#2c3e50"/><circle cx="27" cy="21" r="1.5" fill="#2c3e50"/><rect x="6" y="38" width="4" height="4" rx="1" fill="#888"/><rect x="38" y="38" width="4" height="4" rx="1" fill="#888"/></svg>),
@@ -196,7 +168,13 @@ export function CountertopPicker({ selected, onSelect }) {
   }))
 
   const isMyLibrary = brand === 'my_library'
-  const activeMaterials = isMyLibrary ? myMaterials : COUNTERTOP_MATERIALS.filter(m => brand === 'All' || m.brand === brand)
+  const isLaminateBrand = Object.keys(MATERIAL_DB).includes(brand)
+
+  const activeMaterials = isMyLibrary
+    ? myMaterials
+    : isLaminateBrand
+      ? MATERIAL_DB[brand].materials.map(m => lamToCt(m, MATERIAL_DB[brand].label))
+      : COUNTERTOP_MATERIALS.filter(m => brand === 'All' || m.brand === brand)
 
   const filtered = activeMaterials.filter(m => {
     if (!isMyLibrary && category !== 'all' && m.category !== category) return false
@@ -207,7 +185,8 @@ export function CountertopPicker({ selected, onSelect }) {
     return true
   })
 
-  const allMaterials = [...myMaterials, ...COUNTERTOP_MATERIALS]
+  const allLamMaterials = Object.entries(MATERIAL_DB).flatMap(([, b]) => b.materials.map(m => lamToCt(m, b.label)))
+  const allMaterials = [...myMaterials, ...COUNTERTOP_MATERIALS, ...allLamMaterials]
   const selectedMat = allMaterials.find(m => m.id === selected)
 
   return (
@@ -226,16 +205,26 @@ export function CountertopPicker({ selected, onSelect }) {
             {b}
           </button>
         ))}
+        <span style={{ width: '100%', borderTop: '1px solid #E0DAD4', margin: '2px 0', fontSize: 9, color: '#bbb', letterSpacing: '0.06em', paddingTop: 3 }}>
+          LAMINATE BOARDS
+        </span>
+        {Object.entries(MATERIAL_DB).map(([key, b]) => (
+          <button key={key} onClick={() => { setBrand(key); setCategory('all') }}
+            style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+              borderColor: brand === key ? ACCENT : '#E0DAD4', background: brand === key ? ACCENT+'18' : '#fff', color: brand === key ? ACCENT : '#666' }}>
+            {b.logo} {b.label}
+          </button>
+        ))}
       </div>
 
       {/* Search */}
-      <input placeholder="Search countertop..." value={search} onChange={e => setSearch(e.target.value)}
+      <input placeholder="Search material..." value={search} onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
 
-      {/* Category filter — only for built-in brands */}
+      {/* Category filter */}
       {!isMyLibrary && (
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          {COUNTERTOP_CATEGORIES.map(c => (
+          {(isLaminateBrand ? ['all', 'solid', 'wood'] : COUNTERTOP_CATEGORIES).map(c => (
             <button key={c} onClick={() => setCategory(c)}
               style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
                 borderColor: category === c ? ACCENT : '#E0DAD4', background: category === c ? ACCENT+'18' : '#fff', color: category === c ? ACCENT : '#666' }}>
