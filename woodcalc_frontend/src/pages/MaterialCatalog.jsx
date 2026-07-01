@@ -17,6 +17,8 @@ const EMPTY_FORM = {
   price_per_board: '', roughness: 0.4, metalness: 0.0,
 }
 
+const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', address: '' }
+
 function forceHttps(url) {
   if (!url) return url
   return url.replace(/^http:\/\//i, 'https://')
@@ -36,6 +38,9 @@ export default function MaterialCatalog() {
   const [imagePreview, setImagePreview] = useState(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(null)
+  const [showSupplierModal, setShowSupplierModal] = useState(false)
+  const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER)
+  const [savingSupplier, setSavingSupplier] = useState(false)
   const fileRef = useRef()
 
   const fetchAll = async () => {
@@ -130,6 +135,30 @@ export default function MaterialCatalog() {
     setDeleting(null)
   }
 
+  const openSupplierModal = () => {
+    setSupplierForm(EMPTY_SUPPLIER)
+    setShowSupplierModal(true)
+  }
+
+  const saveSupplier = async () => {
+    if (!supplierForm.name.trim()) return
+    setSavingSupplier(true)
+    try {
+      const res = await authFetch(API + '/api/inventory/suppliers/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(supplierForm),
+      })
+      if (res.ok) {
+        const newSupplier = await res.json()
+        setSuppliers(prev => [...prev, newSupplier])
+        setForm(f => ({ ...f, supplier: newSupplier.id }))
+        setShowSupplierModal(false)
+      }
+    } catch {}
+    setSavingSupplier(false)
+  }
+
   const filtered = textures.filter(t => {
     const matchType = filter === 'all' || t.material_type === filter
     const matchSearch = !search ||
@@ -210,7 +239,39 @@ export default function MaterialCatalog() {
         )}
       </div>
 
-      {/* Modal */}
+      {/* Supplier Modal */}
+      {showSupplierModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>Add Supplier</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Create a new supplier to link with your materials</div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <Field label="Supplier Name *" value={supplierForm.name} onChange={v => setSupplierForm(f => ({ ...f, name: v }))} placeholder="e.g. Egger Europe" />
+              <Field label="Contact Name" value={supplierForm.contact_name} onChange={v => setSupplierForm(f => ({ ...f, contact_name: v }))} placeholder="e.g. Ali Hassan" />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                <Field label="Phone" value={supplierForm.phone} onChange={v => setSupplierForm(f => ({ ...f, phone: v }))} placeholder="+962 7x xxx xxxx" />
+                <Field label="Email" value={supplierForm.email} onChange={v => setSupplierForm(f => ({ ...f, email: v }))} placeholder="supplier@example.com" />
+              </div>
+              <Field label="Address" value={supplierForm.address} onChange={v => setSupplierForm(f => ({ ...f, address: v }))} placeholder="Amman, Jordan" />
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
+              <button onClick={() => setShowSupplierModal(false)}
+                style={{ flex: 1, padding: '11px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666', fontWeight: 600 }}>
+                Cancel
+              </button>
+              <button onClick={saveSupplier} disabled={savingSupplier || !supplierForm.name.trim()}
+                style={{ flex: 2, padding: '11px', background: supplierForm.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                {savingSupplier ? 'Saving...' : 'Create Supplier'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Material Modal */}
       {showModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
@@ -269,11 +330,20 @@ export default function MaterialCatalog() {
             {/* Supplier */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>SUPPLIER</div>
-              <select value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
-                style={selectStyle}>
-                <option value="">— No supplier —</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select value={form.supplier} onChange={e => setForm(f => ({ ...f, supplier: e.target.value }))}
+                  style={{ ...selectStyle, flex: 1 }}>
+                  <option value="">— No supplier —</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+                <button onClick={openSupplierModal} title="Add new supplier"
+                  style={{ flexShrink: 0, width: 38, height: 38, background: ACCENT + '18', border: `1.5px solid ${ACCENT}55`, borderRadius: 7, cursor: 'pointer', fontSize: 18, color: ACCENT, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  +
+                </button>
+              </div>
+              {suppliers.length === 0 && (
+                <div style={{ fontSize: 11, color: '#aaa', marginTop: 4 }}>No suppliers yet — click + to add one</div>
+              )}
             </div>
 
             {/* Board dimensions */}
