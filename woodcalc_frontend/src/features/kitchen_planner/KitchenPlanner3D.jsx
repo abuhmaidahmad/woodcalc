@@ -1,5 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
+import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -145,20 +145,30 @@ class TextureErrorBoundary extends React.Component {
   }
 }
 
-function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0 }) {
+function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0, radius = 0 }) {
   const flatMesh = (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
       <meshStandardMaterial color={color} roughness={0.7} />
     </mesh>
   )
+  const photoMat = (
+    <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
+  )
+  const inner = radius > 0 ? (
+    <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+      {photoMat}
+    </RoundedBox>
+  ) : (
+    <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+      <boxGeometry args={args} />
+      {photoMat}
+    </mesh>
+  )
   return (
     <TextureErrorBoundary args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps}>
       <Suspense fallback={flatMesh}>
-        <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-          <boxGeometry args={args} />
-          <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
-        </mesh>
+        {inner}
       </Suspense>
     </TextureErrorBoundary>
   )
@@ -204,28 +214,38 @@ function WoodBox({ args, position, castShadow, receiveShadow, color, matProps, e
   )
 }
 
-function StandardBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity = 1.0 }) {
+function StandardBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity = 1.0, radius = 0 }) {
+  const mat = (
+    <meshPhysicalMaterial
+      color={color}
+      roughness={matProps.roughness}
+      metalness={matProps.metalness}
+      clearcoat={matProps.clearcoat}
+      clearcoatRoughness={matProps.clearcoatRoughness}
+      envMapIntensity={matProps.clearcoat > 0.5 ? 2.5 : envMapIntensity}
+      reflectivity={matProps.clearcoat > 0.5 ? 1.0 : 0.3}
+    />
+  )
+  if (radius > 0) {
+    return (
+      <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+        {mat}
+      </RoundedBox>
+    )
+  }
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
-      <meshPhysicalMaterial
-        color={color}
-        roughness={matProps.roughness}
-        metalness={matProps.metalness}
-        clearcoat={matProps.clearcoat}
-        clearcoatRoughness={matProps.clearcoatRoughness}
-        envMapIntensity={matProps.clearcoat > 0.5 ? 2.5 : envMapIntensity}
-        reflectivity={matProps.clearcoat > 0.5 ? 1.0 : 0.3}
-      />
+      {mat}
     </mesh>
   )
 }
 
-function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0 }) {
+function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0, radius = 0 }) {
   if (isWoodMaterial(materialName)) {
-    return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} />
+    return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} radius={radius} />
   }
-  return <StandardBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} />
+  return <StandardBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} radius={radius} />
 }
 
 function Floor({ cx, cz, width, depth, floorTile }) {
@@ -292,6 +312,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           repeatU={rU}
           repeatV={rV}
           offsetV={offV}
+          radius={0.001}
         />
       ) : (
         <SmartBox
@@ -302,6 +323,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           materialName={frontMaterial}
           matProps={matProps}
           envMapIntensity={1.2}
+          radius={0.001}
         />
       )}
       {doorStyle === 'Handle' && !isWallCabinet && (
@@ -422,35 +444,30 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const frontOverhang = 0.040
   const totalD = D + frontOverhang
   const zOffset = frontOverhang / 2
+  const EDGE_RADIUS = 0.002 // 2mm eased edge on all top edges — realistic fabricated-stone finish
 
-  // Use the pre-fetched textureMap first (same path as door panels), then mat.textureUrl fallback
   const texEntry = textureMap[mat.code || mat.id]
   const imageUrl = texEntry?.texture_image || mat.textureUrl || null
 
-  // Physical dimensions the texture image represents in real space (mm).
-  // texEntry carries them from the API; mat carries them when selected from My Library picker.
   const physW = (texEntry?.texture_physical_width_mm  || mat.physical_width_mm  || 600) / 1000
   const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
 
   const hasPhoto = Boolean(imageUrl)
-  // Photo textures: minimal clearcoat keeps grain visible on horizontal surface.
-  // Solid colours: use moderate clearcoat (0.5) — was 0.8 which caused environment
-  // reflections to dominate and make all materials look the same regardless of colour.
   const ctMatProps = hasPhoto
     ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
     : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
   const envInt = hasPhoto ? 0.6 : 0.8
 
   const slab = (w, d, pos, idx = 0) => imageUrl ? (
-    <PhotoTexturedBox key={idx} args={[w, T, d]} position={pos} castShadow receiveShadow
-      imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
-      repeatU={w / physW} repeatV={d / physH} />
+    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
+      <PhotoPanelMaterial imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
+        repeatU={w / physW} repeatV={d / physH} />
+    </RoundedBox>
   ) : (
-    <mesh key={idx} position={pos} castShadow receiveShadow>
-      <boxGeometry args={[w, T, d]} />
+    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
       <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
         clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
-    </mesh>
+    </RoundedBox>
   )
 
   if (!isSink) {
