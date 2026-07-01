@@ -51,21 +51,25 @@ const GOLA_COLORS = {
 }
 
 const WOOD_B64 = 'data:image/svg+xml;base64,' + btoa(`
-<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256">
-  <rect width="256" height="256" fill="#C49858"/>
-  <line x1="10" y1="0" x2="18" y2="256" stroke="#8B6530" stroke-width="3" opacity="0.4"/>
-  <line x1="35" y1="0" x2="28" y2="256" stroke="#6B4A20" stroke-width="1.5" opacity="0.3"/>
-  <line x1="60" y1="0" x2="70" y2="256" stroke="#8B6530" stroke-width="4" opacity="0.35"/>
-  <line x1="85" y1="0" x2="80" y2="256" stroke="#6B4A20" stroke-width="1" opacity="0.25"/>
-  <line x1="110" y1="0" x2="118" y2="256" stroke="#8B6530" stroke-width="2.5" opacity="0.4"/>
-  <line x1="135" y1="0" x2="128" y2="256" stroke="#6B4A20" stroke-width="1.5" opacity="0.3"/>
-  <line x1="155" y1="0" x2="165" y2="256" stroke="#8B6530" stroke-width="3.5" opacity="0.35"/>
-  <line x1="180" y1="0" x2="175" y2="256" stroke="#6B4A20" stroke-width="1" opacity="0.2"/>
-  <line x1="200" y1="0" x2="210" y2="256" stroke="#8B6530" stroke-width="2" opacity="0.4"/>
-  <line x1="225" y1="0" x2="220" y2="256" stroke="#6B4A20" stroke-width="1.5" opacity="0.3"/>
-  <line x1="245" y1="0" x2="250" y2="256" stroke="#8B6530" stroke-width="3" opacity="0.35"/>
-  <line x1="50" y1="80" x2="90" y2="120" stroke="#5A3818" stroke-width="1" opacity="0.15"/>
-  <line x1="150" y1="40" x2="190" y2="80" stroke="#5A3818" stroke-width="1" opacity="0.12"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="512">
+  <rect width="256" height="512" fill="#f0e8d8"/>
+  <line x1="8"  y1="0" x2="14"  y2="512" stroke="#1a0a00" stroke-width="4"   opacity="0.72"/>
+  <line x1="24" y1="0" x2="19"  y2="512" stroke="#0d0500" stroke-width="1.5" opacity="0.55"/>
+  <line x1="42" y1="0" x2="50"  y2="512" stroke="#1a0a00" stroke-width="2.5" opacity="0.65"/>
+  <line x1="58" y1="0" x2="54"  y2="512" stroke="#0d0500" stroke-width="1"   opacity="0.45"/>
+  <line x1="72" y1="0" x2="80"  y2="512" stroke="#1a0a00" stroke-width="3.5" opacity="0.70"/>
+  <line x1="90" y1="0" x2="84"  y2="512" stroke="#0d0500" stroke-width="1"   opacity="0.40"/>
+  <line x1="108" y1="0" x2="116" y2="512" stroke="#1a0a00" stroke-width="2"  opacity="0.60"/>
+  <line x1="124" y1="0" x2="118" y2="512" stroke="#0d0500" stroke-width="1.5" opacity="0.50"/>
+  <line x1="140" y1="0" x2="148" y2="512" stroke="#1a0a00" stroke-width="4.5" opacity="0.75"/>
+  <line x1="160" y1="0" x2="154" y2="512" stroke="#0d0500" stroke-width="1"  opacity="0.42"/>
+  <line x1="176" y1="0" x2="184" y2="512" stroke="#1a0a00" stroke-width="2"  opacity="0.62"/>
+  <line x1="194" y1="0" x2="188" y2="512" stroke="#0d0500" stroke-width="1.5" opacity="0.48"/>
+  <line x1="210" y1="0" x2="218" y2="512" stroke="#1a0a00" stroke-width="3"  opacity="0.68"/>
+  <line x1="228" y1="0" x2="222" y2="512" stroke="#0d0500" stroke-width="1"  opacity="0.40"/>
+  <line x1="244" y1="0" x2="250" y2="512" stroke="#1a0a00" stroke-width="2.5" opacity="0.60"/>
+  <path d="M30 180 Q60 160 90 185 Q130 215 160 188 Q195 165 230 190" stroke="#0d0500" stroke-width="2" fill="none" opacity="0.35"/>
+  <path d="M10 340 Q50 318 80 345 Q120 372 155 342 Q185 318 245 350" stroke="#0d0500" stroke-width="1.5" fill="none" opacity="0.28"/>
 </svg>`)
 
 const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -160,7 +164,8 @@ function WoodPanelMaterial({ color, matProps, envMapIntensity = 1.0 }) {
     if (!texture) return null
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(2, 3)
+    texture.colorSpace = THREE.SRGBColorSpace
+    texture.repeat.set(1.5, 2)
     texture.needsUpdate = true
     return texture
   }, [texture])
