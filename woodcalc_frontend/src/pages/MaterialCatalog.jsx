@@ -110,7 +110,7 @@ export default function MaterialCatalog() {
       const url = editing
         ? API + `/api/inventory/textures/${editing.id}/`
         : API + '/api/inventory/textures/'
-      const method = editing ? 'PUT' : 'POST'
+      const method = editing ? 'PATCH' : 'POST'
 
       const res = await fetch(url, {
         method,
