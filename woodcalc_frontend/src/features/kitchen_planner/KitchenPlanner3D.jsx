@@ -394,21 +394,32 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   )
 }
 
-function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
+function Countertop({ W, D, material, thickness = 0.030, isSink = false, textureMap = {} }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
   const totalW = W + 0.040
   const frontOverhang = 0.040
   const totalD = D + frontOverhang
   const zOffset = frontOverhang / 2
-  const ctMatProps = { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.8, clearcoatRoughness: 0.06 }
 
-  const slab = (w, d, pos) => mat.textureUrl ? (
-    <PhotoTexturedBox key={`${w}_${d}`} args={[w, T, d]} position={pos} castShadow receiveShadow
-      imageUrl={mat.textureUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={1.8}
-      repeatU={Math.max(1, Math.ceil(w * 2))} repeatV={Math.max(1, Math.ceil(d * 2))} />
+  // Use the pre-fetched textureMap first (same path as door panels), then mat.textureUrl fallback
+  const texEntry = textureMap[mat.code || mat.id]
+  const imageUrl = texEntry?.texture_image || mat.textureUrl || null
+
+  // Photo textures: low clearcoat so grain is visible on the horizontal surface.
+  // Solid colors (built-in quartz/stone): high clearcoat for polished stone look.
+  const hasPhoto = Boolean(imageUrl)
+  const ctMatProps = hasPhoto
+    ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
+    : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.8, clearcoatRoughness: 0.06 }
+  const envInt = hasPhoto ? 0.6 : 1.8
+
+  const slab = (w, d, pos, idx = 0) => imageUrl ? (
+    <PhotoTexturedBox key={idx} args={[w, T, d]} position={pos} castShadow receiveShadow
+      imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
+      repeatU={Math.max(1, Math.round(w / 0.6))} repeatV={Math.max(1, Math.round(d / 0.6))} />
   ) : (
-    <mesh key={`${w}_${d}`} position={pos} castShadow receiveShadow>
+    <mesh key={idx} position={pos} castShadow receiveShadow>
       <boxGeometry args={[w, T, d]} />
       <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
     </mesh>
@@ -426,10 +437,10 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false }) {
 
   return (
     <group position={[0, T / 2, zOffset]}>
-      {slab(borderW, totalD, [-(cutW / 2 + borderW / 2), 0, 0])}
-      {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0])}
-      {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2])}
-      {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)])}
+      {slab(borderW, totalD, [-(cutW / 2 + borderW / 2), 0, 0], 0)}
+      {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0], 1)}
+      {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2], 2)}
+      {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)], 3)}
       <mesh position={[0, -0.080, 0]}>
         <boxGeometry args={[cutW - 0.040, 0.160, cutD - 0.040]} />
         <meshPhysicalMaterial color="#c8c8c8" metalness={0.85} roughness={0.15} clearcoat={1} envMapIntensity={2} />
@@ -648,7 +659,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       )}
       {isBase && !isShelf && (
         <group position={[0, H, 0]}>
-          <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} />
+          <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} textureMap={textureMap} />
         </group>
       )}
       {!isShelf && (
