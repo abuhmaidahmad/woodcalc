@@ -99,17 +99,21 @@ function useMaterialTextureMap() {
   return textureMap
 }
 
-function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1 }) {
+function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0 }) {
   const texture = useLoader(THREE.TextureLoader, imageUrl)
   const t = useMemo(() => {
     if (!texture) return null
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(repeatU, repeatV)
-    texture.colorSpace = THREE.SRGBColorSpace
-    texture.needsUpdate = true
-    return texture
-  }, [texture, repeatU, repeatV])
+    // Clone so each panel (especially drawers) has independent repeat/offset settings.
+    // useLoader caches one shared object — mutating it directly would make all panels look the same.
+    const c = texture.clone()
+    c.wrapS = THREE.RepeatWrapping
+    c.wrapT = THREE.RepeatWrapping
+    c.repeat.set(repeatU, repeatV)
+    c.offset.set(0, offsetV)
+    c.colorSpace = THREE.SRGBColorSpace
+    c.needsUpdate = true
+    return c
+  }, [texture, repeatU, repeatV, offsetV])
   return (
     <meshPhysicalMaterial
       map={t}
@@ -139,7 +143,7 @@ class TextureErrorBoundary extends React.Component {
   }
 }
 
-function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV }) {
+function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0 }) {
   const flatMesh = (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
@@ -151,7 +155,7 @@ function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl,
       <Suspense fallback={flatMesh}>
         <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
           <boxGeometry args={args} />
-          <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} />
+          <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
         </mesh>
       </Suspense>
     </TextureErrorBoundary>
@@ -248,7 +252,7 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet }) {
+function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet, drawerIndex = 0 }) {
   const GAP = 0.002
   const PROUD = 0.020
   const DOOR_T = 0.019
@@ -260,23 +264,32 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
   const PULL_DEPTH = 0.008
   const pullY = handlePosition === 'top' ? panelH / 2 - PULL_H / 2 - 0.01 : -panelH / 2 + PULL_H / 2 + 0.01
 
+  const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
+  const physW = texEntry ? (texEntry.texture_physical_width_mm  || 600) / 1000 : 0.6
+  const physH = texEntry ? (texEntry.texture_physical_height_mm || 600) / 1000 : 0.6
+  const rU    = panelW / physW
+  const rV    = panelH / physH
+  // Each drawer slice shifts into a different part of the texture so grain reads as continuous.
+  const offV  = drawerIndex * rV
+
   return (
     <group position={[x, y, 0]}>
       <mesh position={[0, 0, D / 2 + 0.001]}>
         <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
         <meshStandardMaterial color="#111111" roughness={1} />
       </mesh>
-      {frontMaterialCode && textureMap[frontMaterialCode] ? (
+      {texEntry ? (
         <PhotoTexturedBox
           args={[panelW, panelH, DOOR_T]}
           position={[0, 0, frontZ - DOOR_T / 2]}
           castShadow receiveShadow
-          imageUrl={textureMap[frontMaterialCode].texture_image}
+          imageUrl={texEntry.texture_image}
           color={frontColor}
           matProps={matProps}
           envMapIntensity={1.2}
-          repeatU={panelW / ((textureMap[frontMaterialCode].texture_physical_width_mm  || 600) / 1000)}
-          repeatV={panelH / ((textureMap[frontMaterialCode].texture_physical_height_mm || 600) / 1000)}
+          repeatU={rU}
+          repeatV={rV}
+          offsetV={offV}
         />
       ) : (
         <SmartBox
@@ -366,6 +379,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           golaHex={golaHex} golaColor={golaColor}
           handlePosition="center"
           isWallCabinet={isWallCabinet}
+          drawerIndex={d}
         />
       )
     }
