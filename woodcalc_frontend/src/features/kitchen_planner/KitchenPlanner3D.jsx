@@ -430,13 +430,14 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const physW = (texEntry?.texture_physical_width_mm  || mat.physical_width_mm  || 600) / 1000
   const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
 
-  // Photo textures: low clearcoat so grain is visible on the horizontal surface.
-  // Solid colors (built-in quartz/stone): high clearcoat for polished stone look.
   const hasPhoto = Boolean(imageUrl)
+  // Photo textures: minimal clearcoat keeps grain visible on horizontal surface.
+  // Solid colours: use moderate clearcoat (0.5) — was 0.8 which caused environment
+  // reflections to dominate and make all materials look the same regardless of colour.
   const ctMatProps = hasPhoto
     ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
-    : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.8, clearcoatRoughness: 0.06 }
-  const envInt = hasPhoto ? 0.6 : 1.8
+    : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
+  const envInt = hasPhoto ? 0.6 : 0.8
 
   const slab = (w, d, pos, idx = 0) => imageUrl ? (
     <PhotoTexturedBox key={idx} args={[w, T, d]} position={pos} castShadow receiveShadow
@@ -445,7 +446,8 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   ) : (
     <mesh key={idx} position={pos} castShadow receiveShadow>
       <boxGeometry args={[w, T, d]} />
-      <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness} clearcoat={0.8} clearcoatRoughness={0.06} envMapIntensity={1.8} reflectivity={0.8} />
+      <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
+        clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
     </mesh>
   )
 

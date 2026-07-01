@@ -944,12 +944,12 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         </div>
       )}
 
-      {tab === '3d' && (
-        <div style={{ flex: 1 }}>
-<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} />
-          {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
-        </div>
-      )}
+      {/* Keep the 3D canvas always mounted so countertopMat / floorTile changes
+          propagate live without a remount. Only hide/show via CSS. */}
+      <div style={{ flex: 1, display: tab === '3d' ? 'flex' : 'none', flexDirection: 'column' }}>
+        <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} />
+        {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
+      </div>
 
 {tab === 'proposal' && (
   <ProposalTab
