@@ -78,6 +78,17 @@ class MaterialTexture(models.Model):
     board_height = models.PositiveIntegerField(default=1220, help_text='Board height in mm')
     thickness = models.PositiveIntegerField(default=18, help_text='Board thickness in mm')
     price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    texture_physical_width_mm = models.PositiveIntegerField(
+        default=600,
+        help_text='Real-world width this texture image represents (mm). '
+                  'Used to scale grain correctly in 3D view. '
+                  'E.g. 600 for a 600 mm tile sample, 2440 for a full-board photo.',
+    )
+    texture_physical_height_mm = models.PositiveIntegerField(
+        default=600,
+        help_text='Real-world height this texture image represents (mm). '
+                  'E.g. 600 for a 600 mm tile sample, 1220 for a full-board photo.',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -165,6 +165,8 @@ export function CountertopPicker({ selected, onSelect }) {
     textureUrl: forceHttps(t.texture_image),
     roughness: t.roughness ?? 0.3,
     metalness: t.metalness ?? 0.0,
+    physical_width_mm:  t.texture_physical_width_mm  || 600,
+    physical_height_mm: t.texture_physical_height_mm || 600,
   }))
 
   const isMyLibrary = brand === 'my_library'

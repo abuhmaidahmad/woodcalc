@@ -270,8 +270,8 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           color={frontColor}
           matProps={matProps}
           envMapIntensity={1.2}
-          repeatU={Math.max(1, Math.round(panelW / 0.6))}
-          repeatV={Math.max(1, Math.round(panelH / 0.6))}
+          repeatU={panelW / ((textureMap[frontMaterialCode].texture_physical_width_mm  || 600) / 1000)}
+          repeatV={panelH / ((textureMap[frontMaterialCode].texture_physical_height_mm || 600) / 1000)}
         />
       ) : (
         <SmartBox
@@ -406,6 +406,11 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const texEntry = textureMap[mat.code || mat.id]
   const imageUrl = texEntry?.texture_image || mat.textureUrl || null
 
+  // Physical dimensions the texture image represents in real space (mm).
+  // texEntry carries them from the API; mat carries them when selected from My Library picker.
+  const physW = (texEntry?.texture_physical_width_mm  || mat.physical_width_mm  || 600) / 1000
+  const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
+
   // Photo textures: low clearcoat so grain is visible on the horizontal surface.
   // Solid colors (built-in quartz/stone): high clearcoat for polished stone look.
   const hasPhoto = Boolean(imageUrl)
@@ -417,7 +422,7 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const slab = (w, d, pos, idx = 0) => imageUrl ? (
     <PhotoTexturedBox key={idx} args={[w, T, d]} position={pos} castShadow receiveShadow
       imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
-      repeatU={Math.max(1, Math.round(w / 0.6))} repeatV={Math.max(1, Math.round(d / 0.6))} />
+      repeatU={w / physW} repeatV={d / physH} />
   ) : (
     <mesh key={idx} position={pos} castShadow receiveShadow>
       <boxGeometry args={[w, T, d]} />
