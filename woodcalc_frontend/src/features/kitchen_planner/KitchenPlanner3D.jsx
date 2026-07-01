@@ -756,9 +756,8 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopTextureUrl = null, countertopThickness = 30 }) {
-  const _baseMat = ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
-  const countertopMat = countertopTextureUrl ? { ..._baseMat, textureUrl: countertopTextureUrl } : _baseMat
+export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30 }) {
+  const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
   const wallEls  = elements.filter(e => e.type==='window'||e.type==='door')

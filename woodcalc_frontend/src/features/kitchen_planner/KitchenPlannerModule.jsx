@@ -307,8 +307,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   const [floorTile, setFloorTile]             = useState('white_large')
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
-  const [countertop, setCountertop]           = useState('sil_white_storm')
-  const [countertopTextureUrl, setCountertopTextureUrl] = useState(null)
+  const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
 
@@ -601,7 +600,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
             </div>
             <div style={s.panelSection}>
               <div style={s.panelLabel}>Countertop</div>
-              <CountertopPicker selected={countertop} onSelect={mat => { setCountertop(mat.id); setCountertopTextureUrl(mat.textureUrl || null) }} />
+              <CountertopPicker selected={countertopMat?.id} onSelect={mat => setCountertopMat(mat)} />
             </div>
   
 
@@ -945,7 +944,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
 
       {tab === '3d' && (
         <div style={{ flex: 1 }}>
-<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertop} countertopTextureUrl={countertopTextureUrl} countertopThickness={countertopThickness} />
+<KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} />
           {!cabinets.length && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
         </div>
       )}
@@ -953,7 +952,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
 {tab === 'proposal' && (
   <ProposalTab
     cabinets={cabinets}
-    countertopId={countertop}
+    countertopId={countertopMat?.id}
     projectName={projectName}
     onGrandTotalChange={setGrandTotal}
   />
@@ -963,7 +962,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   <ContractTab
     cabinets={cabinets}
     projectName={projectName}
-    countertopId={countertop}
+    countertopId={countertopMat?.id}
     grandTotal={grandTotal}
   />
 )}
