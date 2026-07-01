@@ -119,7 +119,13 @@ export default function MaterialCatalog() {
         : API + '/api/inventory/textures/'
       const method = editing ? 'PATCH' : 'POST'
 
-      const res = await authFetch(url, { method, body: fd })
+      // Use bare fetch for FormData — authFetch injects Content-Type: application/json
+      // which breaks multipart uploads. Only the Authorization header is needed here.
+      const res = await fetch(url, {
+        method,
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
+        body: fd,
+      })
       if (res.ok) {
         setShowModal(false)
         fetchAll()
