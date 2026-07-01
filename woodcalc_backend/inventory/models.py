@@ -65,7 +65,7 @@ class MaterialTexture(models.Model):
     FINISH_CHOICES = [
         ('matt', 'Matt'), ('gloss', 'Gloss'), ('wood', 'Wood'), ('metal', 'Metal'), ('other', 'Other'),
     ]
-    code = models.CharField(max_length=50, blank=True)
+    code = models.CharField(max_length=50, null=True, blank=True, unique=True)
     name = models.CharField(max_length=200)
     material_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     finish = models.CharField(max_length=10, choices=FINISH_CHOICES, default='matt')

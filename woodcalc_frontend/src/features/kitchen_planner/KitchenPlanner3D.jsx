@@ -1,5 +1,7 @@
 import { Canvas, useLoader } from '@react-three/fiber'
 import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
+import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
+import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
 import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
@@ -820,7 +822,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
-        gl={{toneMapping:THREE.ACESFilmicToneMapping,toneMappingExposure:0.82,antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
+        gl={{antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
         <color attach="background" args={['#ddd9d3']} />
         <fog attach="fog" args={['#ddd9d3',14,30]} />
 
@@ -858,6 +860,11 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
         <Environment preset="apartment" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
+        <EffectComposer enableNormalPass multisampling={4}>
+          <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
+          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+        </EffectComposer>
+
       </Canvas>
     </div>
   )
