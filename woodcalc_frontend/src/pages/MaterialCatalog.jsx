@@ -15,6 +15,7 @@ const EMPTY_FORM = {
   supplier: '', fallback_hex: '#C8902A',
   board_width: 2440, board_height: 1220, thickness: 18,
   price_per_board: '', roughness: 0.4, metalness: 0.0,
+  texture_physical_width_mm: 600, texture_physical_height_mm: 600,
 }
 
 const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', address: '' }
@@ -37,6 +38,7 @@ export default function MaterialCatalog() {
   const [imageFile, setImageFile] = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [deleting, setDeleting] = useState(null)
   const [showSupplierModal, setShowSupplierModal] = useState(false)
   const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER)
@@ -65,6 +67,7 @@ export default function MaterialCatalog() {
     setForm(EMPTY_FORM)
     setImageFile(null)
     setImagePreview(null)
+    setSaveError('')
     setShowModal(true)
   }
 
@@ -83,9 +86,12 @@ export default function MaterialCatalog() {
       price_per_board: t.price_per_board || '',
       roughness: t.roughness ?? 0.4,
       metalness: t.metalness ?? 0.0,
+      texture_physical_width_mm: t.texture_physical_width_mm || 600,
+      texture_physical_height_mm: t.texture_physical_height_mm || 600,
     })
     setImageFile(null)
     setImagePreview(forceHttps(t.texture_image))
+    setSaveError('')
     setShowModal(true)
   }
 
@@ -100,6 +106,7 @@ export default function MaterialCatalog() {
     if (!form.name.trim()) return
     if (!editing && !imageFile) return
     setSaving(true)
+    setSaveError('')
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => {
@@ -112,16 +119,20 @@ export default function MaterialCatalog() {
         : API + '/api/inventory/textures/'
       const method = editing ? 'PATCH' : 'POST'
 
-      const res = await fetch(url, {
-        method,
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('access_token') },
-        body: fd,
-      })
+      const res = await authFetch(url, { method, body: fd })
       if (res.ok) {
         setShowModal(false)
         fetchAll()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        const msg = Object.entries(errData)
+          .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+          .join(' | ')
+        setSaveError(msg || `Server error ${res.status}`)
       }
-    } catch {}
+    } catch (e) {
+      setSaveError('Network error — check your connection')
+    }
     setSaving(false)
   }
 
@@ -386,6 +397,13 @@ export default function MaterialCatalog() {
                 <div style={{ fontSize: 11, color: '#888', textAlign: 'right' }}>{form.metalness}</div>
               </div>
             </div>
+
+            {/* Error */}
+            {saveError && (
+              <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FFF0F0', border: '1.5px solid #FFCCCC', borderRadius: 8, fontSize: 12, color: '#C0392B' }}>
+                ⚠️ {saveError}
+              </div>
+            )}
 
             {/* Buttons */}
             <div style={{ display: 'flex', gap: 10 }}>
