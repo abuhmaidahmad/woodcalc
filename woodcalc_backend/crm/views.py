@@ -7,12 +7,12 @@ from .serializers import (
     PaymentTransactionSerializer,
     ClientSerializer, ClientDetailSerializer,
     LeadSerializer, QuotationSerializer, QuotationItemSerializer,
-    ProjectSerializer, ProjectListSerializer, RoomSerializer, PaymentSerializer
+    ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer
 )
 
 
 class ClientViewSet(ModelViewSet):
-    queryset = Client.objects.all().order_by('name')
+    queryset = Client.objects.prefetch_related('projects__rooms').order_by('name')
     serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated]
 
@@ -48,7 +48,7 @@ class QuotationItemViewSet(ModelViewSet):
 
 
 class ProjectViewSet(ModelViewSet):
-    queryset = Project.objects.all().order_by('-created_at')
+    queryset = Project.objects.select_related('client').prefetch_related('rooms', 'payments').order_by('-created_at')
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
@@ -85,6 +85,11 @@ class RoomViewSet(ModelViewSet):
     queryset = Room.objects.all().order_by('-created_at')
     serializer_class = RoomSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return RoomLiteSerializer
+        return RoomSerializer
 
     def get_queryset(self):
         qs = Room.objects.all().order_by('-created_at')

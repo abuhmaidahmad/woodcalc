@@ -41,8 +41,16 @@ class RoomSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class RoomLiteSerializer(serializers.ModelSerializer):
+    """Room without planner_data — for lists and nesting. The full design JSON
+    is only sent when the Kitchen Planner fetches a single room."""
+    class Meta:
+        model = Room
+        fields = ['id', 'project', 'name', 'room_type', 'grand_total', 'notes', 'created_at', 'updated_at']
+
+
 class ProjectSerializer(serializers.ModelSerializer):
-    rooms = RoomSerializer(many=True, read_only=True)
+    rooms = RoomLiteSerializer(many=True, read_only=True)
     payments = PaymentSerializer(many=True, read_only=True)
     client_name = serializers.CharField(source='client.name', read_only=True)
     room_count = serializers.SerializerMethodField()
@@ -52,7 +60,7 @@ class ProjectSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def get_room_count(self, obj):
-        return obj.rooms.count()
+        return len(obj.rooms.all())
 
 
 class ProjectListSerializer(serializers.ModelSerializer):
@@ -64,7 +72,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'status', 'client', 'client_name', 'total_value', 'room_count', 'created_at']
 
     def get_room_count(self, obj):
-        return obj.rooms.count()
+        return len(obj.rooms.all())
 
 
 class ClientDetailSerializer(serializers.ModelSerializer):
