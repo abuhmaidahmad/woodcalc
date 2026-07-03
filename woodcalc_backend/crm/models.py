@@ -115,3 +115,74 @@ class Payment(models.Model):
 
     def __str__(self):
         return f'{self.project} — {self.label}'
+
+
+class PaymentTransaction(models.Model):
+    """Actual money received against a project, optionally settling a schedule installment.
+    Cheques (common in Jordan, often post-dated) have their own lifecycle; they only
+    count toward collected totals once CLEARED."""
+    METHOD_CHOICES = [
+        ('CASH', 'Cash'),
+        ('TRANSFER', 'Bank Transfer'),
+        ('CHEQUE', 'Cheque'),
+    ]
+    CURRENCY_CHOICES = [('JOD', 'JOD'), ('USD', 'USD')]
+    CHEQUE_STATUS_CHOICES = [
+        ('RECEIVED', 'Received'),
+        ('DEPOSITED', 'Deposited'),
+        ('CLEARED', 'Cleared'),
+        ('BOUNCED', 'Bounced'),
+    ]
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='transactions')
+    installment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name='transactions')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, choices=CURRENCY_CHOICES, default='JOD')
+    method = models.CharField(max_length=10, choices=METHOD_CHOICES, default='CASH')
+    date_received = models.DateField()
+    reference = models.CharField(max_length=100, blank=True)
+    # Cheque-specific
+    cheque_number = models.CharField(max_length=50, blank=True)
+    cheque_bank = models.CharField(max_length=100, blank=True)
+    cheque_due_date = models.DateField(null=True, blank=True)
+    cheque_status = models.CharField(max_length=10, choices=CHEQUE_STATUS_CHOICES, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-date_received', '-created_at']
+
+    def __str__(self):
+        return f'{self.project} — {self.amount} {self.currency} ({self.method})'
+
+    @property
+    def is_collected(self):
+        """Cash/transfer count immediately; cheques only when cleared."""
+        if self.method == 'CHEQUE':
+            return self.cheque_status == 'CLEARED'
+        return True
+
+    def save(self, *args, **kwargs):
+        if self.method == 'CHEQUE' and not self.cheque_status:
+            self.cheque_status = 'RECEIVED'
+        if self.method != 'CHEQUE':
+            self.cheque_status = ''
+        super().save(*args, **kwargs)
+        self.sync_installment()
+
+    def sync_installment(self):
+        """Auto-update the linked installment's status from its cleared transactions."""
+        inst = self.installment
+        if not inst:
+            return
+        collected = sum(
+            t.amount for t in inst.transactions.all() if t.is_collected
+        )
+        if collected >= inst.amount and inst.amount > 0:
+            if inst.status != 'PAID':
+                inst.status = 'PAID'
+                inst.paid_date = self.date_received
+                inst.save(update_fields=['status', 'paid_date'])
+        elif inst.status == 'PAID':
+            inst.status = 'PENDING'
+            inst.paid_date = None
+            inst.save(update_fields=['status', 'paid_date'])

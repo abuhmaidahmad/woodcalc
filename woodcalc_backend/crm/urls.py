@@ -1,5 +1,6 @@
 from rest_framework.routers import DefaultRouter
 from .views import (
+    PaymentTransactionViewSet,
     ClientViewSet, LeadViewSet, QuotationViewSet, QuotationItemViewSet,
     ProjectViewSet, RoomViewSet, PaymentViewSet
 )
@@ -12,5 +13,6 @@ router.register(r'quotation-items', QuotationItemViewSet, basename='quotationite
 router.register(r'projects', ProjectViewSet, basename='project')
 router.register(r'rooms', RoomViewSet, basename='room')
 router.register(r'payments', PaymentViewSet, basename='payment')
+router.register(r'transactions', PaymentTransactionViewSet, basename='transaction')
 
 urlpatterns = router.urls

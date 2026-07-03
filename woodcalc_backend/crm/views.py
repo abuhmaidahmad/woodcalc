@@ -2,8 +2,9 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
 from .serializers import (
+    PaymentTransactionSerializer,
     ClientSerializer, ClientDetailSerializer,
     LeadSerializer, QuotationSerializer, QuotationItemSerializer,
     ProjectSerializer, ProjectListSerializer, RoomSerializer, PaymentSerializer
@@ -104,3 +105,57 @@ class PaymentViewSet(ModelViewSet):
         if project_id:
             qs = qs.filter(project_id=project_id)
         return qs
+
+
+class PaymentTransactionViewSet(ModelViewSet):
+    queryset = PaymentTransaction.objects.all()
+    serializer_class = PaymentTransactionSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        project = self.request.query_params.get('project')
+        if project:
+            qs = qs.filter(project_id=project)
+        return qs
+
+    @action(detail=False, methods=['get'])
+    def collections(self, request):
+        """Owner view: outstanding balance per project + upcoming post-dated cheques."""
+        from decimal import Decimal
+        data = []
+        for p in Project.objects.exclude(status__in=['CANCELLED']):
+            txs = list(p.transactions.all())
+            collected = sum((t.amount for t in txs if t.is_collected), Decimal('0'))
+            pending_cheques = [
+                {
+                    'id': t.id, 'amount': str(t.amount), 'currency': t.currency,
+                    'cheque_number': t.cheque_number, 'cheque_bank': t.cheque_bank,
+                    'cheque_due_date': t.cheque_due_date, 'cheque_status': t.cheque_status,
+                }
+                for t in txs
+                if t.method == 'CHEQUE' and t.cheque_status in ('RECEIVED', 'DEPOSITED')
+            ]
+            outstanding = (p.total_value or Decimal('0')) - collected
+            if p.total_value or txs:
+                data.append({
+                    'project_id': p.id,
+                    'project': str(p),
+                    'total_value': str(p.total_value),
+                    'collected': str(collected),
+                    'outstanding': str(outstanding),
+                    'pending_cheques': pending_cheques,
+                })
+        return Response(data)
+
+    @action(detail=True, methods=['post'])
+    def set_cheque_status(self, request, pk=None):
+        tx = self.get_object()
+        status_val = request.data.get('cheque_status')
+        valid = dict(PaymentTransaction.CHEQUE_STATUS_CHOICES)
+        if tx.method != 'CHEQUE':
+            return Response({'error': 'Not a cheque transaction'}, status=400)
+        if status_val not in valid:
+            return Response({'error': f'Invalid status. Options: {list(valid)}'}, status=400)
+        tx.cheque_status = status_val
+        tx.save()
+        return Response(PaymentTransactionSerializer(tx).data)

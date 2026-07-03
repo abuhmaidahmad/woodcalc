@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -81,3 +81,12 @@ class ClientDetailSerializer(serializers.ModelSerializer):
 
     def get_project_count(self, obj):
         return obj.projects.count()
+
+
+class PaymentTransactionSerializer(serializers.ModelSerializer):
+    is_collected = serializers.ReadOnlyField()
+    installment_label = serializers.CharField(source='installment.label', read_only=True)
+
+    class Meta:
+        model = PaymentTransaction
+        fields = '__all__'
