@@ -46,6 +46,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
     category: t.material_type === 'worktop' ? 'worktop' : 'solid',
     textureUrl: forceHttps(t.texture_image),
     supplierName: t.supplier_name || '',
+    boardWidth: t.board_width || null,
   }))
 
   const isMyLibrary = brand === 'my_library'

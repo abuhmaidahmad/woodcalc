@@ -14,6 +14,7 @@ import ProductionBoard from './pages/ProductionBoard';
 import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
 import MaterialCatalog from './pages/MaterialCatalog';
+import Collections from './pages/Collections';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -38,6 +39,9 @@ export default function App() {
         } />
 
         {/* CRM */}
+        <Route path="/collections" element={
+          <PrivateRoute><Collections /></PrivateRoute>
+        } />
         <Route path="/customers" element={
           <PrivateRoute><CustomerList /></PrivateRoute>
         } />

@@ -1,5 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
+import { OrbitControls, ContactShadows, Environment } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -145,30 +145,20 @@ class TextureErrorBoundary extends React.Component {
   }
 }
 
-function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0, radius = 0 }) {
+function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0 }) {
   const flatMesh = (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
       <meshStandardMaterial color={color} roughness={0.7} />
     </mesh>
   )
-  const photoMat = (
-    <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
-  )
-  const inner = radius > 0 ? (
-    <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-      {photoMat}
-    </RoundedBox>
-  ) : (
-    <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-      <boxGeometry args={args} />
-      {photoMat}
-    </mesh>
-  )
   return (
     <TextureErrorBoundary args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps}>
       <Suspense fallback={flatMesh}>
-        {inner}
+        <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+          <boxGeometry args={args} />
+          <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
+        </mesh>
       </Suspense>
     </TextureErrorBoundary>
   )
@@ -214,38 +204,28 @@ function WoodBox({ args, position, castShadow, receiveShadow, color, matProps, e
   )
 }
 
-function StandardBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity = 1.0, radius = 0 }) {
-  const mat = (
-    <meshPhysicalMaterial
-      color={color}
-      roughness={matProps.roughness}
-      metalness={matProps.metalness}
-      clearcoat={matProps.clearcoat}
-      clearcoatRoughness={matProps.clearcoatRoughness}
-      envMapIntensity={matProps.clearcoat > 0.5 ? 2.5 : envMapIntensity}
-      reflectivity={matProps.clearcoat > 0.5 ? 1.0 : 0.3}
-    />
-  )
-  if (radius > 0) {
-    return (
-      <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-        {mat}
-      </RoundedBox>
-    )
-  }
+function StandardBox({ args, position, castShadow, receiveShadow, color, matProps, envMapIntensity = 1.0 }) {
   return (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
-      {mat}
+      <meshPhysicalMaterial
+        color={color}
+        roughness={matProps.roughness}
+        metalness={matProps.metalness}
+        clearcoat={matProps.clearcoat}
+        clearcoatRoughness={matProps.clearcoatRoughness}
+        envMapIntensity={matProps.clearcoat > 0.5 ? 2.5 : envMapIntensity}
+        reflectivity={matProps.clearcoat > 0.5 ? 1.0 : 0.3}
+      />
     </mesh>
   )
 }
 
-function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0, radius = 0 }) {
+function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0 }) {
   if (isWoodMaterial(materialName)) {
-    return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} radius={radius} />
+    return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} />
   }
-  return <StandardBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} radius={radius} />
+  return <StandardBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} />
 }
 
 function Floor({ cx, cz, width, depth, floorTile }) {
@@ -312,7 +292,6 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           repeatU={rU}
           repeatV={rV}
           offsetV={offV}
-          radius={0.001}
         />
       ) : (
         <SmartBox
@@ -323,7 +302,6 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           materialName={frontMaterial}
           matProps={matProps}
           envMapIntensity={1.2}
-          radius={0.001}
         />
       )}
       {doorStyle === 'Handle' && !isWallCabinet && (
@@ -350,103 +328,11 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
   )
 }
 
-// ---- Gola milling constants (Richelieu art.1004-1005) ----
-// Side panels keep their full blank size (e.g. 720 x 560); notches are
-// cutouts WITHIN that outline, matching the CNC milling drawing.
-const GOLA_NOTCH_DEPTH = 0.027   // notch depth into front edge (27mm)
-const GOLA_L_NOTCH_H   = 0.0565  // top notch for L profile (56.5mm)
-const GOLA_C_NOTCH_H   = 0.073   // mid notch for C profile (73mm)
-const GOLA_C_RECESS    = 0.026   // C profile recess from front plane (26mm)
-const GOLA_CH          = 0.025   // channel opening / door height reduction (25mm)
-
-// Shared drawer-stack layout so door fronts, C channels and side panel
-// notches always agree (single source of truth).
-function computeGolaDrawerLayout(H, baseHeight) {
-  // Stack (top-down): L channel (25) -> d1 -> d2 -> C channel (25) -> d3 -> d4.
-  // First three fronts equal; fourth = unit - 3mm tolerance.
-  // 3h = 3*unit - (L 25 + C 25) + 3  =>  h = unit - 47/3.
-  const unit = baseHeight === 800 ? 0.200 : 0.180
-  const TOL = 0.003
-  const CH = GOLA_CH
-  const h4 = unit - TOL
-  const h123 = (3 * unit - 2 * CH + TOL) / 3
-  const heights = [h123, h123, h123, h4]
-  let yTop = H / 2 - CH   // L channel occupies the top 25mm
-  const positions = []
-  const channels = []
-  for (let d = 0; d < heights.length; d++) {
-    const h = heights[d]
-    positions.push({ h, yCenter: yTop - h / 2 })
-    yTop -= h
-    if (d === 1) {
-      channels.push({ y: yTop - CH / 2, size: CH })
-      yTop -= CH
-    }
-  }
-  return { heights, positions, channels }
-}
-
-// Side panel with milled notches on the front edge (Shape + Extrude).
-// Blank stays full H x D; notches are cut into the outline (art.1004-1005).
-function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = {} }) {
-  const geom = useMemo(() => {
-    const ND = GOLA_NOTCH_DEPTH
-    const shape = new THREE.Shape()
-    const sorted = [...notches].sort((a, b) => a.yBottom - b.yBottom)
-    shape.moveTo(-D / 2, 0)
-    shape.lineTo(D / 2, 0)
-    let reachedTop = false
-    for (const n of sorted) {
-      shape.lineTo(D / 2, n.yBottom)
-      shape.lineTo(D / 2 - ND, n.yBottom)
-      shape.lineTo(D / 2 - ND, Math.min(n.yTop, H))
-      if (n.yTop >= H - 1e-4) reachedTop = true
-      else shape.lineTo(D / 2, n.yTop)
-    }
-    if (!reachedTop) shape.lineTo(D / 2, H)
-    shape.lineTo(-D / 2, H)
-    shape.closePath()
-    return new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: false })
-  }, [H, D, T, JSON.stringify(notches)])
-  return (
-    <mesh geometry={geom} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow receiveShadow>
-      <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
-    </mesh>
-  )
-}
-
-// Panel-based carcass for Gola cabinets: notched sides + recessed inner body,
-// so the L/C profiles sit inside a real milled shadow gap.
-function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight }) {
-  const T = 0.018
-  const notches = [{ yBottom: H - GOLA_L_NOTCH_H, yTop: H }]
-  if (isDrawers) {
-    const { channels } = computeGolaDrawerLayout(H, baseHeight)
-    channels.forEach((c) => {
-      const yAbs = c.y + H / 2
-      notches.push({ yBottom: yAbs - GOLA_C_NOTCH_H / 2, yTop: yAbs + GOLA_C_NOTCH_H / 2 })
-    })
-  }
-  return (
-    <group>
-      <NotchedSidePanel H={H} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} />
-      <NotchedSidePanel H={H} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} />
-      <mesh position={[0, (H - 0.002) / 2, -GOLA_NOTCH_DEPTH / 2]} castShadow receiveShadow>
-        <boxGeometry args={[W - 2 * T + 0.001, H - 0.002, D - GOLA_NOTCH_DEPTH]} />
-        <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
-      </mesh>
-    </group>
-  )
-}
-
 function GolaProfile({ W, D, golaHex, golaColor }) {
-  // True L profile seated in the 56.5 x 27mm milled top notch (art.1005).
-  // Local y=0 = cabinet top (underside of worktop); front face at z = D/2.
-  const NOTCH_H = GOLA_L_NOTCH_H
-  const ND = GOLA_NOTCH_DEPTH
-  const WEB_T = 0.004
-  const LIP_T = 0.005
-  const LIP_OUT = ND - 0.006
+  const BACK_H  = 0.060
+  const LIP_OUT = 0.022
+  const BACK_T  = 0.006
+  const LIP_T   = 0.006
   const isMetallic = golaColor === 'silver' || golaColor === 'champagne'
   const mat = {
     roughness: isMetallic ? 0.12 : 0.4,
@@ -457,54 +343,23 @@ function GolaProfile({ W, D, golaHex, golaColor }) {
   }
   return (
     <group>
-      <mesh position={[0, -NOTCH_H / 2, D / 2 - ND / 2 - 0.001]}>
-        <boxGeometry args={[W - 0.001, NOTCH_H - 0.001, ND - 0.003]} />
-        <meshStandardMaterial color="#050505" roughness={1} metalness={0} />
-      </mesh>
-      <mesh position={[0, -NOTCH_H / 2, D / 2 - ND + WEB_T / 2]} castShadow>
-        <boxGeometry args={[W, NOTCH_H, WEB_T]} />
+      <mesh position={[0, -BACK_H / 2, D / 2 - BACK_T / 2]} castShadow>
+        <boxGeometry args={[W, BACK_H, BACK_T]} />
         <meshPhysicalMaterial color={golaHex} roughness={mat.roughness} metalness={mat.metalness} clearcoat={mat.clearcoat} clearcoatRoughness={mat.clearcoatRoughness} envMapIntensity={mat.envMapIntensity} />
       </mesh>
-      <mesh position={[0, -GOLA_CH + LIP_T / 2, D / 2 - ND + LIP_OUT / 2]} castShadow>
+      <mesh position={[0, -LIP_T / 2, D / 2 - BACK_T + LIP_OUT / 2]} castShadow>
         <boxGeometry args={[W, LIP_T, LIP_OUT]} />
         <meshPhysicalMaterial color={golaHex} roughness={mat.roughness} metalness={mat.metalness} clearcoat={mat.clearcoat} clearcoatRoughness={mat.clearcoatRoughness} envMapIntensity={mat.envMapIntensity} />
       </mesh>
-    </group>
-  )
-}
-
-function CDrawerChannel({ W, D, y, golaHex }) {
-  // True C profile inside the 73 x 27mm milled notch, recessed 26mm (art.1004):
-  // back web + top/bottom flanges, 25mm front opening between drawer fronts.
-  const NOTCH_H = GOLA_C_NOTCH_H
-  const ND = GOLA_NOTCH_DEPTH
-  const RECESS = GOLA_C_RECESS
-  const WEB_T = 0.004
-  const FLANGE_T = (NOTCH_H - GOLA_CH) / 2 - 0.002
-  const FLANGE_OUT = RECESS - 0.006
-  return (
-    <group position={[0, y, 0]}>
-      <mesh position={[0, 0, D / 2 - ND / 2 - 0.001]}>
-        <boxGeometry args={[W - 0.001, NOTCH_H - 0.001, ND - 0.003]} />
+      <mesh position={[0, -LIP_T - 0.008, D / 2 - BACK_T + LIP_OUT / 2]}>
+        <boxGeometry args={[W - 0.002, 0.014, LIP_OUT - 0.002]} />
         <meshStandardMaterial color="#050505" roughness={1} metalness={0} />
       </mesh>
-      <mesh position={[0, 0, D / 2 - RECESS + WEB_T / 2]} castShadow>
-        <boxGeometry args={[W - 0.004, NOTCH_H - 0.004, WEB_T]} />
-        <meshPhysicalMaterial color={golaHex} roughness={0.25} metalness={0.7} envMapIntensity={1.8} />
-      </mesh>
-      <mesh position={[0, GOLA_CH / 2 + FLANGE_T / 2, D / 2 - RECESS + FLANGE_OUT / 2]} castShadow>
-        <boxGeometry args={[W - 0.004, FLANGE_T, FLANGE_OUT]} />
-        <meshPhysicalMaterial color={golaHex} roughness={0.25} metalness={0.7} envMapIntensity={1.8} />
-      </mesh>
-      <mesh position={[0, -GOLA_CH / 2 - FLANGE_T / 2, D / 2 - RECESS + FLANGE_OUT / 2]} castShadow>
-        <boxGeometry args={[W - 0.004, FLANGE_T, FLANGE_OUT]} />
-        <meshPhysicalMaterial color={golaHex} roughness={0.25} metalness={0.7} envMapIntensity={1.8} />
-      </mesh>
     </group>
   )
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, baseHeight }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
@@ -513,45 +368,22 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   const doorW = W / numDoors
   const doors = []
 
-  const drawerChannels = []
   if (isDrawers) {
     const drawerCount = 4
-    const isGolaDrawers = effectiveDoorStyle === 'Gola' && !isWallCabinet
-    if (isGolaDrawers) {
-      // Layout shared with the side-panel notch milling via
-      // computeGolaDrawerLayout (single source of truth, Richelieu art.1004-1005).
-      const layout = computeGolaDrawerLayout(H, baseHeight)
-      layout.channels.forEach((c) => drawerChannels.push(c))
-      layout.positions.forEach((p, d) => {
-        doors.push(
-          <DoorPanel key={`d-${d}`}
-            x={0} y={p.yCenter} D={D}
-            doorW={W} doorH={p.h}
-            frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-            matProps={matProps} doorStyle={effectiveDoorStyle}
-            golaHex={golaHex} golaColor={golaColor}
-            handlePosition="center"
-            isWallCabinet={isWallCabinet}
-            drawerIndex={d}
-          />
-        )
-      })
-    } else {
-      const drawerH = H / drawerCount
-      for (let d = 0; d < drawerCount; d++) {
-        doors.push(
-          <DoorPanel key={`d-${d}`}
-            x={0} y={-H / 2 + drawerH * d + drawerH / 2} D={D}
-            doorW={W} doorH={drawerH}
-            frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-            matProps={matProps} doorStyle={effectiveDoorStyle}
-            golaHex={golaHex} golaColor={golaColor}
-            handlePosition="center"
-            isWallCabinet={isWallCabinet}
-            drawerIndex={d}
-          />
-        )
-      }
+    const drawerH = H / drawerCount
+    for (let d = 0; d < drawerCount; d++) {
+      doors.push(
+        <DoorPanel key={`d-${d}`}
+          x={0} y={-H / 2 + drawerH * d + drawerH / 2} D={D}
+          doorW={W} doorH={drawerH}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+          matProps={matProps} doorStyle={effectiveDoorStyle}
+          golaHex={golaHex} golaColor={golaColor}
+          handlePosition="center"
+          isWallCabinet={isWallCabinet}
+          drawerIndex={d}
+        />
+      )
     }
   } else {
     for (let i = 0; i < numDoors; i++) {
@@ -575,13 +407,10 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
     <>
       {doors}
       {effectiveDoorStyle === 'Gola' && !isWallCabinet && (
-        <group position={[0, isTall ? -H + 0.03 : H / 2, 0]}>
+        <group position={[0, isTall ? -H + 0.03 : 0, 0]}>
           <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
         </group>
       )}
-      {drawerChannels.map((c, i) => (
-        <CDrawerChannel key={`ch-${i}`} W={W} D={D} y={c.y} golaHex={golaHex} />
-      ))}
     </>
   )
 }
@@ -593,30 +422,35 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const frontOverhang = 0.040
   const totalD = D + frontOverhang
   const zOffset = frontOverhang / 2
-  const EDGE_RADIUS = 0.002 // 2mm eased edge on all top edges — realistic fabricated-stone finish
 
+  // Use the pre-fetched textureMap first (same path as door panels), then mat.textureUrl fallback
   const texEntry = textureMap[mat.code || mat.id]
   const imageUrl = texEntry?.texture_image || mat.textureUrl || null
 
+  // Physical dimensions the texture image represents in real space (mm).
+  // texEntry carries them from the API; mat carries them when selected from My Library picker.
   const physW = (texEntry?.texture_physical_width_mm  || mat.physical_width_mm  || 600) / 1000
   const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
 
   const hasPhoto = Boolean(imageUrl)
+  // Photo textures: minimal clearcoat keeps grain visible on horizontal surface.
+  // Solid colours: use moderate clearcoat (0.5) — was 0.8 which caused environment
+  // reflections to dominate and make all materials look the same regardless of colour.
   const ctMatProps = hasPhoto
     ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
     : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
   const envInt = hasPhoto ? 0.6 : 0.8
 
   const slab = (w, d, pos, idx = 0) => imageUrl ? (
-    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
-      <PhotoPanelMaterial imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
-        repeatU={w / physW} repeatV={d / physH} />
-    </RoundedBox>
+    <PhotoTexturedBox key={idx} args={[w, T, d]} position={pos} castShadow receiveShadow
+      imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
+      repeatU={w / physW} repeatV={d / physH} />
   ) : (
-    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
+    <mesh key={idx} position={pos} castShadow receiveShadow>
+      <boxGeometry args={[w, T, d]} />
       <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
         clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
-    </RoundedBox>
+    </mesh>
   )
 
   if (!isSink) {
@@ -839,10 +673,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <meshPhysicalMaterial color="#1a1a1a" metalness={0.85} roughness={0.15} envMapIntensity={2} />
         </mesh>
       ))}
-      {doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
-        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} />
-      ) : (
-        <SmartBox
+      <SmartBox
         args={[W, H, D]}
         position={[0, H/2, 0]}
         castShadow receiveShadow
@@ -851,7 +682,6 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         matProps={carcassMatProps}
         envMapIntensity={0.5}
       />
-      )}
       {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
         <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} cab={cab} allCabinets={allCabinets} />
       )}
@@ -878,7 +708,6 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
               textureMap={textureMap}
               numDoors={numDoors}
               isDrawers={isDrawers}
-              baseHeight={cab.baseHeight}
               handlePosition={cab.handlePosition || 'bottom'}
               golaColor={cab.golaColor || 'black'}
               isWallCabinet={isWall}

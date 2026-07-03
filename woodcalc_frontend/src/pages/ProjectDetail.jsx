@@ -27,6 +27,15 @@ export default function ProjectDetail() {
   const [project, setProject] = useState(null)
   const [rooms, setRooms] = useState([])
   const [payments, setPayments] = useState([])
+  const [transactions, setTransactions] = useState([])
+  const [showPay, setShowPay] = useState(false)
+  const [savingPay, setSavingPay] = useState(false)
+  const [payForm, setPayForm] = useState({
+    amount: '', currency: 'JOD', method: 'CASH',
+    date_received: new Date().toISOString().slice(0, 10),
+    installment: '', reference: '',
+    cheque_number: '', cheque_bank: '', cheque_due_date: '', notes: ''
+  })
   const [loading, setLoading] = useState(true)
   const [showAddRoom, setShowAddRoom] = useState(false)
   const [form, setForm] = useState({ name: '', room_type: 'kitchen', notes: '' })
@@ -44,6 +53,8 @@ export default function ProjectDetail() {
       const pd = await pRes.json(); setProject({...pd, total_value: parseFloat(pd.total_value || 0), created_at: pd.created_at || new Date().toISOString()})
       setRooms(await rRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
       setPayments(await pyRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
+      const tRes = await fetch(API + `/api/crm/transactions/?project=${id}`, { headers: headers() })
+      setTransactions(await tRes.json().then(d => Array.isArray(d) ? d : (d.results || [])))
     } catch {}
     setLoading(false)
   }
@@ -76,6 +87,36 @@ export default function ProjectDetail() {
     } catch {}
   }
 
+  const savePayment = async () => {
+    setSavingPay(true)
+    try {
+      const body = { ...payForm, project: id, amount: parseFloat(payForm.amount) }
+      if (!body.installment) delete body.installment
+      if (body.method !== 'CHEQUE') {
+        delete body.cheque_number; delete body.cheque_bank; delete body.cheque_due_date
+      }
+      if (!body.cheque_due_date) delete body.cheque_due_date
+      const res = await authFetch(API + '/api/crm/transactions/', {
+        method: 'POST', headers: headers(), body: JSON.stringify(body)
+      })
+      if (res.ok) {
+        setShowPay(false)
+        setPayForm(f => ({ ...f, amount: '', reference: '', cheque_number: '', cheque_bank: '', cheque_due_date: '', notes: '' }))
+        fetchData()
+      } else {
+        alert('Failed to save payment: ' + JSON.stringify(await res.json()))
+      }
+    } finally { setSavingPay(false) }
+  }
+
+  const setChequeStatus = async (tx, status) => {
+    const res = await authFetch(API + `/api/crm/transactions/${tx.id}/set_cheque_status/`, {
+      method: 'POST', headers: headers(), body: JSON.stringify({ cheque_status: status })
+    })
+    if (res.ok) fetchData()
+  }
+
+  const totalCollected = transactions.filter(t => t.is_collected).reduce((s, t) => s + parseFloat(t.amount || 0), 0)
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
 
@@ -229,8 +270,147 @@ export default function ProjectDetail() {
             )}
           </div>
         )}
+        {activeTab === 'payments' && (
+          <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #F7F4F0' }}>
+              <div>
+                <div style={{ fontWeight: 800, color: DARK, fontSize: 14 }}>Transactions</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
+                  Collected: <b style={{ color: '#2E7D32' }}>{totalCollected.toFixed(2)} JD</b>
+                  {' · '}Outstanding: <b style={{ color: '#C62828' }}>{(parseFloat(project?.total_value || 0) - totalCollected).toFixed(2)} JD</b>
+                </div>
+              </div>
+              <button onClick={() => setShowPay(true)}
+                style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                + Record Payment
+              </button>
+            </div>
+            {transactions.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 12 }}>No transactions recorded yet</div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#FAFAFA' }}>
+                    {['Date', 'Amount', 'Method', 'Installment', 'Reference', 'Status'].map(h => (
+                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {transactions.map(t => (
+                    <tr key={t.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                      <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>{t.date_received}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 700, color: DARK }}>{parseFloat(t.amount).toFixed(2)} {t.currency}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12 }}>{t.method}{t.method === 'CHEQUE' && t.cheque_due_date ? ` (due ${t.cheque_due_date})` : ''}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{t.installment_label || '\u2014'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{t.method === 'CHEQUE' ? `${t.cheque_number || ''} ${t.cheque_bank || ''}`.trim() || '\u2014' : (t.reference || '\u2014')}</td>
+                      <td style={{ padding: '10px 16px' }}>
+                        {t.method === 'CHEQUE' ? (
+                          <select value={t.cheque_status} onChange={e => setChequeStatus(t, e.target.value)}
+                            style={{ fontSize: 11, fontWeight: 700, padding: '3px 6px', borderRadius: 4, border: '1px solid #E0DAD4', background: '#fff',
+                              color: t.cheque_status === 'CLEARED' ? '#2E7D32' : t.cheque_status === 'BOUNCED' ? '#C62828' : '#B8860B' }}>
+                            {['RECEIVED', 'DEPOSITED', 'CLEARED', 'BOUNCED'].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        ) : (
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D32', background: '#2E7D3218', padding: '3px 8px', borderRadius: 4 }}>COLLECTED</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
       </div>
 
+      {showPay && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '85vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 16 }}>Record Payment</div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ flex: 2 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Amount *</div>
+                <input type="number" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Currency</div>
+                <select value={payForm.currency} onChange={e => setPayForm(f => ({ ...f, currency: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 6px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, color: DARK, background: '#fff' }}>
+                  <option>JOD</option><option>USD</option>
+                </select>
+              </div>
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Method</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
+                {[['CASH', 'Cash'], ['TRANSFER', 'Transfer'], ['CHEQUE', 'Cheque']].map(([v, label]) => (
+                  <div key={v} onClick={() => setPayForm(f => ({ ...f, method: v }))}
+                    style={{ padding: '8px 4px', border: `1.5px solid ${payForm.method === v ? ACCENT : '#E0DAD4'}`, borderRadius: 7, cursor: 'pointer', textAlign: 'center',
+                      background: payForm.method === v ? ACCENT + '12' : '#FAFAFA', fontSize: 11, fontWeight: 600, color: payForm.method === v ? ACCENT : '#666' }}>
+                    {label}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Date Received</div>
+                <input type="date" value={payForm.date_received} onChange={e => setPayForm(f => ({ ...f, date_received: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Installment</div>
+                <select value={payForm.installment} onChange={e => setPayForm(f => ({ ...f, installment: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 6px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, color: DARK, background: '#fff' }}>
+                  <option value="">None / general</option>
+                  {payments.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
+                </select>
+              </div>
+            </div>
+            {payForm.method === 'CHEQUE' ? (
+              <>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Cheque No. *</div>
+                    <input value={payForm.cheque_number} onChange={e => setPayForm(f => ({ ...f, cheque_number: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Bank</div>
+                    <input value={payForm.cheque_bank} onChange={e => setPayForm(f => ({ ...f, cheque_bank: e.target.value }))}
+                      style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
+                  </div>
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Cheque Due Date (post-dated)</div>
+                  <input type="date" value={payForm.cheque_due_date} onChange={e => setPayForm(f => ({ ...f, cheque_due_date: e.target.value }))}
+                    style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
+                </div>
+              </>
+            ) : (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Reference</div>
+                <input value={payForm.reference} onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
+                  placeholder="transfer ref, receipt no..."
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setShowPay(false)}
+                style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
+                Cancel
+              </button>
+              <button onClick={savePayment} disabled={savingPay || !payForm.amount || (payForm.method === 'CHEQUE' && !payForm.cheque_number)}
+                style={{ flex: 2, padding: '10px', background: payForm.amount ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8,
+                  cursor: payForm.amount ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+                {savingPay ? 'Saving...' : 'Save Payment'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Add Room Modal */}
       {showAddRoom && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
