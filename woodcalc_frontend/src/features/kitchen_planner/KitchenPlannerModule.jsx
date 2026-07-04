@@ -409,6 +409,14 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
+  const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
+  useEffect(() => {
+    const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+    authFetch(API + '/api/inventory/drawer-systems/')
+      .then(r => r.json())
+      .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
+      .catch(() => {})
+  }, [])
 
 
   // Restore saved data on mount
@@ -882,8 +890,8 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontMaterial: setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
                   frontMaterialThickness: setup.frontMaterialThickness || 18,
-                  drawerSystem: setup.drawerSystem || c.drawerSystem,
-                  drawerBoxConstruction: setup.drawerBoxConstruction || c.drawerBoxConstruction,
+                  drawerSystem: c.drawerSystemOverridden ? c.drawerSystem : (setup.drawerSystem || c.drawerSystem),
+                  drawerBoxConstruction: c.drawerSystemOverridden ? c.drawerBoxConstruction : (setup.drawerBoxConstruction || c.drawerBoxConstruction),
                   skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
                 })))
               }}
@@ -959,6 +967,21 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                 )}
                 {['Drawers', '2Drw+Door'].includes(selCab.subtype) && (
                   <>
+                    <div style={s.propSection}>Drawer System</div>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
+                      {availableDrawerSystems.map(sys => {
+                        const isSel = (selCab.drawerSystem || 'Local Bearing') === sys.name
+                        return (
+                          <div key={sys.id}
+                            onClick={() => { updateCab('drawerSystem', sys.name); updateCab('drawerBoxConstruction', sys.box_construction); updateCab('drawerSystemOverridden', true) }}
+                            style={{ flex: '1 1 30%', padding: '6px 4px', border: `2px solid ${isSel ? '#C8902A' : '#E0DAD4'}`, borderRadius: 6,
+                              cursor: 'pointer', background: isSel ? '#C8902A10' : '#FAFAFA', textAlign: 'center' }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: isSel ? '#C8902A' : '#333' }}>{sys.name}</div>
+                            <div style={{ fontSize: 7, color: '#999', marginTop: 1 }}>{sys.brand}</div>
+                          </div>
+                        )
+                      })}
+                    </div>
                     <div style={s.propSection}>Interior Layout</div>
                     <ZonePresetPicker height={selCab.height} width={selCab.width} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
                   </>
