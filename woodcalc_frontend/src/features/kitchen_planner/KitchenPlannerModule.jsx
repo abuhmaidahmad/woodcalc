@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet } from './formulaEngine'

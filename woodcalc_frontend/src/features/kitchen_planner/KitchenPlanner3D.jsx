@@ -439,9 +439,14 @@ function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = 
 
 // Panel-based carcass for Gola cabinets: notched sides + recessed inner body,
 // so the L/C profiles sit inside a real milled shadow gap.
-function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight }) {
+function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isTall }) {
   const T = 0.018
-  const notches = [{ yBottom: H - GOLA_L_NOTCH_H, yTop: H }]
+  const baseH = (baseHeight || 800) / 1000
+  // Tall units: no top notch — a C-notch at base-cabinet-top level keeps the
+  // horizontal Gola line continuous around the kitchen (Richelieu art.1004).
+  const notches = isTall
+    ? [{ yBottom: baseH - GOLA_C_NOTCH_H / 2, yTop: baseH + GOLA_C_NOTCH_H / 2 }]
+    : [{ yBottom: H - GOLA_L_NOTCH_H, yTop: H }]
   if (isDrawers) {
     const { channels } = computeGolaDrawerLayout(H, baseHeight)
     channels.forEach((c) => {
@@ -575,6 +580,33 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         )
       }
     }
+  } else if (isTall && effectiveDoorStyle === 'Gola') {
+    // Tall Gola: lower + upper door split by a C-channel at base-cabinet-top level.
+    const baseH = (baseHeight || 800) / 1000
+    const CH = 0.025
+    const yChan = baseH - H / 2
+    const lowerH = baseH - CH / 2
+    const upperH = H - baseH - CH / 2
+    drawerChannels.push({ y: yChan })
+    for (let i = 0; i < numDoors; i++) {
+      const xOff = -W / 2 + doorW * i + doorW / 2
+      doors.push(
+        <DoorPanel key={`lo-${i}`} x={xOff} y={-H / 2 + lowerH / 2} D={D}
+          doorW={doorW} doorH={lowerH}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+          matProps={matProps} doorStyle={effectiveDoorStyle}
+          golaHex={golaHex} golaColor={golaColor}
+          handlePosition="center" isWallCabinet={isWallCabinet} />
+      )
+      doors.push(
+        <DoorPanel key={`up-${i}`} x={xOff} y={yChan + CH / 2 + upperH / 2} D={D}
+          doorW={doorW} doorH={upperH}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+          matProps={matProps} doorStyle={effectiveDoorStyle}
+          golaHex={golaHex} golaColor={golaColor}
+          handlePosition="center" isWallCabinet={isWallCabinet} drawerIndex={i} />
+      )
+    }
   } else {
     for (let i = 0; i < numDoors; i++) {
       const xOff = -W / 2 + doorW * i + doorW / 2
@@ -596,8 +628,8 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   return (
     <>
       {doors}
-      {effectiveDoorStyle === 'Gola' && !isWallCabinet && (
-        <group position={[0, isTall ? -H + 0.03 : H / 2, 0]}>
+      {effectiveDoorStyle === 'Gola' && !isWallCabinet && !isTall && (
+        <group position={[0, H / 2, 0]}>
           <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
         </group>
       )}
@@ -865,7 +897,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       {isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
-        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} />
+        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} isTall={isTall} />
       ) : (
         <SmartBox
         args={[W, H, D]}
