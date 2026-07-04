@@ -702,7 +702,7 @@ export default function RoomCanvas({
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move' }}>
                 <rect x={x} y={y} width={w} height={h} fill={cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
-                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />}
+                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={0.75} />}
                 <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
                 {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
               </g>
