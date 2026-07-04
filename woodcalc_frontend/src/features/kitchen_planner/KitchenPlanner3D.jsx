@@ -83,7 +83,7 @@ function forceHttps(url) {
   return url.replace(/^http:\/\//i, 'https://')
 }
 
-function useMaterialTextureMap() {
+export function useMaterialTextureMap() {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
     fetch(API_BASE + '/api/inventory/textures/')

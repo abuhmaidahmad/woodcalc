@@ -3,7 +3,7 @@ import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
-import KitchenPlanner3D from './KitchenPlanner3D'
+import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import ProposalTab from './ProposalTab'
@@ -409,6 +409,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
+  const textureMap = useMaterialTextureMap()
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -1067,11 +1068,15 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                         <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.material}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.doorStyle}</td>
                         <td style={{ padding: '10px 14px' }}>
-                          <div title={c.carcassMaterialName || c.carcassColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.carcassColor, border: '1.5px solid #ddd' }} />
+                          <div title={c.carcassMaterialName || c.carcassColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.carcassColor, border: '1.5px solid #ddd', overflow: 'hidden' }}>
+                            {(c.carcassTextureUrl || textureMap[c.carcassMaterialCode]?.texture_image) && <img src={c.carcassTextureUrl || textureMap[c.carcassMaterialCode]?.texture_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />}
+                          </div>
                           {c.carcassMaterialCode && <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{c.carcassMaterialCode}</div>}
                         </td>
                         <td style={{ padding: '10px 14px' }}>
-                          <div title={c.frontMaterialName || c.frontColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.frontColor, border: '1.5px solid #ddd' }} />
+                          <div title={c.frontMaterialName || c.frontColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.frontColor, border: '1.5px solid #ddd', overflow: 'hidden' }}>
+                            {(c.frontTextureUrl || textureMap[c.frontMaterialCode]?.texture_image) && <img src={c.frontTextureUrl || textureMap[c.frontMaterialCode]?.texture_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />}
+                          </div>
                           {c.frontMaterialCode && <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{c.frontMaterialCode}</div>}
                         </td>
                       </tr>
