@@ -439,14 +439,17 @@ export default function RoomCanvas({
         if (other.id === dragging.id) return
         const ox = other.x * scale, oy = other.y * scale
         const ow = other.width * scale, od = other.depth * scale
+        const panelBackFirst = cab.subtype === 'Side Panel'
         if (!snappedX) {
-          if (Math.abs(rawCabX + cabWpx - ox) < SNAP_PX) { finalX = ox - cabWpx; snappedX = true }
+          if (panelBackFirst && Math.abs(rawCabX - ox) < SNAP_PX) { finalX = ox; snappedX = true }
+          else if (Math.abs(rawCabX + cabWpx - ox) < SNAP_PX) { finalX = ox - cabWpx; snappedX = true }
           else if (Math.abs(rawCabX - (ox + ow)) < SNAP_PX) { finalX = ox + ow; snappedX = true }
           else if (Math.abs(rawCabX - ox) < SNAP_PX) { finalX = ox; snappedX = true }
           else if (Math.abs(rawCabX + cabWpx - (ox + ow)) < SNAP_PX) { finalX = ox + ow - cabWpx; snappedX = true }
         }
         if (!snappedY) {
-          if (Math.abs(rawCabY + cabDpx - oy) < SNAP_PX) { finalY = oy - cabDpx; snappedY = true }
+          if (panelBackFirst && Math.abs(rawCabY - oy) < SNAP_PX) { finalY = oy; snappedY = true }
+          else if (Math.abs(rawCabY + cabDpx - oy) < SNAP_PX) { finalY = oy - cabDpx; snappedY = true }
           else if (Math.abs(rawCabY - (oy + od)) < SNAP_PX) { finalY = oy + od; snappedY = true }
           else if (Math.abs(rawCabY - oy) < SNAP_PX) { finalY = oy; snappedY = true }
           else if (Math.abs(rawCabY + cabDpx - (oy + od)) < SNAP_PX) { finalY = oy + od - cabDpx; snappedY = true }
@@ -698,8 +701,8 @@ export default function RoomCanvas({
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move' }}>
-                <rect x={x} y={y} width={w} height={h} fill={cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
-                <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />
+                <rect x={x} y={y} width={w} height={h} fill={cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h-4} width={w} height={4} fill={cab.frontColor} opacity={0.9} />}
                 <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
                 {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
               </g>

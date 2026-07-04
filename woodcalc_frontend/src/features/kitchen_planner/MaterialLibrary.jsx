@@ -11,6 +11,11 @@ function forceHttps(url) {
 
 const ACCENT = '#C8902A'
 
+const CORE_LABEL = {
+  particleboard: 'PB', mdf: 'MDF', hdf: 'HDF',
+  plywood: 'Ply', solid_wood: 'Solid', compact: 'Compact',
+}
+
 const FINISH_BADGE = {
   matt:  { label: 'Matt',  bg: '#F0EDE8', color: '#666' },
   gloss: { label: 'Gloss', bg: '#E8F0F8', color: '#2A6ACC' },
@@ -47,6 +52,8 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
     textureUrl: forceHttps(t.texture_image),
     supplierName: t.supplier_name || '',
     boardWidth: t.board_width || null,
+    thickness: t.thickness || 18,
+    coreMaterial: t.core_material || 'particleboard',
   }))
 
   const isMyLibrary = brand === 'my_library'
@@ -144,7 +151,10 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
                   ? <div style={{ fontSize: 8, color: '#aaa' }}>{mat.supplierName}</div>
                   : <div style={{ fontSize: 8, color: '#888', fontFamily: 'monospace' }}>{mat.code}</div>
                 }
-                <div style={{ marginTop: 3 }}>
+                <div style={{ marginTop: 3, display: 'flex', gap: 3, alignItems: 'center' }}>
+                  <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 4px', borderRadius: 3, background: '#EEE9E2', color: '#7A6A50' }}>
+                    {mat.thickness || 18}mm{mat.coreMaterial ? ' · ' + (CORE_LABEL[mat.coreMaterial] || mat.coreMaterial) : ''}
+                  </span>
                   <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 4px', borderRadius: 3, background: badge.bg, color: badge.color }}>
                     {badge.label}
                   </span>

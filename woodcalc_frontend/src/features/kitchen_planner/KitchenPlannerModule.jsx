@@ -9,6 +9,23 @@ import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './Cabine
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 
+const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf']
+function isCarcassCabinet(c) {
+  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
+}
+
+function cabinetConfig(c) {
+  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door'
+  return {
+    width: c.width, height: c.height, depth: c.depth,
+    material: c.material, doorStyle: c.doorStyle, shelves: 0,
+    cabinetType: c.category,
+    drawers: isDrawerCab ? 4 : 0,
+    drawerType: c.drawerType,
+    drawerSystem: c.drawerSystem,
+  }
+}
+
 
 const SCALE = 0.16
 const GRID = 50
@@ -73,8 +90,9 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     <div style={{ marginTop: 24 }}>
       <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>📦 Per-Cabinet Cut List</div>
       {cabinets.map((c, i) => {
+        if (!isCarcassCabinet(c)) return null
         let result
-        try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return null }
+        try { result = calculateCabinet(cabinetConfig(c)) } catch { return null }
         const isOpen = expanded[c.id]
         const carcassMat = c.carcassMaterialName || c.carcassColor || 'Carcass'
         const frontMat = c.frontMaterialName || c.frontColor || 'Front'
@@ -159,12 +177,24 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   // Build master grouped list
   const masterMap = {}
   const skirtingByMaterial = {}
+  const golaProfileMeters = { L: 0, C: 0 }
+  const drawerSystems = {}
 
   cabinets.forEach(c => {
-    let result
-    try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
+    if (!isCarcassCabinet(c)) {
+      // Filler/Panel/etc: one piece at its actual dimensions, no formula run
+      const isPanel = c.subtype === 'Side Panel'
+      const pieceDepth = isPanel ? (c.depth || 581) : c.width
+      const pieceTh = isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18
+      const key = `${c.height}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
+      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: c.height, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
+      masterMap[key].qty += 1
+      return
+    }
+    let result
+    try { result = calculateCabinet(cabinetConfig(c)) } catch { return }
 
     if (['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0) {
       const matKey = c.skirtingMaterial || 'match_countertop'
@@ -177,6 +207,33 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
       const corners = [['front', 'left'], ['front', 'right'], ['back', 'left'], ['back', 'right']]
       corners.forEach(([a, b]) => {
         if (sides.includes(a) && sides.includes(b)) skirtingByMaterial[matKey].elbows += 1
+      })
+    }
+
+    if (result.golaProfiles) {
+      golaProfileMeters.L += result.golaProfiles.L_meters || 0
+      golaProfileMeters.C += result.golaProfiles.C_meters || 0
+    }
+    if (result.hardware && result.hardware.drawer_runner_sets) {
+      const sysName = result.hardware.drawer_system || 'Unspecified'
+      drawerSystems[sysName] = (drawerSystems[sysName] || 0) + result.hardware.drawer_runner_sets
+    }
+    if (result.drawerFronts) {
+      result.drawerFronts.forEach(d => {
+        const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
+        const mat = c.frontMaterialName || 'Front material'
+        const key = `${d.width}×${d.height}×18|${mat}|drawerfront`
+        if (!masterMap[key]) masterMap[key] = { name: 'Drawer front', width: d.width, depth: d.height, thickness: 18, material: mat, eb, qty: 0 }
+        masterMap[key].qty += 1
+      })
+    }
+    if (result.drawerBox && result.drawerBox.parts_per_drawer) {
+      result.drawerBox.parts_per_drawer.forEach(p => {
+        const isHdf = p.name.includes('HDF')
+        const mat = isHdf ? 'HDF 8mm' : 'Drawer box 12mm'
+        const key = `${p.width}×${p.depth}×${isHdf ? 8 : 12}|${mat}|drawerbox`
+        if (!masterMap[key]) masterMap[key] = { name: p.name, width: p.width, depth: p.depth, thickness: isHdf ? 8 : 12, material: mat, eb: {}, qty: 0 }
+        masterMap[key].qty += p.qty * (result.drawerBox.count || 1)
       })
     }
 
@@ -261,6 +318,46 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
               </div>
             )
           })}
+
+          {golaProfileMeters.L > 0 && (
+            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+              <span style={{ fontSize: 20 }}>🪛</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Gola Profile — L Shape</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Under-worktop channel (Richelieu art.1005 milling)</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.L.toFixed(2)} m</div>
+                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+              </div>
+            </div>
+          )}
+          {golaProfileMeters.C > 0 && (
+            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+              <span style={{ fontSize: 20 }}>🪛</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Gola Profile — C Shape</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Drawer stack channel (Richelieu art.1004 milling)</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.C.toFixed(2)} m</div>
+                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+              </div>
+            </div>
+          )}
+          {Object.entries(drawerSystems).map(([sysName, sets]) => (
+            <div key={sysName} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+              <span style={{ fontSize: 20 }}>🗄️</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Drawer Runners — {sysName}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>One set per drawer (bottom drawer of Gola stacks: TIP-ON)</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{sets}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>runner sets</div>
+              </div>
+            </div>
+          ))}
         </>
       )}
     </div>
@@ -270,8 +367,9 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 function aggregateBOM(cabinets) {
   const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0 }
   cabinets.forEach(cab => {
+    if (!isCarcassCabinet(cab)) return
     try {
-      const r = calculateCabinet({ width: cab.width, height: cab.height, depth: cab.depth, material: cab.material, doorStyle: cab.doorStyle, shelves: 0, cabinetType: cab.category })
+      const r = calculateCabinet(cabinetConfig(cab))
       totals.sheet18    += r.panels.filter(p => p.thickness === 18).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.hdf8       += r.panels.filter(p => p.thickness === 8).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.edgeM      += (2 * cab.height + (cab.width - 36) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
@@ -340,10 +438,17 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       frontMaterialCode: t.frontMaterialCode || projectDefaults?.frontMaterialCode || null,
       frontMaterialName: t.frontMaterialName || projectDefaults?.frontMaterialName || null,
       frontTextureUrl:   t.frontTextureUrl   || projectDefaults?.frontTextureUrl   || null,
+      frontMaterialThickness: t.frontMaterialThickness || projectDefaults?.frontMaterialThickness || 18,
       zonePreset: null,
       skirtingSides: ['front'],
       skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
       baseHeight: baseHeight || 800,
+    }
+    if (t.subtype === 'Side Panel') {
+      const th = cab.frontMaterialThickness || 18
+      cab.panelThickness = th
+      cab.width = th
+      cab.depth = (t.category === 'wall' ? 300 : 560) + th + 3
     }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
@@ -457,8 +562,9 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         // Build master cut-list items (panels grouped by size+material+thickness) — NEW cabinets only
         const masterMap = {}
               newCabinets.forEach(c => {
+          if (!isCarcassCabinet(c)) return
           let result
-          try { result = calculateCabinet({ width: c.width, height: c.height, depth: c.depth, material: c.material, doorStyle: c.doorStyle, shelves: 0, cabinetType: c.category }) } catch { return }
+          try { result = calculateCabinet(cabinetConfig(c)) } catch { return }
           const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
           result.panels.forEach(p => {
             const mat = p.name.includes('Back') ? 'HDF 8mm' : carcassMat
@@ -752,6 +858,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontColor:        setup.frontColor,
                   frontFinish:       setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
+                  frontMaterialThickness: setup.frontMaterialThickness || 18,
                   skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
                 })
                 // Retroactively resize all existing base cabinets to the new height,
@@ -769,6 +876,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontColor: setup.frontColor,
                   frontMaterial: setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
+                  frontMaterialThickness: setup.frontMaterialThickness || 18,
                   skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
                 })))
               }}
@@ -856,7 +964,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                     updateCab('frontColor', mat.hex)
                     updateCab('frontMaterial', mat.finish)
                     updateCab('frontMaterialCode', mat.code)
-                    updateCab('frontMaterialName', mat.name)
+                    updateCab('frontMaterialName', mat.name); updateCab('frontMaterialThickness', mat.thickness || (mat.finish === 'wood' ? 22 : 18))
                     updateCab('frontTextureUrl', mat.textureUrl || null)
                   }}
                 />

@@ -77,6 +77,15 @@ class MaterialTexture(models.Model):
     board_width = models.PositiveIntegerField(default=2440, help_text='Board width in mm')
     board_height = models.PositiveIntegerField(default=1220, help_text='Board height in mm')
     thickness = models.PositiveIntegerField(default=18, help_text='Board thickness in mm')
+    CORE_CHOICES = [
+        ('particleboard', 'Particleboard / Melamine'),
+        ('mdf', 'MDF'),
+        ('hdf', 'HDF'),
+        ('plywood', 'Plywood'),
+        ('solid_wood', 'Solid Wood'),
+        ('compact', 'Compact Laminate'),
+    ]
+    core_material = models.CharField(max_length=20, choices=CORE_CHOICES, default='particleboard', help_text='Board substrate/core')
     price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     texture_physical_width_mm = models.PositiveIntegerField(
         default=600,

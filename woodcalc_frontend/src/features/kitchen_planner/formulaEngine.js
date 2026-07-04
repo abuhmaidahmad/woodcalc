@@ -92,6 +92,10 @@ export function calculateCabinet(config) {
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
   const shelves = Number(config.shelves || (config.cabinetType === 'tall' ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
+  // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
+  // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
+  const drawerSystem = (config.drawerSystem || 'Local Bearing');
+  const systemHasIntegratedBox = /legrabox|integrated/i.test(drawerSystem);
   const zones = config.zones || [];
   const cabinetType = config.cabinetType || config.category || 'base';
 
@@ -198,24 +202,85 @@ export function calculateCabinet(config) {
     });
   });
 
+  // ---- Drawer fronts (Richelieu Gola art.1004-1005 layout) ----
+  // Gola stack top-down: L channel (25) -> d1 -> d2 -> C channel (25) -> d3 -> d4(TIP-ON).
+  // First three fronts equal: unit - 47/3; fourth: unit - 3 tolerance.
+  const drawerFronts = [];
+  const requestedDrawers = Number(config.drawers || 0);
+  const drawerCount = (doorStyle === 'Gola' && requestedDrawers > 0) ? 3 : requestedDrawers;
+  if (drawerCount > 0) {
+    const frontW = round2(W - 3);
+    if (doorStyle === 'Gola') {
+      // Standard Gola stack: L channel (25) -> 2 small fronts (LEGRABOX M)
+      // -> C channel (25) -> 1 big front at 2*unit - 3 (LEGRABOX C).
+      const unit = H >= 790 ? 200 : 180;
+      const hBig = round2(2 * unit - 3);
+      const hSmall = round2((H - 50 - hBig) / 2);
+      const fronts = [
+        { h: hSmall, runner: 'M', opening: 'L/C channel' },
+        { h: hSmall, runner: 'M', opening: 'C channel' },
+        { h: hBig, runner: 'C', opening: 'TIP-ON', tipOn: true },
+      ];
+      fronts.forEach((f, i) => {
+        drawerFronts.push({
+          width: frontW,
+          height: f.h,
+          style: 'Gola',
+          runnerSize: f.runner,
+          opening: f.opening,
+          notes: f.tipOn ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access',
+        });
+      });
+    } else {
+      const eq = round2((H - 3 * (drawerCount + 1)) / drawerCount);
+      for (let d = 0; d < drawerCount; d++) {
+        drawerFronts.push({ width: frontW, height: eq, style: doorStyle, opening: doorStyle, notes: '' });
+      }
+    }
+  }
+
+  // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
+  const golaProfiles = doorStyle === 'Gola' ? {
+    L_meters: round2(W / 1000 * 100) / 100,
+    C_meters: drawerCount > 0 ? round2(W / 1000 * 100) / 100 : 0,
+  } : null;
+
   const hardware = {};
   hardware.legs = 4;
   hardware.confirmats = 10;
   hardware.dowels = 10;
   hardware.back_screws = Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
-  const numHandles = doors.filter(d => d.handle).length + (config.drawers || 0);
+  const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
-  const numTipOn = doors.filter(d => d.tipOn).length + (config.drawers || 0);
+  const numTipOn = doors.filter(d => d.tipOn).length
+    + (doorStyle === 'Gola' && drawerCount > 0 ? 1 : (doorStyle === 'Push' ? drawerCount : 0));
+  if (drawerCount > 0) {
+    hardware.drawer_runner_sets = drawerCount;
+    hardware.drawer_system = drawerSystem;
+    if (doorStyle === 'Gola') {
+      hardware.runner_sizes = { M: 2, C: 1 };
+    }
+  }
   hardware.tip_on = numTipOn;
   hardware.confirmat_spec = CONFIRMAT;
   hardware.edge_banding_spec = EDGE_BANDING;
 
   let drawerBox = null;
   if (config.drawers && config.drawers > 0) {
-    if (drawerType.toLowerCase().includes('wood')) {
+    if (!systemHasIntegratedBox && drawerType.toLowerCase().includes('wood')) {
+      // Wood box interior dims per drawer (runner clearance 2x12.5mm for side-mount)
+      const boxW = round2(W - 2 * T - 25);
+      const boxD = round2(D - 30 - 50);
       drawerBox = {
         type: 'Wood Box',
+        system: drawerSystem,
+        count: drawerCount,
+        parts_per_drawer: [
+          { name: 'Drawer side (12mm)', qty: 2, width: boxD, depth: 120 },
+          { name: 'Drawer back/front (12mm)', qty: 2, width: round2(boxW - 24), depth: 120 },
+          { name: 'Drawer base (8mm HDF)', qty: 1, width: boxW, depth: boxD },
+        ],
         side_thickness: 12,
         back_thickness: 12,
         base_thickness: 8,
@@ -226,8 +291,10 @@ export function calculateCabinet(config) {
     } else {
       drawerBox = {
         type: drawerType,
-        integratd_front: true,
-        note: 'No false front, integrated Blum front system',
+        system: drawerSystem,
+        count: drawerCount,
+        integrated_front: true,
+        note: `Integrated box system (${drawerSystem}) — no wood box parts`,
       };
     }
   }
@@ -275,6 +342,8 @@ export function calculateCabinet(config) {
     hardware,
     edgeBanding,
     doors,
+    drawerFronts,
+    golaProfiles,
     drawerBox,
     summary,
   };

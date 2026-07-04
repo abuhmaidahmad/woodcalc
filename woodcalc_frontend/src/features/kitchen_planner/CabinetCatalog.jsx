@@ -123,6 +123,9 @@ function buildLibrary(baseHeight) {
   ]
 
   const accessories = [
+    { id: 'acc_sidepanel_base', label: 'Side Panel Base', subtype: 'Side Panel', width: 18, height: baseHeight, depth: 581, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_sidepanel_wall', label: 'Side Panel Wall', subtype: 'Side Panel', width: 18, height: wallHeights[0], depth: 321, icon: 'accessory_filler', category: 'accessories', wallHeight: wallHeights[0], elevation: wallElevation },
+    { id: 'acc_sidepanel_tall', label: 'Side Panel Tall', subtype: 'Side Panel', width: 18, height: 2220, depth: 581, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_50',   label: 'Filler 50mm',   subtype: 'Filler',    width: 50,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_100',  label: 'Filler 100mm',  subtype: 'Filler',    width: 100,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_150',  label: 'Filler 150mm',  subtype: 'Filler',    width: 150,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
@@ -298,6 +301,7 @@ function ProjectSetup({ onConfirm }) {
   const [carcassColor, setCarcassColor] = useState('#F5F0E8')
   const [frontColor, setFrontColor]     = useState('#FFFFFF')
   const [frontMaterialCode, setFrontMaterialCode] = useState(null)
+  const [frontMaterialThickness, setFrontMaterialThickness] = useState(18)
   const [frontFinish, setFrontFinish]   = useState('matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
   const [carcassSearch, setCarcassSearch] = useState('')
@@ -405,6 +409,7 @@ function ProjectSetup({ onConfirm }) {
             setFrontColor(mat.hex)
             setFrontFinish(mat.finish)
             setFrontMaterialCode(mat.code)
+            setFrontMaterialThickness(mat.thickness || (mat.finish === 'wood' ? 22 : 18))
           }}
         />
         {frontMaterialCode && (
@@ -428,7 +433,7 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, skirtingMaterial })}
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           Start Designing →

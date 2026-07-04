@@ -241,6 +241,30 @@ function StandardBox({ args, position, castShadow, receiveShadow, color, matProp
   )
 }
 
+function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, legH }) {
+  const matProps = getMaterialProps(frontMaterial)
+  const texEntry = cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] : null
+  const isElevated = (cab.elevation || 0) > 0
+  const Hmm = H * 1000
+  // Align panel top with the neighbouring carcass top (legH + carcass height).
+  // If the user extends the panel height to cover the legs, lift shrinks to 0 (floor).
+  const targetTop = legH + (Hmm > 1200 ? 2.22 : (cab.baseHeight || 800) / 1000)
+  const lift = isElevated ? 0 : Math.max(0, targetTop - H)
+  if (texEntry) {
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    return (
+      <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
+        envMapIntensity={1.2} repeatU={D / physW} repeatV={H / physH} radius={0.001} />
+    )
+  }
+  return (
+    <SmartBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
+      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+  )
+}
+
 function SmartBox({ args, position, castShadow, receiveShadow, color, materialName, matProps, envMapIntensity = 1.0, radius = 0 }) {
   if (isWoodMaterial(materialName)) {
     return <WoodBox args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps} envMapIntensity={envMapIntensity} radius={radius} />
@@ -362,16 +386,14 @@ const GOLA_CH          = 0.025   // channel opening / door height reduction (25m
 // Shared drawer-stack layout so door fronts, C channels and side panel
 // notches always agree (single source of truth).
 function computeGolaDrawerLayout(H, baseHeight) {
-  // Stack (top-down): L channel (25) -> d1 -> d2 -> C channel (25) -> d3 -> d4.
-  // First three fronts equal; fourth = unit - 3mm tolerance.
-  // 3h = 3*unit - (L 25 + C 25) + 3  =>  h = unit - 47/3.
+  // Standard Gola stack: L channel (25) -> 2 small fronts (LEGRABOX M)
+  // -> C channel (25) -> 1 big front at 2*unit - 3 (LEGRABOX C, TIP-ON).
   const unit = baseHeight === 800 ? 0.200 : 0.180
-  const TOL = 0.003
   const CH = GOLA_CH
-  const h4 = unit - TOL
-  const h123 = (3 * unit - 2 * CH + TOL) / 3
-  const heights = [h123, h123, h123, h4]
-  let yTop = H / 2 - CH   // L channel occupies the top 25mm
+  const hBig = 2 * unit - 0.003
+  const hSmall = (H - 2 * CH - hBig) / 2
+  const heights = [hSmall, hSmall, hBig]
+  let yTop = H / 2 - CH
   const positions = []
   const channels = []
   for (let d = 0; d < heights.length; d++) {
@@ -819,6 +841,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const isTall    = cab.category === 'tall'
   const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
+  const isPanel   = cab.subtype === 'Side Panel'
   const isGlass   = cab.subtype === 'Glass Door'
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
@@ -839,7 +862,9 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <meshPhysicalMaterial color="#1a1a1a" metalness={0.85} roughness={0.15} envMapIntensity={2} />
         </mesh>
       ))}
-      {doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
+      {isPanel ? (
+        <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
+      ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
         <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} />
       ) : (
         <SmartBox
@@ -860,7 +885,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} textureMap={textureMap} />
         </group>
       )}
-      {!isShelf && (
+      {!isShelf && !isPanel && (
         <group position={[0, H/2, 0]}>
           {isGlass ? (
             <GlassDoor
