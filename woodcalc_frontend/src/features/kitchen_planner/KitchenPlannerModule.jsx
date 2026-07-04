@@ -645,7 +645,7 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         </div>
         <div style={s.topRight}>
           {baseHeight && (
-            <button onClick={() => { if (window.confirm('Reset base height? This will not delete cabinets.')) setBaseHeight(null) }}
+            <button onClick={() => { setProjectDefaults(p => p ? { ...p, baseHeight } : p); setBaseHeight(null) }}
               style={{ ...s.saveBtn, fontSize: 11, color: '#888' }}>
               ⚙ H{baseHeight}mm
             </button>

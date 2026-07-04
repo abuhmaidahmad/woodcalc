@@ -293,14 +293,14 @@ export function CountertopPicker({ selected, onSelect }) {
   )
 }
 
-function ProjectSetup({ onConfirm }) {
-  const [baseHeight, setBaseHeight]     = useState(null)
-  const [doorStyle, setDoorStyle]       = useState(null)
-  const [golaColor, setGolaColor]       = useState('black')
-  const [handlePos, setHandlePos]       = useState('bottom')
-  const [carcassColor, setCarcassColor] = useState('#F5F0E8')
-  const [frontColor, setFrontColor]     = useState('#FFFFFF')
-  const [frontMaterialCode, setFrontMaterialCode] = useState(null)
+function ProjectSetup({ onConfirm, initial }) {
+  const [baseHeight, setBaseHeight]     = useState(initial?.baseHeight || null)
+  const [doorStyle, setDoorStyle]       = useState(initial?.doorStyle || null)
+  const [golaColor, setGolaColor]       = useState(initial?.golaColor || 'black')
+  const [handlePos, setHandlePos]       = useState(initial?.handlePos || 'bottom')
+  const [carcassColor, setCarcassColor] = useState(initial?.carcassColor || '#F5F0E8')
+  const [frontColor, setFrontColor]     = useState(initial?.frontColor || '#FFFFFF')
+  const [frontMaterialCode, setFrontMaterialCode] = useState(initial?.frontMaterialCode || null)
   const [drawerSystems, setDrawerSystems] = useState([])
   const [drawerSystem, setDrawerSystem] = useState(null)
   useEffect(() => {
@@ -309,13 +309,15 @@ function ProjectSetup({ onConfirm }) {
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setDrawerSystems(list)
-        if (list.length && !drawerSystem) setDrawerSystem(list[0])
+        const saved = initial?.drawerSystem ? list.find(s => s.name === initial.drawerSystem) : null
+        if (saved) setDrawerSystem(saved)
+        else if (list.length && !drawerSystem) setDrawerSystem(list[0])
       })
       .catch(() => {})
   }, [])
-  const [frontMaterialThickness, setFrontMaterialThickness] = useState(18)
-  const [frontFinish, setFrontFinish]   = useState('matt')
-  const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
+  const [frontMaterialThickness, setFrontMaterialThickness] = useState(initial?.frontMaterialThickness || 18)
+  const [frontFinish, setFrontFinish]   = useState(initial?.frontFinish || 'matt')
+  const [skirtingMaterial, setSkirtingMaterial] = useState(initial?.skirtingMaterial || 'match_countertop')
   const [carcassSearch, setCarcassSearch] = useState('')
   const ready = baseHeight && doorStyle
 
@@ -517,7 +519,7 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
   const [subtypeFilter, setSubtypeFilter] = useState(null)
   const [search, setSearch] = useState('')
 
-  if (!baseHeight || !projectDefaults) return <ProjectSetup onConfirm={onSetupComplete} />
+  if (!baseHeight || !projectDefaults) return <ProjectSetup onConfirm={onSetupComplete} initial={projectDefaults ? { ...projectDefaults, baseHeight: baseHeight || projectDefaults.baseHeight } : null} />
 
   const library = buildLibrary(baseHeight)
   const items = library[activeCategory] || []
