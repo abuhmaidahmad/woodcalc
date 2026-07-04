@@ -301,6 +301,18 @@ function ProjectSetup({ onConfirm }) {
   const [carcassColor, setCarcassColor] = useState('#F5F0E8')
   const [frontColor, setFrontColor]     = useState('#FFFFFF')
   const [frontMaterialCode, setFrontMaterialCode] = useState(null)
+  const [drawerSystems, setDrawerSystems] = useState([])
+  const [drawerSystem, setDrawerSystem] = useState(null)
+  useEffect(() => {
+    authFetch(API_URL + '/api/inventory/drawer-systems/')
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        setDrawerSystems(list)
+        if (list.length && !drawerSystem) setDrawerSystem(list[0])
+      })
+      .catch(() => {})
+  }, [])
   const [frontMaterialThickness, setFrontMaterialThickness] = useState(18)
   const [frontFinish, setFrontFinish]   = useState('matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState('match_countertop')
@@ -419,6 +431,18 @@ function ProjectSetup({ onConfirm }) {
         )}
         <div style={{ marginBottom: 16 }} />
 
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Drawer System</div>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
+          {drawerSystems.map(sys => (
+            <div key={sys.id} onClick={() => setDrawerSystem(sys)}
+              style={{ flex: '1 1 30%', padding: '8px 6px', border: `2px solid ${drawerSystem?.id === sys.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer',
+                background: drawerSystem?.id === sys.id ? ACCENT + '10' : '#FAFAFA', textAlign: 'center' }}>
+              <div style={{ fontSize: 10, fontWeight: 700, color: drawerSystem?.id === sys.id ? ACCENT : DARK }}>{sys.name}</div>
+              <div style={{ fontSize: 8, color: '#999', marginTop: 2 }}>{sys.brand}{sys.box_construction === 'wood_box' ? ' · wood box' : ''}</div>
+            </div>
+          ))}
+        </div>
+
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
           {SKIRTING_OPTIONS.map(opt => (
@@ -433,7 +457,7 @@ function ProjectSetup({ onConfirm }) {
           ))}
         </div>
 
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial })}
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial, drawerSystem: drawerSystem?.name || 'Local Bearing', drawerBoxConstruction: drawerSystem?.box_construction || 'wood_box' })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           Start Designing →

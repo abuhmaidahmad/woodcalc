@@ -95,7 +95,10 @@ export function calculateCabinet(config) {
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
   const drawerSystem = (config.drawerSystem || 'Local Bearing');
-  const systemHasIntegratedBox = /legrabox|integrated/i.test(drawerSystem);
+  // box_construction from DrawerSystem API drives the branch; regex only for legacy saved data
+  const systemHasIntegratedBox = config.drawerBoxConstruction
+    ? config.drawerBoxConstruction === 'metal_sided'
+    : /legrabox|tandembox|integrated/i.test(drawerSystem);
   const zones = config.zones || [];
   const cabinetType = config.cabinetType || config.category || 'base';
 

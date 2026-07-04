@@ -57,6 +57,28 @@ class StockAlert(models.Model):
         return self.message
 
 
+class DrawerSystem(models.Model):
+    """Drawer hardware standard (Blum LEGRABOX/TANDEMBOX, Grass, FGV, local runners...).
+    box_construction drives the formula engine: metal_sided systems provide the drawer
+    sides (no wood box parts); wood_box systems need a manufactured box + runners."""
+    BOX_CHOICES = [
+        ('metal_sided', 'Metal-sided (system provides box)'),
+        ('wood_box', 'Wood box + runners'),
+    ]
+    name = models.CharField(max_length=100, unique=True)
+    brand = models.CharField(max_length=100, blank=True, default='')
+    box_construction = models.CharField(max_length=15, choices=BOX_CHOICES, default='wood_box')
+    price_per_set = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+
+    def __str__(self):
+        return f"{self.brand} {self.name}".strip()
+
+
 class MaterialTexture(models.Model):
     """Visual render-facing material swatch (front/door laminate or worktop surface),
     separate from the inventory Material model which tracks stock/cost.

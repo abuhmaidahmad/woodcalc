@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture
-from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer
+from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem
+from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer, DrawerSystemSerializer
 
 
 class MaterialViewSet(ModelViewSet):
@@ -40,3 +40,13 @@ class MaterialTextureViewSet(ModelViewSet):
         if material_type:
             qs = qs.filter(material_type=material_type)
         return qs
+
+
+from rest_framework.permissions import IsAuthenticatedOrReadOnly
+
+class DrawerSystemViewSet(ModelViewSet):
+    serializer_class = DrawerSystemSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return DrawerSystem.objects.filter(is_active=True)

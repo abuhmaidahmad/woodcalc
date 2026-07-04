@@ -23,6 +23,7 @@ function cabinetConfig(c) {
     drawers: isDrawerCab ? 4 : 0,
     drawerType: c.drawerType,
     drawerSystem: c.drawerSystem,
+    drawerBoxConstruction: c.drawerBoxConstruction,
   }
 }
 
@@ -439,6 +440,8 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
       frontMaterialName: t.frontMaterialName || projectDefaults?.frontMaterialName || null,
       frontTextureUrl:   t.frontTextureUrl   || projectDefaults?.frontTextureUrl   || null,
       frontMaterialThickness: t.frontMaterialThickness || projectDefaults?.frontMaterialThickness || 18,
+      drawerSystem: t.drawerSystem || projectDefaults?.drawerSystem || 'Local Bearing',
+      drawerBoxConstruction: t.drawerBoxConstruction || projectDefaults?.drawerBoxConstruction || 'wood_box',
       zonePreset: null,
       skirtingSides: ['front'],
       skirtingMaterial: projectDefaults?.skirtingMaterial || 'match_countertop',
@@ -859,6 +862,8 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontFinish:       setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
                   frontMaterialThickness: setup.frontMaterialThickness || 18,
+                  drawerSystem: setup.drawerSystem || 'Local Bearing',
+                  drawerBoxConstruction: setup.drawerBoxConstruction || 'wood_box',
                   skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
                 })
                 // Retroactively resize all existing base cabinets to the new height,
@@ -877,6 +882,8 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
                   frontMaterial: setup.frontFinish,
                   frontMaterialCode: setup.frontMaterialCode || null,
                   frontMaterialThickness: setup.frontMaterialThickness || 18,
+                  drawerSystem: setup.drawerSystem || c.drawerSystem,
+                  drawerBoxConstruction: setup.drawerBoxConstruction || c.drawerBoxConstruction,
                   skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
                 })))
               }}

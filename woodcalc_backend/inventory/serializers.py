@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture
+from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -31,4 +31,10 @@ class MaterialTextureSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MaterialTexture
+        fields = '__all__'
+
+
+class DrawerSystemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DrawerSystem
         fields = '__all__'
