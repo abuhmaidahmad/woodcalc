@@ -172,7 +172,7 @@ export function calculateCabinet(config) {
   }
 
   const opening = round2(H - T - 100);
-  const golaDoorHeight = round2(opening - 25 - 3);
+  const golaDoorHeight = round2(H - 25 - 3);
   const handlePushDoorHeight = round2(opening - 3 - 3);
   const oneDoorWidth = round2(W - 3);
   const twoDoorWidthEach = round2((W - 3) / 2);
@@ -191,6 +191,26 @@ export function calculateCabinet(config) {
     for (let i = 0; i < doorCount; i++) doorWidths.push(each);
   }
 
+  const isTallSplit = config.cabinetType === 'tall';
+  if (isTallSplit) {
+    // Tall Gola: C-channel at base-cabinet-top level splits into lower + upper door.
+    // Lower door is cut-identical to a base cabinet Gola door so fronts align.
+    const bh = config.baseHeight || 800;
+    const lowerH = round2(bh - 25 - 3);   // 772 (H800) / 692 (H720) — aligns with base run
+    const upperH = round2(H - bh - 3);    // e.g. 2220 tall H800 -> 1417; 2000 -> 1197
+    doorWidths.forEach((dw) => {
+      doors.push({
+        width: round2(dw), height: lowerH, style: doorStyle,
+        hinges: getHingeCount(lowerH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+        notes: 'Tall lower door (aligns with base run)',
+      });
+      doors.push({
+        width: round2(dw), height: upperH, style: doorStyle,
+        hinges: getHingeCount(upperH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+        notes: 'Tall upper door',
+      });
+    });
+  } else {
   doorWidths.forEach((dw) => {
     const doorH = doorStyle === 'Gola' ? golaDoorHeight : handlePushDoorHeight;
     const hinges = getHingeCount(doorH);
@@ -204,6 +224,7 @@ export function calculateCabinet(config) {
       notes: doorStyle === 'Gola' ? 'Gola style' : '',
     });
   });
+  }
 
   // ---- Drawer fronts (Richelieu Gola art.1004-1005 layout) ----
   // Gola stack top-down: L channel (25) -> d1 -> d2 -> C channel (25) -> d3 -> d4(TIP-ON).
@@ -244,8 +265,9 @@ export function calculateCabinet(config) {
 
   // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
   const golaProfiles = doorStyle === 'Gola' ? {
-    L_meters: round2(W / 1000 * 100) / 100,
-    C_meters: drawerCount > 0 ? round2(W / 1000 * 100) / 100 : 0,
+    // Tall units have no top L-profile; their base-level channel is a C.
+    L_meters: config.cabinetType === 'tall' ? 0 : round2(W / 1000 * 100) / 100,
+    C_meters: (config.cabinetType === 'tall' || drawerCount > 0) ? round2(W / 1000 * 100) / 100 : 0,
   } : null;
 
   const hardware = {};

@@ -580,14 +580,16 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         )
       }
     }
-  } else if (isTall && effectiveDoorStyle === 'Gola') {
-    // Tall Gola: lower + upper door split by a C-channel at base-cabinet-top level.
+  } else if (isTall) {
+    // Tall units: lower + upper door split at base-cabinet-top level (all styles).
+    const isGolaTall = effectiveDoorStyle === 'Gola'
     const baseH = (baseHeight || 800) / 1000
     const CH = 0.025
+    const GAP = 0.003
     const yChan = baseH - H / 2
-    const lowerH = baseH - CH / 2
-    const upperH = H - baseH - CH / 2
-    drawerChannels.push({ y: yChan })
+    const lowerH = isGolaTall ? baseH - CH - GAP : baseH - GAP
+    const upperH = H - baseH - GAP
+    if (isGolaTall) drawerChannels.push({ y: yChan })
     for (let i = 0; i < numDoors; i++) {
       const xOff = -W / 2 + doorW * i + doorW / 2
       doors.push(
@@ -596,15 +598,15 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
           matProps={matProps} doorStyle={effectiveDoorStyle}
           golaHex={golaHex} golaColor={golaColor}
-          handlePosition="center" isWallCabinet={isWallCabinet} />
+          handlePosition="top" isWallCabinet={isWallCabinet} />
       )
       doors.push(
-        <DoorPanel key={`up-${i}`} x={xOff} y={yChan + CH / 2 + upperH / 2} D={D}
+        <DoorPanel key={`up-${i}`} x={xOff} y={yChan + upperH / 2} D={D}
           doorW={doorW} doorH={upperH}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
           matProps={matProps} doorStyle={effectiveDoorStyle}
           golaHex={golaHex} golaColor={golaColor}
-          handlePosition="center" isWallCabinet={isWallCabinet} drawerIndex={i} />
+          handlePosition="bottom" isWallCabinet={isWallCabinet} drawerIndex={i} />
       )
     }
   } else {

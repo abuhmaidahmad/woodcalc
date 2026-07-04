@@ -24,6 +24,7 @@ function cabinetConfig(c) {
     drawerType: c.drawerType,
     drawerSystem: c.drawerSystem,
     drawerBoxConstruction: c.drawerBoxConstruction,
+    baseHeight: c.baseHeight,
   }
 }
 
