@@ -6,6 +6,7 @@ const T = 18; // panel thickness mm
 const BACK_T = 8; // HDF back panel thickness mm
 const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
+export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
 function round2(v) {
   return Math.round((v + Number.EPSILON) * 100) / 100;
@@ -174,11 +175,12 @@ export function calculateCabinet(config) {
   const opening = round2(H - T - 100);
   const golaDoorHeight = round2(H - 25 - 3);
   const handlePushDoorHeight = round2(opening - 3 - 3);
-  const oneDoorWidth = round2(W - 3);
+  const isBlind = config.subtype === 'Blind';
+  const oneDoorWidth = isBlind ? round2(W - BLIND_PANEL_WIDTH - 3) : round2(W - 3);
   const twoDoorWidthEach = round2((W - 3) / 2);
 
   const defaultDoorCount = getDefaultDoorCount(W);
-  const doorCount = Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount;
+  const doorCount = isBlind ? 1 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
   const doors = [];
   const doorWidths = [];

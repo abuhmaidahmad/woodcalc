@@ -1,4 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
+import { BLIND_PANEL_WIDTH } from './formulaEngine'
 
 const ACCENT = '#C8902A'
 const GRID = 50
@@ -742,6 +743,16 @@ export default function RoomCanvas({
               <span style={{ fontSize: 11, color: '#888' }}>° <kbd style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3 }}>R</kbd></span>
             </div>
           )}
+          {mode === 'select' && selected && selectedType === 'cabinet' && cabinets.find(c => c.id === selected)?.subtype === 'Blind' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Blind side</span>
+              <button
+                onClick={() => setCabinets(p => p.map(c => c.id === selected ? { ...c, blindSide: c.blindSide === 'right' ? 'left' : 'right' } : c))}
+                style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                {(cabinets.find(c => c.id === selected)?.blindSide || 'left') === 'left' ? '⬅ Blind Left / Door Right' : '➡ Blind Right / Door Left'}
+              </button>
+            </div>
+          )}
         </div>
       )}
       <div style={{ flex: 1, minHeight: 0 }}>
@@ -826,6 +837,18 @@ export default function RoomCanvas({
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move' }}>
                 <rect x={x} y={y} width={w} height={h} fill={cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                {cab.subtype === 'Blind' && (() => {
+                  const blindWpx = BLIND_PANEL_WIDTH * scale
+                  const side = cab.blindSide || 'left'
+                  const blindX = side === 'left' ? x : x + w - blindWpx
+                  const lineX = side === 'left' ? x + blindWpx : x + w - blindWpx
+                  return (
+                    <>
+                      <rect x={blindX} y={y} width={blindWpx} height={h} fill="rgba(0,0,0,0.08)" style={{ pointerEvents: 'none' }} />
+                      <line x1={lineX} y1={y} x2={lineX} y2={y + h} stroke="#2c3e50" strokeWidth={1.25} style={{ pointerEvents: 'none' }} />
+                    </>
+                  )
+                })()}
                 {collidingIds.has(cab.id) && (
                   <rect x={x} y={y} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
                 )}

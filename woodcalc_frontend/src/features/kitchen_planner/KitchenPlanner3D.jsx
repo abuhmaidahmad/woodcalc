@@ -1,4 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
+import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -531,13 +532,14 @@ function CDrawerChannel({ W, D, y, golaHex }) {
   )
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, baseHeight }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, baseHeight, isBlind, blindSide = 'left' }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
   const GOLA_RECESS = effectiveDoorStyle === 'Gola' ? 0.025 : 0
   const doorH = H - GOLA_RECESS
-  const doorW = W / numDoors
+  const BLIND_PANEL_W_M = BLIND_PANEL_WIDTH / 1000
+  const doorW = isBlind ? Math.max(0.05, W - BLIND_PANEL_W_M - 0.003) : W / numDoors
   const doors = []
 
   const drawerChannels = []
@@ -611,7 +613,9 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
     }
   } else {
     for (let i = 0; i < numDoors; i++) {
-      const xOff = -W / 2 + doorW * i + doorW / 2
+      const xOff = isBlind
+        ? (blindSide === 'left' ? (W / 2 - doorW / 2) : (-W / 2 + doorW / 2))
+        : (-W / 2 + doorW * i + doorW / 2)
       const yOff = effectiveDoorStyle === 'Gola' ? -GOLA_RECESS / 2 : 0
       doors.push(
         <DoorPanel key={i}
@@ -879,7 +883,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const isGlass   = cab.subtype === 'Glass Door'
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
-  const numDoors = cab.width >= 600 ? 2 : 1
+  const isBlindCab = cab.subtype === 'Blind'
+  const numDoors = isBlindCab ? 1 : (cab.width >= 600 ? 2 : 1)
   const doorStyle = cab.doorStyle || 'Handle'
   const frontColor = cab.frontColor || '#FFFFFF'
   const frontMaterial = cab.frontMaterial || ''
@@ -942,6 +947,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
               golaColor={cab.golaColor || 'black'}
               isWallCabinet={isWall}
               isTall={isTall}
+              isBlind={isBlindCab}
+              blindSide={cab.blindSide || 'left'}
             />
           )}
         </group>
