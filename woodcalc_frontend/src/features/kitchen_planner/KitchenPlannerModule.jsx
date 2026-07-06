@@ -404,6 +404,8 @@ function LinkProjectModal({ onClose, onLinked }) {
   const [projectForm, setProjectForm] = useState({ name: '', address: '', notes: '', status: 'DRAFT' })
 
   const [roomForm, setRoomForm] = useState({ name: 'Kitchen', room_type: 'kitchen', notes: '' })
+  const [existingRooms, setExistingRooms] = useState([])
+  const [showNewRoom, setShowNewRoom] = useState(false)
 
   useEffect(() => {
     authFetch(API + '/api/crm/clients/').then(r => r.json()).then(d => setClients(Array.isArray(d) ? d : (d.results || []))).catch(() => {})
@@ -432,7 +434,21 @@ function LinkProjectModal({ onClose, onLinked }) {
     setBusy(false)
   }
 
-  const pickProject = (project) => { setSelectedProject(project); setStep('room') }
+  const pickProject = async (project) => {
+    setSelectedProject(project)
+    setBusy(true); setErr('')
+    try {
+      const res = await authFetch(API + `/api/crm/rooms/?project=${project.id}`)
+      const d = await res.json()
+      const rooms = Array.isArray(d) ? d : (d.results || [])
+      setExistingRooms(rooms)
+      setShowNewRoom(rooms.length === 0)
+      setStep('room')
+    } catch { setErr('Could not load rooms'); setStep('room') }
+    setBusy(false)
+  }
+
+  const pickExistingRoom = (room) => { onLinked(selectedProject.id, room.id, room.name) }
 
   const createProject = async () => {
     if (!projectForm.name.trim()) return
@@ -447,6 +463,10 @@ function LinkProjectModal({ onClose, onLinked }) {
 
   const createRoomAndLink = async () => {
     if (!roomForm.name.trim()) return
+    if (existingRooms.some(r => r.name.trim().toLowerCase() === roomForm.name.trim().toLowerCase())) {
+      setErr('A room with this name already exists in this project — pick it from the list instead.')
+      return
+    }
     setBusy(true); setErr('')
     try {
       const res = await authFetch(API + '/api/crm/rooms/', { method: 'POST', body: JSON.stringify({ ...roomForm, project: selectedProject.id }) })
@@ -510,7 +530,16 @@ function LinkProjectModal({ onClose, onLinked }) {
           </>
         )}
 
-        {step === 'room' && (
+        {step === 'room' && !showNewRoom && (
+          <>
+            {existingRooms.map(rm => (
+              <div key={rm.id} style={row} onClick={() => pickExistingRoom(rm)}>{rm.name} <span style={{ color: '#999', fontSize: 11 }}>({rm.room_type})</span></div>
+            ))}
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewRoom(true)}>+ New Room</button>
+            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('project')}>← Back</button></div>
+          </>
+        )}
+        {step === 'room' && showNewRoom && (
           <>
             <input style={input} placeholder="Room name" value={roomForm.name} onChange={e => setRoomForm(f => ({ ...f, name: e.target.value }))} />
             <select style={input} value={roomForm.room_type} onChange={e => setRoomForm(f => ({ ...f, room_type: e.target.value }))}>
@@ -521,7 +550,8 @@ function LinkProjectModal({ onClose, onLinked }) {
             </select>
             <div style={{ display: 'flex', gap: 8 }}>
               <button style={btn} disabled={busy} onClick={createRoomAndLink}>{busy ? 'Saving…' : 'Create Room & Save'}</button>
-              <button style={btnGhost} onClick={() => setStep('project')}>← Back</button>
+              {existingRooms.length > 0 && <button style={btnGhost} onClick={() => setShowNewRoom(false)}>← Existing rooms</button>}
+              <button style={btnGhost} onClick={() => setStep('project')}>← Project</button>
             </div>
           </>
         )}
