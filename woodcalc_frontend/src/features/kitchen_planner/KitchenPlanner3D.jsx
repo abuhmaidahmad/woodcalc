@@ -860,6 +860,167 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
   )
 }
 
+
+// ---- Appliance visuals (fridge, oven, dishwasher, hood) — real look instead of generic cabinet doors ----
+function FridgeAppliance({ W, H, D }) {
+  const bodyColor = '#d7dadd', seamColor = '#9aa0a4', handleColor = '#3a3d40'
+  const doorSplitY = H * 0.62
+  return (
+    <group>
+      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.7} roughness={0.3} envMapIntensity={1.3} />
+      </mesh>
+      <mesh position={[0, doorSplitY, D / 2 + 0.001]}>
+        <boxGeometry args={[W - 0.01, 0.004, 0.002]} />
+        <meshBasicMaterial color={seamColor} />
+      </mesh>
+      <mesh position={[0, (doorSplitY + H) / 2, D / 2 + 0.001]}>
+        <boxGeometry args={[0.004, H - doorSplitY - 0.01, 0.002]} />
+        <meshBasicMaterial color={seamColor} />
+      </mesh>
+      {[-W * 0.08, W * 0.08].map((hx, i) => (
+        <mesh key={i} position={[hx, (doorSplitY + H) / 2, D / 2 + 0.015]}>
+          <boxGeometry args={[0.02, H - doorSplitY - 0.06, 0.02]} />
+          <meshPhysicalMaterial color={handleColor} metalness={0.9} roughness={0.2} />
+        </mesh>
+      ))}
+      <mesh position={[0, doorSplitY / 2 + 0.02, D / 2 + 0.015]}>
+        <boxGeometry args={[W * 0.3, 0.02, 0.02]} />
+        <meshPhysicalMaterial color={handleColor} metalness={0.9} roughness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+function FreestandingOvenAppliance({ W, H, D }) {
+  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+  return (
+    <group>
+      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[0, H - 0.035, D / 2 + 0.001]}>
+        <boxGeometry args={[W - 0.02, 0.05, 0.002]} />
+        <meshPhysicalMaterial color="#3d3d3d" metalness={0.6} roughness={0.3} />
+      </mesh>
+      {[-0.15, -0.05, 0.05, 0.15].map((kx, i) => (
+        <mesh key={i} position={[W * kx, H - 0.035, D / 2 + 0.008]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.01, 12]} />
+          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
+        </mesh>
+      ))}
+      <mesh position={[0, H * 0.35, D / 2 + 0.001]}>
+        <boxGeometry args={[W - 0.06, H * 0.42, 0.002]} />
+        <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, H * 0.35 + H * 0.21 + 0.01, D / 2 + 0.02]}>
+        <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+      </mesh>
+      <mesh position={[0, H + 0.005, 0]}>
+        <boxGeometry args={[W, 0.01, D]} />
+        <meshPhysicalMaterial color="#111" metalness={0.3} roughness={0.15} />
+      </mesh>
+      {[[-W * 0.22, -D * 0.18], [W * 0.22, -D * 0.18], [-W * 0.22, D * 0.18], [W * 0.22, D * 0.18]].map(([bx, bz], i) => (
+        <mesh key={i} position={[bx, H + 0.011, bz]} rotation={[-Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[0.035, 0.004, 8, 24]} />
+          <meshPhysicalMaterial color="#2a2a2a" metalness={0.4} roughness={0.3} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
+function OvenTowerAppliance({ W, H, D, isDouble }) {
+  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+  return (
+    <group>
+      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      {isDouble ? (
+        <>
+          <mesh position={[0, H * 0.78, D / 2 + 0.001]}>
+            <boxGeometry args={[W - 0.06, H * 0.32, 0.002]} />
+            <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+          </mesh>
+          <mesh position={[0, H * 0.78, D / 2 + 0.02]}>
+            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+            <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+          </mesh>
+          <mesh position={[0, H * 0.32, D / 2 + 0.001]}>
+            <boxGeometry args={[W - 0.06, H * 0.34, 0.002]} />
+            <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+          </mesh>
+          <mesh position={[0, H * 0.32, D / 2 + 0.02]}>
+            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+            <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+          </mesh>
+        </>
+      ) : (
+        <>
+          <mesh position={[0, H * 0.55, D / 2 + 0.001]}>
+            <boxGeometry args={[W - 0.06, H * 0.5, 0.002]} />
+            <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+          </mesh>
+          <mesh position={[0, H * 0.55, D / 2 + 0.02]}>
+            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+            <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+          </mesh>
+        </>
+      )}
+    </group>
+  )
+}
+
+function DishwasherAppliance({ W, H, D }) {
+  return (
+    <group>
+      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, H, D]} />
+        <meshPhysicalMaterial color="#d7dadd" metalness={0.65} roughness={0.3} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[0, H - 0.04, D / 2 + 0.001]}>
+        <boxGeometry args={[W - 0.02, 0.06, 0.002]} />
+        <meshPhysicalMaterial color="#3d3d3d" metalness={0.5} roughness={0.3} />
+      </mesh>
+      {[-0.25, -0.1, 0.05, 0.2].map((kx, i) => (
+        <mesh key={i} position={[W * kx, H - 0.04, D / 2 + 0.003]}>
+          <boxGeometry args={[0.02, 0.015, 0.002]} />
+          <meshBasicMaterial color="#111" />
+        </mesh>
+      ))}
+      <mesh position={[0, H * 0.55, D / 2 + 0.015]}>
+        <boxGeometry args={[W * 0.7, 0.02, 0.02]} />
+        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+function HoodAppliance({ W, H, D }) {
+  const canopyH = Math.min(H * 0.35, 0.15)
+  return (
+    <group>
+      <mesh position={[0, H - canopyH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, canopyH, D]} />
+        <meshPhysicalMaterial color="#c9cccf" metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+      </mesh>
+      <mesh position={[0, (H - canopyH) / 2, 0]} scale={[0.55, 1, 0.55]}>
+        <boxGeometry args={[W, H - canopyH, D]} />
+        <meshPhysicalMaterial color="#c9cccf" metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+      </mesh>
+      <mesh position={[0, H - canopyH / 2, D / 2 + 0.001]}>
+        <boxGeometry args={[W * 0.5, 0.02, 0.002]} />
+        <meshPhysicalMaterial color="#3d3d3d" metalness={0.5} roughness={0.3} />
+      </mesh>
+    </group>
+  )
+}
+
 function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 30, textureMap = {} }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
@@ -881,6 +1042,14 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
   const isPanel   = cab.subtype === 'Side Panel'
   const isGlass   = cab.subtype === 'Glass Door'
+  const applianceKind =
+    cab.subtype === 'Fridge' ? 'fridge' :
+    (cab.subtype === 'Oven Tower' || cab.subtype === 'Double Oven') ? 'ovenTower' :
+    (cab.category === 'wall' && cab.subtype === 'Appliance') ? 'hood' :
+    cab.subtype === 'Freestanding Oven' ? 'freestandingOven' :
+    cab.subtype === 'Freestanding Fridge' ? 'freestandingFridge' :
+    cab.subtype === 'Freestanding Dishwasher' ? 'freestandingDishwasher' :
+    null
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
   const isBlindCab = cab.subtype === 'Blind'
@@ -901,7 +1070,19 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <meshPhysicalMaterial color="#1a1a1a" metalness={0.85} roughness={0.15} envMapIntensity={2} />
         </mesh>
       ))}
-      {isPanel ? (
+      {applianceKind === 'fridge' ? (
+        <FridgeAppliance W={W} H={H} D={D} />
+      ) : applianceKind === 'ovenTower' ? (
+        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} />
+      ) : applianceKind === 'hood' ? (
+        <HoodAppliance W={W} H={H} D={D} />
+      ) : applianceKind === 'freestandingOven' ? (
+        <FreestandingOvenAppliance W={W} H={H} D={D} />
+      ) : applianceKind === 'freestandingFridge' ? (
+        <FridgeAppliance W={W} H={H} D={D} />
+      ) : applianceKind === 'freestandingDishwasher' ? (
+        <DishwasherAppliance W={W} H={H} D={D} />
+      ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
         <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} isTall={isTall} />
@@ -924,7 +1105,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} textureMap={textureMap} />
         </group>
       )}
-      {!isShelf && !isPanel && (
+      {!isShelf && !isPanel && !applianceKind && (
         <group position={[0, H/2, 0]}>
           {isGlass ? (
             <GlassDoor

@@ -836,7 +836,19 @@ export default function RoomCanvas({
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move' }}>
-                <rect x={x} y={y} width={w} height={h} fill={cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                {(() => {
+                  const APPLIANCE_2D_COLORS = {
+                    'Freestanding Oven': '#2b2b2b',
+                    'Freestanding Fridge': '#d7dadd',
+                    'Freestanding Dishwasher': '#d7dadd',
+                    'Fridge': '#d7dadd',
+                    'Oven Tower': '#2b2b2b',
+                    'Double Oven': '#2b2b2b',
+                  }
+                  const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
+                  const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
+                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                })()}
                 {cab.subtype === 'Blind' && (() => {
                   const blindWpx = BLIND_PANEL_WIDTH * scale
                   const side = cab.blindSide || 'left'

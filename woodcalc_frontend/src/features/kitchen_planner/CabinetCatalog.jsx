@@ -63,6 +63,9 @@ const Icons = {
   specialty_custom: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="32" rx="1" stroke="#C8902A" strokeWidth="1.5" fill="#C8902A" fillOpacity="0.08" strokeDasharray="4,3"/><text x="24" y="28" textAnchor="middle" fontSize="18" fill="#C8902A" fontFamily="Inter,sans-serif">?</text></svg>),
   accessory_filler: (<svg viewBox="0 0 48 48" fill="none"><rect x="18" y="4" width="12" height="40" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8e4df" strokeDasharray="3,2"/><line x1="18" y1="12" x2="30" y2="12" stroke="#888" strokeWidth="0.75"/><line x1="18" y1="20" x2="30" y2="20" stroke="#888" strokeWidth="0.75"/><line x1="18" y1="28" x2="30" y2="28" stroke="#888" strokeWidth="0.75"/><line x1="18" y1="36" x2="30" y2="36" stroke="#888" strokeWidth="0.75"/></svg>),
   accessory_shelf: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="20" width="40" height="6" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="8" y="26" width="3" height="14" rx="1" fill="#888"/><rect x="37" y="26" width="3" height="14" rx="1" fill="#888"/></svg>),
+  accessory_gap_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="6" y="18" width="36" height="24" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#2b2b2b" fillOpacity="0.85"/><rect x="10" y="24" width="28" height="14" rx="1" fill="#111"/><rect x="6" y="10" width="36" height="8" rx="1" fill="#ddd" stroke="#2c3e50" strokeWidth="1"/><circle cx="14" cy="14" r="2" fill="#333"/><circle cx="24" cy="14" r="2" fill="#333"/><circle cx="34" cy="14" r="2" fill="#333"/></svg>),
+  accessory_gap_fridge: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8f0f8"/><line x1="10" y1="26" x2="38" y2="26" stroke="#2c3e50" strokeWidth="1.5"/><circle cx="34" cy="14" r="1.5" fill="#2c3e50"/><circle cx="34" cy="34" r="1.5" fill="#2c3e50"/></svg>),
+  accessory_gap_dish: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#eef0f1"/><rect x="8" y="12" width="32" height="6" rx="1" fill="#3d3d3d"/><circle cx="14" cy="15" r="1" fill="#111"/><circle cx="20" cy="15" r="1" fill="#111"/></svg>),
 }
 
 function buildLibrary(baseHeight) {
@@ -137,6 +140,10 @@ function buildLibrary(baseHeight) {
     { id: 'acc_toekick_600', label: 'Toe Kick 600',  subtype: 'Toe Kick',  width: 600,  height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_toekick_900', label: 'Toe Kick 900',  subtype: 'Toe Kick',  width: 900,  height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_toekick_1200',label: 'Toe Kick 1200', subtype: 'Toe Kick',  width: 1200, height: 100,        depth: 60,  icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_free_oven',       label: 'Freestanding Oven',       subtype: 'Freestanding Oven',       width: 600, height: 850,  depth: 600, icon: 'accessory_gap_oven',   category: 'accessories' },
+    { id: 'acc_free_fridge_700', label: 'Freestanding Fridge 700', subtype: 'Freestanding Fridge',     width: 700, height: 1800, depth: 700, icon: 'accessory_gap_fridge', category: 'accessories' },
+    { id: 'acc_free_fridge_900', label: 'Freestanding Fridge 900', subtype: 'Freestanding Fridge',     width: 900, height: 1800, depth: 750, icon: 'accessory_gap_fridge', category: 'accessories' },
+    { id: 'acc_free_dish',       label: 'Freestanding Dishwasher', subtype: 'Freestanding Dishwasher', width: 600, height: 820,  depth: 600, icon: 'accessory_gap_dish',   category: 'accessories' },
   ]
 
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }
