@@ -387,7 +387,155 @@ function aggregateBOM(cabinets) {
   return totals
 }
 
-export default function KitchenPlannerModule({ roomId, roomName, roomType, projectId, initialData, onBack } = {}) {
+function LinkProjectModal({ onClose, onLinked }) {
+  const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+  const [step, setStep] = useState('client') // client -> project -> room
+  const [clients, setClients] = useState([])
+  const [projects, setProjects] = useState([])
+  const [selectedClient, setSelectedClient] = useState(null)
+  const [selectedProject, setSelectedProject] = useState(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const [showNewClient, setShowNewClient] = useState(false)
+  const [clientForm, setClientForm] = useState({ name: '', phone: '', email: '', address: '', company: '' })
+
+  const [showNewProject, setShowNewProject] = useState(false)
+  const [projectForm, setProjectForm] = useState({ name: '', address: '', notes: '', status: 'DRAFT' })
+
+  const [roomForm, setRoomForm] = useState({ name: 'Kitchen', room_type: 'kitchen', notes: '' })
+
+  useEffect(() => {
+    authFetch(API + '/api/crm/clients/').then(r => r.json()).then(d => setClients(Array.isArray(d) ? d : (d.results || []))).catch(() => {})
+  }, [])
+
+  const pickClient = async (client) => {
+    setSelectedClient(client)
+    setBusy(true); setErr('')
+    try {
+      const res = await authFetch(API + `/api/crm/projects/?client=${client.id}`)
+      const d = await res.json()
+      setProjects(Array.isArray(d) ? d : (d.results || []))
+      setStep('project')
+    } catch { setErr('Could not load projects') }
+    setBusy(false)
+  }
+
+  const createClient = async () => {
+    if (!clientForm.name.trim()) return
+    setBusy(true); setErr('')
+    try {
+      const res = await authFetch(API + '/api/crm/clients/', { method: 'POST', body: JSON.stringify(clientForm) })
+      if (res.ok) { const client = await res.json(); setShowNewClient(false); await pickClient(client) }
+      else setErr('Could not create client')
+    } catch { setErr('Could not create client') }
+    setBusy(false)
+  }
+
+  const pickProject = (project) => { setSelectedProject(project); setStep('room') }
+
+  const createProject = async () => {
+    if (!projectForm.name.trim()) return
+    setBusy(true); setErr('')
+    try {
+      const res = await authFetch(API + '/api/crm/projects/', { method: 'POST', body: JSON.stringify({ ...projectForm, client: selectedClient.id }) })
+      if (res.ok) { const project = await res.json(); setShowNewProject(false); pickProject(project) }
+      else setErr('Could not create project')
+    } catch { setErr('Could not create project') }
+    setBusy(false)
+  }
+
+  const createRoomAndLink = async () => {
+    if (!roomForm.name.trim()) return
+    setBusy(true); setErr('')
+    try {
+      const res = await authFetch(API + '/api/crm/rooms/', { method: 'POST', body: JSON.stringify({ ...roomForm, project: selectedProject.id }) })
+      if (res.ok) { const room = await res.json(); onLinked(selectedProject.id, room.id, room.name) }
+      else setErr('Could not create room')
+    } catch { setErr('Could not create room') }
+    setBusy(false)
+  }
+
+  const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }
+  const box = { background: '#fff', borderRadius: 10, padding: 24, width: 420, maxHeight: '80vh', overflowY: 'auto' }
+  const row = { padding: '10px 12px', border: '1px solid #E0DAD4', borderRadius: 6, marginBottom: 8, cursor: 'pointer', fontSize: 13 }
+  const input = { width: '100%', padding: '8px 10px', border: '1px solid #E0DAD4', borderRadius: 6, marginBottom: 8, fontSize: 13, boxSizing: 'border-box' }
+  const btn = { padding: '8px 14px', borderRadius: 6, border: 'none', background: '#C8902A', color: '#fff', fontWeight: 600, fontSize: 13, cursor: 'pointer' }
+  const btnGhost = { ...btn, background: '#fff', color: '#555', border: '1px solid #E0DAD4' }
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={box} onClick={e => e.stopPropagation()}>
+        <h3 style={{ marginTop: 0 }}>Link this design to save it</h3>
+        <p style={{ fontSize: 12, color: '#888', marginTop: -8 }}>Select or create a Customer → Project → Room before saving.</p>
+        {err && <div style={{ color: '#c0392b', fontSize: 12, marginBottom: 8 }}>{err}</div>}
+
+        {step === 'client' && !showNewClient && (
+          <>
+            {clients.map(cl => (
+              <div key={cl.id} style={row} onClick={() => pickClient(cl)}>{cl.name}</div>
+            ))}
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewClient(true)}>+ New Customer</button>
+          </>
+        )}
+        {step === 'client' && showNewClient && (
+          <>
+            <input style={input} placeholder="Customer name" value={clientForm.name} onChange={e => setClientForm(f => ({ ...f, name: e.target.value }))} />
+            <input style={input} placeholder="Phone" value={clientForm.phone} onChange={e => setClientForm(f => ({ ...f, phone: e.target.value }))} />
+            <input style={input} placeholder="Address" value={clientForm.address} onChange={e => setClientForm(f => ({ ...f, address: e.target.value }))} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={btn} disabled={busy} onClick={createClient}>{busy ? '...' : 'Create & Continue'}</button>
+              <button style={btnGhost} onClick={() => setShowNewClient(false)}>Cancel</button>
+            </div>
+          </>
+        )}
+
+        {step === 'project' && !showNewProject && (
+          <>
+            {projects.map(pr => (
+              <div key={pr.id} style={row} onClick={() => pickProject(pr)}>{pr.name}</div>
+            ))}
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewProject(true)}>+ New Project</button>
+            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('client')}>← Back</button></div>
+          </>
+        )}
+        {step === 'project' && showNewProject && (
+          <>
+            <input style={input} placeholder="Project name" value={projectForm.name} onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))} />
+            <input style={input} placeholder="Address" value={projectForm.address} onChange={e => setProjectForm(f => ({ ...f, address: e.target.value }))} />
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={btn} disabled={busy} onClick={createProject}>{busy ? '...' : 'Create & Continue'}</button>
+              <button style={btnGhost} onClick={() => setShowNewProject(false)}>Cancel</button>
+            </div>
+          </>
+        )}
+
+        {step === 'room' && (
+          <>
+            <input style={input} placeholder="Room name" value={roomForm.name} onChange={e => setRoomForm(f => ({ ...f, name: e.target.value }))} />
+            <select style={input} value={roomForm.room_type} onChange={e => setRoomForm(f => ({ ...f, room_type: e.target.value }))}>
+              <option value="kitchen">Kitchen</option>
+              <option value="closet">Closet</option>
+              <option value="bathroom">Bathroom</option>
+              <option value="other">Other</option>
+            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button style={btn} disabled={busy} onClick={createRoomAndLink}>{busy ? 'Saving…' : 'Create Room & Save'}</button>
+              <button style={btnGhost} onClick={() => setStep('project')}>← Back</button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack } = {}) {
+  const [roomId, setRoomId] = useState(initialRoomId)
+  const [roomName, setRoomName] = useState(initialRoomName)
+  const [projectId, setProjectId] = useState(initialProjectId)
+  const [showLinkModal, setShowLinkModal] = useState(false)
+  const [pendingSave, setPendingSave] = useState(false)
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
@@ -508,11 +656,26 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
         }
         setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
       } else {
-        setSavedMsg('✗ No room linked')
+        setSaving(false)
+        setShowLinkModal(true)
+        return
       }
     } catch(err) { console.error('SAVE ERROR:', err); setSavedMsg('✗ No connection') }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
+  }
+
+  // After the link-to-project modal creates a Room, auto-run the save once roomId lands
+  useEffect(() => {
+    if (pendingSave && roomId) { setPendingSave(false); saveProject() }
+  }, [pendingSave, roomId])
+
+  const handleLinked = (newProjectId, newRoomId, newRoomName) => {
+    setProjectId(newProjectId)
+    setRoomName(newRoomName)
+    setShowLinkModal(false)
+    setPendingSave(true)
+    setRoomId(newRoomId)
   }
 
   const sendToERP = async () => {
@@ -680,6 +843,13 @@ export default function KitchenPlannerModule({ roomId, roomName, roomType, proje
           </button>
         </div>
       </div>
+
+      {showLinkModal && (
+        <LinkProjectModal
+          onClose={() => setShowLinkModal(false)}
+          onLinked={handleLinked}
+        />
+      )}
 
       {tab === 'room' && (
         <div style={s.workspace}>
