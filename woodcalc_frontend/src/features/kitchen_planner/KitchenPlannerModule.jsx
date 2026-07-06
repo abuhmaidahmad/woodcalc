@@ -9,7 +9,8 @@ import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './Cabine
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 
-const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf']
+const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
+const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
 function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
 }
@@ -187,6 +188,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
     if (!isCarcassCabinet(c)) {
+      if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
       // Filler/Panel/etc: one piece at its actual dimensions, no formula run
       const isPanel = c.subtype === 'Side Panel'
       const pieceDepth = isPanel ? (c.depth || 581) : c.width
@@ -1262,7 +1264,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     ))}
                   </tr></thead>
                   <tbody>
-                    {cabinets.map((c, i) => (
+                    {cabinets.filter(c => isCarcassCabinet(c)).map((c, i) => (
                       <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(i+1).padStart(2,'0')}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
