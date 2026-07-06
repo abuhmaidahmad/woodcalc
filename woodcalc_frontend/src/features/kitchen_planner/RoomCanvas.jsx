@@ -341,6 +341,14 @@ export default function RoomCanvas({
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: ((c.rotation || 0) + 90) % 360 } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, rotation: ((el.rotation || 0) + 90) % 360 } : el))
       }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selected != null) {
+        e.preventDefault()
+        const step = e.shiftKey ? 1 : 10 // mm
+        const dx = e.key === 'ArrowLeft' ? -step : e.key === 'ArrowRight' ? step : 0
+        const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
+        if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, x: c.x + dx, y: c.y + dy } : c))
+        else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, x: el.x + dx, y: el.y + dy } : el))
+      }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
