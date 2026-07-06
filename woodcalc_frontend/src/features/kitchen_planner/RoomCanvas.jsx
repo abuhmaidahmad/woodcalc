@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 
 const ACCENT = '#C8902A'
 const GRID = 50
@@ -541,6 +541,66 @@ export default function RoomCanvas({
     setEditingWall(null); setEditingLenVal(null)
   }, [editingWall, editingLenVal, walls, wallThickness, scale, pushHistory])
 
+  // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
+  const getCabCorners = (cab) => {
+    const x = cab.x, y = cab.y, w = cab.width, h = cab.depth
+    const cx = x + w / 2, cy = y + h / 2
+    const rad = ((cab.rotation || 0) * Math.PI) / 180
+    const cos = Math.cos(rad), sin = Math.sin(rad)
+    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => [
+      cx + (px - cx) * cos - (py - cy) * sin,
+      cy + (px - cx) * sin + (py - cy) * cos,
+    ])
+  }
+  const getCabElevRange = (cab) => {
+    if (cab.category === 'wall') {
+      const bottom = cab.elevation ?? 1450
+      return [bottom, bottom + (cab.height || 0)]
+    }
+    return [0, cab.height || 0]
+  }
+  const rangesOverlap = (a, b) => a[0] < b[1] && b[0] < a[1]
+  const polyAxes = (poly) => {
+    const axes = []
+    for (let i = 0; i < 2; i++) {
+      const [x1, y1] = poly[i], [x2, y2] = poly[i + 1]
+      axes.push([-(y2 - y1), x2 - x1])
+    }
+    return axes
+  }
+  const project = (poly, axis) => {
+    let min = Infinity, max = -Infinity
+    poly.forEach(([x, y]) => {
+      const d = x * axis[0] + y * axis[1]
+      if (d < min) min = d
+      if (d > max) max = d
+    })
+    return [min, max]
+  }
+  const polysIntersect = (polyA, polyB) => {
+    // Small tolerance (mm) so cabinets snapped flush edge-to-edge don't register as overlapping
+    const EPS = 2
+    const axes = [...polyAxes(polyA), ...polyAxes(polyB)]
+    return axes.every(axis => {
+      const axisLen = Math.hypot(axis[0], axis[1]) || 1
+      const eps = EPS * axisLen
+      const [aMin, aMax] = project(polyA, axis)
+      const [bMin, bMax] = project(polyB, axis)
+      return aMin < bMax - eps && bMin < aMax - eps
+    })
+  }
+  const collidingIds = useMemo(() => {
+    const ids = new Set()
+    for (let i = 0; i < cabinets.length; i++) {
+      for (let j = i + 1; j < cabinets.length; j++) {
+        const a = cabinets[i], b = cabinets[j]
+        if (!rangesOverlap(getCabElevRange(a), getCabElevRange(b))) continue
+        if (polysIntersect(getCabCorners(a), getCabCorners(b))) { ids.add(a.id); ids.add(b.id) }
+      }
+    }
+    return ids
+  }, [cabinets])
+
   const fitView = () => {
     // Collect points from all design content (px coords)
     const pts = []
@@ -698,6 +758,12 @@ export default function RoomCanvas({
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
         >
+          <defs>
+            <pattern id="collisionHatch" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)">
+              <rect width={8} height={8} fill="rgba(220,50,50,0.12)" />
+              <line x1={0} y1={0} x2={0} y2={8} stroke="#DC3232" strokeWidth={2.5} />
+            </pattern>
+          </defs>
           {gridLines}
           <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ddd" strokeWidth={1} strokeDasharray="4,4" />
           {showDimensions && <>
@@ -760,6 +826,9 @@ export default function RoomCanvas({
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move' }}>
                 <rect x={x} y={y} width={w} height={h} fill={cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                {collidingIds.has(cab.id) && (
+                  <rect x={x} y={y} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
+                )}
                 {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={0.75} />}
                 <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
                 {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
