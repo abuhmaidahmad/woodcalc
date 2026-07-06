@@ -220,14 +220,18 @@ export default function RoomCanvas({
     pt.y = screenY
     const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
     const _cvw = vwRef.current
-    const _cvh = vhRef.current
-    const newVw = Math.min(Math.max(_cvw * factor, 50), W * 10)
-    const newVh = Math.min(Math.max(_cvh * factor, 50), H * 10)
-    const rect = svg.getBoundingClientRect()
-    setVx(svgP.x - (screenX - rect.left) * (newVw / rect.width))
-    setVy(svgP.y - (screenY - rect.top) * (newVh / rect.height))
-    setVw(newVw)
-    setVh(newVh)
+    // Clamp the factor ONCE so vw/vh scale uniformly (aspect change = drift)
+    let f = factor
+    const minW = 50
+    const maxW = W * 100
+    if (_cvw * f < minW) f = minW / _cvw
+    if (_cvw * f > maxW) f = maxW / _cvw
+    if (f === 1) return
+    // Keep the SVG point under the cursor fixed while scaling the viewBox
+    setVx(v => svgP.x - (svgP.x - v) * f)
+    setVy(v => svgP.y - (svgP.y - v) * f)
+    setVw(_cvw * f)
+    setVh(vhRef.current * f)
   }, [W, H])
 
   // Mouse wheel zoom
@@ -480,7 +484,7 @@ export default function RoomCanvas({
 
       if (!snappedX) finalX = Math.round(rawCabX / (GRID * scale)) * (GRID * scale)
       if (!snappedY) finalY = Math.round(rawCabY / (GRID * scale)) * (GRID * scale)
-      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: Math.max(0, finalX / scale), y: Math.max(0, finalY / scale) } : c))
+      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: finalX / scale, y: finalY / scale } : c))
     }
   }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, getSVGPos, snapThreshold, zoom])
 
@@ -529,15 +533,61 @@ export default function RoomCanvas({
     setEditingWall(null); setEditingLenVal(null)
   }, [editingWall, editingLenVal, walls, wallThickness, scale, pushHistory])
 
-  const fitView = () => { setVx(0); setVy(0); setVw(null); setVh(null) }
+  const fitView = () => {
+    // Collect points from all design content (px coords)
+    const pts = []
+    walls.forEach(w => { pts.push([w.x1, w.y1], [w.x2, w.y2]) })
+    const addRotRect = (x, y, w, h, rot, cx, cy) => {
+      const rad = (rot || 0) * Math.PI / 180
+      const cos = Math.cos(rad), sin = Math.sin(rad)
+      ;[[x, y], [x + w, y], [x + w, y + h], [x, y + h]].forEach(([px, py]) => {
+        pts.push([cx + (px - cx) * cos - (py - cy) * sin, cy + (px - cx) * sin + (py - cy) * cos])
+      })
+    }
+    cabinets.forEach(cab => {
+      const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
+      addRotRect(x, y, w, h, cab.rotation, x + w / 2, y + h / 2)
+    })
+    elements.forEach(el => {
+      const x = el.x * scale, y = el.y * scale
+      addRotRect(x, y, el.w * scale, el.h * scale, el.rotation, x, y)
+    })
+    // Nothing drawn yet: fall back to the room rect
+    if (pts.length === 0) { setVx(0); setVy(0); setVw(null); setVh(null); return }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    pts.forEach(([px, py]) => {
+      if (px < minX) minX = px; if (px > maxX) maxX = px
+      if (py < minY) minY = py; if (py > maxY) maxY = py
+    })
+    const pad = Math.max((maxX - minX), (maxY - minY)) * 0.08 || 50
+    minX -= pad; minY -= pad; maxX += pad; maxY += pad
+    // Match the SVG element's aspect ratio so content is centered, not top-left
+    const svg = svgRef.current
+    const rect = svg ? svg.getBoundingClientRect() : { width: 1, height: 1 }
+    const aspect = rect.width / rect.height
+    let bw = maxX - minX, bh = maxY - minY
+    if (bw / bh > aspect) {
+      const nh = bw / aspect
+      minY -= (nh - bh) / 2; bh = nh
+    } else {
+      const nw = bh * aspect
+      minX -= (nw - bw) / 2; bw = nw
+    }
+    setVx(minX); setVy(minY); setVw(bw); setVh(bh)
+  }
 
   const gridLines = []
   if (showGrid) {
-    for (let x = 0; x <= W; x += GRID * scale) {
-      gridLines.push(<line key={'gx'+x} x1={x} y1={0} x2={x} y2={H} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
-    }
-    for (let y = 0; y <= H; y += GRID * scale) {
-      gridLines.push(<line key={'gy'+y} x1={0} y1={y} x2={W} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+    const step = GRID * scale
+    if (cvw / step <= 300 && cvh / step <= 300) {
+      const gx0 = Math.floor(vx / step) * step
+      const gy0 = Math.floor(vy / step) * step
+      for (let x = gx0; x <= vx + cvw; x += step) {
+        gridLines.push(<line key={'gx'+x} x1={x} y1={vy} x2={x} y2={vy + cvh} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+      }
+      for (let y = gy0; y <= vy + cvh; y += step) {
+        gridLines.push(<line key={'gy'+y} x1={vx} y1={y} x2={vx + cvw} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+      }
     }
   }
 
