@@ -602,6 +602,25 @@ export default function RoomCanvas({
     return ids
   }, [cabinets])
 
+  const centerCabinetOnNearestOpening = (cabId) => {
+    const cab = cabinets.find(c => c.id === cabId)
+    if (!cab) return
+    const openings = elements.filter(el => (el.type === 'window' || el.type === 'door') && el.embeddedInWall)
+    if (openings.length === 0) return
+    const cabCenterX = cab.x + cab.width / 2
+    const cabCenterY = cab.y + cab.depth / 2
+    let best = null, bestDist = Infinity
+    openings.forEach(el => {
+      const d = Math.hypot(el.x - cabCenterX, el.y - cabCenterY)
+      if (d < bestDist) { bestDist = d; best = el }
+    })
+    if (!best) return
+    const rad = ((best.wallAngle || 0) * Math.PI) / 180
+    const ux = Math.cos(rad), uy = Math.sin(rad)
+    const delta = (best.x - cabCenterX) * ux + (best.y - cabCenterY) * uy
+    setCabinets(p => p.map(c => c.id === cabId ? { ...c, x: c.x + delta * ux, y: c.y + delta * uy } : c))
+  }
+
   const fitView = () => {
     // Collect points from all design content (px coords)
     const pts = []
@@ -741,6 +760,15 @@ export default function RoomCanvas({
                 onChange={e => { const val = (+e.target.value + 360) % 360; setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: val } : c)) }}
                 style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
               <span style={{ fontSize: 11, color: '#888' }}>° <kbd style={{ background: '#f0f0f0', padding: '1px 4px', borderRadius: 3 }}>R</kbd></span>
+            </div>
+          )}
+          {mode === 'select' && selected && selectedType === 'cabinet' && elements.some(el => (el.type === 'window' || el.type === 'door') && el.embeddedInWall) && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+              <button
+                onClick={() => centerCabinetOnNearestOpening(selected)}
+                style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                🎯 Center on Opening
+              </button>
             </div>
           )}
           {mode === 'select' && selected && selectedType === 'cabinet' && cabinets.find(c => c.id === selected)?.subtype === 'Blind' && (

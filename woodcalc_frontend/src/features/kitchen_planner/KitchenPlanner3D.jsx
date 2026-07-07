@@ -1,5 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -802,6 +802,34 @@ function hasNeighbor(cab, side, allCabinets) {
   })
 }
 
+function SkirtingCornerJoins({ cabinets, countertopMat }) {
+  const skirtable = cabinets.filter(c => ['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
+  const joins = detectCornerJoins(skirtable)
+  return (
+    <>
+      {joins.map((j, i) => {
+        const a = cabinets.find(c => c.id === j.aId), b = cabinets.find(c => c.id === j.bId)
+        if (!a || !b) return null
+        const matKey = a.skirtingMaterial || b.skirtingMaterial || 'match_countertop'
+        let color = '#1a1a1a', roughness = 0.4, metalness = 0.0
+        if (matKey === 'match_countertop' && countertopMat) {
+          color = countertopMat.color; roughness = countertopMat.roughness; metalness = countertopMat.metalness
+        } else if (SKIRTING_PVC_COLORS[matKey]) {
+          color = SKIRTING_PVC_COLORS[matKey]; roughness = 0.3; metalness = 0.1
+        }
+        const legHmm = a.baseHeight === 720 ? 150 : a.baseHeight === 800 ? 80 : 80
+        const legH = legHmm / 1000
+        return (
+          <mesh key={i} position={[j.x / 1000, legH / 2, j.y / 1000]} castShadow receiveShadow>
+            <boxGeometry args={[0.05, legH, 0.05]} />
+            <meshPhysicalMaterial color={color} roughness={roughness} metalness={metalness} />
+          </mesh>
+        )
+      })}
+    </>
+  )
+}
+
 function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab, allCabinets = [] }) {
   const T = 0.018
   let color = '#1a1a1a'
@@ -1265,6 +1293,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
         {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} allCabinets={cabinets} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
+        <SkirtingCornerJoins cabinets={cabinets} countertopMat={countertopMat} />
 
         {/* --- Contact shadows: soft ground shadow under all cabinets --- */}
         <ContactShadows

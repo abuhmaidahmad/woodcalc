@@ -8,6 +8,41 @@ const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
+// Detects where two floor-standing cabinets meet at a 90°/270° outer corner (e.g. an L-shaped
+// run turning after a blind corner cabinet). hasNeighbor()-style same-row checks in the 3D
+// renderer only cover straight runs (same rotation); this covers the perpendicular case so both
+// the BOM elbow count and the 3D skirting render agree on where corner joints actually are.
+export function detectCornerJoins(cabinets) {
+  const TOL = 15; // mm tolerance for "touching" corners
+  const corners = (cab) => {
+    const x = cab.x, y = cab.y, w = cab.width, h = cab.depth;
+    const cx = x + w / 2, cy = y + h / 2;
+    const rad = ((cab.rotation || 0) * Math.PI) / 180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => [
+      cx + (px - cx) * cos - (py - cy) * sin,
+      cy + (px - cx) * sin + (py - cy) * cos,
+    ]);
+  };
+  const joins = [];
+  for (let i = 0; i < cabinets.length; i++) {
+    for (let j = i + 1; j < cabinets.length; j++) {
+      const a = cabinets[i], b = cabinets[j];
+      const rotDiff = (((a.rotation || 0) - (b.rotation || 0)) % 360 + 360) % 360;
+      if (rotDiff !== 90 && rotDiff !== 270) continue;
+      const cornersA = corners(a), cornersB = corners(b);
+      let touch = null;
+      outer: for (const pa of cornersA) {
+        for (const pb of cornersB) {
+          if (Math.hypot(pa[0] - pb[0], pa[1] - pb[1]) <= TOL) { touch = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2]; break outer; }
+        }
+      }
+      if (touch) joins.push({ aId: a.id, bId: b.id, x: touch[0], y: touch[1] });
+    }
+  }
+  return joins;
+}
+
 function round2(v) {
   return Math.round((v + Number.EPSILON) * 100) / 100;
 }

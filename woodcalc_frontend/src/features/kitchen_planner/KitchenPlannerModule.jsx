@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
@@ -184,6 +184,19 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   const golaProfileMeters = { L: 0, C: 0 }
   const drawerSystems = {}
 
+  // Cross-cabinet corner joins (e.g. a blind cabinet's run turning 90°) — these need a corner
+  // elbow too, but aren't caught by the per-cabinet front/left/right/back check below since that
+  // only covers a single cabinet's own skirtingSides, not two separate cabinets meeting at a corner.
+  const skirtable = cabinets.filter(c => ['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
+  detectCornerJoins(skirtable).forEach(j => {
+    const a = cabinets.find(c => c.id === j.aId), b = cabinets.find(c => c.id === j.bId)
+    if (!a || !b) return
+    const matA = a.skirtingMaterial || 'match_countertop', matB = b.skirtingMaterial || 'match_countertop'
+    if (matA !== matB) return
+    if (!skirtingByMaterial[matA]) skirtingByMaterial[matA] = { meters: 0, elbows: 0 }
+    skirtingByMaterial[matA].elbows += 1
+  })
+
   cabinets.forEach(c => {
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
@@ -209,8 +222,8 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
         skirtingByMaterial[matKey].meters += lengthM
       })
       const sides = c.skirtingSides
-      const corners = [['front', 'left'], ['front', 'right'], ['back', 'left'], ['back', 'right']]
-      corners.forEach(([a, b]) => {
+      const cornerPairs = [['front', 'left'], ['front', 'right'], ['back', 'left'], ['back', 'right']]
+      cornerPairs.forEach(([a, b]) => {
         if (sides.includes(a) && sides.includes(b)) skirtingByMaterial[matKey].elbows += 1
       })
     }
