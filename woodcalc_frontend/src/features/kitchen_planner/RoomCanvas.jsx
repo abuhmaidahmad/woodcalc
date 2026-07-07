@@ -856,14 +856,14 @@ export default function RoomCanvas({
               selected={selected === el.id && selectedType === 'element'}
               onMouseDown={e => startElementDrag(e, el.id, 'element')} />
           ))}
-          {cabinets.map(cab => {
+          {[...cabinets.filter(c => c.category !== 'wall'), ...cabinets.filter(c => c.category === 'wall')].map(cab => {
             const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
             const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
             const isSelected = selected === cab.id && selectedType === 'cabinet'
             return (
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
-                style={{ cursor: 'move' }}>
+                style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
                 {(() => {
                   const APPLIANCE_2D_COLORS = {
                     'Freestanding Oven': '#2b2b2b',
@@ -875,7 +875,7 @@ export default function RoomCanvas({
                   }
                   const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
                   const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
-                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} rx={2} />
+                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
                 })()}
                 {cab.subtype === 'Blind' && (() => {
                   const blindWpx = BLIND_PANEL_WIDTH * scale
