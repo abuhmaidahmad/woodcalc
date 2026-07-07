@@ -15,6 +15,38 @@ function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
 }
 
+
+// Numeric dimension input that keeps its own local text while typing.
+// A plain controlled <input value={number}> fights the user: clearing the
+// field commits 0 immediately, which then re-renders value="0" and blocks
+// further typing. This buffers raw text locally and only commits upward
+// once it parses to a valid number, so blank-then-retype works normally.
+function DimInput({ value, onCommit, style }) {
+  const [text, setText] = useState(String(value ?? ''))
+  useEffect(() => {
+    setText(String(value ?? ''))
+  }, [value])
+  return (
+    <input
+      type="number"
+      value={text}
+      onChange={e => {
+        const raw = e.target.value
+        setText(raw)
+        if (raw !== '' && !Number.isNaN(+raw)) {
+          onCommit(+raw)
+        }
+      }}
+      onBlur={() => {
+        if (text === '' || Number.isNaN(+text)) {
+          setText(String(value ?? ''))
+        }
+      }}
+      style={style}
+    />
+  )
+}
+
 function cabinetConfig(c) {
   const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door'
   return {
@@ -1206,7 +1238,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 {[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
   <div key={key} style={{ marginBottom: 10 }}>
     <div style={s.propLabel}>{label}</div>
-    <input type="number" value={selCab[key]} onChange={e => updateCab(key, +e.target.value)} style={s.propInput} />
+    <DimInput value={selCab[key]} onCommit={v => updateCab(key, v)} style={s.propInput} />
   </div>
 ))}
 {(selCab.category === 'wall' || selCab.subtype === 'Shelf' || selCab.subtype === 'Open Shelf' || selCab.category === 'accessories') && (
