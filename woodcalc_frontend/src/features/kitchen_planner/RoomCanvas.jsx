@@ -922,6 +922,14 @@ export default function RoomCanvas({
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
                 style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
+                {(w < 8 || h < 8) && (
+                  // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
+                  // otherwise render no visible area, making the cabinet unclickable and
+                  // permanently stuck. This invisible rect guarantees a minimum hit area.
+                  <rect x={x - Math.max(0, 8 - w) / 2} y={y - Math.max(0, 8 - h) / 2}
+                    width={Math.max(w, 8)} height={Math.max(h, 8)}
+                    fill="transparent" style={{ pointerEvents: 'all' }} />
+                )}
                 {(() => {
                   const APPLIANCE_2D_COLORS = {
                     'Freestanding Oven': '#2b2b2b',
