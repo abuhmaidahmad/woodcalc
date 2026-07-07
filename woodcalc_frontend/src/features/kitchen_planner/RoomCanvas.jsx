@@ -337,6 +337,12 @@ export default function RoomCanvas({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWall !== null) {
         pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
       }
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selected != null) {
+        if (selectedType === 'cabinet') setCabinets(p => p.filter(c => c.id !== selected))
+        else if (selectedType === 'element') setElements(p => p.filter(el => el.id !== selected))
+        setSelected(null); setSelectedType(null)
+        return
+      }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); return }
       if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && selected != null) {
         e.preventDefault()
@@ -610,6 +616,29 @@ export default function RoomCanvas({
       return aMin < bMax - eps && bMin < aMax - eps
     })
   }
+  // A wall's true rendered rectangle, including the strokeLinecap="square" extension at each
+  // end (matches how WallSegment actually draws it) — so cabinets overlapping a wall get flagged
+  // the same way cabinets overlapping each other do.
+  const getWallCorners = (wall) => {
+    // Cabinet corners (getCabCorners) work in raw mm (cab.x/width), but wall.x1/y1/x2/y2 are
+    // stored in PX (raw SVG coords) — convert to mm here so both sides of the SAT check agree.
+    const x1 = wall.x1 / scale, y1 = wall.y1 / scale, x2 = wall.x2 / scale, y2 = wall.y2 / scale
+    const dx = x2 - x1, dy = y2 - y1
+    const len = Math.hypot(dx, dy)
+    if (len === 0) return null
+    const ux = dx / len, uy = dy / len
+    const nx = -uy, ny = ux
+    const halfT = wallThickness / 2
+    const ex1 = x1 - ux * halfT, ey1 = y1 - uy * halfT
+    const ex2 = x2 + ux * halfT, ey2 = y2 + uy * halfT
+    return [
+      [ex1 + nx * halfT, ey1 + ny * halfT],
+      [ex2 + nx * halfT, ey2 + ny * halfT],
+      [ex2 - nx * halfT, ey2 - ny * halfT],
+      [ex1 - nx * halfT, ey1 - ny * halfT],
+    ]
+  }
+
   const collidingIds = useMemo(() => {
     const ids = new Set()
     for (let i = 0; i < cabinets.length; i++) {
@@ -619,8 +648,17 @@ export default function RoomCanvas({
         if (polysIntersect(getCabCorners(a), getCabCorners(b))) { ids.add(a.id); ids.add(b.id) }
       }
     }
+    // Walls run full floor-to-ceiling, so any cabinet overlapping one in plan view is a real
+    // collision regardless of the cabinet's own elevation (base, wall, or tall).
+    walls.forEach(wall => {
+      const wallCorners = getWallCorners(wall)
+      if (!wallCorners) return
+      cabinets.forEach(cab => {
+        if (polysIntersect(getCabCorners(cab), wallCorners)) ids.add(cab.id)
+      })
+    })
     return ids
-  }, [cabinets])
+  }, [cabinets, walls, wallThickness, scale])
 
   const centerCabinetOnNearestOpening = (cabId) => {
     const cab = cabinets.find(c => c.id === cabId)

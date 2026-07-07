@@ -1138,7 +1138,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const isTall    = cab.category === 'tall'
   const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
-  const isPanel   = cab.subtype === 'Side Panel'
+  const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel'
   const isGlass   = cab.subtype === 'Glass Door'
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :

@@ -1217,18 +1217,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 )}
 
                 <div style={s.propSection}>Material & Style</div>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={s.propLabel}>Board Material</div>
-                  <select value={selCab.material} onChange={e => updateCab('material', e.target.value)} style={s.propSelect}>
-                    {['Particleboard', 'Plywood', 'MDF'].map(m => <option key={m}>{m}</option>)}
-                  </select>
-                </div>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={s.propLabel}>Door Style</div>
-                  <select value={selCab.doorStyle} onChange={e => updateCab('doorStyle', e.target.value)} style={s.propSelect}>
-                    {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
-                  </select>
-                </div>
+                {selCab.category !== 'accessories' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>Door Style</div>
+                    <select value={selCab.doorStyle} onChange={e => updateCab('doorStyle', e.target.value)} style={s.propSelect}>
+                      {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
+                    </select>
+                  </div>
+                )}
                 {isShelfEligible(selCab) && (() => {
                   const usableH = selCab.height - 36
                   const maxShelves = Math.max(0, Math.floor(usableH / 250) - 1)
@@ -1334,7 +1330,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     updateCab('frontTextureUrl', mat.textureUrl || null)
                   }}
                 />
-               {selCab.subtype !== 'Shelf' && selCab.subtype !== 'Open Shelf' && (
+               {!['Shelf', 'Open Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && (
   <>
     <div style={s.propSection}>Carcass Material</div>
     <MaterialLibrary
