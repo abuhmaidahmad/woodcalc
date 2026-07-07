@@ -102,7 +102,7 @@ export function useMaterialTextureMap() {
   return textureMap
 }
 
-function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0 }) {
+function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0, rotate90 = false }) {
   const texture = useLoader(THREE.TextureLoader, imageUrl)
   const t = useMemo(() => {
     if (!texture) return null
@@ -114,9 +114,15 @@ function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, 
     c.repeat.set(repeatU, repeatV)
     c.offset.set(0, offsetV)
     c.colorSpace = THREE.SRGBColorSpace
+    // Side panel grain runs perpendicular to doors/drawers on this UV mapping;
+    // rotate 90° about the texture's own center to correct grain direction.
+    if (rotate90) {
+      c.center.set(0.5, 0.5)
+      c.rotation = Math.PI / 2
+    }
     c.needsUpdate = true
     return c
-  }, [texture, repeatU, repeatV, offsetV])
+  }, [texture, repeatU, repeatV, offsetV, rotate90])
   return (
     <meshPhysicalMaterial
       map={t}
@@ -146,7 +152,7 @@ class TextureErrorBoundary extends React.Component {
   }
 }
 
-function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0, radius = 0 }) {
+function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0, radius = 0, rotate90 = false }) {
   const flatMesh = (
     <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       <boxGeometry args={args} />
@@ -154,7 +160,7 @@ function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl,
     </mesh>
   )
   const photoMat = (
-    <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} />
+    <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} rotate90={rotate90} />
   )
   const inner = radius > 0 ? (
     <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
@@ -257,7 +263,7 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, le
     return (
       <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
         imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
-        envMapIntensity={1.2} repeatU={D / physW} repeatV={H / physH} radius={0.001} />
+        envMapIntensity={1.2} repeatU={D / physW} repeatV={H / physH} radius={0.001} rotate90 />
     )
   }
   return (
