@@ -501,14 +501,32 @@ function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isT
       notches.push({ yBottom: yAbs - GOLA_C_NOTCH_H / 2, yTop: yAbs + GOLA_C_NOTCH_H / 2 })
     })
   }
+  // The interior shell is recessed GOLA_NOTCH_DEPTH from the front so it sits
+  // behind the door/channel notches. Base cabinets have a notch reaching all the
+  // way to H, so the recess is always hidden behind a Gola profile piece there.
+  // Tall cabinets have no top notch (see comment above), so above the topmost
+  // notch the side panels stay full depth while this box doesn't — add a flush,
+  // full-depth cap for that region so there's no visible gap from top-down.
+  const topNotchY = notches.length > 0 ? Math.max(...notches.map((n) => n.yTop)) : 0
+  const hasFlushTopGap = topNotchY < H - 0.002 - 1e-4
+  const lowerH = hasFlushTopGap ? topNotchY : H - 0.002
+  const upperH = hasFlushTopGap ? (H - 0.002 - topNotchY) : 0
   return (
     <group>
       <NotchedSidePanel H={H} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} />
       <NotchedSidePanel H={H} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} />
-      <mesh position={[0, (H - 0.002) / 2, -GOLA_NOTCH_DEPTH / 2]} castShadow receiveShadow>
-        <boxGeometry args={[W - 2 * T + 0.001, H - 0.002, D - GOLA_NOTCH_DEPTH]} />
-        <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
-      </mesh>
+      {lowerH > 0.0001 && (
+        <mesh position={[0, lowerH / 2, -GOLA_NOTCH_DEPTH / 2]} castShadow receiveShadow>
+          <boxGeometry args={[W - 2 * T + 0.001, lowerH, D - GOLA_NOTCH_DEPTH]} />
+          <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
+        </mesh>
+      )}
+      {hasFlushTopGap && (
+        <mesh position={[0, topNotchY + upperH / 2, 0]} castShadow receiveShadow>
+          <boxGeometry args={[W - 2 * T + 0.001, upperH, D]} />
+          <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
+        </mesh>
+      )}
     </group>
   )
 }
