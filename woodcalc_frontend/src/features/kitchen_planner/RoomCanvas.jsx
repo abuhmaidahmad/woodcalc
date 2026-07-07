@@ -338,6 +338,26 @@ export default function RoomCanvas({
         pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); return }
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && selected != null) {
+        e.preventDefault()
+        const OFFSET = 100 // mm — small nudge so the copy doesn't sit exactly on top of the original
+        if (selectedType === 'cabinet') {
+          const src = cabinets.find(c => c.id === selected)
+          if (src) {
+            const copy = { ...src, id: Date.now(), x: src.x + OFFSET, y: src.y + OFFSET }
+            setCabinets(p => [...p, copy])
+            setSelected(copy.id)
+          }
+        } else if (selectedType === 'element') {
+          const src = elements.find(el => el.id === selected)
+          if (src) {
+            const copy = { ...src, id: Date.now() + 1, x: src.x + OFFSET, y: src.y + OFFSET, embeddedInWall: false, wallAngle: undefined }
+            setElements(p => [...p, copy])
+            setSelected(copy.id)
+          }
+        }
+        return
+      }
       if (e.key === 'r' || e.key === 'R') {
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: ((c.rotation || 0) + 90) % 360 } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, rotation: ((el.rotation || 0) + 90) % 360 } : el))
