@@ -8,6 +8,15 @@ const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
+// Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
+// sink cabinets, and anything in vanity/specialty/accessories (those aren't real shelf-and-door boxes).
+export function isShelfEligible(cab) {
+  if (['vanity', 'specialty', 'accessories'].includes(cab.category)) return false;
+  if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink'].includes(cab.subtype)) return false;
+  if (['Filler', 'Panel', 'Toe Kick', 'Side Panel'].includes(cab.subtype)) return false;
+  return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
+}
+
 // Detects where two floor-standing cabinets meet at a 90°/270° outer corner (e.g. an L-shaped
 // run turning after a blind corner cabinet). hasNeighbor()-style same-row checks in the 3D
 // renderer only cover straight runs (same rotation); this covers the perpendicular case so both

@@ -1,5 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -263,6 +263,46 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, le
   return (
     <SmartBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
       color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+  )
+}
+
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false }) {
+  const T = 0.018
+  const common = { color, materialName, matProps, envMapIntensity: 0.5, castShadow: true, receiveShadow: true }
+  const shelfT = glassShelf ? 0.008 : T // 8mm clear glass, or standard 18mm wood panel
+  const usableH = H - T * 2
+  const shelves = []
+  for (let i = 1; i <= shelfCount; i++) {
+    const y = T + (usableH * i) / (shelfCount + 1)
+    shelves.push(
+      glassShelf ? (
+        <group key={i}>
+          <mesh position={[0, y, -0.005]} castShadow receiveShadow>
+            <boxGeometry args={[W - T * 2 - 0.004, shelfT, D - T - 0.01]} />
+            <meshPhysicalMaterial color="#eaf6fb" transparent opacity={0.22} roughness={0.02} metalness={0} transmission={0.9} thickness={0.15} envMapIntensity={1.4} reflectivity={0.85} />
+          </mesh>
+          {/* Slightly darker, more opaque edge band — real glass reads darker at the edge
+              (more glass thickness for light to pass through), and it makes the shelf's
+              outline easy to see even where the dynamic shadow alone is too subtle. */}
+          <mesh position={[0, y - shelfT / 2 + 0.001, -0.005]}>
+            <boxGeometry args={[W - T * 2 - 0.004, 0.002, D - T - 0.01]} />
+            <meshPhysicalMaterial color="#cfe4ec" transparent opacity={0.45} roughness={0.05} metalness={0} transmission={0.4} envMapIntensity={1.2} reflectivity={0.7} />
+          </mesh>
+        </group>
+      ) : (
+        <SmartBox key={i} args={[W - T * 2 - 0.004, shelfT, D - T - 0.01]} position={[0, y, -0.005]} {...common} />
+      )
+    )
+  }
+  return (
+    <>
+      <SmartBox args={[W, T, D]} position={[0, T / 2, 0]} {...common} />
+      <SmartBox args={[W, T, D]} position={[0, H - T / 2, 0]} {...common} />
+      <SmartBox args={[T, H - T * 2, D]} position={[-W / 2 + T / 2, H / 2, 0]} {...common} />
+      <SmartBox args={[T, H - T * 2, D]} position={[W / 2 - T / 2, H / 2, 0]} {...common} />
+      {!openFront && <SmartBox args={[W - T * 2, H - T * 2, T]} position={[0, H / 2, -D / 2 + T / 2]} {...common} />}
+      {shelves}
+    </>
   )
 }
 
@@ -707,7 +747,7 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   )
 }
 
-function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet }) {
+function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType = 'clear', doorStyle = 'Handle' }) {
   const doorW = W / numDoors
   const GAP = 0.002
   const PROUD = 0.020
@@ -716,19 +756,20 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet }) {
   const FRAME_W = 0.022
   const frontZ = D / 2 + PROUD
   const panelW = doorW - GAP * 2
-  const panelH = H - GAP * 2
-  const pullY = handlePosition === 'top' ? panelH / 2 - 0.01 - 0.006 : -panelH / 2 + 0.01 + 0.006
+  const isGola = doorStyle === 'Gola'
+  // Gola glass doors extend 25mm below the carcass bottom (matching the same finger-pull
+  // convention used for opaque Gola doors), achieved by growing the panel by 25mm and
+  // shifting the whole door down by half that so the TOP stays aligned, only the bottom extends.
+  const panelH = isGola ? (H - GAP * 2 + 0.025) : (H - GAP * 2)
+  const doorGroupY = isGola ? -0.0125 : 0
+  const pullY = -panelH / 2 + 0.01 + 0.006
 
   return (
     <>
       {Array.from({ length: numDoors }).map((_, i) => {
         const xOff = -W / 2 + doorW * i + doorW / 2
         return (
-          <group key={i} position={[xOff, 0, 0]}>
-            <mesh position={[0, 0, D / 2 + 0.001]}>
-              <boxGeometry args={[panelW + 0.004, panelH + 0.004, 0.002]} />
-              <meshStandardMaterial color="#111" roughness={1} />
-            </mesh>
+          <group key={i} position={[xOff, doorGroupY, 0]}>
             <mesh position={[0, panelH / 2 - FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
               <meshPhysicalMaterial color="#e8e4de" roughness={0.3} metalness={0.1} />
@@ -747,9 +788,13 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet }) {
             </mesh>
             <mesh position={[0, 0, frontZ - DOOR_T / 2]}>
               <boxGeometry args={[panelW - FRAME_W * 2, panelH - FRAME_W * 2, 0.005]} />
-              <meshPhysicalMaterial color="#c8e8f8" transparent opacity={0.25} roughness={0.0} metalness={0.0} transmission={0.85} thickness={0.3} envMapIntensity={2.0} reflectivity={0.9} />
+              {glassType === 'black' ? (
+                <meshPhysicalMaterial color="#0a0a0a" transparent opacity={0.88} roughness={0.05} metalness={0.0} transmission={0.1} thickness={0.3} envMapIntensity={1.6} reflectivity={0.95} />
+              ) : (
+                <meshPhysicalMaterial color="#141414" transparent opacity={0.18} roughness={0.02} metalness={0.0} transmission={0.92} thickness={0.3} envMapIntensity={1.6} reflectivity={0.9} />
+              )}
             </mesh>
-            {isWallCabinet && (
+            {isWallCabinet && doorStyle === 'Handle' && (
               <mesh position={[0, pullY, frontZ + 0.002]}>
                 <boxGeometry args={[panelW * 0.5, 0.010, 0.006]} />
                 <meshStandardMaterial color="#111" roughness={1} />
@@ -1049,6 +1094,31 @@ function HoodAppliance({ W, H, D }) {
   )
 }
 
+
+// ---- LED strip light: real aluminum channel + frosted diffuser profile (18.6mm x 12.5mm outer, 15.2mm diffuser) ----
+function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
+  const outerW = 0.0186, outerH = 0.0125, diffW = 0.0152, diffH = 0.003
+  return (
+    <group position={position} rotation={rotation}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[outerW, outerH, length]} />
+        <meshPhysicalMaterial color="#c8c8c8" metalness={0.75} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, outerH / 2 - diffH / 2 + 0.0005, 0]}>
+        <boxGeometry args={[diffW, diffH, Math.max(0.01, length - 0.002)]} />
+        {/* toneMapped=false keeps this genuinely bright under ACES filmic tone mapping, which otherwise
+            crushes emissive materials down to looking barely lit */}
+        <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
+      </mesh>
+      {/* Real warm point lights along the strip so it actually casts a visible glow, not just an emissive surface */}
+      {Array.from({ length: Math.max(1, Math.round(length / 0.3)) }).map((_, i, arr) => {
+        const t = arr.length === 1 ? 0 : (i / (arr.length - 1) - 0.5) * length
+        return <pointLight key={i} position={[0, outerH / 2, t]} color="#ffcb8a" intensity={2.2} distance={0.6} decay={2} />
+      })}
+    </group>
+  )
+}
+
 function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 30, textureMap = {} }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
@@ -1110,6 +1180,10 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'freestandingDishwasher' ? (
         <DishwasherAppliance W={W} H={H} D={D} />
+      ) : (isGlass || cab.subtype === 'Open Shelf' || isShelfEligible(cab)) ? (
+        <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
+          shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
+          glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'} />
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
@@ -1133,6 +1207,21 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} textureMap={textureMap} />
         </group>
       )}
+      {cab.ledStripInterior && !isShelf && (() => {
+        const T = 0.018
+        const len = Math.max(0.05, H - T * 2 - 0.02)
+        const z = (-D / 2 + T) + 0.030
+        return (
+          <>
+            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[W / 2 - T - 0.006, H / 2, z]} />
+            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[-W / 2 + T + 0.006, H / 2, z]} />
+          </>
+        )
+      })()}
+      {cab.ledStripUnder && isWall && (
+        <LEDStripLight length={Math.max(0.05, W - 0.04)} rotation={[0, Math.PI / 2, 0]}
+          position={[0, -0.01, -D / 2 + 0.030]} />
+      )}
       {!isShelf && !isPanel && !applianceKind && (
         <group position={[0, H/2, 0]}>
           {isGlass ? (
@@ -1141,6 +1230,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
               numDoors={numDoors}
               handlePosition={cab.handlePosition || 'bottom'}
               isWallCabinet={isWall}
+              glassType={cab.glassType || 'clear'}
+              doorStyle={doorStyle}
             />
           ) : (
             <CabinetDoors W={W} H={H} D={D}

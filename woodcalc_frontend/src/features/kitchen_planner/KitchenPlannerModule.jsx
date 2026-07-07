@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
@@ -183,6 +183,9 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   const skirtingByMaterial = {}
   const golaProfileMeters = { L: 0, C: 0 }
   const drawerSystems = {}
+  let ledStripMeters = 0
+  let shelfPinsStandard = 0
+  let shelfPinsRubber = 0
 
   // Cross-cabinet corner joins (e.g. a blind cabinet's run turning 90°) — these need a corner
   // elbow too, but aren't caught by the per-cabinet front/left/right/back check below since that
@@ -198,6 +201,8 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   })
 
   cabinets.forEach(c => {
+    if (c.ledStripInterior) ledStripMeters += c.height / 1000
+    if (c.ledStripUnder) ledStripMeters += c.width / 1000
     const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
     const frontMat = c.frontMaterialName || 'Front'
     if (!isCarcassCabinet(c)) {
@@ -213,6 +218,24 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     }
     let result
     try { result = calculateCabinet(cabinetConfig(c)) } catch { return }
+
+    if (isShelfEligible(c) && (c.shelfCount ?? c.glassShelfCount ?? 1) > 0) {
+      const shelfQty = c.shelfCount ?? c.glassShelfCount ?? 1
+      const isGlassShelf = c.category === 'wall' || c.subtype === 'Open Shelf'
+      const shelfW = Math.round(c.width - 40)
+      const shelfD = Math.round(c.depth - 28)
+      if (isGlassShelf) {
+        const key = `${shelfW}×${shelfD}×8|Glass|glassshelf`
+        if (!masterMap[key]) masterMap[key] = { name: 'Glass Shelf (8mm Tempered)', width: shelfW, depth: shelfD, thickness: 8, material: 'Clear Glass', eb: {}, qty: 0 }
+        masterMap[key].qty += shelfQty
+        shelfPinsRubber += shelfQty * 4
+      } else {
+        const key = `${shelfW}×${shelfD}×18|${carcassMat}|woodshelf`
+        if (!masterMap[key]) masterMap[key] = { name: 'Shelf', width: shelfW, depth: shelfD, thickness: 18, material: carcassMat, eb: {}, qty: 0 }
+        masterMap[key].qty += shelfQty
+        shelfPinsStandard += shelfQty * 4
+      }
+    }
 
     if (['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0) {
       const matKey = c.skirtingMaterial || 'match_countertop'
@@ -336,6 +359,44 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
               </div>
             )
           })}
+
+          {ledStripMeters > 0 && (
+            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+              <span style={{ fontSize: 20 }}>💡</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>LED Strip Lighting</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Aluminum channel + diffuser, 18.6×12.5mm profile</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{ledStripMeters.toFixed(2)} m</div>
+                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+              </div>
+            </div>
+          )}
+
+          {(shelfPinsStandard > 0 || shelfPinsRubber > 0) && (
+            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
+              <span style={{ fontSize: 20 }}>🔩</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Shelf Support Pins</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>4 pins per shelf — rubber-tipped for glass, standard for wood</div>
+              </div>
+              <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
+                {shelfPinsStandard > 0 && (
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsStandard}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>standard</div>
+                  </div>
+                )}
+                {shelfPinsRubber > 0 && (
+                  <div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsRubber}</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>rubber-tipped</div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {golaProfileMeters.L > 0 && (
             <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
@@ -1168,6 +1229,57 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
                   </select>
                 </div>
+                {isShelfEligible(selCab) && (() => {
+                  const usableH = selCab.height - 36
+                  const maxShelves = Math.max(0, Math.floor(usableH / 250) - 1)
+                  const current = Math.min(selCab.shelfCount ?? selCab.glassShelfCount ?? 1, maxShelves)
+                  const isGlassMaterial = selCab.category === 'wall' || selCab.subtype === 'Open Shelf'
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>Shelves {isGlassMaterial ? '(Glass)' : '(Wood)'}</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <button onClick={() => updateCab('shelfCount', Math.max(0, current - 1))}
+                          style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontWeight: 700, color: '#666' }}>−</button>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: DARK, minWidth: 16, textAlign: 'center' }}>{current}</span>
+                        <button onClick={() => updateCab('shelfCount', Math.min(maxShelves, current + 1))}
+                          disabled={current >= maxShelves}
+                          style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #E0DAD4', background: current >= maxShelves ? '#F5F5F5' : '#fff', cursor: current >= maxShelves ? 'not-allowed' : 'pointer', fontWeight: 700, color: current >= maxShelves ? '#ccc' : '#666' }}>+</button>
+                      </div>
+                      <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Max {maxShelves} — keeps 250mm clearance between shelves</div>
+                    </div>
+                  )
+                })()}
+                {selCab.subtype === 'Glass Door' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>Glass Type</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[{ id: 'clear', label: '◻ Clear' }, { id: 'black', label: '⬛ Black' }].map(opt => (
+                        <div key={opt.id} onClick={() => updateCab('glassType', opt.id)}
+                          style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${(selCab.glassType || 'clear') === opt.id ? ACCENT : '#E0DAD4'}`, background: (selCab.glassType || 'clear') === opt.id ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: (selCab.glassType || 'clear') === opt.id ? ACCENT : '#666' }}>{opt.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {['base', 'vanity', 'corner', 'tall', 'wall'].includes(selCab.category) && (
+                  <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <div
+                      onClick={() => updateCab('ledStripInterior', !selCab.ledStripInterior)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.ledStripInterior ? ACCENT : '#E0DAD4'}`, background: selCab.ledStripInterior ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripInterior ? ACCENT : '#ccc'}`, background: selCab.ledStripInterior ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripInterior ? '✓' : ''}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripInterior ? ACCENT : '#666' }}>💡 LED Strip (Interior)</span>
+                    </div>
+                    {selCab.category === 'wall' && (
+                      <div
+                        onClick={() => updateCab('ledStripUnder', !selCab.ledStripUnder)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.ledStripUnder ? ACCENT : '#E0DAD4'}`, background: selCab.ledStripUnder ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripUnder ? ACCENT : '#ccc'}`, background: selCab.ledStripUnder ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripUnder ? '✓' : ''}</div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripUnder ? ACCENT : '#666' }}>💡 LED Strip (Under Cabinet)</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {['base', 'vanity', 'corner', 'tall'].includes(selCab.category) && (selCab.elevation || 0) === 0 && (
                   <div style={{ marginBottom: 10 }}>
