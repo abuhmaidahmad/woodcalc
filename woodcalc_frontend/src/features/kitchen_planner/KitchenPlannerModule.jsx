@@ -989,8 +989,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const wallLenMm = Math.round(wallLenPx / SCALE)
       const ux = dx / wallLenPx, uy = dy / wallLenPx
       const ex = selEl.x * SCALE - w.x1, ey = selEl.y * SCALE - w.y1
-      const distPx = ex * ux + ey * uy
-      const distMm = Math.round(distPx / SCALE)
+      const distPxCenter = ex * ux + ey * uy
+      const distMmCenter = distPxCenter / SCALE
+      // Measured from the wall's visual start corner to the element's CENTER.
+      // The wall renders with strokeLinecap="square", which visually extends the wall
+      // by half ITS OWN thickness past the stored endpoint (w.x1) — so the true visual
+      // corner sits wallThickness/2 further back than w.x1.
+      const distMm = Math.round(distMmCenter + wallThickness / 2)
       return (
         <>
           <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
@@ -998,9 +1003,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           </div>
           <div style={{ marginBottom: 10 }}>
             <div style={s.propLabel}>Distance from wall start (mm)</div>
-            <input type="number" value={distMm} min={0} max={wallLenMm}
+            <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThickness)}
               onChange={e => {
-                const newDistPx = +e.target.value * SCALE
+                const newDistMmCenter = (+e.target.value) - wallThickness / 2
+                const newDistPx = newDistMmCenter * SCALE
                 const newX = (w.x1 + ux * newDistPx) / SCALE
                 const newY = (w.y1 + uy * newDistPx) / SCALE
                 updateEl('x', newX)
