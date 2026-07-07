@@ -174,23 +174,27 @@ export function calculateCabinet(config) {
     notes: '(W - 2T) × (D - 30 - 8)',
   });
 
-  const railW = bottomW;
-  panels.push({
-    name: 'Front rail',
-    qty: 1,
-    width: railW,
-    depth: 100,
-    thickness: T,
-    notes: 'Front rail',
-  });
-  panels.push({
-    name: 'Back rail',
-    qty: 1,
-    width: railW,
-    depth: 100,
-    thickness: T,
-    notes: 'Back rail',
-  });
+  // Wall cabinets don't get front/back rails (no toe kick/leg support needed,
+  // and the top/bottom panels + back panel already provide the structure)
+  if (cabinetType !== 'wall') {
+    const railW = bottomW;
+    panels.push({
+      name: 'Front rail',
+      qty: 1,
+      width: railW,
+      depth: 100,
+      thickness: T,
+      notes: 'Front rail',
+    });
+    panels.push({
+      name: 'Back rail',
+      qty: 1,
+      width: railW,
+      depth: 100,
+      thickness: T,
+      notes: 'Back rail',
+    });
+  }
 
   const backW = round2(W - 2 * T - 3);
   const backH = round2(H - T - 3);
