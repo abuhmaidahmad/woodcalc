@@ -339,7 +339,7 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet, drawerIndex = 0 }) {
+function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet, drawerIndex = 0, hideHandle = false }) {
   const GAP = 0.002
   const PROUD = 0.020
   const DOOR_T = 0.019
@@ -391,7 +391,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           radius={0.001}
         />
       )}
-      {doorStyle === 'Handle' && !isWallCabinet && (
+      {doorStyle === 'Handle' && !isWallCabinet && !hideHandle && (
         <group position={[0, handleY, frontZ + 0.006]}>
           <mesh castShadow>
             <boxGeometry args={[panelW * 0.55, 0.013, 0.013]} />
@@ -666,6 +666,31 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           golaHex={golaHex} golaColor={golaColor}
           handlePosition={handlePosition || 'bottom'}
           isWallCabinet={isWallCabinet}
+        />
+      )
+    }
+    if (isBlind) {
+      // Fixed 150mm fascia panel starting 3mm from the door's edge and extending toward the
+      // hidden section — covers just the visible sliver next to the door, same plane, matching
+      // front material; the rest of the blind section stays bare (it's fully hidden behind the
+      // neighboring cabinet, so it doesn't need a finished front).
+      const FASCIA_W = 0.150
+      const FASCIA_GAP = 0.003
+      const doorEdgeX = blindSide === 'left' ? (W / 2 - doorW) : (-W / 2 + doorW)
+      const blindXOff = blindSide === 'left'
+        ? (doorEdgeX - FASCIA_GAP - FASCIA_W / 2)
+        : (doorEdgeX + FASCIA_GAP + FASCIA_W / 2)
+      const blindWidth = FASCIA_W
+      doors.push(
+        <DoorPanel key="blind-fascia"
+          x={blindXOff} y={effectiveDoorStyle === 'Gola' ? -GOLA_RECESS / 2 : 0} D={D}
+          doorW={blindWidth} doorH={doorH}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+          matProps={matProps} doorStyle={effectiveDoorStyle}
+          golaHex={golaHex} golaColor={golaColor}
+          handlePosition={handlePosition || 'bottom'}
+          isWallCabinet={isWallCabinet}
+          hideHandle
         />
       )
     }
@@ -1180,7 +1205,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'freestandingDishwasher' ? (
         <DishwasherAppliance W={W} H={H} D={D} />
-      ) : (isGlass || cab.subtype === 'Open Shelf' || isShelfEligible(cab)) ? (
+      ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'} />
