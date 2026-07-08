@@ -1289,7 +1289,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               backsplashSegments={backsplashSegments}
               readOnly={false}
               hideToolbar={false}
-              hideBacksplashTool={true} />
+              hideBacksplashTool={true}
+              hideWallsElements={true} />
           </div>
           <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (

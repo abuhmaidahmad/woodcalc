@@ -3,7 +3,7 @@ import { BLIND_PANEL_WIDTH } from './formulaEngine'
 
 const ACCENT = '#C8902A'
 const GRID = 50
-const ENDPOINT_SNAP_DIST = 15
+const ENDPOINT_SNAP_DIST = 60
 
 const snap = v => Math.round(v / GRID) * GRID
 const degToRad = d => d * Math.PI / 180
@@ -105,7 +105,7 @@ function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
   return best
 }
 
-function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm }) {
+function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange }) {
   const { x1, y1, x2, y2 } = wall
   const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
@@ -131,15 +131,22 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
       <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
         onClick={e => { e.stopPropagation(); onLabelClick() }}
         style={{ cursor: 'text' }}>
-        <rect x={-30} y={-11} width={60} height={18} rx={4}
+        <rect x={editingLength ? -46 : -30} y={-11} width={editingLength ? 92 : 60} height={18} rx={4}
           fill={selected ? ACCENT : 'white'} stroke={selected ? ACCENT : '#ddd'} strokeWidth={1} />
         {editingLength ? (
-          <foreignObject x={-28} y={-10} width={56} height={16}>
-            <input autoFocus type="number" defaultValue={innerLenMm}
-              onChange={e => onLengthChange(+e.target.value)}
-              onBlur={onLengthConfirm}
-              onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
-              style={{ width: '100%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+          <foreignObject x={-44} y={-10} width={88} height={16}>
+            <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+              <input autoFocus type="number" defaultValue={innerLenMm}
+                onChange={e => onLengthChange(+e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
+                title="Length (mm) — Tab to angle, Enter to confirm"
+                style={{ width: '50%', border: 'none', outline: 'none', borderRight: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : '#ddd'}`, fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+              <input type="number" defaultValue={editingAngleVal}
+                onChange={e => onAngleChange(+e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
+                title="Angle (°) — Enter to confirm"
+                style={{ width: '50%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+            </div>
           </foreignObject>
         ) : (
    <text x={0} y={3} textAnchor="middle" fontSize={9}
@@ -198,6 +205,7 @@ export default function RoomCanvas({
   readOnly,
   hideToolbar,
   hideBacksplashTool,
+  hideWallsElements,
 }) {
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
@@ -206,6 +214,7 @@ export default function RoomCanvas({
   const [selectedWall, setSelectedWall] = useState(null)
   const [editingWall, setEditingWall] = useState(null)
   const [editingLenVal, setEditingLenVal] = useState(null)
+  const [editingAngleVal, setEditingAngleVal] = useState(null)
   const [inputVal, setInputVal] = useState('')
   const [inputMode, setInputMode] = useState(null)
   const [lockedLength, setLockedLength] = useState(null)
@@ -343,8 +352,11 @@ export default function RoomCanvas({
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
       if (e.key === 'Escape') {
-        if (startPoint) { setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }
-        else setMode('select')
+        // One Escape press fully stops drawing and returns to Select — already
+        // placed/committed wall or backsplash segments are untouched either way,
+        // this only cancels whatever in-progress point hasn't been committed yet.
+        setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+        setMode('select')
         return
       }
       if (mode !== 'draw') return
@@ -462,15 +474,27 @@ export default function RoomCanvas({
     }
     const pos = getSVGPos(e)
     const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThreshold)
+    if (!startPoint) {
+      // Starting a new wall: snap to a nearby corner first, and if there isn't
+      // one, also try snapping onto the BODY of an existing wall (T-junction),
+      // not just its endpoints — clicking anywhere near an existing wall should
+      // let you branch a new one off of it.
+      let finalPos = snapPt
+      if (!finalPos) {
+        const wallSnap = findWallSnap(pos.x, pos.y, walls, wallThickness, scale, snapThreshold)
+        if (wallSnap) finalPos = { x: wallSnap.centerX, y: wallSnap.centerY }
+      }
+      setStartPoint(finalPos || pos)
+      return
+    }
     const finalPos = snapPt || pos
-    if (!startPoint) { setStartPoint(finalPos); return }
     const end = getPreviewEnd()
     if (end && end.innerLenMm > 0) {
       pushHistory([...walls, { x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y }])
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
-  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments])
+  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness])
 
   const handleMouseDown = useCallback((e) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
@@ -500,7 +524,10 @@ export default function RoomCanvas({
     const pos = getSVGPos(e)
     const rawX = pos.x, rawY = pos.y
     setMousePos({ x: rawX, y: rawY })
-    if (mode === 'draw' && startPoint) setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
+    // Show the snap preview even before the first click of a new wall — not just
+    // once a startPoint already exists — so there's visual confirmation of where
+    // a wall will connect before you commit to the click.
+    if (mode === 'draw') setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
     if (!dragging) return
 
     if (dragging.type === 'wall') {
@@ -603,24 +630,27 @@ export default function RoomCanvas({
   }, [dragging, walls])
 
   const startWallDrag = useCallback((e, index) => {
-    if (mode !== 'select') return
+    if (mode !== 'select' || hideWallsElements) return
     e.stopPropagation()
     wallClickedRef.current = true
     setDragging({ type: 'wall', index, origWall: { ...walls[index] } })
     setDragStart(getSVGPos(e))
-  }, [mode, walls, getSVGPos])
+  }, [mode, hideWallsElements, walls, getSVGPos])
 
   const startEndpointDrag = useCallback((e, wallIndex, ep) => {
-    if (mode !== 'select') return
+    if (mode !== 'select' || hideWallsElements) return
     e.stopPropagation()
     setDragging({ type: 'endpoint', wallIndex, ep })
     setDragStart(getSVGPos(e))
-  }, [mode, getSVGPos])
+  }, [mode, hideWallsElements, getSVGPos])
 
   const startElementDrag = useCallback((e, id, type) => {
     // Draw tools (walls/backsplash) place points on click — don't let clicking
     // an existing cabinet/element hijack that into a drag-and-select instead.
     if (mode !== 'select') return
+    // Room elements (windows/doors/etc.) are fully non-interactive on tabs that
+    // pass hideWallsElements (e.g. the Cabinets tab) — cabinets are unaffected.
+    if (type === 'element' && hideWallsElements) return
     e.stopPropagation()
     const pos = getSVGPos(e)
     const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
@@ -630,18 +660,21 @@ export default function RoomCanvas({
     setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(id)
     setSelectedType(type)
-  }, [mode, cabinets, elements, getSVGPos, setSelected, setSelectedType])
+  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType])
 
   const confirmWallEdit = useCallback(() => {
-    if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); return }
+    if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
     pushHistory(walls.map((w, i) => {
       if (i !== editingWall) return w
-      const angle = Math.atan2(w.y2 - w.y1, w.x2 - w.x1)
+      // Use the typed angle if the user changed it; otherwise keep the wall's
+      // current angle so editing only the length doesn't rotate it.
+      const angleDeg = editingAngleVal ?? radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))
+      const angleRad = degToRad(angleDeg)
       const outerLen = (editingLenVal + wallThickness) * scale
-      return { ...w, x2: w.x1 + outerLen * Math.cos(angle), y2: w.y1 + outerLen * Math.sin(angle) }
+      return { ...w, x2: w.x1 + outerLen * Math.cos(angleRad), y2: w.y1 + outerLen * Math.sin(angleRad) }
     }))
-    setEditingWall(null); setEditingLenVal(null)
-  }, [editingWall, editingLenVal, walls, wallThickness, scale, pushHistory])
+    setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null)
+  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
   const getCabCorners = (cab) => {
@@ -955,12 +988,19 @@ export default function RoomCanvas({
     innerLenMm={getInnerLength(w, wallThickness, scale)}
     outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
 
-              onSelect={() => { wallClickedRef.current = true; setSelectedWall(i) }}
+              onSelect={hideWallsElements ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
               onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
-              onLabelClick={() => { if (!hideToolbar) { setSelectedWall(i); setEditingWall(i); setEditingLenVal(null) } }}
+              onLabelClick={() => {
+                if (hideToolbar) return
+                setSelectedWall(i); setEditingWall(i)
+                setEditingLenVal(getInnerLength(w, wallThickness, scale))
+                setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
+              }}
               editingLength={!hideToolbar && editingWall === i}
               onLengthChange={v => setEditingLenVal(v)}
+              editingAngleVal={editingAngleVal}
+              onAngleChange={v => setEditingAngleVal(v)}
               onLengthConfirm={confirmWallEdit}
             />
           ))}
