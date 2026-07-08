@@ -59,6 +59,49 @@ function findWallSnap(px, py, walls, wallThickness, scale, threshold) {
   return best
 }
 
+// Returns the world-space px endpoints of one edge ('top'|'bottom'|'left'|'right')
+// of a cabinet's rectangular footprint, accounting for its rotation. Cabinet
+// coords are in mm; output is in scaled px to match the x1/y1/x2/y2 convention
+// used by walls and backsplash segments.
+function getCabinetEdgePx(cab, side, scale) {
+  const cx = cab.x + cab.width / 2, cy = cab.y + cab.depth / 2
+  const rad = ((cab.rotation || 0) * Math.PI) / 180
+  const cos = Math.cos(rad), sin = Math.sin(rad)
+  const rot = (px, py) => {
+    const dx = px - cx, dy = py - cy
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+  }
+  let p1mm, p2mm
+  if (side === 'top') { p1mm = { x: cab.x, y: cab.y }; p2mm = { x: cab.x + cab.width, y: cab.y } }
+  else if (side === 'bottom') { p1mm = { x: cab.x, y: cab.y + cab.depth }; p2mm = { x: cab.x + cab.width, y: cab.y + cab.depth } }
+  else if (side === 'left') { p1mm = { x: cab.x, y: cab.y }; p2mm = { x: cab.x, y: cab.y + cab.depth } }
+  else { p1mm = { x: cab.x + cab.width, y: cab.y }; p2mm = { x: cab.x + cab.width, y: cab.y + cab.depth } }
+  const p1 = rot(p1mm.x, p1mm.y), p2 = rot(p2mm.x, p2mm.y)
+  return { x1: p1.x * scale, y1: p1.y * scale, x2: p2.x * scale, y2: p2.y * scale }
+}
+
+function distToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return ptDist(px, py, x1, y1)
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq))
+  const cx = x1 + t * dx, cy = y1 + t * dy
+  return ptDist(px, py, cx, cy)
+}
+
+function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
+  let best = null, bestDist = threshold
+  cabinets.forEach(cab => {
+    if (cab.category !== 'base') return
+    ;['top', 'bottom', 'left', 'right'].forEach(side => {
+      const edge = getCabinetEdgePx(cab, side, scale)
+      const d = distToSegment(px, py, edge.x1, edge.y1, edge.x2, edge.y2)
+      if (d < bestDist) { bestDist = d; best = { cab, side, edge } }
+    })
+  })
+  return best
+}
+
 function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm }) {
   const { x1, y1, x2, y2 } = wall
   const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
@@ -148,8 +191,10 @@ export default function RoomCanvas({
   selected, setSelected, selectedType, setSelectedType,
   wallThickness, setWallThickness,
   walls, setWalls,
+  backsplashSegments = [], setBacksplashSegments = () => {},
   readOnly,
   hideToolbar,
+  hideBacksplashTool,
 }) {
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
@@ -291,7 +336,7 @@ export default function RoomCanvas({
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
 
   useEffect(() => {
-    if (mode !== 'draw') return
+    if (mode !== 'draw' && mode !== 'backsplash') return
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
       if (e.key === 'Escape') {
@@ -299,6 +344,7 @@ export default function RoomCanvas({
         else setMode('select')
         return
       }
+      if (mode !== 'draw') return
       if (e.key === 'Enter') {
         const end = getPreviewEnd()
         if (end && startPoint && end.innerLenMm > 0) {
@@ -340,6 +386,7 @@ export default function RoomCanvas({
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected != null) {
         if (selectedType === 'cabinet') setCabinets(p => p.filter(c => c.id !== selected))
         else if (selectedType === 'element') setElements(p => p.filter(el => el.id !== selected))
+        else if (selectedType === 'backsplash') setBacksplashSegments(p => p.filter(s => s.id !== selected))
         setSelected(null); setSelectedType(null)
         return
       }
@@ -379,14 +426,36 @@ export default function RoomCanvas({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements])
+  }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements, setBacksplashSegments])
 
   const handleCanvasClick = useCallback((e) => {
     if (isPanningRef.current) return
     if (wallClickedRef.current) { wallClickedRef.current = false; return }
-    if (e.target !== svgRef.current && e.target.tagName !== 'svg') return
+    if (mode !== 'backsplash' && e.target !== svgRef.current && e.target.tagName !== 'svg') return
     if (mode === 'select') {
       setSelectedWall(null); setSelected(null); setSelectedType(null); return
+    }
+    if (mode === 'backsplash') {
+      const pos = getSVGPos(e)
+      const hit = findNearestCabinetEdge(pos.x, pos.y, cabinets, scale, 8 / zoom)
+      if (hit) {
+        const segId = `cabedge-${hit.cab.id}-${hit.side}`
+        const exists = backsplashSegments.some(s => s.id === segId)
+        const isCurrentlySelected = selected === segId && selectedType === 'backsplash'
+        if (isCurrentlySelected) {
+          // Clicking the already-selected edge again deletes it.
+          setBacksplashSegments(p => p.filter(s => s.id !== segId))
+          setSelected(null); setSelectedType(null)
+        } else if (exists) {
+          // Clicking a different existing segment selects it (opens the panel).
+          setSelected(segId); setSelectedType('backsplash')
+        } else {
+          // Empty edge: add a new segment and select it.
+          setBacksplashSegments(p => [...p, { id: segId, cabinetId: hit.cab.id, side: hit.side, ...hit.edge }])
+          setSelected(segId); setSelectedType('backsplash')
+        }
+      }
+      return
     }
     const pos = getSVGPos(e)
     const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThreshold)
@@ -398,7 +467,7 @@ export default function RoomCanvas({
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
-  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold])
+  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments])
 
   const handleMouseDown = useCallback((e) => {
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
@@ -546,6 +615,9 @@ export default function RoomCanvas({
   }, [mode, getSVGPos])
 
   const startElementDrag = useCallback((e, id, type) => {
+    // Draw tools (walls/backsplash) place points on click — don't let clicking
+    // an existing cabinet/element hijack that into a drag-and-select instead.
+    if (mode !== 'select') return
     e.stopPropagation()
     const pos = getSVGPos(e)
     const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
@@ -555,7 +627,7 @@ export default function RoomCanvas({
     setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(id)
     setSelectedType(type)
-  }, [cabinets, elements, getSVGPos, setSelected, setSelectedType])
+  }, [mode, cabinets, elements, getSVGPos, setSelected, setSelectedType])
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); return }
@@ -744,7 +816,7 @@ export default function RoomCanvas({
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {!readOnly && !hideToolbar && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
-          <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null) }}
+          <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null); setSelected(null); setSelectedType(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             ↖ Select
           </button>
@@ -752,6 +824,12 @@ export default function RoomCanvas({
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             ✏️ Draw walls
           </button>
+          {!hideBacksplashTool && (
+            <button onClick={() => { setMode('backsplash'); setStartPoint(null); setSelectedWall(null) }}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'backsplash' ? ACCENT : '#E0DAD4', background: mode === 'backsplash' ? ACCENT+'18' : '#fff', color: mode === 'backsplash' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              🧱 Backsplash Edges
+            </button>
+          )}
           <button onClick={undo} disabled={history.length <= 1}
             style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
             ↩
@@ -776,6 +854,7 @@ export default function RoomCanvas({
             </span>
           )}
           {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place · Scroll to zoom · Alt+drag to pan</span>}
+          {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>Click a base cabinet's edge to toggle backsplash on that side · Esc to stop</span>}
           {mode === 'select' && selectedWall !== null && (
             <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
@@ -964,6 +1043,36 @@ export default function RoomCanvas({
               </g>
             )
           })}
+          {backsplashSegments.map(seg => {
+            const isSelBs = selected === seg.id && selectedType === 'backsplash'
+            return (
+              <g key={seg.id}>
+                {/* No click handler here on purpose — segments are only ever
+                    selectable through the Backsplash Edges tool (handleCanvasClick),
+                    never by clicking directly in Select mode. */}
+                <line x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                  stroke="#fff" strokeWidth={isSelBs ? 9 : 7.5}
+                  strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+                <line x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                  stroke={isSelBs ? ACCENT : '#8B5E3C'} strokeWidth={isSelBs ? 6 : 5}
+                  strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+              </g>
+            )
+          })}
+          {mode === 'backsplash' && mousePos && (() => {
+            const hit = findNearestCabinetEdge(mousePos.x, mousePos.y, cabinets, scale, 8 / zoom)
+            if (!hit) return null
+            const alreadyActive = backsplashSegments.some(s => s.id === `cabedge-${hit.cab.id}-${hit.side}`)
+            return (
+              <>
+                <line x1={hit.edge.x1} y1={hit.edge.y1} x2={hit.edge.x2} y2={hit.edge.y2}
+                  stroke="#fff" strokeWidth={10} strokeLinecap="round" opacity={0.9} style={{ pointerEvents: 'none' }} />
+                <line x1={hit.edge.x1} y1={hit.edge.y1} x2={hit.edge.x2} y2={hit.edge.y2}
+                  stroke={alreadyActive ? '#3B82F6' : ACCENT} strokeWidth={7} strokeLinecap="round"
+                  opacity={0.9} style={{ pointerEvents: 'none' }} />
+              </>
+            )
+          })()}
         </svg>
       </div>
     </div>

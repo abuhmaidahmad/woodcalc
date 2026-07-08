@@ -691,6 +691,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [savedMsg, setSavedMsg]               = useState('')
   const [wallThickness, setWallThickness]     = useState(120)
   const [walls, setWalls]                     = useState([])
+  const [backsplashSegments, setBacksplashSegments] = useState([])
+  const [backsplashHeight, setBacksplashHeight] = useState(50)
+  const [backsplashThickness, setBacksplashThickness] = useState(20)
   const [floorTile, setFloorTile]             = useState('white_large')
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
@@ -712,6 +715,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
       if (initialData.walls) setWalls(initialData.walls)
+      if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
+      if (initialData.backsplashHeight) setBacksplashHeight(initialData.backsplashHeight)
+      if (initialData.backsplashThickness) setBacksplashThickness(initialData.backsplashThickness)
       if (initialData.elements) setElements(initialData.elements)
       if (initialData.cabinets) setCabinets(initialData.cabinets)
       if (initialData.projectName) setProjectName(initialData.projectName)
@@ -773,7 +779,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness }
+      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness }
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
@@ -998,6 +1004,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   <label style={s.dimLabel}>Width (mm)<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
   <label style={s.dimLabel}>Depth (mm)<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
   <label style={s.dimLabel}>Ceiling Height (mm)<input type="number" value={room.ceilingHeight || 2800} onChange={e => setRoom(r => ({ ...r, ceilingHeight: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>Backsplash Height (mm)<input type="number" value={backsplashHeight} onChange={e => setBacksplashHeight(+e.target.value)} style={s.dimInput} /></label>
 </div>
 
             <div style={s.panelSection}>
@@ -1059,10 +1066,72 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
               wallThickness={wallThickness} setWallThickness={setWallThickness}
-              walls={walls} setWalls={setWalls} />
+              walls={walls} setWalls={setWalls}
+              backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments} />
           </div>
           <div style={s.rightPanel}>
-        {selEl ? (
+        {selectedType === 'backsplash' ? (() => {
+          const seg = backsplashSegments.find(s => s.id === selected)
+          if (!seg) return null
+          const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1
+          const curLenPx = Math.hypot(dx, dy)
+          const lenMm = Math.round(curLenPx / SCALE)
+          const fixedEnd = seg.fixedEnd || 'start'
+          return (
+            <div>
+              <div style={s.propTitle}>🧱 Backsplash</div>
+              <div style={s.propSection}>Length</div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>Length (mm)</div>
+                <input type="number" value={lenMm}
+                  onChange={e => {
+                    const newLenMm = +e.target.value
+                    if (!newLenMm || newLenMm <= 0 || curLenPx === 0) return
+                    const newLenPx = newLenMm * SCALE
+                    const ux = dx / curLenPx, uy = dy / curLenPx
+                    setBacksplashSegments(p => p.map(s => {
+                      if (s.id !== seg.id) return s
+                      if (fixedEnd === 'start') return { ...s, x2: s.x1 + ux * newLenPx, y2: s.y1 + uy * newLenPx }
+                      return { ...s, x1: s.x2 - ux * newLenPx, y1: s.y2 - uy * newLenPx }
+                    }))
+                  }}
+                  style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>Fixed point (stays put when length changes)</div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {['start', 'end'].map(fe => (
+                    <button key={fe} onClick={() => setBacksplashSegments(p => p.map(s => s.id === seg.id ? { ...s, fixedEnd: fe } : s))}
+                      style={{ flex: 1, padding: '6px', border: `1.5px solid ${fixedEnd === fe ? '#C8902A' : '#E0DAD4'}`, borderRadius: 6, background: fixedEnd === fe ? '#C8902A18' : '#fff', color: fixedEnd === fe ? '#C8902A' : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      Fix {fe === 'start' ? 'Start' : 'End'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={s.propSection}>Details</div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>Height (mm) — leave blank to use default ({backsplashHeight}mm)</div>
+                <input type="number" value={seg.height ?? ''}
+                  onChange={e => {
+                    const v = e.target.value
+                    setBacksplashSegments(p => p.map(s => s.id === seg.id ? { ...s, height: v === '' ? undefined : +v } : s))
+                  }}
+                  placeholder={String(backsplashHeight)}
+                  style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>Thickness</div>
+                <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 6, fontSize: 12, color: '#8B5E3C', fontWeight: 600 }}>
+                  {backsplashThickness}mm
+                </div>
+              </div>
+              <button onClick={() => { setBacksplashSegments(p => p.filter(s => s.id !== seg.id)); setSelected(null); setSelectedType(null) }}
+                style={{ padding: '6px 12px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                🗑 Delete
+              </button>
+            </div>
+          )
+        })() : selEl ? (
   <div>
     <div style={s.propTitle}>{selEl.icon} {selEl.label}</div>
 
@@ -1222,7 +1291,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
               readOnly={false}
-              hideToolbar={false} />
+              hideToolbar={false}
+              hideBacksplashTool={true} />
           </div>
           <div style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
