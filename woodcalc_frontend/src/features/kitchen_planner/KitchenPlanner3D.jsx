@@ -1212,10 +1212,14 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
             crushes emissive materials down to looking barely lit */}
         <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
       </mesh>
-      {/* Real warm point lights along the strip so it actually casts a visible glow, not just an emissive surface */}
-      {Array.from({ length: Math.max(1, Math.round(length / 0.3)) }).map((_, i, arr) => {
+      {/* RectAreaLight didn't render visibly in this scene for unclear reasons
+          (no console error, just no light output) — reverted to point lights,
+          which are known to work. Spaced every ~150mm with a wide falloff radius
+          and gentle decay so adjacent lights overlap into as smooth a glow as
+          point lights can manage; still shows some beading on glossy surfaces. */}
+      {Array.from({ length: Math.max(1, Math.round(length / 0.15)) }).map((_, i, arr) => {
         const t = arr.length === 1 ? 0 : (i / (arr.length - 1) - 0.5) * length
-        return <pointLight key={i} position={[0, outerH / 2, t]} color="#ffcb8a" intensity={2.2} distance={0.6} decay={2} />
+        return <pointLight key={i} position={[0, outerH / 2, t]} color="#ffcb8a" intensity={1.1} distance={0.9} decay={1.5} />
       })}
     </group>
   )
