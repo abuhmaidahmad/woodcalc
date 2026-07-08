@@ -735,6 +735,59 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   )
 }
 
+// Renders one backsplash segment as a textured panel, using the exact same
+// material/texture-mapping approach as Countertop so they match visually.
+// Bottom edge is anchored at the countertop's top surface (leg height + cabinet
+// carcass height + countertop thickness) for the cabinet it's attached to;
+// height extends upward from there toward the ceiling.
+function Backsplash3D({ seg, cabinets, countertopMat, countertopThickness, backsplashHeightDefault, backsplashThicknessMm, textureMap = {} }) {
+  const cab = cabinets.find(c => c.id === seg.cabinetId)
+  if (!cab) return null
+
+  const legHmm = cab.baseHeight === 720 ? 150 : cab.baseHeight === 800 ? 80 : 80
+  const legH = legHmm / 1000
+  const H = cab.height / 1000
+  const ctThickness = countertopThickness / 1000
+  const bottomY = legH + H + ctThickness
+
+  const heightM = (seg.height ?? backsplashHeightDefault) / 1000
+  const thicknessM = backsplashThicknessMm / 1000
+
+  const x1 = px2m(seg.x1), z1 = px2m(seg.y1)
+  const x2 = px2m(seg.x2), z2 = px2m(seg.y2)
+  const dx = x2 - x1, dz = z2 - z1
+  const lengthM = Math.hypot(dx, dz)
+  if (lengthM < 0.001) return null
+  const angle = Math.atan2(-dz, dx)
+  const cx = (x1 + x2) / 2, cz = (z1 + z2) / 2
+  const cy = bottomY + heightM / 2
+
+  const mat = countertopMat || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
+  const texEntry = textureMap[mat.code || mat.id]
+  const imageUrl = texEntry?.texture_image || mat.textureUrl || null
+  const physW = (texEntry?.texture_physical_width_mm || mat.physical_width_mm || 600) / 1000
+  const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
+  const hasPhoto = Boolean(imageUrl)
+  const matProps = hasPhoto
+    ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
+    : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
+
+  return (
+    <group position={[cx, cy, cz]} rotation={[0, angle, 0]}>
+      <mesh castShadow receiveShadow>
+        <boxGeometry args={[lengthM, heightM, thicknessM]} />
+        {imageUrl ? (
+          <PhotoPanelMaterial imageUrl={imageUrl} color={mat.color} matProps={matProps} envMapIntensity={0.6}
+            repeatU={lengthM / physW} repeatV={heightM / physH} />
+        ) : (
+          <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
+            clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
+        )}
+      </mesh>
+    </group>
+  )
+}
+
 function Countertop({ W, D, material, thickness = 0.030, isSink = false, textureMap = {} }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
@@ -1381,7 +1434,7 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30 }) {
+export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20 }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
@@ -1433,6 +1486,11 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
         {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} allCabinets={cabinets} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
+        {backsplashSegments.map(seg => (
+          <Backsplash3D key={seg.id} seg={seg} cabinets={cabinets} countertopMat={countertopMat}
+            countertopThickness={countertopThickness} backsplashHeightDefault={backsplashHeight}
+            backsplashThicknessMm={backsplashThickness} textureMap={textureMap} />
+        ))}
         <SkirtingCornerJoins cabinets={cabinets} countertopMat={countertopMat} />
 
         {/* --- Contact shadows: soft ground shadow under all cabinets --- */}

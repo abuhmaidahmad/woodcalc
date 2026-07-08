@@ -1110,13 +1110,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               </div>
               <div style={s.propSection}>Details</div>
               <div style={{ marginBottom: 10 }}>
-                <div style={s.propLabel}>Height (mm) — leave blank to use default ({backsplashHeight}mm)</div>
-                <input type="number" value={seg.height ?? ''}
-                  onChange={e => {
-                    const v = e.target.value
-                    setBacksplashSegments(p => p.map(s => s.id === seg.id ? { ...s, height: v === '' ? undefined : +v } : s))
-                  }}
-                  placeholder={String(backsplashHeight)}
+                <div style={s.propLabel}>Height (mm) — applies to all backsplash segments</div>
+                <input type="number" value={backsplashHeight}
+                  onChange={e => setBacksplashHeight(+e.target.value)}
                   style={s.propInput} />
               </div>
               <div style={{ marginBottom: 10 }}>
@@ -1290,6 +1286,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
+              backsplashSegments={backsplashSegments}
               readOnly={false}
               hideToolbar={false}
               hideBacksplashTool={true} />
@@ -1477,6 +1474,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   ['Legs', bom.legs+' pcs', '#1ABC9C'], ['Confirmats', bom.confirmats+' pcs', '#E74C3C'],
                   ['Dowels', bom.dowels+' pcs', '#F39C12'], ['Back Screws', bom.backScrews+' pcs', '#95A5A6'],
                   ['Handles', bom.handles+' pcs', DARK],
+                  ['Backsplash', parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' m', '#8B5E3C'],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid '+color, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{label}</div>
@@ -1530,7 +1528,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {/* Keep the 3D canvas always mounted so countertopMat / floorTile changes
           propagate live without a remount. Only hide/show via CSS. */}
       <div style={{ flex: 1, display: tab === '3d' ? 'flex' : 'none', flexDirection: 'column' }}>
-        <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} />
+        <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
         {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
       </div>
 

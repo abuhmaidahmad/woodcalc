@@ -92,7 +92,10 @@ function distToSegment(px, py, x1, y1, x2, y2) {
 function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
   let best = null, bestDist = threshold
   cabinets.forEach(cab => {
-    if (cab.category !== 'base') return
+    // Corner/blind and vanity units carry a countertop just like a regular base
+    // cabinet does (see isBase in KitchenPlanner3D's Cabinet component) — they
+    // should be eligible for backsplash too, not just category === 'base'.
+    if (!['base', 'vanity', 'corner'].includes(cab.category)) return
     ;['top', 'bottom', 'left', 'right'].forEach(side => {
       const edge = getCabinetEdgePx(cab, side, scale)
       const d = distToSegment(px, py, edge.x1, edge.y1, edge.x2, edge.y2)
