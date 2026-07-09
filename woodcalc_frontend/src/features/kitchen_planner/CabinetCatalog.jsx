@@ -588,3 +588,57 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
     </div>
   )
 }
+
+export function SinkPicker({ selected, onSelect }) {
+  const [sinks, setSinks] = useState([])
+  const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    authFetch(API_URL + '/api/inventory/sinks/')
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        setSinks(list)
+      })
+      .catch(() => {})
+  }, [])
+
+  const filtered = sinks.filter(s => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (s.brand || '').toLowerCase().includes(q) || (s.model_name || '').toLowerCase().includes(q) || (s.color || '').toLowerCase().includes(q)
+  })
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <input placeholder="Search sinks..." value={search} onChange={e => setSearch(e.target.value)}
+        style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
+        {filtered.length === 0 && (
+          <div style={{ fontSize: 11, color: '#bbb', padding: '12px 0', textAlign: 'center' }}>
+            No sinks in catalog yet. Add them in the admin panel.
+          </div>
+        )}
+        {filtered.map(sink => {
+          const isSel = selected === sink.id
+          return (
+            <div key={sink.id} onClick={() => onSelect(sink)}
+              style={{ display: 'flex', gap: 8, alignItems: 'center', padding: 8, borderRadius: 7,
+                border: `2px solid ${isSel ? ACCENT : '#E0DAD4'}`, background: isSel ? ACCENT+'08' : '#FAFAFA', cursor: 'pointer' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 5, background: sink.color_hex || '#999', border: '1.5px solid #ddd', flexShrink: 0, overflow: 'hidden' }}>
+                {sink.image && <img src={forceHttps(sink.image)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{sink.brand} {sink.model_name}</div>
+                <div style={{ fontSize: 10, color: '#888' }}>
+                  {sink.cavity_count === 2 ? 'Double Bowl' : 'Single Bowl'} · {sink.material === 'stainless_steel' ? 'Stainless Steel' : sink.material === 'granite_composite' ? 'Granite Composite' : sink.material} · {sink.width_mm}×{sink.depth_mm}mm
+                </div>
+              </div>
+              {sink.price && <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT }}>{sink.price}</div>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

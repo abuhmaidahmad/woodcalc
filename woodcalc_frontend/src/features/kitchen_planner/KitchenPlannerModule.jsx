@@ -5,7 +5,7 @@ import { calculateCabinet, detectCornerJoins, isShelfEligible } from './formulaE
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
-import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS } from './CabinetCatalog'
+import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 
@@ -770,6 +770,26 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const updateCab = (key, val) => setCabinets(p => p.map(c => c.id === selected ? { ...c, [key]: val } : c))
   const updateEl  = (key, val) => setElements(p => p.map(e => e.id === selected ? { ...e, [key]: val } : e))
+  // Applies every field from a chosen catalog Sink onto the selected cabinet in
+  // one update — drives the 3D render, BOM fabrication spec, and Proposal/Contract.
+  const applySink = (sink) => setCabinets(p => p.map(c => c.id === selected ? {
+    ...c,
+    sinkId: sink.id,
+    sinkBrand: sink.brand,
+    sinkModel: sink.model_name,
+    sinkMaterial: sink.material,
+    sinkColor: sink.color,
+    sinkColorHex: sink.color_hex,
+    sinkCavityCount: sink.cavity_count,
+    sinkWidthMm: sink.width_mm,
+    sinkDepthMm: sink.depth_mm,
+    sinkBowlDepthMm: sink.bowl_depth_mm,
+    sinkCutoutWidthMm: sink.cutout_width_mm,
+    sinkCutoutDepthMm: sink.cutout_depth_mm,
+    sinkPrice: sink.price,
+    sinkRoughness: sink.roughness,
+    sinkMetalness: sink.metalness,
+  } : c))
 
   const selCab = cabinets.find(c => c.id === selected && selectedType === 'cabinet')
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
@@ -1316,6 +1336,23 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   </div>
 )}
 
+                {['Sink', 'Single Sink', 'Double Sink'].includes(selCab.subtype) && (
+                  <>
+                    <div style={s.propSection}>Sink</div>
+                    {selCab.sinkId && (
+                      <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{selCab.sinkBrand} {selCab.sinkModel}</div>
+                        <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
+                          {selCab.sinkCavityCount === 2 ? 'Double Bowl' : 'Single Bowl'} · {selCab.sinkWidthMm}×{selCab.sinkDepthMm}mm
+                          {selCab.sinkPrice ? ` · ${selCab.sinkPrice}` : ''}
+                        </div>
+                      </div>
+                    )}
+                    <div style={{ marginBottom: 10 }}>
+                      <SinkPicker selected={selCab.sinkId} onSelect={applySink} />
+                    </div>
+                  </>
+                )}
                 <div style={s.propSection}>Material & Style</div>
                 {selCab.category !== 'accessories' && (
                   <div style={{ marginBottom: 10 }}>
