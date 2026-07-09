@@ -1,7 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem
-from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer, DrawerSystemSerializer
+from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem, Sink
+from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer, DrawerSystemSerializer, SinkSerializer
 
 
 class MaterialViewSet(ModelViewSet):
@@ -50,3 +50,13 @@ class DrawerSystemViewSet(ModelViewSet):
 
     def get_queryset(self):
         return DrawerSystem.objects.filter(is_active=True)
+
+
+class SinkViewSet(ModelViewSet):
+    # Read access (GET) is public so the Kitchen Planner can load the sink catalog
+    # without requiring a logged-in session. Create/update/delete still require auth.
+    serializer_class = SinkSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+
+    def get_queryset(self):
+        return Sink.objects.filter(is_active=True)

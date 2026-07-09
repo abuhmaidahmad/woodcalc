@@ -79,6 +79,64 @@ class DrawerSystem(models.Model):
         return f"{self.brand} {self.name}".strip()
 
 
+class Sink(models.Model):
+    """Sink catalog: predefined sink products the user can attach to a Sink/Single
+    Sink/Double Sink cabinet in the Kitchen Planner, driving 3D appearance, BOM
+    fabrication cutout specs, and Proposal/Contract pricing."""
+    MATERIAL_CHOICES = [
+        ('stainless_steel', 'Stainless Steel'),
+        ('granite_composite', 'Granite Composite (Silgranit)'),
+        ('ceramic', 'Ceramic/Fireclay'),
+        ('other', 'Other'),
+    ]
+    CAVITY_CHOICES = [
+        (1, 'Single Bowl'),
+        (2, 'Double Bowl'),
+    ]
+    SHAPE_CHOICES = [
+        ('rectangular', 'Rectangular'),
+        ('rounded', 'Rounded Corners'),
+        ('d_shape', 'D-Bowl'),
+    ]
+    MOUNT_CHOICES = [
+        ('undermount', 'Undermount'),
+        ('topmount', 'Top-mount / Drop-in'),
+        ('flushmount', 'Flush-mount'),
+    ]
+    brand = models.CharField(max_length=100, blank=True, default='')
+    model_name = models.CharField(max_length=150)
+    material = models.CharField(max_length=20, choices=MATERIAL_CHOICES, default='stainless_steel')
+    color = models.CharField(max_length=50, blank=True, default='', help_text='e.g. Anthracite, White, Steel Grey')
+    color_hex = models.CharField(max_length=7, default='#4a4a4a', help_text='Approximate render color')
+    cavity_count = models.PositiveSmallIntegerField(choices=CAVITY_CHOICES, default=1)
+    mount_type = models.CharField(max_length=15, choices=MOUNT_CHOICES, default='undermount')
+    shape = models.CharField(max_length=20, choices=SHAPE_CHOICES, default='rectangular')
+    width_mm = models.PositiveIntegerField(help_text='Overall sink width (mm)')
+    depth_mm = models.PositiveIntegerField(help_text='Overall sink depth, front-to-back (mm)')
+    bowl_depth_mm = models.PositiveIntegerField(default=180, help_text='Bowl depth from rim down (mm)')
+    cutout_width_mm = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Required countertop cutout width (mm) for fabrication, if different from overall width',
+    )
+    cutout_depth_mm = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text='Required countertop cutout depth (mm) for fabrication, if different from overall depth',
+    )
+    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    image = models.ImageField(upload_to='sinks/', null=True, blank=True)
+    roughness = models.FloatField(default=0.35)
+    metalness = models.FloatField(default=0.85)
+    is_active = models.BooleanField(default=True)
+    sort_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['sort_order', 'brand', 'model_name']
+
+    def __str__(self):
+        return f"{self.brand} {self.model_name}".strip()
+
+
 class MaterialTexture(models.Model):
     """Visual render-facing material swatch (front/door laminate or worktop surface),
     separate from the inventory Material model which tracks stock/cost.
