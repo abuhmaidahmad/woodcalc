@@ -486,7 +486,7 @@ function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = 
 
 // Panel-based carcass for Gola cabinets: notched sides + recessed inner body,
 // so the L/C profiles sit inside a real milled shadow gap.
-function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isTall }) {
+function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isTall, isSink }) {
   const T = 0.018
   const baseH = (baseHeight || 800) / 1000
   // Tall units: no top notch — a C-notch at base-cabinet-top level keeps the
@@ -509,8 +509,15 @@ function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isT
   // full-depth cap for that region so there's no visible gap from top-down.
   const topNotchY = notches.length > 0 ? Math.max(...notches.map((n) => n.yTop)) : 0
   const hasFlushTopGap = topNotchY < H - 0.002 - 1e-4
-  const lowerH = hasFlushTopGap ? topNotchY : H - 0.002
+  let lowerH = hasFlushTopGap ? topNotchY : H - 0.002
   const upperH = hasFlushTopGap ? (H - 0.002 - topNotchY) : 0
+  // Sink cabinets: same reasoning as the plain SmartBox carcass — the
+  // countertop has a hole above this cabinet, so the interior shell's top
+  // needs to sit below the sink basin's depth instead of reaching up to H.
+  if (isSink) {
+    const sinkDropH = Math.min(H * 0.6, 0.20)
+    lowerH = Math.max(0.05, Math.min(lowerH, H - sinkDropH))
+  }
   return (
     <group>
       <NotchedSidePanel H={H} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} />
@@ -788,7 +795,78 @@ function Backsplash3D({ seg, cabinets, countertopMat, countertopThickness, backs
   )
 }
 
-function Countertop({ W, D, material, thickness = 0.030, isSink = false, textureMap = {} }) {
+// A basin built by extruding a rectangle-with-a-rectangular-hole shape downward
+// — the same technique already used elsewhere in this file (NotchedSidePanel) for
+// milled cabinet notches, so it's a proven-working approach in this codebase.
+// This produces the 4 walls as ONE continuous connected mesh (a hollow frame),
+// unlike the earlier attempt with 4 separate thin panels which never rendered
+// correctly for reasons that weren't identifiable from screenshots alone.
+function SinkBasin({ w, d, depth = 0.18 }) {
+  const wallT = 0.006
+  const geom = useMemo(() => {
+    const shape = new THREE.Shape()
+    shape.moveTo(-w / 2, -d / 2)
+    shape.lineTo(w / 2, -d / 2)
+    shape.lineTo(w / 2, d / 2)
+    shape.lineTo(-w / 2, d / 2)
+    shape.closePath()
+
+    const hw = w / 2 - wallT, hd = d / 2 - wallT
+    const hole = new THREE.Path()
+    hole.moveTo(-hw, -hd)
+    hole.lineTo(hw, -hd)
+    hole.lineTo(hw, hd)
+    hole.lineTo(-hw, hd)
+    hole.closePath()
+    shape.holes.push(hole)
+
+    return new THREE.ExtrudeGeometry(shape, { depth, bevelEnabled: false, steps: 1 })
+  }, [w, d, depth])
+
+  return (
+    <group>
+      <mesh geometry={geom} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial color="#3a3a3a" metalness={0.85} roughness={0.35} envMapIntensity={1.5} side={THREE.DoubleSide} />
+      </mesh>
+      <mesh position={[0, -depth + wallT / 2, 0]} receiveShadow castShadow>
+        <boxGeometry args={[Math.max(0.02, w - wallT * 2), wallT, Math.max(0.02, d - wallT * 2)]} />
+        <meshPhysicalMaterial color="#3a3a3a" metalness={0.85} roughness={0.35} envMapIntensity={1.5} />
+      </mesh>
+      <mesh position={[0, -depth + wallT + 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.004, 16]} />
+        <meshPhysicalMaterial color="#1a1a1a" metalness={0.9} roughness={0.3} />
+      </mesh>
+    </group>
+  )
+}
+
+// L-shaped faucet: vertical riser, then a horizontal arm reaching forward over
+// the basin, then a short downward spout — all straight right-angle segments so
+// they connect precisely without needing curve-fitting a torus arc by eye.
+function SinkFaucet({ position = [0, 0, 0] }) {
+  const riserH = 0.20
+  const armLen = 0.10
+  const spoutH = 0.08
+  const mat = <meshPhysicalMaterial color="#c0c0c0" metalness={0.95} roughness={0.05} envMapIntensity={3} />
+  return (
+    <group position={position}>
+      <mesh position={[0, riserH / 2, 0]} castShadow>
+        <cylinderGeometry args={[0.010, 0.010, riserH, 12]} />
+        {mat}
+      </mesh>
+      <mesh position={[0, riserH, armLen / 2]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <cylinderGeometry args={[0.009, 0.009, armLen, 12]} />
+        {mat}
+      </mesh>
+      <mesh position={[0, riserH - spoutH / 2, armLen]} castShadow>
+        <cylinderGeometry args={[0.008, 0.008, spoutH, 12]} />
+        {mat}
+      </mesh>
+    </group>
+  )
+}
+
+function Countertop({ W, D, material, thickness = 0.030, sinkType = null, textureMap = {} }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
   const totalW = W + 0.040
@@ -821,7 +899,7 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
     </RoundedBox>
   )
 
-  if (!isSink) {
+  if (!sinkType) {
     return slab(totalW, totalD, [0, T / 2, zOffset])
   }
 
@@ -830,6 +908,25 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
   const borderW = (totalW - cutW) / 2
   const frontD = (totalD - cutD) / 2
   const backD = totalD - cutD - frontD
+  const faucetZ = -(cutD / 2 + frontD * 0.3)
+
+  if (sinkType === 'double') {
+    const dividerW = 0.04
+    const bowlW = (cutW - dividerW) / 2
+    const bowlX = bowlW / 2 + dividerW / 2
+    return (
+      <group position={[0, T / 2, zOffset]}>
+        {slab(borderW, totalD, [-(cutW / 2 + borderW / 2), 0, 0], 0)}
+        {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0], 1)}
+        {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2], 2)}
+        {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)], 3)}
+        {slab(dividerW, cutD, [0, 0, 0], 4)}
+        <group position={[-bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} /></group>
+        <group position={[bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} /></group>
+        <SinkFaucet position={[0, T / 2, faucetZ]} />
+      </group>
+    )
+  }
 
   return (
     <group position={[0, T / 2, zOffset]}>
@@ -837,14 +934,8 @@ function Countertop({ W, D, material, thickness = 0.030, isSink = false, texture
       {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0], 1)}
       {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2], 2)}
       {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)], 3)}
-      <mesh position={[0, -0.080, 0]}>
-        <boxGeometry args={[cutW - 0.040, 0.160, cutD - 0.040]} />
-        <meshPhysicalMaterial color="#c8c8c8" metalness={0.85} roughness={0.15} clearcoat={1} envMapIntensity={2} />
-      </mesh>
-      <mesh position={[0, 0.040, -(cutD / 2 + frontD * 0.3)]} castShadow>
-        <cylinderGeometry args={[0.012, 0.012, 0.080, 8]} />
-        <meshPhysicalMaterial color="#c0c0c0" metalness={0.95} roughness={0.05} envMapIntensity={3} />
-      </mesh>
+      <group position={[0, T / 2, 0]}><SinkBasin w={cutW - 0.001} d={cutD - 0.001} /></group>
+      <SinkFaucet position={[0, T / 2, faucetZ]} />
     </group>
   )
 }
@@ -1293,24 +1384,37 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
-        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} isTall={isTall} />
-      ) : (
-        <SmartBox
-        args={[W, H, D]}
-        position={[0, H/2, 0]}
-        castShadow receiveShadow
-        color={carcassColor}
-        materialName={carcassMaterial}
-        matProps={carcassMatProps}
-        envMapIntensity={0.5}
-      />
-      )}
+        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} isTall={isTall}
+          isSink={cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'} />
+      ) : (() => {
+        // Sink cabinets have a hole cut in the countertop above them, exposing
+        // whatever's directly underneath. A full-height carcass box would show
+        // its own top face right through that hole (and pick up carcass color,
+        // not sink color) — so for sink cabinets, drop the carcass top low
+        // enough to clear the sink basin's depth, leaving genuine open space.
+        const isSinkCab = cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'
+        const sinkDropH = isSinkCab ? Math.min(H * 0.6, 0.20) : 0
+        const carcassH = H - sinkDropH
+        return (
+          <SmartBox
+            args={[W, carcassH, D]}
+            position={[0, carcassH / 2, 0]}
+            castShadow receiveShadow
+            color={carcassColor}
+            materialName={carcassMaterial}
+            matProps={carcassMatProps}
+            envMapIntensity={0.5}
+          />
+        )
+      })()}
       {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
         <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} cab={cab} allCabinets={allCabinets} />
       )}
       {isBase && !isShelf && (
         <group position={[0, H, 0]}>
-          <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000} isSink={cab.subtype === 'Sink'} textureMap={textureMap} />
+          <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
+            sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
+            textureMap={textureMap} />
         </group>
       )}
       {cab.ledStripInterior && !isShelf && (() => {
