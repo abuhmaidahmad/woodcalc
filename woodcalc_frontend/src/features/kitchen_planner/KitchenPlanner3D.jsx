@@ -801,7 +801,7 @@ function Backsplash3D({ seg, cabinets, countertopMat, countertopThickness, backs
 // This produces the 4 walls as ONE continuous connected mesh (a hollow frame),
 // unlike the earlier attempt with 4 separate thin panels which never rendered
 // correctly for reasons that weren't identifiable from screenshots alone.
-function SinkBasin({ w, d, depth = 0.18 }) {
+function SinkBasin({ w, d, depth = 0.18, color = '#3a3a3a', roughness = 0.35, metalness = 0.85 }) {
   const wallT = 0.006
   const geom = useMemo(() => {
     const shape = new THREE.Shape()
@@ -826,11 +826,11 @@ function SinkBasin({ w, d, depth = 0.18 }) {
   return (
     <group>
       <mesh geometry={geom} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-        <meshPhysicalMaterial color="#3a3a3a" metalness={0.85} roughness={0.35} envMapIntensity={1.5} side={THREE.DoubleSide} />
+        <meshPhysicalMaterial color={color} metalness={metalness} roughness={roughness} envMapIntensity={1.5} side={THREE.DoubleSide} />
       </mesh>
       <mesh position={[0, -depth + wallT / 2, 0]} receiveShadow castShadow>
         <boxGeometry args={[Math.max(0.02, w - wallT * 2), wallT, Math.max(0.02, d - wallT * 2)]} />
-        <meshPhysicalMaterial color="#3a3a3a" metalness={0.85} roughness={0.35} envMapIntensity={1.5} />
+        <meshPhysicalMaterial color={color} metalness={metalness} roughness={roughness} envMapIntensity={1.5} />
       </mesh>
       <mesh position={[0, -depth + wallT + 0.002, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <cylinderGeometry args={[0.018, 0.018, 0.004, 16]} />
@@ -866,7 +866,7 @@ function SinkFaucet({ position = [0, 0, 0] }) {
   )
 }
 
-function Countertop({ W, D, material, thickness = 0.030, sinkType = null, textureMap = {} }) {
+function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkColorHex, sinkRoughness, sinkMetalness, textureMap = {} }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
   const totalW = W + 0.040
@@ -921,8 +921,8 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, textur
         {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2], 2)}
         {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)], 3)}
         {slab(dividerW, cutD, [0, 0, 0], 4)}
-        <group position={[-bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} /></group>
-        <group position={[bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} /></group>
+        <group position={[-bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
+        <group position={[bowlX, T / 2, 0]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
         <SinkFaucet position={[0, T / 2, faucetZ]} />
       </group>
     )
@@ -934,7 +934,7 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, textur
       {slab(borderW, totalD, [cutW / 2 + borderW / 2, 0, 0], 1)}
       {slab(cutW, frontD, [0, 0, cutD / 2 + frontD / 2], 2)}
       {slab(cutW, backD, [0, 0, -(cutD / 2 + backD / 2)], 3)}
-      <group position={[0, T / 2, 0]}><SinkBasin w={cutW - 0.001} d={cutD - 0.001} /></group>
+      <group position={[0, T / 2, 0]}><SinkBasin w={cutW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
       <SinkFaucet position={[0, T / 2, faucetZ]} />
     </group>
   )
@@ -1414,6 +1414,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         <group position={[0, H, 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
+            sinkColorHex={cab.sinkColorHex} sinkRoughness={cab.sinkRoughness} sinkMetalness={cab.sinkMetalness}
             textureMap={textureMap} />
         </group>
       )}
