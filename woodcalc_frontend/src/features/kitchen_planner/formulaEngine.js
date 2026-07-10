@@ -174,9 +174,20 @@ export function calculateCabinet(config) {
     notes: '(W - 2T) × (D - 30 - 8)',
   });
 
-  // Wall cabinets don't get front/back rails (no toe kick/leg support needed,
-  // and the top/bottom panels + back panel already provide the structure)
-  if (cabinetType !== 'wall') {
+  // Wall and tall cabinets (incl. pantry) don't get front/back rails —
+  // they get a top panel matching the bottom panel instead. Base cabinets
+  // keep rails (no top panel; countertop sits on top).
+  const usesTopPanel = cabinetType === 'wall' || cabinetType === 'tall';
+  if (usesTopPanel) {
+    panels.push({
+      name: 'Top panel',
+      qty: 1,
+      width: bottomW,
+      depth: bottomD,
+      thickness: T,
+      notes: '(W - 2T) × (D - 30 - 8), same as bottom panel',
+    });
+  } else {
     const railW = bottomW;
     panels.push({
       name: 'Front rail',
@@ -323,6 +334,8 @@ export function calculateCabinet(config) {
   const hardware = {};
   hardware.legs = 4;
   hardware.confirmats = 10;
+  // Wall cabinets hang on a pair of cabinet hangers instead of legs
+  hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
   hardware.back_screws = Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;

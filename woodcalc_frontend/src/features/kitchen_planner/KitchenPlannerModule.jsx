@@ -1520,6 +1520,34 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </div>
                 ))}
               </div>
+              {cabinets.some(c => c.sinkId) && (
+                <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>
+                    Sink Cutout Specifications <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>— for countertop fabrication</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr style={{ background: '#FAFAFA' }}>
+                      {['Cabinet', 'Sink', 'Cavity', 'Cutout W × D (mm)', 'Mount', 'Price'].map(h => (
+                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {cabinets.filter(c => c.sinkId).map(c => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkBrand} {c.sinkModel}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkCavityCount === 2 ? 'Double' : 'Single'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace' }}>
+                            {(c.sinkCutoutWidthMm || c.sinkWidthMm)} × {(c.sinkCutoutDepthMm || c.sinkDepthMm)}
+                          </td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, textTransform: 'capitalize' }}>{c.sinkMaterial === 'stainless_steel' ? 'Stainless Steel' : c.sinkMaterial === 'granite_composite' ? 'Granite Composite' : c.sinkMaterial}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkPrice || '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
               <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>Cabinet List</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
