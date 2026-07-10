@@ -476,7 +476,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 }
 
 function aggregateBOM(cabinets) {
-  const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0 }
+  const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0, cabinetHangers: 0 }
   cabinets.forEach(cab => {
     if (!isCarcassCabinet(cab)) return
     try {
@@ -490,6 +490,7 @@ function aggregateBOM(cabinets) {
       totals.dowels     += r.hardware.dowels
       totals.backScrews += r.hardware.back_screws
       totals.handles    += r.hardware.handles
+      totals.cabinetHangers += (r.hardware.cabinet_hangers || 0)
     } catch {}
   })
   Object.keys(totals).forEach(k => { totals[k] = parseFloat(totals[k].toFixed(2)) })
@@ -1512,6 +1513,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   ['Legs', bom.legs+' pcs', '#1ABC9C'], ['Confirmats', bom.confirmats+' pcs', '#E74C3C'],
                   ['Dowels', bom.dowels+' pcs', '#F39C12'], ['Back Screws', bom.backScrews+' pcs', '#95A5A6'],
                   ['Handles', bom.handles+' pcs', DARK],
+                  ['Cabinet Hangers', bom.cabinetHangers+' pcs', '#3498DB'],
                   ['Backsplash', parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' m', '#8B5E3C'],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid '+color, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
