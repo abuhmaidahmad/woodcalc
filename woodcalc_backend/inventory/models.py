@@ -5,11 +5,23 @@ from PIL import Image
 
 
 class Supplier(models.Model):
+    CATEGORY_CHOICES = [
+        ('raw_material', 'Raw Material'),
+        ('hardware', 'Hardware'),
+        ('glass', 'Glass'),
+        ('countertop', 'Countertop/Stone'),
+        ('appliance', 'Appliance'),
+        ('other', 'Other'),
+    ]
     name = models.CharField(max_length=200)
     contact_name = models.CharField(max_length=200, blank=True)
     phone = models.CharField(max_length=50, blank=True)
     email = models.EmailField(blank=True)
     address = models.CharField(max_length=300, blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, blank=True, default='other')
+    payment_terms = models.CharField(max_length=100, blank=True, help_text='e.g. Net 30, 50% deposit / 50% on delivery')
+    lead_time_days = models.PositiveIntegerField(null=True, blank=True, help_text='Typical lead time in days')
+    is_active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.name
