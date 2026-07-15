@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'supply_chain',
     'hr',
     'crm',
+    'srm',
 ]
 
 MIDDLEWARE = [
