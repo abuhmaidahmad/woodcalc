@@ -14,4 +14,5 @@ urlpatterns = [
     path('api/supply_chain/', include('supply_chain.urls')),
     path('api/hr/', include('hr.urls')),
     path('api/crm/', include('crm.urls')),
+    path('api/srm/', include('srm.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
