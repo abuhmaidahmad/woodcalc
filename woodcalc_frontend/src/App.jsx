@@ -15,6 +15,9 @@ import CustomerDetail from './pages/CustomerDetail';
 import ProjectDetail from './pages/ProjectDetail';
 import MaterialCatalog from './pages/MaterialCatalog';
 import Collections from './pages/Collections';
+import SupplierList from './pages/SupplierList';
+import PurchaseOrderList from './pages/PurchaseOrderList';
+import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -65,6 +68,17 @@ export default function App() {
         {/* Materials Catalog */}
         <Route path="/catalog" element={
           <PrivateRoute><MaterialCatalog /></PrivateRoute>
+        } />
+
+        {/* SRM */}
+        <Route path="/suppliers" element={
+          <PrivateRoute><SupplierList /></PrivateRoute>
+        } />
+        <Route path="/purchase-orders" element={
+          <PrivateRoute><PurchaseOrderList /></PrivateRoute>
+        } />
+        <Route path="/purchase-orders/:id" element={
+          <PrivateRoute><PurchaseOrderDetail /></PrivateRoute>
         } />
 
         {/* Dashboard */}

@@ -25,6 +25,7 @@ const ICONS = {
   proposals:   "M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z",
   commission:  "M3 3h18v18H3z M3 9h18 M9 21V9",
   materials:   "M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z",
+  suppliers:   "M1 3h15v13H1z M16 8h4l3 3v5h-7V8z M5.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z M18.5 21a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z",
 };
 
 // ─── Card Component ─────────────────────────────────────────────────
@@ -141,6 +142,18 @@ function getCards(userType, navigate, isVerified) {
           description: 'Upload and manage cabinet finishes, textures, board sizes and pricing.',
           cta: 'Manage catalog', ctaAction: () => navigate('/catalog'),
           accent: '#C8902A',
+        },
+        {
+          icon: 'suppliers', title: 'Suppliers',
+          description: 'Manage supplier relationships and contact details.',
+          cta: 'View suppliers', ctaAction: () => navigate('/suppliers'),
+          accent: '#8A2AC8',
+        },
+        {
+          icon: 'orders', title: 'Purchase Orders',
+          description: 'Create and track purchase orders, receive stock into inventory.',
+          cta: 'View orders', ctaAction: () => navigate('/purchase-orders'),
+          accent: '#8A2AC8',
         },
         {
           icon: 'incoming', title: 'Incoming Orders',
