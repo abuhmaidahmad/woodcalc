@@ -156,6 +156,12 @@ function getCards(userType, navigate, isVerified) {
           accent: '#8A2AC8',
         },
         {
+          icon: 'materials', title: 'Materials (Stock)',
+          description: 'Track stock-tracked SKUs, quantities, and reorder levels.',
+          cta: 'View materials', ctaAction: () => navigate('/materials'),
+          accent: '#8A2AC8',
+        },
+        {
           icon: 'incoming', title: 'Incoming Orders',
           description: 'New cabinet orders waiting for your confirmation.',
           cta: 'View orders', ctaAction: () => navigate('/orders'),
