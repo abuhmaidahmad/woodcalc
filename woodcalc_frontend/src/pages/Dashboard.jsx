@@ -291,6 +291,10 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
+          <button onClick={() => navigate('/settings')}
+            style={{ ...styles.logoutBtn, color: '#ccc' }}>
+            Settings
+          </button>
           <button style={styles.logoutBtn} onClick={handleLogout}>
             Sign out
           </button>

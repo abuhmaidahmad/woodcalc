@@ -19,6 +19,7 @@ import SupplierList from './pages/SupplierList';
 import PurchaseOrderList from './pages/PurchaseOrderList';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import MaterialList from './pages/MaterialList';
+import Settings from './pages/Settings';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -83,6 +84,9 @@ export default function App() {
         } />
         <Route path="/materials" element={
           <PrivateRoute><MaterialList /></PrivateRoute>
+        } />
+        <Route path="/settings" element={
+          <PrivateRoute><Settings /></PrivateRoute>
         } />
 
         {/* Dashboard */}
