@@ -15,6 +15,8 @@ DEBUG = config('DEBUG', default=True, cast=bool)
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv())
 
+EMAIL_ENCRYPTION_KEY = config('EMAIL_ENCRYPTION_KEY', default='')
+
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [

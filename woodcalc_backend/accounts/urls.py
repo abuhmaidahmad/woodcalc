@@ -8,4 +8,5 @@ urlpatterns = [
     path('register/supplier/', views.register_supplier, name='register_supplier'),
     path('me/', views.me, name='me'),
     path('upload-document/', views.upload_verification_document, name='upload_document'),
+    path('email-account/', views.email_account, name='email_account'),
 ]

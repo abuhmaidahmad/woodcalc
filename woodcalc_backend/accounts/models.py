@@ -80,3 +80,18 @@ class SupplierProfile(models.Model):
 
     def __str__(self):
         return f"Supplier: {self.company_name}"
+
+class EmailAccount(models.Model):
+    """Stores a user's connected email account (e.g. purchasing officer's Gmail)
+    used to send Purchase Order emails directly to suppliers from within the app.
+    App password is encrypted at rest using Fernet symmetric encryption."""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='email_account')
+    email_address = models.EmailField()
+    encrypted_app_password = models.BinaryField()
+    smtp_host = models.CharField(max_length=100, default='smtp.gmail.com')
+    smtp_port = models.PositiveIntegerField(default=587)
+    is_active = models.BooleanField(default=True)
+    connected_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.user.email} -> {self.email_address}"

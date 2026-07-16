@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ArchitectProfile, ManufacturerProfile, SupplierProfile
+from .models import ArchitectProfile, ManufacturerProfile, SupplierProfile, EmailAccount
 
 User = get_user_model()
 
@@ -128,3 +128,31 @@ class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'city', 'user_type', 'is_verified']
+
+
+class EmailAccountSerializer(serializers.ModelSerializer):
+    """Handles connecting a user's email account. app_password is write-only input
+    used to derive encrypted_app_password; it is never returned in API responses."""
+    app_password = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = EmailAccount
+        fields = ['id', 'email_address', 'app_password', 'smtp_host', 'smtp_port', 'is_active', 'connected_at']
+        read_only_fields = ['id', 'connected_at']
+
+    def create(self, validated_data):
+        from .email_crypto import encrypt_password
+        plain_password = validated_data.pop('app_password')
+        validated_data['encrypted_app_password'] = encrypt_password(plain_password)
+        validated_data['user'] = self.context['request'].user
+        return EmailAccount.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        from .email_crypto import encrypt_password
+        plain_password = validated_data.pop('app_password', None)
+        if plain_password:
+            instance.encrypted_app_password = encrypt_password(plain_password)
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance

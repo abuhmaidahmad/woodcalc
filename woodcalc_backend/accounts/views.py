@@ -130,3 +130,29 @@ def upload_verification_document(request):
         return Response({'error': 'Not applicable for this user type.'}, status=400)
 
     return Response({'message': 'Document submitted. Under review.'})
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def email_account(request):
+    """GET returns the current user's connected email account status (never the password).
+    POST connects or updates the user's email account (email + app password)."""
+    from .models import EmailAccount
+    from .serializers import EmailAccountSerializer
+
+    existing = EmailAccount.objects.filter(user=request.user).first()
+
+    if request.method == 'GET':
+        if not existing:
+            return Response({'connected': False})
+        data = EmailAccountSerializer(existing).data
+        data['connected'] = True
+        return Response(data)
+
+    serializer = EmailAccountSerializer(
+        instance=existing, data=request.data, context={'request': request}
+    )
+    if serializer.is_valid():
+        serializer.save()
+        return Response({'message': 'Email account connected successfully.'}, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
