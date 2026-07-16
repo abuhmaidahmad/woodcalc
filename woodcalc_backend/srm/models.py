@@ -16,7 +16,7 @@ class PurchaseOrder(models.Model):
     po_number = models.CharField(max_length=30, unique=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='purchase_orders')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
-    order_date = models.DateField(default=timezone.now)
+    order_date = models.DateField(default=timezone.localdate)
     expected_delivery_date = models.DateField(null=True, blank=True)
     actual_delivery_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
