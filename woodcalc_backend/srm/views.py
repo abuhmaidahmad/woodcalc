@@ -2,6 +2,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from decimal import Decimal, InvalidOperation
 from .models import PurchaseOrder, PurchaseOrderLineItem
 from .serializers import PurchaseOrderSerializer, PurchaseOrderLineItemSerializer
 
@@ -23,8 +24,8 @@ class PurchaseOrderLineItemViewSet(ModelViewSet):
         Updates Material.quantity_on_hand, logs a StockMovement, and updates PO status."""
         line_item = self.get_object()
         try:
-            quantity = float(request.data.get('quantity', 0))
+            quantity = Decimal(str(request.data.get('quantity', 0)))
             line_item.receive(quantity)
-        except ValueError as e:
+        except (ValueError, InvalidOperation) as e:
             return Response({'error': str(e)}, status=400)
         return Response(PurchaseOrderLineItemSerializer(line_item).data)
