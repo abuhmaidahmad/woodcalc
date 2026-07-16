@@ -11,6 +11,11 @@ const UNIT_LABELS = {
   M3: 'Cubic Meters', KG: 'Kilograms', L: 'Liters',
 }
 
+const DEFAULT_CATEGORIES = [
+  'Wood Panel', 'Solid Wood', 'Countertop/Stone', 'Hardware', 'Glass',
+  'Edge Banding', 'Adhesive', 'Finish/Lacquer', 'Fastener', 'Appliance',
+]
+
 export default function MaterialList() {
   const [materials, setMaterials] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -18,6 +23,8 @@ export default function MaterialList() {
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ sku: '', name: '', category: '', unit: 'PCS', quantity_on_hand: '0', reorder_level: '0', unit_cost: '0', supplier: '' })
+  const [customCategory, setCustomCategory] = useState('')
+  const [addingCategory, setAddingCategory] = useState(false)
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
 
@@ -145,13 +152,46 @@ export default function MaterialList() {
             <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>New Material</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Add a stock-tracked SKU</div>
 
-            {[['sku', 'SKU *'], ['name', 'Name *'], ['category', 'Category']].map(([key, label]) => (
+            {[['sku', 'SKU *'], ['name', 'Name *']].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>
                 <input value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
               </div>
             ))}
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Category</div>
+              {!addingCategory ? (
+                <select value={form.category} onChange={e => {
+                  if (e.target.value === '__add_new__') { setAddingCategory(true); setForm(f => ({ ...f, category: '' })) }
+                  else setForm(f => ({ ...f, category: e.target.value }))
+                }}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, background: '#fff' }}>
+                  <option value="">None</option>
+                  {[...new Set([...DEFAULT_CATEGORIES, ...materials.map(m => m.category).filter(Boolean)])].sort().map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                  <option value="__add_new__">+ Add new category...</option>
+                </select>
+              ) : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input autoFocus value={customCategory} onChange={e => setCustomCategory(e.target.value)}
+                    placeholder="Type new category"
+                    style={{ flex: 1, padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+                  <button onClick={() => {
+                    if (customCategory.trim()) setForm(f => ({ ...f, category: customCategory.trim() }))
+                    setAddingCategory(false); setCustomCategory('')
+                  }}
+                    style={{ padding: '8px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                    OK
+                  </button>
+                </div>
+              )}
+              {!addingCategory && form.category && (
+                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>Selected: {form.category}</div>
+              )}
+            </div>
 
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Unit</div>
