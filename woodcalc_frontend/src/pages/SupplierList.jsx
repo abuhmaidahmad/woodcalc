@@ -22,6 +22,7 @@ export default function SupplierList() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'other', payment_terms: '', lead_time_days: '' })
   const [saving, setSaving] = useState(false)
+  const [editing, setEditing] = useState(null)
   const navigate = useNavigate()
 
   const fetchSuppliers = async () => {
@@ -48,14 +49,27 @@ export default function SupplierList() {
     setSaving(true)
     try {
       const payload = { ...form, lead_time_days: form.lead_time_days ? parseInt(form.lead_time_days) : null }
-      const res = await authFetch(API + '/api/inventory/suppliers/', { method: 'POST', body: JSON.stringify(payload) })
+      const url = editing ? API + `/api/inventory/suppliers/${editing}/` : API + '/api/inventory/suppliers/'
+      const method = editing ? 'PATCH' : 'POST'
+      const res = await authFetch(url, { method, body: JSON.stringify(payload) })
       if (res.ok) {
         setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'other', payment_terms: '', lead_time_days: '' })
         setShowAdd(false)
+        setEditing(null)
         fetchSuppliers()
       }
     } catch {}
     setSaving(false)
+  }
+
+  const openEdit = (s) => {
+    setEditing(s.id)
+    setForm({
+      name: s.name || '', contact_name: s.contact_name || '', phone: s.phone || '',
+      email: s.email || '', address: s.address || '', category: s.category || 'other',
+      payment_terms: s.payment_terms || '', lead_time_days: s.lead_time_days != null ? String(s.lead_time_days) : '',
+    })
+    setShowAdd(true)
   }
 
   return (
@@ -109,8 +123,10 @@ export default function SupplierList() {
         ) : (
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             {filtered.map((s, i) => (
-              <div key={s.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none' }}>
+              <div key={s.id} onClick={() => openEdit(s)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none', cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#FDFAF6'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
                   <div style={{ width: 40, height: 40, borderRadius: 20, background: (s.is_active ? ACCENT : '#bbb') + '22', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: s.is_active ? ACCENT : '#bbb' }}>
                     {s.name.charAt(0).toUpperCase()}
@@ -136,7 +152,7 @@ export default function SupplierList() {
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>New Supplier</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{editing ? 'Edit Supplier' : 'New Supplier'}</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Fill in the supplier details</div>
             {[['name', 'Company Name *'], ['contact_name', 'Contact Name'], ['phone', 'Phone'], ['email', 'Email'], ['address', 'Address'], ['payment_terms', 'Payment Terms (e.g. Net 30)'], ['lead_time_days', 'Lead Time (days)']].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
@@ -153,13 +169,13 @@ export default function SupplierList() {
               </select>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setShowAdd(false)}
+              <button onClick={() => { setShowAdd(false); setEditing(null); setForm({ name: '', contact_name: '', phone: '', email: '', address: '', category: 'other', payment_terms: '', lead_time_days: '' }) }}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
                 Cancel
               </button>
               <button onClick={saveSupplier} disabled={saving || !form.name.trim()}
                 style={{ flex: 2, padding: '10px', background: form.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: form.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {saving ? 'Saving...' : 'Save Supplier'}
+                {saving ? 'Saving...' : editing ? 'Update Supplier' : 'Save Supplier'}
               </button>
             </div>
           </div>
