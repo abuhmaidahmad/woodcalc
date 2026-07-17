@@ -31,6 +31,8 @@ export default function PurchaseOrderDetail() {
   const [itemForm, setItemForm] = useState({ material: '', quantity_ordered: '', unit_price: '' })
   const [saving, setSaving] = useState(false)
   const [receiveQty, setReceiveQty] = useState({})
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [sendMessage, setSendMessage] = useState('')
   const navigate = useNavigate()
 
   const fetchAll = async () => {
@@ -69,6 +71,24 @@ export default function PurchaseOrderDetail() {
       }
     } catch {}
     setSaving(false)
+  }
+
+  const sendToSupplier = async () => {
+    setSendingEmail(true)
+    setSendMessage('')
+    try {
+      const res = await authFetch(API + `/api/srm/purchase-orders/${id}/send_email/`, { method: 'POST' })
+      const data = await res.json()
+      if (res.ok) {
+        setSendMessage(data.message)
+        fetchAll()
+      } else {
+        setSendMessage('Error: ' + data.error)
+      }
+    } catch {
+      setSendMessage('Error: could not reach server')
+    }
+    setSendingEmail(false)
   }
 
   const changeStatus = async (status) => {
@@ -125,6 +145,9 @@ export default function PurchaseOrderDetail() {
                 Ordered {po.order_date}{po.expected_delivery_date ? ` · Expected ${po.expected_delivery_date}` : ''}{po.actual_delivery_date ? ` · Received ${po.actual_delivery_date}` : ''}
               </div>
               {po.notes && <div style={{ color: '#666', fontSize: 12, marginTop: 8, fontStyle: 'italic' }}>{po.notes}</div>}
+              {sendMessage && (
+                <div style={{ fontSize: 12, color: sendMessage.startsWith('Error') ? '#c33' : '#3a3', marginTop: 8 }}>{sendMessage}</div>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
               {po.is_late && <span style={{ fontSize: 11, color: '#c33', background: '#fee', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>LATE</span>}
@@ -132,6 +155,10 @@ export default function PurchaseOrderDetail() {
                 style={{ fontSize: 12, color: st.color, background: st.bg, padding: '6px 12px', borderRadius: 20, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                 {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABELS[s]}</option>)}
               </select>
+              <button onClick={sendToSupplier} disabled={sendingEmail}
+                style={{ padding: '8px 16px', background: DARK, color: '#fff', border: 'none', borderRadius: 8, cursor: sendingEmail ? 'default' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+                {sendingEmail ? 'Sending...' : 'Send to Supplier'}
+              </button>
             </div>
           </div>
         </div>
