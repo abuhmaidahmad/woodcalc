@@ -33,6 +33,10 @@ export default function PurchaseOrderDetail() {
   const [receiveQty, setReceiveQty] = useState({})
   const [sendingEmail, setSendingEmail] = useState(false)
   const [sendMessage, setSendMessage] = useState('')
+  const [showPayment, setShowPayment] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({ amount: '', method: 'cash', reference: '', notes: '' })
+  const [payingSubmitting, setPayingSubmitting] = useState(false)
+  const [paymentError, setPaymentError] = useState('')
   const navigate = useNavigate()
 
   const fetchAll = async () => {
@@ -113,6 +117,29 @@ export default function PurchaseOrderDetail() {
     } catch {}
   }
 
+  const recordPayment = async () => {
+    if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) return
+    setPayingSubmitting(true)
+    setPaymentError('')
+    try {
+      const res = await authFetch(API + `/api/srm/purchase-orders/${id}/record_payment/`, {
+        method: 'POST',
+        body: JSON.stringify(paymentForm),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setPaymentForm({ amount: '', method: 'cash', reference: '', notes: '' })
+        setShowPayment(false)
+        fetchAll()
+      } else {
+        setPaymentError(data.error || 'Failed to record payment')
+      }
+    } catch {
+      setPaymentError('Could not reach server')
+    }
+    setPayingSubmitting(false)
+  }
+
   if (loading || !po) {
     return <div style={{ minHeight: '100vh', background: '#F7F4F0', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#bbb' }}>Loading...</div>
   }
@@ -160,6 +187,41 @@ export default function PurchaseOrderDetail() {
                 {sendingEmail ? 'Sending...' : 'Send to Supplier'}
               </button>
             </div>
+          </div>
+        </div>
+
+        <div style={{ background: '#fff', borderRadius: 12, padding: 20, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>Payment</h2>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 6 }}>
+                Total: {po.total_amount} · Paid: {po.amount_paid} · Balance due: <strong style={{ color: po.balance_due > 0 ? DARK : '#3a3' }}>{po.balance_due}</strong>
+              </div>
+              {po.payment_due_date && (
+                <div style={{ fontSize: 12, marginTop: 4 }}>
+                  {po.is_payment_overdue ? (
+                    <span style={{ color: '#c33', background: '#fee', padding: '3px 10px', borderRadius: 20, fontWeight: 600, fontSize: 11 }}>OVERDUE — due {po.payment_due_date}</span>
+                  ) : (
+                    <span style={{ color: '#888' }}>Due {po.payment_due_date}</span>
+                  )}
+                </div>
+              )}
+              {po.payments && po.payments.length > 0 && (
+                <div style={{ marginTop: 10 }}>
+                  {po.payments.map(p => (
+                    <div key={p.id} style={{ fontSize: 11, color: '#888', marginTop: 3 }}>
+                      {p.payment_date} · {p.amount} · {p.method}{p.reference ? ` (${p.reference})` : ''}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {po.balance_due > 0 && (
+              <button onClick={() => setShowPayment(true)}
+                style={{ padding: '8px 16px', background: DARK, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                Record Payment
+              </button>
+            )}
           </div>
         </div>
 
@@ -240,6 +302,51 @@ export default function PurchaseOrderDetail() {
               <button onClick={addLineItem} disabled={saving || !itemForm.material || !itemForm.quantity_ordered}
                 style={{ flex: 2, padding: '10px', background: (itemForm.material && itemForm.quantity_ordered) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: (itemForm.material && itemForm.quantity_ordered) ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
                 {saving ? 'Adding...' : 'Add Item'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPayment && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>Record Payment</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Balance due: {po.balance_due}</div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Amount *</div>
+              <input type="number" value={paymentForm.amount} onChange={e => setPaymentForm(f => ({ ...f, amount: e.target.value }))}
+                style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Method *</div>
+              <select value={paymentForm.method} onChange={e => setPaymentForm(f => ({ ...f, method: e.target.value }))}
+                style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, background: '#fff' }}>
+                <option value="cash">Cash</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cheque">Post-dated Cheque</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Reference</div>
+              <input type="text" value={paymentForm.reference} onChange={e => setPaymentForm(f => ({ ...f, reference: e.target.value }))}
+                placeholder="Cheque #, transfer ref, etc."
+                style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+            </div>
+
+            {paymentError && <div style={{ fontSize: 12, color: '#c33', marginBottom: 12 }}>{paymentError}</div>}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
+              <button onClick={() => { setShowPayment(false); setPaymentError('') }}
+                style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
+                Cancel
+              </button>
+              <button onClick={recordPayment} disabled={payingSubmitting || !paymentForm.amount}
+                style={{ flex: 2, padding: '10px', background: paymentForm.amount ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: paymentForm.amount ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+                {payingSubmitting ? 'Recording...' : 'Record Payment'}
               </button>
             </div>
           </div>
