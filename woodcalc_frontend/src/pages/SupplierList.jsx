@@ -152,8 +152,18 @@ export default function SupplierList() {
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{editing ? 'Edit Supplier' : 'New Supplier'}</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Fill in the supplier details</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{editing ? 'Edit Supplier' : 'New Supplier'}</div>
+                <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Fill in the supplier details</div>
+              </div>
+              {editing && (
+                <button onClick={() => navigate(`/suppliers/${editing}/statement`)}
+                  style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: DARK, whiteSpace: 'nowrap' }}>
+                  View Statement
+                </button>
+              )}
+            </div>
             {[['name', 'Company Name *'], ['contact_name', 'Contact Name'], ['phone', 'Phone'], ['email', 'Email'], ['address', 'Address'], ['payment_terms', 'Payment Terms (e.g. Net 30)'], ['lead_time_days', 'Lead Time (days)']].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>

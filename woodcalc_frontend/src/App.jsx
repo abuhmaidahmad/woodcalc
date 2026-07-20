@@ -17,6 +17,7 @@ import MaterialCatalog from './pages/MaterialCatalog';
 import Collections from './pages/Collections';
 import SupplierList from './pages/SupplierList';
 import PurchaseOrderList from './pages/PurchaseOrderList';
+import SupplierStatement from './pages/SupplierStatement';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
@@ -75,6 +76,9 @@ export default function App() {
         {/* SRM */}
         <Route path="/suppliers" element={
           <PrivateRoute><SupplierList /></PrivateRoute>
+        } />
+        <Route path="/suppliers/:id/statement" element={
+          <PrivateRoute><SupplierStatement /></PrivateRoute>
         } />
         <Route path="/purchase-orders" element={
           <PrivateRoute><PurchaseOrderList /></PrivateRoute>
