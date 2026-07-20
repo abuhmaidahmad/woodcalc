@@ -3,9 +3,10 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal, InvalidOperation
-from .models import PurchaseOrder, PurchaseOrderLineItem
+from django.utils import timezone
+from .models import PurchaseOrder, PurchaseOrderLineItem, SupplierPayment
 from .email_service import send_purchase_order_email, EmailAccountNotConnected
-from .serializers import PurchaseOrderSerializer, PurchaseOrderLineItemSerializer
+from .serializers import PurchaseOrderSerializer, PurchaseOrderLineItemSerializer, SupplierPaymentSerializer
 
 
 class PurchaseOrderViewSet(ModelViewSet):
@@ -31,6 +32,34 @@ class PurchaseOrderViewSet(ModelViewSet):
             po.status = 'sent'
             po.save(update_fields=['status'])
         return Response({'message': f'Purchase order {po.po_number} sent to {po.supplier.email}'})
+
+    @action(detail=True, methods=['post'])
+    def record_payment(self, request, pk=None):
+        """Record a payment against this PO. Body: {"amount": <number>, "method": "cash"|"bank_transfer"|"cheque",
+        "payment_date": "YYYY-MM-DD" (optional), "reference": "" (optional), "notes": "" (optional)}."""
+        po = self.get_object()
+        try:
+            amount = Decimal(str(request.data.get('amount', 0)))
+        except InvalidOperation:
+            return Response({'error': 'Invalid amount'}, status=400)
+        if amount <= 0:
+            return Response({'error': 'Amount must be positive'}, status=400)
+        if amount > po.balance_due:
+            return Response({'error': f'Amount exceeds balance due ({po.balance_due})'}, status=400)
+
+        method = request.data.get('method')
+        if method not in dict(SupplierPayment.METHOD_CHOICES):
+            return Response({'error': 'Invalid or missing payment method'}, status=400)
+
+        payment = SupplierPayment.objects.create(
+            purchase_order=po,
+            amount=amount,
+            method=method,
+            payment_date=request.data.get('payment_date') or timezone.localdate(),
+            reference=request.data.get('reference', ''),
+            notes=request.data.get('notes', ''),
+        )
+        return Response(SupplierPaymentSerializer(payment).data, status=201)
 
 
 class PurchaseOrderLineItemViewSet(ModelViewSet):
