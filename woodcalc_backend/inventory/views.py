@@ -1,5 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.decorators import action
+from rest_framework.response import Response
 from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem, Sink
 from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer, DrawerSystemSerializer, SinkSerializer
 
@@ -14,6 +16,58 @@ class SupplierViewSet(ModelViewSet):
     queryset = Supplier.objects.all().order_by('name')
     serializer_class = SupplierSerializer
     permission_classes = [IsAuthenticated]
+
+    @action(detail=True, methods=['get'])
+    def statement(self, request, pk=None):
+        """Account statement: every PO for this supplier with totals, plus
+        aggregate totals across all of them."""
+        from srm.models import PurchaseOrder
+        from srm.serializers import PurchaseOrderSerializer
+
+        supplier = self.get_object()
+        pos = PurchaseOrder.objects.filter(supplier=supplier).order_by('-order_date')
+        po_data = PurchaseOrderSerializer(pos, many=True).data
+
+        total_ordered = sum(po.total_amount for po in pos)
+        total_paid = sum(po.amount_paid for po in pos)
+        total_balance = sum(po.balance_due for po in pos)
+        overdue_count = sum(1 for po in pos if po.is_payment_overdue)
+
+        return Response({
+            'supplier_id': supplier.id,
+            'supplier_name': supplier.name,
+            'total_ordered': total_ordered,
+            'total_paid': total_paid,
+            'total_balance': total_balance,
+            'overdue_count': overdue_count,
+            'purchase_orders': po_data,
+        })
+
+    @action(detail=True, methods=['get'])
+    def statement(self, request, pk=None):
+        """Account statement: every PO for this supplier with totals, plus
+        aggregate totals across all of them."""
+        from srm.models import PurchaseOrder
+        from srm.serializers import PurchaseOrderSerializer
+
+        supplier = self.get_object()
+        pos = PurchaseOrder.objects.filter(supplier=supplier).order_by('-order_date')
+        po_data = PurchaseOrderSerializer(pos, many=True).data
+
+        total_ordered = sum(po.total_amount for po in pos)
+        total_paid = sum(po.amount_paid for po in pos)
+        total_balance = sum(po.balance_due for po in pos)
+        overdue_count = sum(1 for po in pos if po.is_payment_overdue)
+
+        return Response({
+            'supplier_id': supplier.id,
+            'supplier_name': supplier.name,
+            'total_ordered': total_ordered,
+            'total_paid': total_paid,
+            'total_balance': total_balance,
+            'overdue_count': overdue_count,
+            'purchase_orders': po_data,
+        })
 
 
 class StockMovementViewSet(ModelViewSet):
