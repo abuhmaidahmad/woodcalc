@@ -1,13 +1,16 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import resend
+from django.conf import settings
 
 from accounts.models import EmailAccount
-from accounts.email_crypto import decrypt_password
 
 
 class EmailAccountNotConnected(Exception):
     pass
+
+
+resend.api_key = settings.RESEND_API_KEY
+
+DEFAULT_FROM_ADDRESS = "WoodCalc Purchasing <orders@purchasing.petsaholics.com>"
 
 
 def build_po_email_body(purchase_order):
@@ -41,9 +44,10 @@ def build_po_email_body(purchase_order):
 
 
 def send_purchase_order_email(purchase_order, sender_user):
-    """Sends the given PurchaseOrder to its supplier's email, using sender_user's
-    connected EmailAccount for authentication. Raises EmailAccountNotConnected if
-    the user hasn't connected an email account yet."""
+    """Sends the given PurchaseOrder to its supplier's email via Resend.
+    Uses sender_user's connected EmailAccount address as the reply-to, so
+    supplier replies land in the purchasing user's real inbox. Raises
+    EmailAccountNotConnected if the user hasn't connected an email account yet."""
     try:
         email_account = sender_user.email_account
     except EmailAccount.DoesNotExist:
@@ -52,15 +56,15 @@ def send_purchase_order_email(purchase_order, sender_user):
     if not purchase_order.supplier.email:
         raise ValueError(f"Supplier '{purchase_order.supplier.name}' has no email address on file.")
 
-    app_password = decrypt_password(email_account.encrypted_app_password)
+    if not settings.RESEND_API_KEY:
+        raise ValueError("RESEND_API_KEY is not set in environment variables")
 
-    msg = MIMEMultipart()
-    msg['From'] = email_account.email_address
-    msg['To'] = purchase_order.supplier.email
-    msg['Subject'] = f"Purchase Order {purchase_order.po_number} - WoodCalc"
-    msg.attach(MIMEText(build_po_email_body(purchase_order), 'plain'))
+    params = {
+        "from": DEFAULT_FROM_ADDRESS,
+        "to": [purchase_order.supplier.email],
+        "reply_to": email_account.email_address,
+        "subject": f"Purchase Order {purchase_order.po_number} - WoodCalc",
+        "text": build_po_email_body(purchase_order),
+    }
 
-    with smtplib.SMTP(email_account.smtp_host, email_account.smtp_port) as server:
-        server.starttls()
-        server.login(email_account.email_address, app_password)
-        server.send_message(msg)
+    resend.Emails.send(params)
