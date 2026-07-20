@@ -10,7 +10,7 @@ from .serializers import PurchaseOrderSerializer, PurchaseOrderLineItemSerialize
 
 
 class PurchaseOrderViewSet(ModelViewSet):
-    queryset = PurchaseOrder.objects.all().order_by('-order_date')
+    queryset = PurchaseOrder.objects.all().order_by('-order_date').prefetch_related('line_items__material', 'payments')
     serializer_class = PurchaseOrderSerializer
     permission_classes = [IsAuthenticated]
 
