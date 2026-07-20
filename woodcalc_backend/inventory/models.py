@@ -20,6 +20,13 @@ class Supplier(models.Model):
     address = models.CharField(max_length=300, blank=True)
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, blank=True, default='other')
     payment_terms = models.CharField(max_length=100, blank=True, help_text='e.g. Net 30, 50% deposit / 50% on delivery')
+    PAYMENT_TERMS_CHOICES = [
+        ('cod', 'Cash on Delivery'),
+        ('net7', 'Net 7 days'),
+        ('net30', 'Net 30 days'),
+        ('net60', 'Net 60 days'),
+    ]
+    default_payment_terms = models.CharField(max_length=10, choices=PAYMENT_TERMS_CHOICES, default='cod')
     lead_time_days = models.PositiveIntegerField(null=True, blank=True, help_text='Typical lead time in days')
     is_active = models.BooleanField(default=True)
 

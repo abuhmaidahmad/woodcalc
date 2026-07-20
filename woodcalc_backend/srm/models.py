@@ -20,6 +20,7 @@ class PurchaseOrder(models.Model):
     expected_delivery_date = models.DateField(null=True, blank=True)
     actual_delivery_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    payment_terms = models.CharField(max_length=10, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -28,7 +29,35 @@ class PurchaseOrder(models.Model):
             last = PurchaseOrder.objects.order_by('-id').first()
             next_id = (last.id + 1) if last else 1
             self.po_number = f'PO-{next_id:05d}'
+        if not self.payment_terms:
+            self.payment_terms = self.supplier.default_payment_terms
         super().save(*args, **kwargs)
+
+    @property
+    def total_amount(self):
+        return sum(li.quantity_ordered * li.unit_price for li in self.line_items.all())
+
+    @property
+    def amount_paid(self):
+        return sum(p.amount for p in self.payments.all())
+
+    @property
+    def balance_due(self):
+        return self.total_amount - self.amount_paid
+
+    @property
+    def payment_due_date(self):
+        if not self.actual_delivery_date:
+            return None
+        days = {'cod': 0, 'net7': 7, 'net30': 30, 'net60': 60}.get(self.payment_terms, 0)
+        return self.actual_delivery_date + timezone.timedelta(days=days)
+
+    @property
+    def is_payment_overdue(self):
+        due = self.payment_due_date
+        if not due or self.balance_due <= 0:
+            return False
+        return due < timezone.now().date()
 
     @property
     def is_late(self):
@@ -86,3 +115,21 @@ class PurchaseOrderLineItem(models.Model):
 
     def __str__(self):
         return f'{self.purchase_order.po_number} - {self.material.sku}'
+
+
+class SupplierPayment(models.Model):
+    METHOD_CHOICES = [
+        ('cash', 'Cash'),
+        ('bank_transfer', 'Bank Transfer'),
+        ('cheque', 'Post-dated Cheque'),
+    ]
+    purchase_order = models.ForeignKey(PurchaseOrder, on_delete=models.CASCADE, related_name='payments')
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    method = models.CharField(max_length=20, choices=METHOD_CHOICES)
+    payment_date = models.DateField(default=timezone.localdate)
+    reference = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.purchase_order.po_number} - {self.amount} ({self.method})'
