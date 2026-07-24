@@ -133,6 +133,7 @@ def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal
         used_area = sum(p.width * p.height for p in placements)
         sheet_area = sheet_width * sheet_height
         waste_pct = Decimal("100") - (used_area / sheet_area * Decimal("100")) if sheet_area else Decimal("0")
+        waste_pct = waste_pct.quantize(Decimal("0.01"))
 
         sheets.append(SheetResult(sheet_index=sheet_index, placements=placements, waste_percent=waste_pct))
 
