@@ -175,14 +175,22 @@ def optimize_job(job_id):
     if sheet_def is None:
         raise ValueError(f"No StockSheet defined for material={job.material} thickness={job.thickness}")
 
+    grain_dir = sheet_def.grain_direction
+    pack_sheet_w, pack_sheet_h = sheet_def.width, sheet_def.height
+    swapped = False
+    if grain_dir == 'width':
+        pack_sheet_w, pack_sheet_h = sheet_def.height, sheet_def.width
+        swapped = True
+
     flat_parts = []
     for cp in job.parts.all():
+        effective_grain_locked = cp.grain_locked and grain_dir != 'none'
         for _ in range(cp.quantity):
             flat_parts.append(Part(id=cp.id, width=cp.width, height=cp.height,
-                                    grain_locked=cp.grain_locked, label=cp.label))
+                                    grain_locked=effective_grain_locked, label=cp.label))
 
     results, impossible = pack_parts(
-        flat_parts, sheet_def.width, sheet_def.height, job.kerf,
+        flat_parts, pack_sheet_w, pack_sheet_h, job.kerf,
         trim_top=job.trim_top, trim_left=job.trim_left,
     )
 
@@ -203,10 +211,12 @@ def optimize_job(job_id):
             waste_percent=sheet_result.waste_percent,
         )
         for placement in sheet_result.placements:
+            x, y, w, h = placement.x, placement.y, placement.width, placement.height
+            if swapped:
+                x, y, w, h = y, x, h, w
             PartPlacement.objects.create(
                 layout=layout, part_id=placement.part.id,
-                x=placement.x, y=placement.y,
-                width=placement.width, height=placement.height,
+                x=x, y=y, width=w, height=h,
                 rotated=placement.rotated,
             )
         created_layouts.append(layout)

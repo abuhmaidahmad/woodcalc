@@ -47,6 +47,7 @@ class Material(models.Model):
     reorder_level = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='materials')
+    has_grain = models.BooleanField(default=False, help_text='Whether this material has visible directional grain (e.g. wood-look laminate)')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
