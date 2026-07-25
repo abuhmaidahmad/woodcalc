@@ -109,6 +109,18 @@ class Material(models.Model):
             except Exception:
                 pass
         super().save(*args, **kwargs)
+        self._check_stock_alert()
+
+    def _check_stock_alert(self):
+        low_stock = self.quantity_on_hand < self.reorder_level
+        existing = self.alerts.filter(resolved=False)
+        if low_stock and not existing.exists():
+            StockAlert.objects.create(
+                material=self,
+                message=f'{self.sku} is below reorder level ({self.quantity_on_hand} on hand, reorder at {self.reorder_level})',
+            )
+        elif not low_stock and existing.exists():
+            existing.update(resolved=True)
 
     def __str__(self):
         return f'{self.sku} - {self.name}'
