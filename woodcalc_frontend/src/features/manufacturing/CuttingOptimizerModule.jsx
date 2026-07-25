@@ -8,7 +8,7 @@ function emptyPart() {
   return { label: '', width: '', height: '', quantity: 1, grain_locked: true }
 }
 
-function bomPanelsToParts(cabinets) {
+function bomPanelsToParts(cabinets, group) {
   const merged = new Map()
 
   function addPart(label, width, height, grainLocked, qty) {
@@ -29,17 +29,29 @@ function bomPanelsToParts(cabinets) {
       return
     }
 
-    result.panels.forEach(p => {
-      if (p.name === 'Side panel') {
-        addPart(p.name, p.width, p.depth, true, p.qty)
-      } else {
-        addPart(p.name, p.width, p.depth, false, p.qty)
-      }
-    })
+    if (group === 'carcass') {
+      result.panels.forEach(p => {
+        if (p.name.includes('Back panel')) return
+        if (p.name === 'Side panel') {
+          addPart(p.name, p.width, p.depth, true, p.qty)
+        } else {
+          addPart(p.name, p.width, p.depth, false, p.qty)
+        }
+      })
+    }
 
-    result.doors.forEach(d => {
-      addPart('Door', d.height, d.width, true, 1)
-    })
+    if (group === 'back') {
+      result.panels.forEach(p => {
+        if (!p.name.includes('Back panel')) return
+        addPart(p.name, p.width, p.depth, false, p.qty)
+      })
+    }
+
+    if (group === 'front') {
+      result.doors.forEach(d => {
+        addPart('Door', d.height, d.width, true, 1)
+      })
+    }
   })
 
   return Array.from(merged.values()).map(p => ({
@@ -130,7 +142,7 @@ function CuttingOptimizerModule() {
     }
   }
 
-  async function loadFromBOM() {
+  async function loadFromBOM(group) {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
     if (!wo) {
@@ -151,9 +163,9 @@ function CuttingOptimizerModule() {
         setError('No cabinets found in this room\'s saved plan.')
         return
       }
-      const bomParts = bomPanelsToParts(cabinets)
+      const bomParts = bomPanelsToParts(cabinets, group)
       if (bomParts.length === 0) {
-        setError('Could not extract any parts from this room\'s BOM.')
+        setError(`No ${group} parts found in this room's BOM.`)
         return
       }
       setParts(bomParts)
@@ -235,8 +247,14 @@ function CuttingOptimizerModule() {
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           + Add part
         </button>
-        <button onClick={loadFromBOM} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
-          {bomLoading ? 'Loading BOM...' : 'Load from BOM'}
+        <button onClick={() => loadFromBOM('carcass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
+          Load Carcass
+        </button>
+        <button onClick={() => loadFromBOM('front')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
+          Load Fronts
+        </button>
+        <button onClick={() => loadFromBOM('back')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
+          Load Back Panels
         </button>
 
         <div>
