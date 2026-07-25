@@ -11,9 +11,9 @@ const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A' }
 const FINISH_OPTIONS = ['matt', 'gloss', 'wood', 'metal', 'other']
 
 const EMPTY_FORM = {
-  name: '', code: '', material_type: 'front', finish: 'matt',
+  name: '', sku: '', material_type: 'front', finish: 'matt',
   supplier: '', fallback_hex: '#C8902A',
-  board_width: 2440, board_height: 1220, thickness: 18,
+  board_width: 2440, board_height: 1220, board_thickness: 18,
   price_per_board: '', roughness: 0.4, metalness: 0.0,
   texture_physical_width_mm: 600, texture_physical_height_mm: 600,
 }
@@ -49,7 +49,7 @@ export default function MaterialCatalog() {
     setLoading(true)
     try {
       const [tRes, sRes] = await Promise.all([
-        authFetch(API + '/api/inventory/textures/'),
+        authFetch(API + '/api/inventory/materials/'),
         authFetch(API + '/api/inventory/suppliers/'),
       ])
       const tData = await tRes.json()
@@ -75,14 +75,14 @@ export default function MaterialCatalog() {
     setEditing(t)
     setForm({
       name: t.name || '',
-      code: t.code || '',
+      sku: t.sku || '',
       material_type: t.material_type || 'front',
       finish: t.finish || 'matt',
       supplier: t.supplier || '',
       fallback_hex: t.fallback_hex || '#C8902A',
       board_width: t.board_width || 2440,
       board_height: t.board_height || 1220,
-      thickness: t.thickness || 18,
+      board_thickness: t.board_thickness || 18,
       price_per_board: t.price_per_board || '',
       roughness: t.roughness ?? 0.4,
       metalness: t.metalness ?? 0.0,
@@ -115,8 +115,8 @@ export default function MaterialCatalog() {
       if (imageFile) fd.append('texture_image', imageFile)
 
       const url = editing
-        ? API + `/api/inventory/textures/${editing.id}/`
-        : API + '/api/inventory/textures/'
+        ? API + `/api/inventory/materials/${editing.id}/`
+        : API + '/api/inventory/materials/'
       const method = editing ? 'PATCH' : 'POST'
 
       // Use bare fetch for FormData — authFetch injects Content-Type: application/json
@@ -146,7 +146,7 @@ export default function MaterialCatalog() {
     if (!window.confirm('Delete this material?')) return
     setDeleting(id)
     try {
-      await authFetch(API + `/api/inventory/textures/${id}/`, { method: 'DELETE' })
+      await authFetch(API + `/api/inventory/materials/${id}/`, { method: 'DELETE' })
       fetchAll()
     } catch {}
     setDeleting(null)
@@ -180,7 +180,7 @@ export default function MaterialCatalog() {
     const matchType = filter === 'all' || t.material_type === filter
     const matchSearch = !search ||
       t.name?.toLowerCase().includes(search.toLowerCase()) ||
-      t.code?.toLowerCase().includes(search.toLowerCase()) ||
+      t.sku?.toLowerCase().includes(search.toLowerCase()) ||
       t.supplier_name?.toLowerCase().includes(search.toLowerCase())
     return matchType && matchSearch
   })
@@ -322,7 +322,7 @@ export default function MaterialCatalog() {
             {/* Row: Name + Code */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label="Material Name *" value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder="e.g. Cambrian Oak" />
-              <Field label="Code" value={form.code} onChange={v => setForm(f => ({ ...f, code: v }))} placeholder="e.g. 03R-CAM-OAK" />
+              <Field label="SKU" value={form.sku} onChange={v => setForm(f => ({ ...f, sku: v }))} placeholder="e.g. 03R-CAM-OAK" />
             </div>
 
             {/* Row: Type + Finish */}
@@ -369,7 +369,7 @@ export default function MaterialCatalog() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label="Width" value={form.board_width} type="number" onChange={v => setForm(f => ({ ...f, board_width: v }))} placeholder="2440" />
               <Field label="Height" value={form.board_height} type="number" onChange={v => setForm(f => ({ ...f, board_height: v }))} placeholder="1220" />
-              <Field label="Thickness" value={form.thickness} type="number" onChange={v => setForm(f => ({ ...f, thickness: v }))} placeholder="18" />
+              <Field label="Thickness" value={form.board_thickness} type="number" onChange={v => setForm(f => ({ ...f, board_thickness: v }))} placeholder="18" />
             </div>
 
             {/* Price + Fallback color */}
@@ -461,11 +461,11 @@ function MaterialCard({ texture, onEdit, onDelete, deleting }) {
       {/* Info */}
       <div style={{ padding: '14px 16px' }}>
         <div style={{ fontWeight: 700, fontSize: 14, color: DARK, marginBottom: 2 }}>{texture.name}</div>
-        {texture.code && <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontFamily: 'monospace' }}>{texture.code}</div>}
+        {texture.sku && <div style={{ fontSize: 11, color: '#888', marginBottom: 6, fontFamily: 'monospace' }}>{texture.sku}</div>}
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           <Chip label={`${texture.board_width || 2440} × ${texture.board_height || 1220} mm`} />
-          <Chip label={`${texture.thickness || 18} mm thick`} />
+          <Chip label={`${texture.board_thickness || 18} mm thick`} />
           {texture.price_per_board && <Chip label={`${parseFloat(texture.price_per_board).toFixed(2)} JD`} accent />}
         </div>
 
