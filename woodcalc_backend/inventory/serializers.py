@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem, Sink
+from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -25,13 +25,6 @@ class StockAlertSerializer(serializers.ModelSerializer):
         model = StockAlert
         fields = '__all__'
 
-
-class MaterialTextureSerializer(serializers.ModelSerializer):
-    supplier_name = serializers.CharField(source='supplier.name', read_only=True)
-
-    class Meta:
-        model = MaterialTexture
-        fields = '__all__'
 
 
 class DrawerSystemSerializer(serializers.ModelSerializer):
