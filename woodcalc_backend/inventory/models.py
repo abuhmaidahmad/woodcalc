@@ -167,6 +167,7 @@ class MaterialTexture(models.Model):
     ]
     code = models.CharField(max_length=50, null=True, blank=True, unique=True)
     name = models.CharField(max_length=200)
+    stock_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, blank=True, related_name='linked_textures', help_text='Which inventory Material/StockSheet this design finish maps to for cutting purposes')
     material_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
     finish = models.CharField(max_length=10, choices=FINISH_CHOICES, default='matt')
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='textures')
