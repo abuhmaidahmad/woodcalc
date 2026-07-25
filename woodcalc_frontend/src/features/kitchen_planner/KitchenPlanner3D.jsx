@@ -87,7 +87,9 @@ function forceHttps(url) {
 export function useMaterialTextureMap() {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
-    fetch(API_BASE + '/api/inventory/materials/')
+    fetch(API_BASE + '/api/inventory/materials/', {
+      headers: { Authorization: 'Bearer ' + localStorage.getItem('access_token') },
+    })
       .then(r => r.json())
       .then(data => {
         const results = data.results || data
