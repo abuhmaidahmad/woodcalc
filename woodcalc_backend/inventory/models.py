@@ -63,6 +63,27 @@ class Material(models.Model):
     board_width = models.PositiveIntegerField(blank=True, null=True, default=2440, help_text='Board width in mm')
     board_height = models.PositiveIntegerField(blank=True, null=True, default=1220, help_text='Board height in mm')
     board_thickness = models.PositiveIntegerField(blank=True, null=True, default=18, help_text='Board thickness in mm')
+    core_material = models.CharField(
+        max_length=20, blank=True, null=True, default='particleboard',
+        choices=[
+            ('particleboard', 'Particleboard / Melamine'),
+            ('mdf', 'MDF'),
+            ('hdf', 'HDF'),
+            ('plywood', 'Plywood'),
+            ('solid_wood', 'Solid Wood'),
+            ('compact', 'Compact Laminate'),
+        ],
+        help_text='Board substrate/core',
+    )
+    price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    texture_physical_width_mm = models.PositiveIntegerField(
+        blank=True, null=True, default=600,
+        help_text='Real-world width this texture image represents (mm), for scaling grain in 3D view',
+    )
+    texture_physical_height_mm = models.PositiveIntegerField(
+        blank=True, null=True, default=600,
+        help_text='Real-world height this texture image represents (mm)',
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
