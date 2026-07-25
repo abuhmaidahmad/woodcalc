@@ -11,6 +11,13 @@ class MaterialViewSet(ModelViewSet):
     serializer_class = MaterialSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        qs = Material.objects.all().order_by('sku')
+        material_type = self.request.query_params.get('material_type')
+        if material_type:
+            qs = qs.filter(material_type=material_type)
+        return qs
+
 
 class SupplierViewSet(ModelViewSet):
     queryset = Supplier.objects.all().order_by('name')
