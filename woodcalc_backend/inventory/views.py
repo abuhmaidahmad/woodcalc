@@ -2,8 +2,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Material, Supplier, StockMovement, StockAlert, MaterialTexture, DrawerSystem, Sink
-from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, MaterialTextureSerializer, DrawerSystemSerializer, SinkSerializer
+from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink
+from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer
 
 
 class MaterialViewSet(ModelViewSet):
@@ -69,20 +69,6 @@ class StockAlertViewSet(ModelViewSet):
     queryset = StockAlert.objects.all().order_by('-created_at')
     serializer_class = StockAlertSerializer
     permission_classes = [IsAuthenticated]
-
-
-class MaterialTextureViewSet(ModelViewSet):
-    # Read access (GET) is public so the Kitchen Planner can load material swatches
-    # without requiring a logged-in session. Create/update/delete still require auth.
-    serializer_class = MaterialTextureSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        qs = MaterialTexture.objects.all().order_by('material_type', 'name')
-        material_type = self.request.query_params.get('material_type')
-        if material_type:
-            qs = qs.filter(material_type=material_type)
-        return qs
 
 
 from rest_framework.permissions import IsAuthenticatedOrReadOnly
