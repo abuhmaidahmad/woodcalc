@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { authFetch } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
@@ -11,7 +11,7 @@ import ContractTab from './ContractTab'
 
 const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
-function isCarcassCabinet(c) {
+export function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
 }
 
@@ -47,12 +47,14 @@ function DimInput({ value, onCommit, style }) {
   )
 }
 
-function cabinetConfig(c) {
+export function cabinetConfig(c) {
   const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door'
   return {
     width: c.width, height: c.height, depth: c.depth,
     material: c.material, doorStyle: c.doorStyle, shelves: 0,
     cabinetType: c.category,
+    doorCount: c.doorCount,
+    subtype: c.subtype,
     drawers: isDrawerCab ? 4 : 0,
     drawerType: c.drawerType,
     drawerSystem: c.drawerSystem,
@@ -262,9 +264,10 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
         masterMap[key].qty += shelfQty
         shelfPinsRubber += shelfQty * 4
       } else {
-        const key = `${shelfW}×${shelfD}×18|${carcassMat}|woodshelf`
-        if (!masterMap[key]) masterMap[key] = { name: 'Shelf', width: shelfW, depth: shelfD, thickness: 18, material: carcassMat, eb: {}, qty: 0 }
-        masterMap[key].qty += shelfQty
+        // Wood shelves are already counted via result.panels.forEach below
+        // (formulaEngine's own 'Shelf (18mm)' push, using the shop's real
+        // width/depth formula) -- only count the pins here to avoid a
+        // duplicate line item in the Master Cut List.
         shelfPinsStandard += shelfQty * 4
       }
     }
@@ -1380,6 +1383,27 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                           style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #E0DAD4', background: current >= maxShelves ? '#F5F5F5' : '#fff', cursor: current >= maxShelves ? 'not-allowed' : 'pointer', fontWeight: 700, color: current >= maxShelves ? '#ccc' : '#666' }}>+</button>
                       </div>
                       <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Max {maxShelves} — keeps 250mm clearance between shelves</div>
+                    </div>
+                  )
+                })()}
+                {isShelfEligible(selCab) && selCab.subtype !== 'Blind' && (() => {
+                  const doorOptions = [1, 2, 4]
+                  const currentDoors = selCab.doorCount ?? getDefaultDoorCount(selCab.width)
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>Door Count</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {doorOptions.map(n => (
+                          <button key={n} onClick={() => updateCab('doorCount', n)}
+                            style={{
+                              flex: 1, padding: '6px 0', borderRadius: 6,
+                              border: currentDoors === n ? '1.5px solid #C9A876' : '1.5px solid #E0DAD4',
+                              background: currentDoors === n ? '#FBF3E7' : '#fff',
+                              color: currentDoors === n ? '#8A6D3B' : '#666',
+                              fontWeight: 700, fontSize: 13, cursor: 'pointer',
+                            }}>{n}</button>
+                        ))}
+                      </div>
                     </div>
                   )
                 })()}
