@@ -48,6 +48,21 @@ class Material(models.Model):
     unit_cost = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='materials')
     has_grain = models.BooleanField(default=False, help_text='Whether this material has visible directional grain (e.g. wood-look laminate)')
+    material_type = models.CharField(
+        max_length=10, blank=True, null=True,
+        choices=[('front', 'Front/Door'), ('worktop', 'Worktop/Countertop'), ('carcass', 'Carcass/Interior')],
+    )
+    finish = models.CharField(
+        max_length=10, blank=True, null=True, default='matt',
+        choices=[('matt', 'Matt'), ('gloss', 'Gloss'), ('wood', 'Wood'), ('metal', 'Metal'), ('other', 'Other')],
+    )
+    texture_image = models.ImageField(upload_to='material_textures/', blank=True, null=True)
+    fallback_hex = models.CharField(max_length=7, blank=True, null=True, default='#FFFFFF')
+    roughness = models.FloatField(blank=True, null=True, default=0.4)
+    metalness = models.FloatField(blank=True, null=True, default=0.0)
+    board_width = models.PositiveIntegerField(blank=True, null=True, default=2440, help_text='Board width in mm')
+    board_height = models.PositiveIntegerField(blank=True, null=True, default=1220, help_text='Board height in mm')
+    board_thickness = models.PositiveIntegerField(blank=True, null=True, default=18, help_text='Board thickness in mm')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
