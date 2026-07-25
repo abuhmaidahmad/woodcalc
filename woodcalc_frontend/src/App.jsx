@@ -8,6 +8,7 @@ import RegisterManufacturer from './pages/auth/RegisterManufacturer';
 import RegisterSupplier from './pages/auth/RegisterSupplier';
 import Dashboard from './pages/Dashboard';
 import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule';
+import CuttingOptimizerModule from './features/manufacturing/CuttingOptimizerModule';
 import CustomerList from './pages/CustomerList'
 import RoomDetail from './pages/RoomDetail'
 import ProductionBoard from './pages/ProductionBoard';
@@ -66,6 +67,11 @@ export default function App() {
         {/* Production */}
         <Route path="/production" element={
           <PrivateRoute><ProductionBoard /></PrivateRoute>
+        } />
+
+        {/* Cutting Optimizer */}
+        <Route path="/cutting-optimizer" element={
+          <PrivateRoute><CuttingOptimizerModule /></PrivateRoute>
         } />
 
         {/* Materials Catalog */}
