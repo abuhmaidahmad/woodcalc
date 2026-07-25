@@ -86,6 +86,30 @@ class Material(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    MAX_DIMENSION = 2048
+    JPEG_QUALITY = 85
+
+    def save(self, *args, **kwargs):
+        if self.texture_image and hasattr(self.texture_image, 'file'):
+            try:
+                img = Image.open(self.texture_image)
+                img = img.convert('RGB')
+
+                w, h = img.size
+                if max(w, h) > self.MAX_DIMENSION:
+                    scale = self.MAX_DIMENSION / max(w, h)
+                    img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+                buffer = BytesIO()
+                img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
+                buffer.seek(0)
+
+                original_name = self.texture_image.name.rsplit('.', 1)[0]
+                self.texture_image = ContentFile(buffer.read(), name=f'{original_name}.jpg')
+            except Exception:
+                pass
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f'{self.sku} - {self.name}'
 
@@ -193,79 +217,3 @@ class Sink(models.Model):
         return f"{self.brand} {self.model_name}".strip()
 
 
-class MaterialTexture(models.Model):
-    """Visual render-facing material swatch (front/door laminate or worktop surface),
-    separate from the inventory Material model which tracks stock/cost.
-    Used by the Kitchen Planner 3D view to texture-map cabinet fronts and countertops."""
-    TYPE_CHOICES = [('front', 'Front/Door'), ('worktop', 'Worktop/Countertop'), ('carcass', 'Carcass/Interior')]
-    FINISH_CHOICES = [
-        ('matt', 'Matt'), ('gloss', 'Gloss'), ('wood', 'Wood'), ('metal', 'Metal'), ('other', 'Other'),
-    ]
-    code = models.CharField(max_length=50, null=True, blank=True, unique=True)
-    name = models.CharField(max_length=200)
-    stock_material = models.ForeignKey(Material, on_delete=models.SET_NULL, null=True, blank=True, related_name='linked_textures', help_text='Which inventory Material/StockSheet this design finish maps to for cutting purposes')
-    material_type = models.CharField(max_length=10, choices=TYPE_CHOICES)
-    finish = models.CharField(max_length=10, choices=FINISH_CHOICES, default='matt')
-    supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='textures')
-    texture_image = models.ImageField(upload_to='material_textures/')
-    fallback_hex = models.CharField(max_length=7, default='#FFFFFF', help_text='Used if texture fails to load')
-    roughness = models.FloatField(default=0.4)
-    metalness = models.FloatField(default=0.0)
-    board_width = models.PositiveIntegerField(default=2440, help_text='Board width in mm')
-    board_height = models.PositiveIntegerField(default=1220, help_text='Board height in mm')
-    thickness = models.PositiveIntegerField(default=18, help_text='Board thickness in mm')
-    CORE_CHOICES = [
-        ('particleboard', 'Particleboard / Melamine'),
-        ('mdf', 'MDF'),
-        ('hdf', 'HDF'),
-        ('plywood', 'Plywood'),
-        ('solid_wood', 'Solid Wood'),
-        ('compact', 'Compact Laminate'),
-    ]
-    core_material = models.CharField(max_length=20, choices=CORE_CHOICES, default='particleboard', help_text='Board substrate/core')
-    price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    texture_physical_width_mm = models.PositiveIntegerField(
-        default=600,
-        help_text='Real-world width this texture image represents (mm). '
-                  'Used to scale grain correctly in 3D view. '
-                  'E.g. 600 for a 600 mm tile sample, 2440 for a full-board photo.',
-    )
-    texture_physical_height_mm = models.PositiveIntegerField(
-        default=600,
-        help_text='Real-world height this texture image represents (mm). '
-                  'E.g. 600 for a 600 mm tile sample, 1220 for a full-board photo.',
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    def __str__(self):
-        return f'{self.name} ({self.get_material_type_display()})'
-
-    # Max dimension (px) any uploaded texture is resized down to. Large enough for crisp
-    # close-up cabinet/countertop rendering, small enough to keep page loads fast.
-    MAX_DIMENSION = 2048
-    JPEG_QUALITY = 85
-
-    def save(self, *args, **kwargs):
-        if self.texture_image and hasattr(self.texture_image, 'file'):
-            # Only re-process if this is a new/changed file (has an in-memory file object,
-            # not an already-saved FieldFile pointing at existing storage).
-            try:
-                img = Image.open(self.texture_image)
-                img = img.convert('RGB')  # drops alpha/CMYK edge cases, ensures clean JPEG output
-
-                w, h = img.size
-                if max(w, h) > self.MAX_DIMENSION:
-                    scale = self.MAX_DIMENSION / max(w, h)
-                    img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
-
-                buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
-                buffer.seek(0)
-
-                original_name = self.texture_image.name.rsplit('.', 1)[0]
-                self.texture_image = ContentFile(buffer.read(), name=f'{original_name}.jpg')
-            except Exception:
-                # If optimization fails for any reason, fall back to saving the original
-                # rather than blocking the upload entirely.
-                pass
-        super().save(*args, **kwargs)
