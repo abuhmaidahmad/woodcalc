@@ -33,7 +33,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
   const typeFilter = target === 'front' ? 'front' : target === 'carcass' ? 'carcass' : ''
 
   useEffect(() => {
-    const url = API + '/api/inventory/textures/' + (typeFilter ? `?material_type=${typeFilter}` : '')
+    const url = API + '/api/inventory/materials/' + (typeFilter ? `?material_type=${typeFilter}` : '')
     authFetch(url)
       .then(r => r.json())
       .then(data => {
@@ -44,7 +44,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
   }, [typeFilter])
 
   const myLibraryMaterials = catalogMaterials.map(t => ({
-    code: t.code || `custom-${t.id}`,
+    code: t.sku || `custom-${t.id}`,
     name: t.name,
     hex: t.fallback_hex || '#C8902A',
     finish: t.finish || 'matt',
@@ -52,7 +52,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
     textureUrl: forceHttps(t.texture_image),
     supplierName: t.supplier_name || '',
     boardWidth: t.board_width || null,
-    thickness: t.thickness || 18,
+    thickness: t.board_thickness || 18,
     coreMaterial: t.core_material || 'particleboard',
   }))
 

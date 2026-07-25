@@ -1,5 +1,5 @@
 import { Canvas, useLoader } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -87,13 +87,13 @@ function forceHttps(url) {
 export function useMaterialTextureMap() {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
-    fetch(API_BASE + '/api/inventory/textures/')
+    fetch(API_BASE + '/api/inventory/materials/')
       .then(r => r.json())
       .then(data => {
         const results = data.results || data
         const map = {}
         results.forEach(t => {
-          if (t.code) map[t.code] = { ...t, texture_image: forceHttps(t.texture_image) }
+          if (t.sku) map[t.sku] = { ...t, texture_image: forceHttps(t.texture_image) }
         })
         setTextureMap(map)
       })
@@ -603,7 +603,7 @@ function CDrawerChannel({ W, D, y, golaHex }) {
   )
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, baseHeight, isBlind, blindSide = 'left' }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left' }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
@@ -653,8 +653,8 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         )
       }
     }
-  } else if (isTall) {
-    // Tall units: lower + upper door split at base-cabinet-top level (all styles).
+  } else if (isTall && splitEnabled) {
+    // Tall units: lower + upper door split at base-cabinet-top level (all styles). Excludes broom/linen units, which use one continuous door.
     const isGolaTall = effectiveDoorStyle === 'Gola'
     const baseH = (baseHeight || 800) / 1000
     const CH = 0.025
@@ -1348,7 +1348,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
   const isBlindCab = cab.subtype === 'Blind'
-  const numDoors = isBlindCab ? 1 : (cab.width >= 600 ? 2 : 1)
+  const requestedDoorCount = cab.doorCount ?? getDefaultDoorCount(cab.width)
+  const numDoors = isBlindCab ? 1 : (isTall && requestedDoorCount > 1 ? Math.max(1, Math.round(requestedDoorCount / 2)) : requestedDoorCount)
   const doorStyle = cab.doorStyle || 'Handle'
   const frontColor = cab.frontColor || '#FFFFFF'
   const frontMaterial = cab.frontMaterial || ''
@@ -1458,6 +1459,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
               golaColor={cab.golaColor || 'black'}
               isWallCabinet={isWall}
               isTall={isTall}
+              isBroom={cab.subtype === 'Broom/Linen'}
+              splitEnabled={requestedDoorCount > 1}
               isBlind={isBlindCab}
               blindSide={cab.blindSide || 'left'}
             />

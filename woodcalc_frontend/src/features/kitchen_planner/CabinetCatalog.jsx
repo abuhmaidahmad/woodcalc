@@ -156,7 +156,7 @@ export function CountertopPicker({ selected, onSelect }) {
   const [catalogWorktops, setCatalogWorktops] = useState([])
 
   useEffect(() => {
-    authFetch(API_URL + '/api/inventory/textures/?material_type=worktop')
+    authFetch(API_URL + '/api/inventory/materials/?material_type=worktop')
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
@@ -169,7 +169,7 @@ export function CountertopPicker({ selected, onSelect }) {
     id: `custom-${t.id}`,
     name: t.name,
     brand: t.supplier_name || 'My Library',
-    code: t.code || '',
+    code: t.sku || '',
     color: t.fallback_hex || '#C0C0C0',
     category: 'custom',
     textureUrl: forceHttps(t.texture_image),
