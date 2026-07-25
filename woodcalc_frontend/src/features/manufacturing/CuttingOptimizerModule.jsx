@@ -146,18 +146,18 @@ function CuttingOptimizerModule() {
     if (group === 'back') return
     const firstCab = cabinets.find(c => isCarcassCabinet(c))
     if (!firstCab) return
-    const code = group === 'carcass' ? firstCab.carcassMaterialCode : firstCab.frontMaterialCode
-    if (!code) return
+    const sku = group === 'carcass' ? firstCab.carcassMaterialCode : firstCab.frontMaterialCode
+    if (!sku) return
 
     try {
-      const texRes = await fetch(`${API}/api/inventory/textures/?code=${encodeURIComponent(code)}`, { headers: authHeaders })
-      if (!texRes.ok) return
-      const texData = await texRes.json()
-      const textures = Array.isArray(texData) ? texData : (texData.results || [])
-      const texture = textures.find(t => t.code === code)
-      if (!texture || !texture.stock_material) return
+      const matRes = await fetch(`${API}/api/inventory/materials/?search=${encodeURIComponent(sku)}`, { headers: authHeaders })
+      if (!matRes.ok) return
+      const matData = await matRes.json()
+      const materials = Array.isArray(matData) ? matData : (matData.results || [])
+      const material = materials.find(m => m.sku === sku)
+      if (!material) return
 
-      const sheetRes = await fetch(`${API}/api/manufacturing/stock-sheets/?material=${texture.stock_material}`, { headers: authHeaders })
+      const sheetRes = await fetch(`${API}/api/manufacturing/stock-sheets/?material=${material.id}`, { headers: authHeaders })
       if (!sheetRes.ok) return
       const sheetData = await sheetRes.json()
       const sheets = Array.isArray(sheetData) ? sheetData : (sheetData.results || [])
