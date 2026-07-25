@@ -90,13 +90,30 @@ def _split_guillotine(rect: FreeRect, w: Decimal, h: Decimal, kerf: Decimal):
     return results
 
 
+def _part_can_ever_fit(part, sheet_width: Decimal, sheet_height: Decimal,
+                        trim_top: Decimal, trim_left: Decimal) -> bool:
+    usable_w = sheet_width - trim_left
+    usable_h = sheet_height - trim_top
+    if part.width <= usable_w and part.height <= usable_h:
+        return True
+    if not part.grain_locked and part.height <= usable_w and part.width <= usable_h:
+        return True
+    return False
+
+
 def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal,
                trim_top: Decimal = Decimal("0"), trim_left: Decimal = Decimal("0")):
     """
     parts: list[Part], each already expanded to individual units (qty flattened).
-    Returns list[SheetResult].
+    Returns (list[SheetResult], list[Part]) - the second list is parts that can
+    NEVER fit on this sheet size (too large in every allowed orientation), so the
+    caller should treat their presence as an error rather than silently dropping them.
     """
-    remaining = sorted(parts, key=lambda p: p.width * p.height, reverse=True)
+    impossible = [p for p in parts if not _part_can_ever_fit(p, sheet_width, sheet_height, trim_top, trim_left)]
+    remaining = sorted(
+        (p for p in parts if p not in impossible),
+        key=lambda p: p.width * p.height, reverse=True,
+    )
     sheets = []
     sheet_index = 0
 
@@ -130,19 +147,19 @@ def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal
             placements.append(Placement(part=part, x=rect.x, y=rect.y, width=w, height=h, rotated=rotated))
             free_rects.extend(_split_guillotine(rect, w, h, kerf))
 
+        if not placements:
+            impossible.extend(still_unplaced)
+            break
+
         used_area = sum(p.width * p.height for p in placements)
         sheet_area = sheet_width * sheet_height
         waste_pct = Decimal("100") - (used_area / sheet_area * Decimal("100")) if sheet_area else Decimal("0")
         waste_pct = waste_pct.quantize(Decimal("0.01"))
 
         sheets.append(SheetResult(sheet_index=sheet_index, placements=placements, waste_percent=waste_pct))
-
-        if not placements and still_unplaced:
-            break
-
         remaining = still_unplaced
 
-    return sheets
+    return sheets, impossible
 
 
 def optimize_job(job_id):
@@ -164,10 +181,17 @@ def optimize_job(job_id):
             flat_parts.append(Part(id=cp.id, width=cp.width, height=cp.height,
                                     grain_locked=cp.grain_locked, label=cp.label))
 
-    results = pack_parts(
+    results, impossible = pack_parts(
         flat_parts, sheet_def.width, sheet_def.height, job.kerf,
         trim_top=job.trim_top, trim_left=job.trim_left,
     )
+
+    if impossible:
+        labels = sorted({f"{p.label} ({p.width}x{p.height})" for p in impossible})
+        raise ValueError(
+            "These parts exceed the stock sheet size and cannot be cut on it: "
+            + ", ".join(labels)
+        )
 
     job.layouts.all().delete()
 
