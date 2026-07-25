@@ -142,6 +142,33 @@ function CuttingOptimizerModule() {
     }
   }
 
+  async function autoSelectStockSheet(cabinets, group) {
+    if (group === 'back') return
+    const firstCab = cabinets.find(c => isCarcassCabinet(c))
+    if (!firstCab) return
+    const code = group === 'carcass' ? firstCab.carcassMaterialCode : firstCab.frontMaterialCode
+    if (!code) return
+
+    try {
+      const texRes = await fetch(`${API}/api/inventory/textures/?code=${encodeURIComponent(code)}`, { headers: authHeaders })
+      if (!texRes.ok) return
+      const texData = await texRes.json()
+      const textures = Array.isArray(texData) ? texData : (texData.results || [])
+      const texture = textures.find(t => t.code === code)
+      if (!texture || !texture.stock_material) return
+
+      const sheetRes = await fetch(`${API}/api/manufacturing/stock-sheets/?material=${texture.stock_material}`, { headers: authHeaders })
+      if (!sheetRes.ok) return
+      const sheetData = await sheetRes.json()
+      const sheets = Array.isArray(sheetData) ? sheetData : (sheetData.results || [])
+      if (sheets.length === 0) return
+
+      setMaterialId(String(sheets[0].material))
+      setThickness(String(sheets[0].thickness))
+    } catch {
+    }
+  }
+
   async function loadFromBOM(group) {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
@@ -169,6 +196,7 @@ function CuttingOptimizerModule() {
         return
       }
       setParts(bomParts)
+      await autoSelectStockSheet(cabinets, group)
     } catch (e) {
       setError(e.message)
     } finally {
