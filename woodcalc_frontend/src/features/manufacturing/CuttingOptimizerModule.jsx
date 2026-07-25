@@ -231,6 +231,7 @@ function CuttingOptimizerModule() {
         </div>
 
         <label style={labelStyle}>Parts</label>
+        <div style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
         {parts.map((p, idx) => (
           <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
             <input style={inputStyle} placeholder="Label" value={p.label} onChange={e => updatePart(idx, 'label', e.target.value)} />
@@ -244,6 +245,7 @@ function CuttingOptimizerModule() {
             <button onClick={() => removePart(idx)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>✕</button>
           </div>
         ))}
+        </div>
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           + Add part
         </button>
