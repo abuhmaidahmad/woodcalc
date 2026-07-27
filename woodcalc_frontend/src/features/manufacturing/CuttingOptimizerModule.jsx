@@ -33,11 +33,7 @@ function bomPanelsToParts(cabinets, group) {
     if (group === 'carcass') {
       result.panels.forEach(p => {
         if (p.name.includes('Back panel')) return
-        if (p.name === 'Side panel') {
-          addPart(p.name, p.width, p.depth, true, p.qty)
-        } else {
-          addPart(p.name, p.width, p.depth, false, p.qty)
-        }
+        addPart(p.name, p.width, p.depth, false, p.qty)
       })
     }
 
@@ -80,6 +76,8 @@ function CuttingOptimizerModule() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [bomLoading, setBomLoading] = useState(false)
+  const [preselectedFromUrl, setPreselectedFromUrl] = useState(false)
+  const [autoLoaded, setAutoLoaded] = useState(false)
 
   useEffect(() => {
     fetch(`${API}/api/manufacturing/work-orders/`, { headers: authHeaders })
@@ -91,8 +89,18 @@ function CuttingOptimizerModule() {
 
     const params = new URLSearchParams(window.location.search)
     const preselectId = params.get('work_order')
-    if (preselectId) setWorkOrderId(preselectId)
+    if (preselectId) {
+      setWorkOrderId(preselectId)
+      setPreselectedFromUrl(true)
+    }
   }, [])
+
+  useEffect(() => {
+    if (preselectedFromUrl && !autoLoaded && workOrders.length > 0 && workOrderId) {
+      setAutoLoaded(true)
+      loadFromBOM('carcass')
+    }
+  }, [preselectedFromUrl, autoLoaded, workOrders, workOrderId])
 
   function updatePart(idx, field, value) {
     setParts(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
