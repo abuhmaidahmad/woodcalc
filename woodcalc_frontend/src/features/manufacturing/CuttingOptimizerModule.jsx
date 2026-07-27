@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { calculateCabinet } from '../kitchen_planner/formulaEngine'
 import { cabinetConfig, isCarcassCabinet } from '../kitchen_planner/KitchenPlannerModule'
 
@@ -64,6 +65,7 @@ function bomPanelsToParts(cabinets, group) {
 }
 
 function CuttingOptimizerModule() {
+  const navigate = useNavigate()
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
 
@@ -227,6 +229,10 @@ function CuttingOptimizerModule() {
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+      <button onClick={() => navigate('/production')}
+        style={{ padding: '6px 12px', marginBottom: 12, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', fontSize: 12, color: '#555' }}>
+        ← Back to Production Board
+      </button>
       <h1 style={{ color: '#2c3e50', marginBottom: 20 }}>Cutting Optimizer</h1>
 
       <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
