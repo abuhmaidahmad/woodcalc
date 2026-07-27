@@ -21,6 +21,7 @@ export default function MaterialList() {
   const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [lowStockOnly, setLowStockOnly] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ sku: '', name: '', category: '', unit: 'PCS', quantity_on_hand: '0', reorder_level: '0', unit_cost: '0', supplier: '' })
   const [customCategory, setCustomCategory] = useState('')
@@ -46,10 +47,15 @@ export default function MaterialList() {
 
   useEffect(() => { fetchAll() }, [])
 
+  const isLowStock = m => parseFloat(m.quantity_on_hand) <= parseFloat(m.reorder_level)
+
   const filtered = materials.filter(m =>
-    m.sku.toLowerCase().includes(search.toLowerCase()) ||
-    m.name.toLowerCase().includes(search.toLowerCase())
+    (m.sku.toLowerCase().includes(search.toLowerCase()) ||
+     m.name.toLowerCase().includes(search.toLowerCase())) &&
+    (!lowStockOnly || isLowStock(m))
   )
+
+  const lowStockCount = materials.filter(isLowStock).length
 
   const saveMaterial = async () => {
     if (!form.sku.trim() || !form.name.trim()) return
@@ -103,7 +109,10 @@ export default function MaterialList() {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>Materials (Stock)</h1>
-            <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{materials.length} total</div>
+            <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>
+              {materials.length} total
+              {lowStockCount > 0 && <span style={{ color: '#c33', fontWeight: 600 }}> · {lowStockCount} low stock</span>}
+            </div>
           </div>
           <button onClick={() => setShowAdd(true)}
             style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -111,9 +120,16 @@ export default function MaterialList() {
           </button>
         </div>
 
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search by SKU or name..."
-          style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: '#fff' }} />
+        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+          <input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Search by SKU or name..."
+            style={{ flex: 1, padding: '10px 14px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 13, outline: 'none', boxSizing: 'border-box', background: '#fff' }} />
+          <button onClick={() => setLowStockOnly(v => !v)}
+            style={{ padding: '10px 16px', borderRadius: 8, border: lowStockOnly ? 'none' : '1.5px solid #E0DAD4', cursor: 'pointer', fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap',
+              background: lowStockOnly ? '#c33' : '#fff', color: lowStockOnly ? '#fff' : '#666' }}>
+            {lowStockOnly ? 'Showing Low Stock' : 'Low Stock Only'}
+          </button>
+        </div>
 
         {loading ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>Loading...</div>
