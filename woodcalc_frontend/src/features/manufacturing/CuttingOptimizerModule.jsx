@@ -86,6 +86,10 @@ function CuttingOptimizerModule() {
     fetch(`${API}/api/manufacturing/stock-sheets/`, { headers: authHeaders })
       .then(r => r.json()).then(d => setStockSheets(d.results || []))
       .catch(() => {})
+
+    const params = new URLSearchParams(window.location.search)
+    const preselectId = params.get('work_order')
+    if (preselectId) setWorkOrderId(preselectId)
   }, [])
 
   function updatePart(idx, field, value) {

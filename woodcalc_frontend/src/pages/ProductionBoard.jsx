@@ -150,10 +150,16 @@ export default function ProductionBoard() {
                     <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{selected.product_name}</div>
                     <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Customer: <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
                   </div>
-                  <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)}
-                    style={{ padding: '6px 12px', border: `2px solid ${STATUS_COLORS[selected.status]}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[selected.status], background: STATUS_COLORS[selected.status] + '15', outline: 'none', cursor: 'pointer' }}>
-                    {['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                    <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)}
+                      style={{ padding: '6px 12px', border: `2px solid ${STATUS_COLORS[selected.status]}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[selected.status], background: STATUS_COLORS[selected.status] + '15', outline: 'none', cursor: 'pointer' }}>
+                      {['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                    </select>
+                    <button onClick={() => navigate(`/cutting-optimizer?work_order=${selected.id}`)}
+                      style={{ padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
+                      Cutting Optimizer
+                    </button>
+                  </div>
                 </div>
               </div>
 
