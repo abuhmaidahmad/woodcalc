@@ -1473,16 +1473,50 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   )
 }
 
-function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H }) {
+function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
   const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
   const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
   const len = Math.hypot(x2-x1, z2-z1)
   const angle = Math.atan2(z2-z1, x2-x1)
   const cx = (x1+x2)/2, cz = (z1+z2)/2
   const T = (wallThickness || 120) / 1000
+  const dirX = (x2-x1)/len, dirZ = (z2-z1)/len
+
+  const geometry = useMemo(() => {
+    const shape = new THREE.Shape()
+    shape.moveTo(-len/2, 0)
+    shape.lineTo(len/2, 0)
+    shape.lineTo(len/2, roomH)
+    shape.lineTo(-len/2, roomH)
+    shape.closePath()
+
+    elements
+      .filter(el => el.embeddedInWall && el.wallIndex === wallIndex && (el.type === 'window' || el.type === 'door'))
+      .forEach(el => {
+        const elX = el.x/1000, elZ = el.y/1000
+        const t = (elX - x1) * dirX + (elZ - z1) * dirZ
+        const localX = t - len/2
+        const W = el.w/1000
+        const H = (el.h || (el.type === 'window' ? 1200 : 2300)) / 1000
+        const yBottom = el.type === 'window' ? (el.elevation || 900)/1000 : 0
+        const yTop = yBottom + H
+        const margin = 0.01
+        const hole = new THREE.Path()
+        hole.moveTo(localX - W/2 + margin, yBottom + margin)
+        hole.lineTo(localX + W/2 - margin, yBottom + margin)
+        hole.lineTo(localX + W/2 - margin, yTop - margin)
+        hole.lineTo(localX - W/2 + margin, yTop - margin)
+        hole.closePath()
+        shape.holes.push(hole)
+      })
+
+    const geom = new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: false, steps: 1 })
+    geom.translate(0, 0, -T/2)
+    return geom
+  }, [len, roomH, T, elements, wallIndex, x1, z1, dirX, dirZ])
+
   return (
-    <mesh position={[cx, roomH/2, cz]} rotation={[0, -angle, 0]} castShadow receiveShadow>
-      <boxGeometry args={[len, roomH, T]} />
+    <mesh position={[cx, 0, cz]} rotation={[0, -angle, 0]} geometry={geometry} castShadow receiveShadow>
       <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
     </mesh>
   )
@@ -1594,7 +1628,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
 
         {/* --- Scene geometry --- */}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
-        {walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} roomH={ROOM_H} />)}
+        {walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
         {wallEls.map(el=>el.type==='window'
           ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
