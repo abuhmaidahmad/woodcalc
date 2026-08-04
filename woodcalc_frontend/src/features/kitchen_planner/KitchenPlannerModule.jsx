@@ -719,6 +719,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
       if (initialData.walls) setWalls(initialData.walls)
+      if (initialData.room) setRoom(r => ({ ...r, ...initialData.room }))
       if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
       if (initialData.backsplashHeight) setBacksplashHeight(initialData.backsplashHeight)
       if (initialData.backsplashThickness) setBacksplashThickness(initialData.backsplashThickness)
@@ -803,7 +804,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness }
+      const plannerData = { room, walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness }
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
