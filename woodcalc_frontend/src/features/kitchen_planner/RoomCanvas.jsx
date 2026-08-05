@@ -136,7 +136,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
         {editingLength ? (
           <foreignObject x={-44} y={-10} width={88} height={16}>
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              <input autoFocus type="number" defaultValue={innerLenMm}
+              <input autoFocus type="number" defaultValue={winding !== 0 ? innerLenMm : outerLenMm}
                 onChange={e => onLengthChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
                 title="Length (mm) — Tab to angle, Enter to confirm"
@@ -670,11 +670,11 @@ export default function RoomCanvas({
       // current angle so editing only the length doesn't rotate it.
       const angleDeg = editingAngleVal ?? radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))
       const angleRad = degToRad(angleDeg)
-      const outerLen = (editingLenVal + wallThickness) * scale
+      const outerLen = (winding !== 0 ? editingLenVal + wallThickness : editingLenVal) * scale
       return { ...w, x2: w.x1 + outerLen * Math.cos(angleRad), y2: w.y1 + outerLen * Math.sin(angleRad) }
     }))
     setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null)
-  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, pushHistory])
+  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, winding, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
   const getCabCorners = (cab) => {
@@ -994,7 +994,9 @@ export default function RoomCanvas({
               onLabelClick={() => {
                 if (hideToolbar) return
                 setSelectedWall(i); setEditingWall(i)
-                setEditingLenVal(getInnerLength(w, wallThickness, scale))
+                setEditingLenVal(winding !== 0
+                  ? getInnerLength(w, wallThickness, scale)
+                  : Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1) / scale))
                 setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
               }}
               editingLength={!hideToolbar && editingWall === i}
