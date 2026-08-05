@@ -346,7 +346,10 @@ export default function RoomCanvas({
       length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
     }
     const halfT = (wallThickness * scale) / 2
-    return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: Math.max(0, Math.round((length - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(angle)), snapped: false }
+    const displayLenMm = walls.length >= 2
+      ? Math.max(0, Math.round((length - halfT * 2) / scale))
+      : Math.max(0, Math.round(length / scale))
+    return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: displayLenMm, angleDeg: Math.round(radToDeg(angle)), snapped: false }
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
 
   useEffect(() => {
