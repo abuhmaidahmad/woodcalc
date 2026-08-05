@@ -105,7 +105,7 @@ function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
   return best
 }
 
-function WallSegment({ wall, index, selected, thickness, scale, winding, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange }) {
+function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange }) {
   const { x1, y1, x2, y2 } = wall
   const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
@@ -136,7 +136,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
         {editingLength ? (
           <foreignObject x={-44} y={-10} width={88} height={16}>
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              <input autoFocus type="number" defaultValue={winding !== 0 ? innerLenMm : outerLenMm}
+              <input autoFocus type="number" defaultValue={isClosedLoop ? innerLenMm : outerLenMm}
                 onChange={e => onLengthChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
                 title="Length (mm) — Tab to angle, Enter to confirm"
@@ -151,7 +151,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, onSelec
         ) : (
    <text x={0} y={3} textAnchor="middle" fontSize={9}
   fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
-  {winding !== 0 ? innerLenMm : outerLenMm}mm
+  {isClosedLoop ? innerLenMm : outerLenMm}mm
 </text>
 
         )}
@@ -247,6 +247,7 @@ export default function RoomCanvas({
   const H = room.depth * scale
   const wallPx = wallThickness * scale
   const winding = getWindingDirection(walls) * flipWinding
+  const isClosedLoop = walls.length >= 3
 
   const cvw = vw ?? W
   const cvh = vh ?? H
@@ -670,11 +671,11 @@ export default function RoomCanvas({
       // current angle so editing only the length doesn't rotate it.
       const angleDeg = editingAngleVal ?? radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))
       const angleRad = degToRad(angleDeg)
-      const outerLen = (winding !== 0 ? editingLenVal + wallThickness : editingLenVal) * scale
+      const outerLen = (isClosedLoop ? editingLenVal + wallThickness : editingLenVal) * scale
       return { ...w, x2: w.x1 + outerLen * Math.cos(angleRad), y2: w.y1 + outerLen * Math.sin(angleRad) }
     }))
     setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null)
-  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, winding, pushHistory])
+  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, isClosedLoop, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
   const getCabCorners = (cab) => {
@@ -984,7 +985,7 @@ export default function RoomCanvas({
           </>}
     {walls.map((w, i) => (
   <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
-    thickness={wallPx} scale={scale} winding={winding}
+    thickness={wallPx} scale={scale} winding={winding} isClosedLoop={isClosedLoop}
     innerLenMm={getInnerLength(w, wallThickness, scale)}
     outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
 
@@ -994,7 +995,7 @@ export default function RoomCanvas({
               onLabelClick={() => {
                 if (hideToolbar) return
                 setSelectedWall(i); setEditingWall(i)
-                setEditingLenVal(winding !== 0
+                setEditingLenVal(isClosedLoop
                   ? getInnerLength(w, wallThickness, scale)
                   : Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1) / scale))
                 setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
