@@ -30,6 +30,57 @@ function getInnerLength(wall, wallThickness, scale) {
   return Math.max(0, Math.round((len - halfT * 2) / scale))
 }
 
+function getWallFarPoint(wall, sharedX, sharedY) {
+  const d1 = ptDist(wall.x1, wall.y1, sharedX, sharedY)
+  const d2 = ptDist(wall.x2, wall.y2, sharedX, sharedY)
+  return d1 <= d2 ? { x: wall.x2, y: wall.y2 } : { x: wall.x1, y: wall.y1 }
+}
+
+// Miter-style per-corner correction: halfThickness / tan(angle/2), where angle
+// is the interior angle between this wall and whatever wall is actually
+// connected at this endpoint. Reduces to a flat halfThickness only at 90 deg
+// (matching old behavior on rectangular rooms) and to ~0 for a near-straight
+// run. Returns 0 when the endpoint has no connected neighbor.
+function getEndpointOffset(walls, wallIndex, end, wallThickness, scale, threshold, mode) {
+  const wall = walls[wallIndex]
+  if (!wall) return 0
+  const vx = end === 'start' ? wall.x1 : wall.x2
+  const vy = end === 'start' ? wall.y1 : wall.y2
+  const ownFar = end === 'start' ? { x: wall.x2, y: wall.y2 } : { x: wall.x1, y: wall.y1 }
+  let neighbor = null, bestDist = threshold
+  walls.forEach((w, i) => {
+    if (i === wallIndex) return
+    ;[{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(pt => {
+      const d = ptDist(vx, vy, pt.x, pt.y)
+      if (d < bestDist) { bestDist = d; neighbor = w }
+    })
+  })
+  if (!neighbor) return 0
+  const neighborFar = getWallFarPoint(neighbor, vx, vy)
+  const v1x = ownFar.x - vx, v1y = ownFar.y - vy
+  const v2x = neighborFar.x - vx, v2y = neighborFar.y - vy
+  const len1 = Math.hypot(v1x, v1y), len2 = Math.hypot(v2x, v2y)
+  if (len1 === 0 || len2 === 0) return 0
+  let cos = (v1x * v2x + v1y * v2y) / (len1 * len2)
+  cos = Math.max(-1, Math.min(1, cos))
+  const angle = Math.acos(cos)
+  const halfT = (wallThickness * scale) / 2
+  const tanHalf = Math.tan(angle / 2)
+  const magnitude = tanHalf < 0.01 ? Math.min(halfT * 20, len1 * 0.9) : Math.min(halfT / tanHalf, len1 * 0.9)
+  if (mode === 'center') return 0
+  if (mode === 'outer') return -magnitude
+  return magnitude
+}
+
+function getCorrectedLength(walls, wallIndex, wallThickness, scale, threshold) {
+  const wall = walls[wallIndex]
+  const mode = wall.lengthMode || 'inner'
+  const rawLen = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
+  const offStart = getEndpointOffset(walls, wallIndex, 'start', wallThickness, scale, threshold, mode)
+  const offEnd = getEndpointOffset(walls, wallIndex, 'end', wallThickness, scale, threshold, mode)
+  return Math.max(0, Math.round((rawLen - offStart - offEnd) / scale))
+}
+
 function findNearestEndpoint(px, py, walls, skipIndex, threshold) {
   let best = null, bestDist = threshold
   walls.forEach((w, i) => {
@@ -136,7 +187,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         {editingLength ? (
           <foreignObject x={-44} y={-10} width={88} height={16}>
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              <input autoFocus type="number" defaultValue={isClosedLoop ? innerLenMm : outerLenMm}
+              <input autoFocus type="number" defaultValue={innerLenMm}
                 onChange={e => onLengthChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
                 title="Length (mm) — Tab to angle, Enter to confirm"
@@ -151,7 +202,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         ) : (
    <text x={0} y={3} textAnchor="middle" fontSize={9}
   fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
-  {isClosedLoop ? innerLenMm : outerLenMm}mm
+  {innerLenMm}mm
 </text>
 
         )}
@@ -669,17 +720,20 @@ export default function RoomCanvas({
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
+    const editMode = walls[editingWall]?.lengthMode || 'inner'
+    const offStart = getEndpointOffset(walls, editingWall, 'start', wallThickness, scale, ENDPOINT_SNAP_DIST, editMode)
+    const offEnd = getEndpointOffset(walls, editingWall, 'end', wallThickness, scale, ENDPOINT_SNAP_DIST, editMode)
     pushHistory(walls.map((w, i) => {
       if (i !== editingWall) return w
       // Use the typed angle if the user changed it; otherwise keep the wall's
       // current angle so editing only the length doesn't rotate it.
       const angleDeg = editingAngleVal ?? radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))
       const angleRad = degToRad(angleDeg)
-      const outerLen = (isClosedLoop ? editingLenVal + wallThickness : editingLenVal) * scale
+      const outerLen = editingLenVal * scale + offStart + offEnd
       return { ...w, x2: w.x1 + outerLen * Math.cos(angleRad), y2: w.y1 + outerLen * Math.sin(angleRad) }
     }))
     setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null)
-  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, isClosedLoop, pushHistory])
+  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
   const getCabCorners = (cab) => {
@@ -897,6 +951,18 @@ export default function RoomCanvas({
           {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place · Scroll to zoom · Alt+drag to pan</span>}
           {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>Click a base cabinet's edge to toggle backsplash on that side · Esc to stop</span>}
           {mode === 'select' && selectedWall !== null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderLeft: '1px solid #E0DAD4', paddingLeft: 10 }}>
+              <span style={{ fontSize: 11, color: '#888', marginRight: 2 }}>Length:</span>
+              {['center', 'inner', 'outer'].map(m => (
+                <button key={m}
+                  onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, lengthMode: m } : w))}
+                  style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize' }}>
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
+          {mode === 'select' && selectedWall !== null && (
             <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               🗑 Delete wall
@@ -990,7 +1056,7 @@ export default function RoomCanvas({
     {walls.map((w, i) => (
   <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
     thickness={wallPx} scale={scale} winding={winding} isClosedLoop={isClosedLoop}
-    innerLenMm={getInnerLength(w, wallThickness, scale)}
+    innerLenMm={getCorrectedLength(walls, i, wallThickness, scale, ENDPOINT_SNAP_DIST)}
     outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
 
               onSelect={hideWallsElements ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
@@ -999,9 +1065,7 @@ export default function RoomCanvas({
               onLabelClick={() => {
                 if (hideToolbar) return
                 setSelectedWall(i); setEditingWall(i)
-                setEditingLenVal(isClosedLoop
-                  ? getInnerLength(w, wallThickness, scale)
-                  : Math.round(Math.hypot(w.x2 - w.x1, w.y2 - w.y1) / scale))
+                setEditingLenVal(getCorrectedLength(walls, i, wallThickness, scale, ENDPOINT_SNAP_DIST))
                 setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
               }}
               editingLength={!hideToolbar && editingWall === i}
