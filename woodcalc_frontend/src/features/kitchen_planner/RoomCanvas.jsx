@@ -332,11 +332,12 @@ export default function RoomCanvas({
       return { x: snapPt.x, y: snapPt.y, innerLenMm: Math.max(0, Math.round((len - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(Math.atan2(snapPt.y - startPoint.y, snapPt.x - startPoint.x))), snapped: true }
     }
     let angle, length
+    const lockedOuter = walls.length >= 2 ? lockedLength + wallThickness : lockedLength
     if (lockedLength !== null && lockedAngle !== null) {
-      angle = degToRad(lockedAngle); length = (lockedLength + wallThickness) * scale
+      angle = degToRad(lockedAngle); length = lockedOuter * scale
     } else if (lockedLength !== null) {
       angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
-      length = (lockedLength + wallThickness) * scale
+      length = lockedOuter * scale
     } else if (lockedAngle !== null) {
       angle = degToRad(lockedAngle)
       length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
