@@ -120,7 +120,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         style={{ cursor: 'move' }} />
       <line x1={x1} y1={y1} x2={x2} y2={y2}
         stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={thickness}
-        strokeLinecap="square" style={{ pointerEvents: 'none' }} />
+        strokeLinecap="butt" style={{ pointerEvents: 'none' }} />
       {winding !== 0 && (() => {
         const halfT = thickness / 2
         return <line x1={x1 + nx * halfT} y1={y1 + ny * halfT}
