@@ -156,8 +156,12 @@ function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
   return best
 }
 
-function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange }) {
+function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange, offsetStart = 0, offsetEnd = 0 }) {
   const { x1, y1, x2, y2 } = wall
+  const rawLen = Math.hypot(x2 - x1, y2 - y1) || 1
+  const uxDir = (x2 - x1) / rawLen, uyDir = (y2 - y1) / rawLen
+  const lx1 = x1 + uxDir * offsetStart, ly1 = y1 + uyDir * offsetStart
+  const lx2 = x2 - uxDir * offsetEnd, ly2 = y2 - uyDir * offsetEnd
   const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
   const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
   const { nx, ny } = getInnerNormal(wall, winding)
@@ -169,7 +173,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         strokeWidth={Math.max(thickness + 12, 20)} strokeLinecap="square"
         onMouseDown={e => { e.stopPropagation(); onSelect(); onDragStart(e, index) }}
         style={{ cursor: 'move' }} />
-      <line x1={x1} y1={y1} x2={x2} y2={y2}
+      <line x1={lx1} y1={ly1} x2={lx2} y2={ly2}
         stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={thickness}
         strokeLinecap="butt" style={{ pointerEvents: 'none' }} />
       {winding !== 0 && (() => {
@@ -1058,6 +1062,8 @@ export default function RoomCanvas({
     thickness={wallPx} scale={scale} winding={winding} isClosedLoop={isClosedLoop}
     innerLenMm={getCorrectedLength(walls, i, wallThickness, scale, ENDPOINT_SNAP_DIST)}
     outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
+    offsetStart={getEndpointOffset(walls, i, 'start', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
+    offsetEnd={getEndpointOffset(walls, i, 'end', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
 
               onSelect={hideWallsElements ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
