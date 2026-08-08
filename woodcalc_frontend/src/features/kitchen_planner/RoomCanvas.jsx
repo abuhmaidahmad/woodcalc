@@ -316,6 +316,8 @@ export default function RoomCanvas({
 
   const isPanningRef = useRef(false)
   const panLastRef = useRef(null)
+  const zoomBoxActiveRef = useRef(false)
+  const [zoomBox, setZoomBox] = useState(null)
   const wallClickedRef = useRef(false)
   const svgRef = useRef(null)
 
@@ -580,12 +582,19 @@ export default function RoomCanvas({
   }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness])
 
   const handleMouseDown = useCallback((e) => {
+    if (e.button === 2) {
+      e.preventDefault()
+      const pos = getSVGPos(e)
+      zoomBoxActiveRef.current = true
+      setZoomBox({ x1: pos.x, y1: pos.y, x2: pos.x, y2: pos.y })
+      return
+    }
     if (e.button === 1 || (e.button === 0 && e.altKey)) {
       e.preventDefault()
       isPanningRef.current = true
       panLastRef.current = { x: e.clientX, y: e.clientY }
     }
-  }, [])
+  }, [getSVGPos])
 
   const handleMouseMove = useCallback((e) => {
     // Pan using screen coord delta
@@ -607,6 +616,7 @@ export default function RoomCanvas({
     const pos = getSVGPos(e)
     const rawX = pos.x, rawY = pos.y
     setMousePos({ x: rawX, y: rawY })
+    if (zoomBoxActiveRef.current) { setZoomBox(z => (z ? { ...z, x2: rawX, y2: rawY } : z)); return }
     // Show the snap preview even before the first click of a new wall — not just
     // once a startPoint already exists — so there's visual confirmation of where
     // a wall will connect before you commit to the click.
@@ -708,6 +718,18 @@ export default function RoomCanvas({
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false
     panLastRef.current = null
+    if (zoomBoxActiveRef.current) {
+      zoomBoxActiveRef.current = false
+      setZoomBox(z => {
+        if (z) {
+          const minX = Math.min(z.x1, z.x2), maxX = Math.max(z.x1, z.x2)
+          const minY = Math.min(z.y1, z.y2), maxY = Math.max(z.y1, z.y2)
+          if (maxX - minX > 5 && maxY - minY > 5) applyViewBounds(minX, minY, maxX, maxY, 0.04)
+        }
+        return null
+      })
+      return
+    }
     if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint')) setHistory(h => [...h.slice(-20), walls])
     setDragging(null); setDragStart(null); setDragCorner(null); setWallSnapPreview(null)
   }, [dragging, walls])
@@ -873,6 +895,24 @@ export default function RoomCanvas({
     setCabinets(p => p.map(c => c.id === cabId ? { ...c, x: c.x + delta * ux, y: c.y + delta * uy } : c))
   }
 
+  const applyViewBounds = useCallback((minX, minY, maxX, maxY, padFrac = 0.08) => {
+    const pad = Math.max((maxX - minX), (maxY - minY)) * padFrac || 50
+    minX -= pad; minY -= pad; maxX += pad; maxY += pad
+    // Match the SVG element's aspect ratio so content is centered, not top-left
+    const svg = svgRef.current
+    const rect = svg ? svg.getBoundingClientRect() : { width: 1, height: 1 }
+    const aspect = rect.width / rect.height
+    let bw = maxX - minX, bh = maxY - minY
+    if (bw / bh > aspect) {
+      const nh = bw / aspect
+      minY -= (nh - bh) / 2; bh = nh
+    } else {
+      const nw = bh * aspect
+      minX -= (nw - bw) / 2; bw = nw
+    }
+    setVx(minX); setVy(minY); setVw(bw); setVh(bh)
+  }, [])
+
   const fitView = () => {
     // Collect points from all design content (px coords)
     const pts = []
@@ -899,21 +939,30 @@ export default function RoomCanvas({
       if (px < minX) minX = px; if (px > maxX) maxX = px
       if (py < minY) minY = py; if (py > maxY) maxY = py
     })
-    const pad = Math.max((maxX - minX), (maxY - minY)) * 0.08 || 50
-    minX -= pad; minY -= pad; maxX += pad; maxY += pad
-    // Match the SVG element's aspect ratio so content is centered, not top-left
-    const svg = svgRef.current
-    const rect = svg ? svg.getBoundingClientRect() : { width: 1, height: 1 }
-    const aspect = rect.width / rect.height
-    let bw = maxX - minX, bh = maxY - minY
-    if (bw / bh > aspect) {
-      const nh = bw / aspect
-      minY -= (nh - bh) / 2; bh = nh
-    } else {
-      const nw = bh * aspect
-      minX -= (nw - bw) / 2; bw = nw
+    applyViewBounds(minX, minY, maxX, maxY, 0.08)
+  }
+
+  const zoomToSelection = () => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+    const addPt = (x, y) => { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y }
+    if (selectedWall !== null && walls[selectedWall]) {
+      const w = walls[selectedWall]
+      addPt(w.x1, w.y1); addPt(w.x2, w.y2)
+    } else if (selected != null) {
+      const cab = cabinets.find(c => c.id === selected)
+      if (cab) {
+        const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
+        addPt(x, y); addPt(x + w, y); addPt(x, y + h); addPt(x + w, y + h)
+      } else {
+        const el = elements.find(e => e.id === selected)
+        if (el) {
+          const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
+          addPt(x - w / 2, y - h / 2); addPt(x + w / 2, y + h / 2)
+        }
+      }
     }
-    setVx(minX); setVy(minY); setVw(bw); setVh(bh)
+    if (minX === Infinity) return
+    applyViewBounds(minX, minY, maxX, maxY, 0.6)
   }
 
   const gridLines = []
@@ -961,6 +1010,9 @@ export default function RoomCanvas({
             <span style={{ fontSize: 10, color: '#888', minWidth: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
             <button onClick={() => zoomAt(W/2, H/2, 1.3)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>−</button>
             <button onClick={fitView} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Fit</button>
+            {(selectedWall !== null || selected != null) && (
+              <button onClick={zoomToSelection} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Zoom Selection</button>
+            )}
           </div>
           {mode === 'draw' && startPoint && (
             <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
@@ -1061,6 +1113,7 @@ export default function RoomCanvas({
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
           onMouseLeave={handleMouseUp}
+          onContextMenu={e => e.preventDefault()}
         >
           <defs>
             <pattern id="collisionHatch" patternUnits="userSpaceOnUse" width={8} height={8} patternTransform="rotate(45)">
@@ -1100,6 +1153,11 @@ export default function RoomCanvas({
           ))}
           {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
           {mode === 'draw' && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {zoomBox && (() => {
+            const bx = Math.min(zoomBox.x1, zoomBox.x2), by = Math.min(zoomBox.y1, zoomBox.y2)
+            const bw = Math.abs(zoomBox.x2 - zoomBox.x1), bh = Math.abs(zoomBox.y2 - zoomBox.y1)
+            return <rect x={bx} y={by} width={bw} height={bh} fill={ACCENT + '18'} stroke={ACCENT} strokeWidth={1.5} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
+          })()}
           {mode === 'draw' && startPoint && previewEnd && previewEnd.innerLenMm > 0 && (
             <>
               <line x1={startPoint.x} y1={startPoint.y} x2={previewEnd.x} y2={previewEnd.y}
