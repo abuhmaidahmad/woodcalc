@@ -1201,41 +1201,70 @@ function FreestandingOvenAppliance({ W, H, D }) {
   )
 }
 
-function OvenTowerAppliance({ W, H, D, isDouble }) {
+function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, frontMaterialCode, textureMap = {} }) {
   const bodyColor = '#2b2b2b', doorGlass = '#111418'
+  const matProps = getMaterialProps(frontMaterial)
+  const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
+  const ovenW = W * 0.82
+  // The oven unit itself always stays realistic stainless/glass — only the
+  // surrounding cabinet skin (visible above/below/beside the oven cavity)
+  // takes the user's selected front material, same texture system as
+  // SidePanelSlab (PhotoTexturedBox when a texture is set, SmartBox as a
+  // flat-color fallback otherwise).
+  const surround = texEntry ? (() => {
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    return (
+      <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
+        envMapIntensity={1.2} repeatU={D / physW} repeatV={H / physH} radius={0.001} rotate90 />
+    )
+  })() : (
+    <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+  )
   return (
     <group>
-      <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, H, D]} />
-        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
-      </mesh>
+      {surround}
       {isDouble ? (
         <>
-          <mesh position={[0, H * 0.78, D / 2 + 0.001]}>
-            <boxGeometry args={[W - 0.06, H * 0.32, 0.002]} />
+          <mesh position={[0, H * 0.78, D / 2 + 0.002]} castShadow>
+            <boxGeometry args={[ovenW, H * 0.32, 0.03]} />
+            <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+          </mesh>
+          <mesh position={[0, H * 0.78, D / 2 + 0.0335]}>
+            <boxGeometry args={[ovenW - 0.06, H * 0.32 - 0.06, 0.002]} />
             <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
           </mesh>
-          <mesh position={[0, H * 0.78, D / 2 + 0.02]}>
-            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+          <mesh position={[0, H * 0.78, D / 2 + 0.037]}>
+            <boxGeometry args={[ovenW * 0.75, 0.02, 0.025]} />
             <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
           </mesh>
-          <mesh position={[0, H * 0.32, D / 2 + 0.001]}>
-            <boxGeometry args={[W - 0.06, H * 0.34, 0.002]} />
+          <mesh position={[0, H * 0.32, D / 2 + 0.002]} castShadow>
+            <boxGeometry args={[ovenW, H * 0.34, 0.03]} />
+            <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+          </mesh>
+          <mesh position={[0, H * 0.32, D / 2 + 0.0335]}>
+            <boxGeometry args={[ovenW - 0.06, H * 0.34 - 0.06, 0.002]} />
             <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
           </mesh>
-          <mesh position={[0, H * 0.32, D / 2 + 0.02]}>
-            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+          <mesh position={[0, H * 0.32, D / 2 + 0.037]}>
+            <boxGeometry args={[ovenW * 0.75, 0.02, 0.025]} />
             <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
           </mesh>
         </>
       ) : (
         <>
-          <mesh position={[0, H * 0.55, D / 2 + 0.001]}>
-            <boxGeometry args={[W - 0.06, H * 0.5, 0.002]} />
+          <mesh position={[0, H * 0.55, D / 2 + 0.002]} castShadow>
+            <boxGeometry args={[ovenW, H * 0.5, 0.03]} />
+            <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+          </mesh>
+          <mesh position={[0, H * 0.55, D / 2 + 0.0335]}>
+            <boxGeometry args={[ovenW - 0.06, H * 0.5 - 0.06, 0.002]} />
             <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
           </mesh>
-          <mesh position={[0, H * 0.55, D / 2 + 0.02]}>
-            <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
+          <mesh position={[0, H * 0.55, D / 2 + 0.037]}>
+            <boxGeometry args={[ovenW * 0.75, 0.02, 0.025]} />
             <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
           </mesh>
         </>
@@ -1371,7 +1400,8 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       {applianceKind === 'fridge' ? (
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'ovenTower' ? (
-        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} />
+        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap} />
       ) : applianceKind === 'hood' ? (
         <HoodAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'freestandingOven' ? (
