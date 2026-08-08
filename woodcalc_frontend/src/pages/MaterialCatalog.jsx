@@ -372,6 +372,13 @@ export default function MaterialCatalog() {
               <Field label="Thickness" value={form.board_thickness} type="number" onChange={v => setForm(f => ({ ...f, board_thickness: v }))} placeholder="18" />
             </div>
 
+            {/* Texture photo physical size */}
+            <div style={{ fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 600 }}>TEXTURE PHOTO SIZE (mm) <span style={{ color: '#bbb', fontWeight: 400 }}>— real-world area the uploaded photo covers</span></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <Field label="Photo Width" value={form.texture_physical_width_mm} type="number" onChange={v => setForm(f => ({ ...f, texture_physical_width_mm: v }))} placeholder="600" />
+              <Field label="Photo Height" value={form.texture_physical_height_mm} type="number" onChange={v => setForm(f => ({ ...f, texture_physical_height_mm: v }))} placeholder="600" />
+            </div>
+
             {/* Price + Fallback color */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label="Price per Board (JD)" value={form.price_per_board} type="number" onChange={v => setForm(f => ({ ...f, price_per_board: v }))} placeholder="0.00" />
