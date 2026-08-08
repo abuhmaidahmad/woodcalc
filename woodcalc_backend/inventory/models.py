@@ -1,3 +1,4 @@
+import os
 from django.db import models
 from django.core.files.base import ContentFile
 from io import BytesIO
@@ -104,7 +105,7 @@ class Material(models.Model):
                 img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
                 buffer.seek(0)
 
-                original_name = self.texture_image.name.rsplit('.', 1)[0]
+                original_name = os.path.basename(self.texture_image.name).rsplit('.', 1)[0]
                 self.texture_image = ContentFile(buffer.read(), name=f'{original_name}.jpg')
             except Exception:
                 pass
