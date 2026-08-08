@@ -1244,12 +1244,14 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
 
   let bands
   if (isDouble) {
-    const b1Top = H * 0.94, b1Bottom = H * 0.62, b1Center = H * 0.78, b1H = H * 0.32
-    const b2Top = H * 0.49, b2Bottom = H * 0.15, b2Center = H * 0.32, b2H = H * 0.34
+    // No divider panel between the two ovens — they sit flush against each
+    // other, split evenly down the middle of the combined cavity.
+    const colTop = H * 0.94, colBottom = H * 0.15, colMid = (colTop + colBottom) / 2
+    const b1Top = colTop, b1Bottom = colMid, b1Center = (b1Top + b1Bottom) / 2, b1H = b1Top - b1Bottom
+    const b2Top = colMid, b2Bottom = colBottom, b2Center = (b2Top + b2Bottom) / 2, b2H = b2Top - b2Bottom
     bands = (
       <>
         {frontPiece('top', ovenW, H - b1Top, 0, (b1Top + H) / 2)}
-        {frontPiece('mid', ovenW, b1Bottom - b2Top, 0, (b1Bottom + b2Top) / 2)}
         {frontPiece('bottom', ovenW, b2Bottom, 0, b2Bottom / 2)}
         {ovenDoor('door1', b1Center, b1H)}
         {ovenDoor('door2', b2Center, b2H)}
