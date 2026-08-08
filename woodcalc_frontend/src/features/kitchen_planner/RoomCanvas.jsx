@@ -36,6 +36,29 @@ function getWallFarPoint(wall, sharedX, sharedY) {
   return d1 <= d2 ? { x: wall.x2, y: wall.y2 } : { x: wall.x1, y: wall.y1 }
 }
 
+function getDrawStartOffset(px, py, dirAngleRad, walls, wallThickness, scale, threshold) {
+  let neighbor = null, bestDist = threshold
+  walls.forEach(w => {
+    ;[{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(pt => {
+      const d = ptDist(px, py, pt.x, pt.y)
+      if (d < bestDist) { bestDist = d; neighbor = w }
+    })
+  })
+  if (!neighbor) return 0
+  const neighborFar = getWallFarPoint(neighbor, px, py)
+  const v1x = Math.cos(dirAngleRad), v1y = Math.sin(dirAngleRad)
+  const v2x = neighborFar.x - px, v2y = neighborFar.y - py
+  const len2 = Math.hypot(v2x, v2y)
+  if (len2 === 0) return 0
+  let cos = (v1x * v2x + v1y * v2y) / len2
+  cos = Math.max(-1, Math.min(1, cos))
+  const angle = Math.acos(cos)
+  const halfT = (wallThickness * scale) / 2
+  const tanHalf = Math.tan(angle / 2)
+  if (tanHalf < 0.01) return Math.min(halfT * 20, len2 * 0.9)
+  return Math.min(halfT / tanHalf, len2 * 0.9)
+}
+
 // Miter-style per-corner correction: halfThickness / tan(angle/2), where angle
 // is the interior angle between this wall and whatever wall is actually
 // connected at this endpoint. Reduces to a flat halfThickness only at 90 deg
@@ -383,11 +406,14 @@ export default function RoomCanvas({
     const snapPt = findNearestEndpoint(mousePos.x, mousePos.y, walls, -1, snapThreshold)
     if (snapPt && !lockedLength && !lockedAngle) {
       const len = ptDist(startPoint.x, startPoint.y, snapPt.x, snapPt.y)
-      const halfT = (wallThickness * scale) / 2
-      return { x: snapPt.x, y: snapPt.y, innerLenMm: Math.max(0, Math.round((len - halfT * 2) / scale)), angleDeg: Math.round(radToDeg(Math.atan2(snapPt.y - startPoint.y, snapPt.x - startPoint.x))), snapped: true }
+      const angleToSnap = Math.atan2(snapPt.y - startPoint.y, snapPt.x - startPoint.x)
+      const drawOffset = getDrawStartOffset(startPoint.x, startPoint.y, angleToSnap, walls, wallThickness, scale, snapThreshold)
+      return { x: snapPt.x, y: snapPt.y, innerLenMm: Math.max(0, Math.round((len - drawOffset) / scale)), angleDeg: Math.round(radToDeg(angleToSnap)), snapped: true }
     }
     let angle, length
-    const lockedOuter = walls.length >= 2 ? lockedLength + wallThickness : lockedLength
+    const previewAngle = lockedAngle !== null ? degToRad(lockedAngle) : Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
+    const drawOffset = getDrawStartOffset(startPoint.x, startPoint.y, previewAngle, walls, wallThickness, scale, snapThreshold)
+    const lockedOuter = lockedLength !== null ? lockedLength + drawOffset / scale : lockedLength
     if (lockedLength !== null && lockedAngle !== null) {
       angle = degToRad(lockedAngle); length = lockedOuter * scale
     } else if (lockedLength !== null) {
@@ -400,10 +426,7 @@ export default function RoomCanvas({
       angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
       length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
     }
-    const halfT = (wallThickness * scale) / 2
-    const displayLenMm = walls.length >= 2
-      ? Math.max(0, Math.round((length - halfT * 2) / scale))
-      : Math.max(0, Math.round(length / scale))
+    const displayLenMm = Math.max(0, Math.round((length - drawOffset) / scale))
     return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: displayLenMm, angleDeg: Math.round(radToDeg(angle)), snapped: false }
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
 
