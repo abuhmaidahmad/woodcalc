@@ -1205,9 +1205,11 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
   const bodyColor = '#2b2b2b', doorGlass = '#111418'
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
-  const ovenW = W * 0.82
-  const sideStripW = (W - ovenW) / 2
-  const sideStripX = ovenW / 2 + sideStripW / 2
+  // Standard oven cavity: 595mm x 595mm, edge-to-edge on the cabinet (no
+  // left/right filler) with a small tolerance gap to the next cabinet.
+  const edgeGap = 0.003
+  const ovenW = W - edgeGap * 2
+  const ovenH = 0.595
   const stripT = 0.018
   const stripZ = D / 2 + stripT / 2
   const doorZ0 = D / 2 + stripT + 0.002
@@ -1244,11 +1246,12 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
 
   let bands
   if (isDouble) {
-    // No divider panel between the two ovens — they sit flush against each
-    // other, split evenly down the middle of the combined cavity.
-    const colTop = H * 0.94, colBottom = H * 0.15, colMid = (colTop + colBottom) / 2
-    const b1Top = colTop, b1Bottom = colMid, b1Center = (b1Top + b1Bottom) / 2, b1H = b1Top - b1Bottom
-    const b2Top = colMid, b2Bottom = colBottom, b2Center = (b2Top + b2Bottom) / 2, b2H = b2Top - b2Bottom
+    // Two 595mm-tall ovens stacked with no gap between them, centered as a
+    // pair within the cabinet column (same vertical center as the single-
+    // oven case for consistency).
+    const colCenter = H * 0.55
+    const b1Top = colCenter + ovenH, b1Bottom = colCenter, b1Center = (b1Top + b1Bottom) / 2, b1H = ovenH
+    const b2Top = colCenter, b2Bottom = colCenter - ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
     bands = (
       <>
         {frontPiece('top', ovenW, H - b1Top, 0, (b1Top + H) / 2)}
@@ -1258,7 +1261,8 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
       </>
     )
   } else {
-    const bandTop = H * 0.80, bandBottom = H * 0.30, bandCenter = H * 0.55, bandH = H * 0.5
+    const bandCenter = H * 0.55, bandH = ovenH
+    const bandTop = bandCenter + bandH / 2, bandBottom = bandCenter - bandH / 2
     bands = (
       <>
         {frontPiece('top', ovenW, H - bandTop, 0, (bandTop + H) / 2)}
@@ -1272,8 +1276,6 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
     <group>
       <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
         color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
-      {frontPiece('left', sideStripW, H, -sideStripX, H / 2)}
-      {frontPiece('right', sideStripW, H, sideStripX, H / 2)}
       {bands}
     </group>
   )
