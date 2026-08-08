@@ -100,6 +100,7 @@ function buildLibrary(baseHeight) {
     ...tallWidths.filter(w => w >= 600).map(w => ({ id: `tall_doven_${w}`,label: `Dbl Oven ${w}`,   subtype: 'Double Oven',width: w, height: 2220, depth: 560, icon: 'tall_double_oven', category: 'tall' })),
     ...[600, 700, 800, 900].map(w => ({ id: `tall_fridge_${w}`, label: `Fridge ${w}`,  subtype: 'Fridge',       width: w, height: 2220, depth: 600, icon: 'tall_fridge',      category: 'tall' })),
     ...tallWidths.map(w => ({ id: `tall_broom_${w}`,        label: `Broom ${w}`,        subtype: 'Broom/Linen',  width: w, height: 2220, depth: 560, icon: 'tall_broom',       category: 'tall' })),
+    ...[1100, 1200].map(w => ({ id: `tall_blind_${w}`,       label: `Blind Tall ${w}`,   subtype: 'Blind',        width: w, height: 2220, depth: 560, icon: 'corner_blind',     category: 'tall' })),
   ]
 
   const vanity = [
