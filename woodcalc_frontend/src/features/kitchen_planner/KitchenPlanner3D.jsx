@@ -165,7 +165,7 @@ function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl,
     <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} rotate90={rotate90} />
   )
   const inner = radius > 0 ? (
-    <RoundedBox args={args} radius={radius} smoothness={2} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
+    <RoundedBox args={args} radius={radius} smoothness={1} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
       {photoMat}
     </RoundedBox>
   ) : (
@@ -609,7 +609,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
-  const GOLA_RECESS = effectiveDoorStyle === 'Gola' ? 0.025 : 0
+  const GOLA_RECESS = (effectiveDoorStyle === 'Gola' && !isTall) ? 0.025 : 0
   const doorH = H - GOLA_RECESS
   const BLIND_PANEL_W_M = BLIND_PANEL_WIDTH / 1000
   const doorW = isBlind ? Math.max(0.05, W - BLIND_PANEL_W_M - 0.003) : W / numDoors
