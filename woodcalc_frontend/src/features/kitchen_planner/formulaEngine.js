@@ -207,7 +207,7 @@ export function calculateCabinet(config) {
     });
   }
 
-  const backW = round2(W - 2 * T - 3);
+  const backW = round2(bottomW + 16);
   const backH = round2(H - T - 3);
   panels.push({
     name: 'Back panel (HDF)',
@@ -218,7 +218,7 @@ export function calculateCabinet(config) {
     notes: '8mm HDF',
   });
 
-  const shelfW = bottomW;
+  const shelfW = round2(bottomW - 2);
   const shelfD = round2(D - 38);
   if (shelves > 0) {
     panels.push({
@@ -241,18 +241,20 @@ export function calculateCabinet(config) {
   const defaultDoorCount = getDefaultDoorCount(W);
   const doorCount = isBlind ? 1 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
+  const isTallSplit = config.cabinetType === 'tall' && doorCount > 1;
+  const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;
+
   const doors = [];
   const doorWidths = [];
-  if (doorCount === 1) {
+  if (columnCount === 1) {
     doorWidths.push(oneDoorWidth);
-  } else if (doorCount === 2) {
+  } else if (columnCount === 2) {
     doorWidths.push(twoDoorWidthEach, twoDoorWidthEach);
   } else {
-    const each = round2((W - 3) / doorCount);
-    for (let i = 0; i < doorCount; i++) doorWidths.push(each);
+    const each = round2((W - 3) / columnCount);
+    for (let i = 0; i < columnCount; i++) doorWidths.push(each);
   }
 
-  const isTallSplit = config.cabinetType === 'tall';
   if (isTallSplit) {
     // Tall Gola: C-channel at base-cabinet-top level splits into lower + upper door.
     // Lower door is cut-identical to a base cabinet Gola door so fronts align.
@@ -273,7 +275,7 @@ export function calculateCabinet(config) {
     });
   } else {
   doorWidths.forEach((dw) => {
-    const doorH = doorStyle === 'Gola' ? golaDoorHeight : handlePushDoorHeight;
+    const doorH = config.cabinetType === 'tall' ? round2(H - 3) : (doorStyle === 'Gola' ? golaDoorHeight : handlePushDoorHeight);
     const hinges = getHingeCount(doorH);
     doors.push({
       width: round2(dw),
