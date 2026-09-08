@@ -2,6 +2,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from tenants.mixins import TenantScopedMixin
+from tenants.permissions import HasActiveCompany
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
 from .serializers import (
     PaymentTransactionSerializer,
@@ -11,10 +13,10 @@ from .serializers import (
 )
 
 
-class ClientViewSet(ModelViewSet):
+class ClientViewSet(TenantScopedMixin, ModelViewSet):
     queryset = Client.objects.prefetch_related('projects__rooms').order_by('name')
     serializer_class = ClientSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_serializer_class(self):
         if self.action == 'retrieve':
@@ -29,27 +31,30 @@ class ClientViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
-class LeadViewSet(ModelViewSet):
+class LeadViewSet(TenantScopedMixin, ModelViewSet):
     queryset = Lead.objects.all().order_by('-created_at')
     serializer_class = LeadSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class QuotationViewSet(ModelViewSet):
+class QuotationViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'client__tenant'
     queryset = Quotation.objects.all().order_by('-created_at')
     serializer_class = QuotationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class QuotationItemViewSet(ModelViewSet):
+class QuotationItemViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'quotation__client__tenant'
     queryset = QuotationItem.objects.all()
     serializer_class = QuotationItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class ProjectViewSet(ModelViewSet):
+class ProjectViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'client__tenant'
     queryset = Project.objects.select_related('client').prefetch_related('rooms', 'payments').order_by('-created_at')
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -57,7 +62,7 @@ class ProjectViewSet(ModelViewSet):
         return ProjectSerializer
 
     def get_queryset(self):
-        qs = Project.objects.all().order_by('-created_at')
+        qs = super().get_queryset()
         client_id = self.request.query_params.get('client')
         if client_id:
             qs = qs.filter(client_id=client_id)
@@ -81,10 +86,11 @@ class ProjectViewSet(ModelViewSet):
         return Response(serializer.data)
 
 
-class RoomViewSet(ModelViewSet):
+class RoomViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'project__client__tenant'
     queryset = Room.objects.all().order_by('-created_at')
     serializer_class = RoomSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -92,29 +98,32 @@ class RoomViewSet(ModelViewSet):
         return RoomSerializer
 
     def get_queryset(self):
-        qs = Room.objects.all().order_by('-created_at')
+        qs = super().get_queryset()
         project_id = self.request.query_params.get('project')
         if project_id:
             qs = qs.filter(project_id=project_id)
         return qs
 
 
-class PaymentViewSet(ModelViewSet):
+class PaymentViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'project__client__tenant'
     queryset = Payment.objects.all().order_by('due_date')
     serializer_class = PaymentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = Payment.objects.all().order_by('due_date')
+        qs = super().get_queryset()
         project_id = self.request.query_params.get('project')
         if project_id:
             qs = qs.filter(project_id=project_id)
         return qs
 
 
-class PaymentTransactionViewSet(ModelViewSet):
+class PaymentTransactionViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'project__client__tenant'
     queryset = PaymentTransaction.objects.all()
     serializer_class = PaymentTransactionSerializer
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -128,7 +137,7 @@ class PaymentTransactionViewSet(ModelViewSet):
         """Owner view: outstanding balance per project + upcoming post-dated cheques."""
         from decimal import Decimal
         data = []
-        for p in Project.objects.exclude(status__in=['CANCELLED']):
+        for p in Project.objects.filter(client__tenant=request.company).exclude(status__in=['CANCELLED']):
             txs = list(p.transactions.all())
             collected = sum((t.amount for t in txs if t.is_collected), Decimal('0'))
             pending_cheques = [
