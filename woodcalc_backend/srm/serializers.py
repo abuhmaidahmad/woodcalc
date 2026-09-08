@@ -35,3 +35,4 @@ class PurchaseOrderSerializer(serializers.ModelSerializer):
         model = PurchaseOrder
         fields = '__all__'
         read_only_fields = ['po_number']
+        extra_kwargs = {'tenant': {'read_only': True}}

@@ -4,15 +4,17 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
+from tenants.mixins import TenantScopedMixin
+from tenants.permissions import HasActiveCompany
 from .models import PurchaseOrder, PurchaseOrderLineItem, SupplierPayment
 from .email_service import send_purchase_order_email, EmailAccountNotConnected
 from .serializers import PurchaseOrderSerializer, PurchaseOrderLineItemSerializer, SupplierPaymentSerializer
 
 
-class PurchaseOrderViewSet(ModelViewSet):
+class PurchaseOrderViewSet(TenantScopedMixin, ModelViewSet):
     queryset = PurchaseOrder.objects.all().order_by('-order_date').prefetch_related('line_items__material', 'payments')
     serializer_class = PurchaseOrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     @action(detail=True, methods=['post'])
     def send_email(self, request, pk=None):
@@ -62,10 +64,11 @@ class PurchaseOrderViewSet(ModelViewSet):
         return Response(SupplierPaymentSerializer(payment).data, status=201)
 
 
-class PurchaseOrderLineItemViewSet(ModelViewSet):
+class PurchaseOrderLineItemViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'purchase_order__tenant'
     queryset = PurchaseOrderLineItem.objects.all()
     serializer_class = PurchaseOrderLineItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     @action(detail=True, methods=['post'])
     def receive(self, request, pk=None):
