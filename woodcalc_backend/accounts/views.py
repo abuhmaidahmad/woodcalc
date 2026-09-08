@@ -13,8 +13,24 @@ from .serializers import (
     UserMeSerializer,
 )
 from .models import ManufacturerProfile, SupplierProfile
+from django.db import transaction
+from django.utils.text import slugify
+from tenants.models import Company, CompanyMembership
 
 User = get_user_model()
+
+
+def create_company_for_manufacturer(user, company_name):
+    base_slug = slugify(company_name) or slugify(user.email.split('@')[0])
+    slug = base_slug
+    suffix = 1
+    while Company.objects.filter(slug=slug).exists():
+        suffix += 1
+        slug = f"{base_slug}-{suffix}"
+    company = Company.objects.create(name=company_name, slug=slug)
+    company.start_trial()
+    CompanyMembership.objects.create(company=company, user=user, role=CompanyMembership.Role.OWNER)
+    return company
 
 
 def get_tokens_for_user(user):
@@ -61,14 +77,17 @@ def register_architect(request):
 def register_manufacturer(request):
     serializer = ManufacturerRegisterSerializer(data=request.data)
     if serializer.is_valid():
-        user = serializer.save()
-        doc = request.FILES.get('trade_license_document')
-        if doc:
-            user.manufacturer_profile.trade_license_document = doc
-            user.manufacturer_profile.save()
+        with transaction.atomic():
+            user = serializer.save()
+            doc = request.FILES.get('trade_license_document')
+            if doc:
+                user.manufacturer_profile.trade_license_document = doc
+                user.manufacturer_profile.save()
+            company = create_company_for_manufacturer(user, user.manufacturer_profile.factory_company_name)
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserMeSerializer(user).data,
+            'company': {'id': str(company.id), 'name': company.name, 'slug': company.slug, 'status': company.status, 'trial_ends_at': company.trial_ends_at},
             'tokens': tokens,
             'message': 'Account created. Access limited until document verification is complete.',
             'verification_status': 'pending'
