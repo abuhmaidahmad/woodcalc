@@ -4,7 +4,7 @@ from tenants.models import Company
 
 
 class ProductionStation(models.Model):
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='production_stations', null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='production_stations')
     name = models.CharField(max_length=100)
     code = models.CharField(max_length=20, unique=True)
     description = models.CharField(max_length=300, blank=True)
@@ -19,7 +19,7 @@ class WorkOrder(models.Model):
         ('NEW', 'New'), ('IN_PROGRESS', 'In Progress'),
         ('COMPLETED', 'Completed'), ('CANCELLED', 'Cancelled'),
     ]
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='work_orders', null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='work_orders')
     order_number = models.CharField(max_length=50, unique=True)
     product_name = models.CharField(max_length=200)
     customer_name = models.CharField(max_length=200, blank=True)
@@ -68,7 +68,7 @@ class MaterialConsumption(models.Model):
 
 
 class StockSheet(models.Model):
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='stock_sheets_tenant', null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='stock_sheets_tenant')
     material = models.ForeignKey(Material, on_delete=models.PROTECT, related_name='stock_sheets')
     thickness = models.DecimalField(max_digits=6, decimal_places=2)
     width = models.DecimalField(max_digits=8, decimal_places=2, help_text='mm')

@@ -14,7 +14,7 @@ class PurchaseOrder(models.Model):
         ('closed', 'Closed'),
         ('cancelled', 'Cancelled'),
     ]
-    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='purchase_orders_tenant', null=True, blank=True)
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='purchase_orders_tenant')
     po_number = models.CharField(max_length=30, unique=True, blank=True)
     supplier = models.ForeignKey(Supplier, on_delete=models.PROTECT, related_name='purchase_orders')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft')
