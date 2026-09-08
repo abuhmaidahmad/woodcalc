@@ -1,5 +1,7 @@
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
+from tenants.mixins import TenantScopedMixin
+from tenants.permissions import HasActiveCompany
 from .models import ProductionStation, WorkOrder, WorkOrderItem, StationLog, MaterialConsumption
 from .models import StockSheet, CuttingJob
 from .serializers import (
@@ -14,77 +16,81 @@ from rest_framework.response import Response
 from django.http import HttpResponse
 
 
-class ProductionStationViewSet(ModelViewSet):
+class ProductionStationViewSet(TenantScopedMixin, ModelViewSet):
     queryset = ProductionStation.objects.all().order_by('name')
     serializer_class = ProductionStationSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class WorkOrderViewSet(ModelViewSet):
+class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
     queryset = WorkOrder.objects.all().order_by('-created_at')
     serializer_class = WorkOrderSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = WorkOrder.objects.all().order_by('-created_at')
+        qs = super().get_queryset()
         room_id = self.request.query_params.get('room_id_ref')
         if room_id:
             qs = qs.filter(room_id_ref=room_id)
         return qs
 
 
-class WorkOrderItemViewSet(ModelViewSet):
+class WorkOrderItemViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'work_order__tenant'
     queryset = WorkOrderItem.objects.all()
     serializer_class = WorkOrderItemSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = WorkOrderItem.objects.all()
+        qs = super().get_queryset()
         work_order_id = self.request.query_params.get('work_order')
         if work_order_id:
             qs = qs.filter(work_order_id=work_order_id)
         return qs
 
 
-class StationLogViewSet(ModelViewSet):
+class StationLogViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'work_order__tenant'
     queryset = StationLog.objects.all()
     serializer_class = StationLogSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = StationLog.objects.all()
+        qs = super().get_queryset()
         work_order_id = self.request.query_params.get('work_order')
         if work_order_id:
             qs = qs.filter(work_order_id=work_order_id)
         return qs
 
 
-class MaterialConsumptionViewSet(ModelViewSet):
+class MaterialConsumptionViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'work_order__tenant'
     queryset = MaterialConsumption.objects.all().order_by('-recorded_at')
     serializer_class = MaterialConsumptionSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class StockSheetViewSet(ModelViewSet):
+class StockSheetViewSet(TenantScopedMixin, ModelViewSet):
     queryset = StockSheet.objects.all().order_by('material__sku', 'thickness')
     serializer_class = StockSheetSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = StockSheet.objects.all().order_by('material__sku', 'thickness')
+        qs = super().get_queryset()
         material_id = self.request.query_params.get('material')
         if material_id:
             qs = qs.filter(material_id=material_id)
         return qs
 
 
-class CuttingJobViewSet(ModelViewSet):
+class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'work_order__tenant'
     queryset = CuttingJob.objects.all().order_by('-created_at')
     serializer_class = CuttingJobSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = CuttingJob.objects.all().order_by('-created_at')
+        qs = super().get_queryset()
         work_order_id = self.request.query_params.get('work_order')
         if work_order_id:
             qs = qs.filter(work_order_id=work_order_id)

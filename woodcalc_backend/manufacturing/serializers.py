@@ -7,6 +7,7 @@ class ProductionStationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductionStation
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class WorkOrderItemSerializer(serializers.ModelSerializer):
@@ -21,6 +22,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkOrder
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class StationLogSerializer(serializers.ModelSerializer):
@@ -39,6 +41,7 @@ class StockSheetSerializer(serializers.ModelSerializer):
     class Meta:
         model = StockSheet
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class CuttingPartSerializer(serializers.ModelSerializer):
