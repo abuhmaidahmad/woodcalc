@@ -3,6 +3,7 @@ from django.db import models
 from django.core.files.base import ContentFile
 from io import BytesIO
 from PIL import Image
+from tenants.models import Company
 
 
 class Supplier(models.Model):
@@ -14,6 +15,7 @@ class Supplier(models.Model):
         ('appliance', 'Appliance'),
         ('other', 'Other'),
     ]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='suppliers', null=True, blank=True)
     name = models.CharField(max_length=200)
     contact_name = models.CharField(max_length=200, blank=True)
     phone = models.CharField(max_length=50, blank=True)
@@ -40,6 +42,7 @@ class Material(models.Model):
         ('PCS', 'Pieces'), ('M', 'Meters'), ('M2', 'Square Meters'),
         ('M3', 'Cubic Meters'), ('KG', 'Kilograms'), ('L', 'Liters'),
     ]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='materials_tenant', null=True, blank=True)
     sku = models.CharField(max_length=50, unique=True)
     name = models.CharField(max_length=200)
     category = models.CharField(max_length=100, blank=True)
@@ -158,6 +161,7 @@ class DrawerSystem(models.Model):
         ('metal_sided', 'Metal-sided (system provides box)'),
         ('wood_box', 'Wood box + runners'),
     ]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='drawer_systems', null=True, blank=True)
     name = models.CharField(max_length=100, unique=True)
     brand = models.CharField(max_length=100, blank=True, default='')
     box_construction = models.CharField(max_length=15, choices=BOX_CHOICES, default='wood_box')
@@ -196,6 +200,7 @@ class Sink(models.Model):
         ('topmount', 'Top-mount / Drop-in'),
         ('flushmount', 'Flush-mount'),
     ]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='sinks', null=True, blank=True)
     brand = models.CharField(max_length=100, blank=True, default='')
     model_name = models.CharField(max_length=150)
     material = models.CharField(max_length=20, choices=MATERIAL_CHOICES, default='stainless_steel')
