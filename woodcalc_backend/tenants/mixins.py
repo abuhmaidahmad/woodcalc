@@ -4,7 +4,7 @@ class TenantScopedMixin:
         company = getattr(self.request, "company", None)
         if company is None:
             return queryset.none()
-        return queryset.filter(company=company)
+        return queryset.filter(tenant=company)
 
     def perform_create(self, serializer):
-        serializer.save(company=self.request.company)
+        serializer.save(tenant=self.request.company)

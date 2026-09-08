@@ -1,7 +1,9 @@
 from django.db import models
+from tenants.models import Company
 
 
 class Client(models.Model):
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='clients', null=True, blank=True)
     name = models.CharField(max_length=200)
     company = models.CharField(max_length=200, blank=True)
     email = models.EmailField(blank=True)
@@ -19,6 +21,7 @@ class Lead(models.Model):
         ('NEW', 'New'), ('CONTACTED', 'Contacted'), ('QUALIFIED', 'Qualified'),
         ('LOST', 'Lost'), ('WON', 'Won'),
     ]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='leads', null=True, blank=True)
     name = models.CharField(max_length=200)
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
