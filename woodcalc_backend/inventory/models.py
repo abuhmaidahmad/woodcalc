@@ -43,7 +43,7 @@ class Material(models.Model):
         ('M3', 'Cubic Meters'), ('KG', 'Kilograms'), ('L', 'Liters'),
     ]
     tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='materials_tenant')
-    sku = models.CharField(max_length=50, unique=True)
+    sku = models.CharField(max_length=50)
     name = models.CharField(max_length=200)
     category = models.CharField(max_length=100, blank=True)
     unit = models.CharField(max_length=10, choices=UNIT_CHOICES, default='PCS')
@@ -89,6 +89,9 @@ class Material(models.Model):
         help_text='Real-world height this texture image represents (mm)',
     )
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('tenant', 'sku')
 
     MAX_DIMENSION = 2048
     JPEG_QUALITY = 85
