@@ -6,12 +6,14 @@ class ClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class LeadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lead
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class QuotationItemSerializer(serializers.ModelSerializer):
@@ -83,6 +85,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
     def get_total_value(self, obj):
         return sum(p.total_value for p in obj.projects.all())
