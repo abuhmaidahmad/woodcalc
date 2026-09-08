@@ -6,12 +6,14 @@ class SupplierSerializer(serializers.ModelSerializer):
     class Meta:
         model = Supplier
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class MaterialSerializer(serializers.ModelSerializer):
     class Meta:
         model = Material
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class StockMovementSerializer(serializers.ModelSerializer):
@@ -31,9 +33,11 @@ class DrawerSystemSerializer(serializers.ModelSerializer):
     class Meta:
         model = DrawerSystem
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class SinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = Sink
         fields = '__all__'
+        extra_kwargs = {'tenant': {'read_only': True}}

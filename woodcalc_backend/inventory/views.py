@@ -2,27 +2,30 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from tenants.mixins import TenantScopedMixin, PublicOrTenantScopedMixin
+from tenants.permissions import HasActiveCompany
 from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink
 from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer
 
 
-class MaterialViewSet(ModelViewSet):
+class MaterialViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'tenant'
     queryset = Material.objects.all().order_by('sku')
     serializer_class = MaterialSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     def get_queryset(self):
-        qs = Material.objects.all().order_by('sku')
+        qs = super().get_queryset()
         material_type = self.request.query_params.get('material_type')
         if material_type:
             qs = qs.filter(material_type=material_type)
         return qs
 
 
-class SupplierViewSet(ModelViewSet):
+class SupplierViewSet(TenantScopedMixin, ModelViewSet):
     queryset = Supplier.objects.all().order_by('name')
     serializer_class = SupplierSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
     @action(detail=True, methods=['get'])
     def statement(self, request, pk=None):
@@ -33,7 +36,7 @@ class SupplierViewSet(ModelViewSet):
 
         supplier = self.get_object()
         pos = list(
-            PurchaseOrder.objects.filter(supplier=supplier)
+            PurchaseOrder.objects.filter(supplier=supplier, tenant=request.company)
             .order_by('-order_date')
             .prefetch_related('line_items__material', 'payments')
         )
@@ -59,33 +62,30 @@ class SupplierViewSet(ModelViewSet):
         })
 
 
-class StockMovementViewSet(ModelViewSet):
+class StockMovementViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'material__tenant'
     queryset = StockMovement.objects.all().order_by('-created_at')
     serializer_class = StockMovementSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-class StockAlertViewSet(ModelViewSet):
+class StockAlertViewSet(TenantScopedMixin, ModelViewSet):
+    tenant_filter_field = 'material__tenant'
     queryset = StockAlert.objects.all().order_by('-created_at')
     serializer_class = StockAlertSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, HasActiveCompany]
 
 
-from rest_framework.permissions import IsAuthenticatedOrReadOnly
-
-class DrawerSystemViewSet(ModelViewSet):
+class DrawerSystemViewSet(PublicOrTenantScopedMixin, ModelViewSet):
     serializer_class = DrawerSystemSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        return DrawerSystem.objects.filter(is_active=True)
+    queryset = DrawerSystem.objects.filter(is_active=True)
 
 
-class SinkViewSet(ModelViewSet):
-    # Read access (GET) is public so the Kitchen Planner can load the sink catalog
-    # without requiring a logged-in session. Create/update/delete still require auth.
+class SinkViewSet(PublicOrTenantScopedMixin, ModelViewSet):
+    # GET is public (no login needed) so customers can browse a manufacturer's
+    # sink catalog via ?company=<slug>. Create/update/delete require an
+    # authenticated, active-subscription company (see PublicOrTenantScopedMixin).
     serializer_class = SinkSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
-
-    def get_queryset(self):
-        return Sink.objects.filter(is_active=True)
+    queryset = Sink.objects.filter(is_active=True)
