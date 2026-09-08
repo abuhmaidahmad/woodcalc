@@ -43,7 +43,6 @@ INSTALLED_APPS = [
     'accounts',
     'inventory',
     'manufacturing',
-    'supply_chain',
     'hr',
     'crm',
     'srm',
