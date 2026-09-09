@@ -33,7 +33,7 @@ class Company(models.Model):
     def __str__(self):
         return self.name
 
-    def start_trial(self, days=14):
+    def start_trial(self, days=30):
         self.status = self.Status.TRIALING
         self.trial_ends_at = timezone.now() + timedelta(days=days)
         self.save(update_fields=["status", "trial_ends_at"])
