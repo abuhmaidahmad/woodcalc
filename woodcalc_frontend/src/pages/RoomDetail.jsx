@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import KitchenPlannerModule from '../features/kitchen_planner/KitchenPlannerModule'
 import { authFetch } from '../api/auth'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
@@ -13,6 +14,7 @@ const headers = () => ({
 export default function RoomDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
   const [room, setRoom] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -30,14 +32,14 @@ export default function RoomDetail() {
   }, [id])
 
   if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', color: '#bbb' }}>
-      Loading room...
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', color: '#bbb' }}>
+      {t('roomDetail.loading')}
     </div>
   )
 
   if (!room) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', color: '#bbb' }}>
-      Room not found
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', color: '#bbb' }}>
+      {t('roomDetail.notFound')}
     </div>
   )
 

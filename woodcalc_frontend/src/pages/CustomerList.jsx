@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -12,6 +13,7 @@ const headers = () => ({
 })
 
 export default function CustomerList() {
+  const { t, language } = useTranslation()
   const [customers, setCustomers] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -56,30 +58,30 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       {/* Top bar */}
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Customers</span>
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('customerList.title')}</span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => navigate('/dashboard')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Dashboard
+            {t('common.navDashboard')}
           </button>
           <button onClick={() => navigate('/kitchen-planner')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Kitchen Planner
+            {t('common.navKitchenPlanner')}
           </button>
           <button onClick={() => navigate('/suppliers')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Suppliers
+            {t('common.navSuppliers')}
           </button>
           <button onClick={() => navigate('/purchase-orders')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Purchase Orders
+            {t('common.navPurchaseOrders')}
           </button>
         </div>
       </div>
@@ -88,28 +90,28 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>Customers</h1>
+            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('customerList.title')}</h1>
             <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{customers.length} total</div>
           </div>
           <button onClick={() => setShowAdd(true)}
             style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            + New Customer
+            + {t('customerList.newCustomer')}
           </button>
         </div>
 
         {/* Search */}
         <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Search by name, phone or email..."
+          placeholder={t('customerList.searchPlaceholder')}
           style={{ width: '100%', padding: '10px 14px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: '#fff' }} />
 
         {/* List */}
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>Loading...</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('common.loading')}</div>
         ) : filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>👥</div>
-            <div style={{ fontWeight: 600 }}>No customers yet</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Click "+ New Customer" to add one</div>
+            <div style={{ fontWeight: 600 }}>{t('customerList.emptyTitle')}</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>{t('customerList.emptyHint')}</div>
           </div>
         ) : (
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -131,7 +133,7 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   {c.company && <span style={{ fontSize: 11, color: '#888', background: '#F0EBE5', padding: '2px 8px', borderRadius: 4 }}>{c.company}</span>}
-                  <span style={{ color: '#ccc', fontSize: 18 }}>›</span>
+                  <span style={{ color: '#ccc', fontSize: 18 }}>{language === 'ar' ? '‹' : '›'}</span>
                 </div>
               </div>
             ))}
@@ -143,9 +145,9 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>New Customer</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Fill in the customer details</div>
-            {[['name', 'Full Name *'], ['phone', 'Phone'], ['email', 'Email'], ['company', 'Company'], ['address', 'Address']].map(([key, label]) => (
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('customerList.modalTitle')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('customerList.modalDesc')}</div>
+            {[['name', t('customerList.fieldName')], ['phone', t('customerList.fieldPhone')], ['email', t('customerList.fieldEmail')], ['company', t('customerList.fieldCompany')], ['address', t('customerList.fieldAddress')]].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>
                 <input value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
@@ -155,11 +157,11 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setShowAdd(false)}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button onClick={saveCustomer} disabled={saving || !form.name.trim()}
                 style={{ flex: 2, padding: '10px', background: form.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: form.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {saving ? 'Saving...' : 'Save Customer'}
+                {saving ? t('common.saving') : t('customerList.saveCustomer')}
               </button>
             </div>
           </div>

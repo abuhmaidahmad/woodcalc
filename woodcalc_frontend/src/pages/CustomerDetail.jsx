@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -16,9 +17,15 @@ const STATUS_COLORS = {
   COMPLETED: '#3498DB', CANCELLED: '#E74C3C',
 }
 
+const STATUS_KEYS = {
+  DRAFT: 'common.statusDraft', ACTIVE: 'common.statusActive', ON_HOLD: 'common.statusOnHold',
+  COMPLETED: 'common.statusCompleted', CANCELLED: 'common.statusCancelled',
+}
+
 export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
   const [customer, setCustomer] = useState(null)
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -61,23 +68,23 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
 
   const totalValue = projects.reduce((s, p) => s + parseFloat(p.total_value || 0), 0)
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>Loading...</div>
-  if (!customer) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>Customer not found</div>
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>{t('customerDetail.loading')}</div>
+  if (!customer) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>{t('customerDetail.notFound')}</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       {/* Top bar */}
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span onClick={() => navigate('/customers')} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>Customers</span>
-          <span style={{ color: '#666', fontSize: 12 }}>›</span>
+          <span onClick={() => navigate('/customers')} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>{t('common.navCustomers')}</span>
+          <span style={{ color: '#666', fontSize: 12 }}>{language === 'ar' ? '‹' : '›'}</span>
           <span style={{ color: '#fff', fontWeight: 600, fontSize: 13 }}>{customer.name}</span>
         </div>
         <button onClick={() => navigate('/customers')}
           style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-          ← Back
+          {language === 'ar' ? '→' : '←'} {t('common.back')}
         </button>
       </div>
 
@@ -99,27 +106,27 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
               </div>
             </div>
           </div>
-          <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>Total Value</div>
+          <div style={{ textAlign: 'end' }}>
+            <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{t('customerDetail.totalValue')}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{totalValue.toFixed(2)} JD</div>
-            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{projects.length} project{projects.length !== 1 ? 's' : ''}</div>
+            <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{projects.length} {projects.length !== 1 ? t('customerDetail.projects_plural') : t('customerDetail.project')}</div>
           </div>
         </div>
 
         {/* Projects */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: DARK }}>Projects</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{t('customerDetail.projectsTitle')}</div>
           <button onClick={() => setShowAddProject(true)}
             style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-            + New Project
+            + {t('customerDetail.newProject')}
           </button>
         </div>
 
         {projects.length === 0 ? (
           <div style={{ background: '#fff', borderRadius: 12, padding: 40, textAlign: 'center', color: '#bbb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: 36, marginBottom: 10 }}>📁</div>
-            <div style={{ fontWeight: 600 }}>No projects yet</div>
-            <div style={{ fontSize: 12, marginTop: 4 }}>Click "+ New Project" to start one</div>
+            <div style={{ fontWeight: 600 }}>{t('customerDetail.emptyTitle')}</div>
+            <div style={{ fontSize: 12, marginTop: 4 }}>{t('customerDetail.emptyHint')}</div>
           </div>
         ) : (
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -131,15 +138,15 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{p.name}</div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                    {p.room_count} room{p.room_count !== 1 ? 's' : ''} · {new Date(p.created_at).toLocaleDateString('en-GB')}
+                    {p.room_count} {p.room_count !== 1 ? t('customerDetail.rooms_plural') : t('customerDetail.room')} · {new Date(p.created_at).toLocaleDateString('en-GB')}
                   </div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                   <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{parseFloat(p.total_value).toFixed(2)} JD</span>
                   <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLORS[p.status] || '#888', background: (STATUS_COLORS[p.status] || '#888') + '18', padding: '3px 8px', borderRadius: 4 }}>
-                    {p.status}
+                    {STATUS_KEYS[p.status] ? t(STATUS_KEYS[p.status]) : p.status}
                   </span>
-                  <span style={{ color: '#ccc', fontSize: 18 }}>›</span>
+                  <span style={{ color: '#ccc', fontSize: 18 }}>{language === 'ar' ? '‹' : '›'}</span>
                 </div>
               </div>
             ))}
@@ -151,9 +158,9 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
       {showAddProject && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>New Project</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>For {customer.name}</div>
-            {[['name', 'Project Name *'], ['address', 'Site Address'], ['notes', 'Notes']].map(([key, label]) => (
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('customerDetail.modalTitle')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('customerDetail.modalFor')} {customer.name}</div>
+            {[['name', t('customerDetail.fieldProjectName')], ['address', t('customerDetail.fieldSiteAddress')], ['notes', t('customerDetail.fieldNotes')]].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>
                 <input value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
@@ -161,20 +168,20 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
               </div>
             ))}
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Status</div>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('customerDetail.fieldStatus')}</div>
               <select value={form.status} onChange={e => setForm(f => ({ ...f, status: e.target.value }))}
                 style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', color: DARK, background: '#fff' }}>
-                {['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'].map(s => <option key={s}>{s}</option>)}
+                {['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
               </select>
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setShowAddProject(false)}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
-                Cancel
+                {t('common.cancel')}
               </button>
               <button onClick={saveProject} disabled={saving || !form.name.trim()}
                 style={{ flex: 2, padding: '10px', background: form.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: form.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {saving ? 'Saving...' : 'Save Project'}
+                {saving ? t('common.saving') : t('customerDetail.saveProject')}
               </button>
             </div>
           </div>
