@@ -1,8 +1,9 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     PaymentTransactionViewSet,
     ClientViewSet, LeadViewSet, QuotationViewSet, QuotationItemViewSet,
-    ProjectViewSet, RoomViewSet, PaymentViewSet
+    ProjectViewSet, RoomViewSet, PaymentViewSet, public_lead_capture
 )
 
 router = DefaultRouter()
@@ -15,4 +16,6 @@ router.register(r'rooms', RoomViewSet, basename='room')
 router.register(r'payments', PaymentViewSet, basename='payment')
 router.register(r'transactions', PaymentTransactionViewSet, basename='transaction')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('leads/public-capture/', public_lead_capture, name='public_lead_capture'),
+] + router.urls

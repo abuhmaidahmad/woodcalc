@@ -1,9 +1,11 @@
+from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
+from tenants.utils import get_company_by_slug
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
 from .serializers import (
     PaymentTransactionSerializer,
@@ -11,6 +13,32 @@ from .serializers import (
     LeadSerializer, QuotationSerializer, QuotationItemSerializer,
     ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer
 )
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def public_lead_capture(request):
+    """Lets an anonymous guest on the public Kitchen Planner (/browse/:companySlug)
+    submit their contact info + in-progress design as a Lead for that manufacturer's
+    sales team, with no account required."""
+    company = get_company_by_slug(request.data.get('company'))
+    if company is None:
+        return Response({'detail': 'Unknown company.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    name = (request.data.get('name') or '').strip()
+    if not name:
+        return Response({'detail': 'Name is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    lead = Lead.objects.create(
+        tenant=company,
+        name=name,
+        email=request.data.get('email', ''),
+        phone=request.data.get('phone', ''),
+        source='kitchen_planner_guest',
+        design_snapshot=request.data.get('design_snapshot') or {},
+        design_total=request.data.get('design_total') or None,
+    )
+    return Response({'id': lead.id}, status=status.HTTP_201_CREATED)
 
 
 class ClientViewSet(TenantScopedMixin, ModelViewSet):

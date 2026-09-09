@@ -138,6 +138,12 @@ function getCards(userType, navigate, isVerified) {
           accent: '#2AC87A',
         },
         {
+          icon: 'clients', title: 'Leads',
+          description: 'Designs and contact info captured from your public catalog, ready to follow up on.',
+          cta: 'View leads', ctaAction: () => navigate('/leads'),
+          accent: '#2A6ACC',
+        },
+        {
           icon: 'materials', title: 'Materials Catalog',
           description: 'Upload and manage cabinet finishes, textures, board sizes and pricing.',
           cta: 'Manage catalog', ctaAction: () => navigate('/catalog'),

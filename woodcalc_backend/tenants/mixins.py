@@ -1,4 +1,4 @@
-from .utils import get_company_for_user
+from .utils import get_company_for_user, get_company_by_slug
 
 
 class TenantScopedMixin:
@@ -29,11 +29,7 @@ class PublicOrTenantScopedMixin(TenantScopedMixin):
         queryset = super(TenantScopedMixin, self).get_queryset()
         company = getattr(self.request, "company", None) or get_company_for_user(self.request.user)
         if company is None and self.request.method in ("GET", "HEAD", "OPTIONS"):
-            from .models import Company
-            slug = self.request.query_params.get("company")
-            if not slug:
-                return queryset.none()
-            company = Company.objects.filter(slug=slug, status__in=[Company.Status.TRIALING, Company.Status.ACTIVE]).first()
+            company = get_company_by_slug(self.request.query_params.get("company"))
         if company is None:
             return queryset.none()
         return queryset.filter(**{self.tenant_filter_field: company})

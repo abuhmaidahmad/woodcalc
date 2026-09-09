@@ -9,6 +9,7 @@ import RoomCanvas from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
+import LeadCaptureModal from './LeadCaptureModal'
 
 const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
@@ -680,6 +681,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [roomName, setRoomName] = useState(initialRoomName)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
+  const [showLeadModal, setShowLeadModal] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
   const [projectName, setProjectName]         = useState('Untitled Kitchen')
   const [editingName, setEditingName]         = useState(false)
@@ -802,11 +804,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
   const bom    = aggregateBOM(cabinets)
 
+  const buildPlannerData = () => ({ room, walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
+
   const saveProject = async () => {
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
-      const plannerData = { room, walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness }
+      const plannerData = buildPlannerData()
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
@@ -1011,8 +1015,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             </select>
           )}
           {publicCompanySlug ? (
-            <button onClick={() => navigate('/register/customer')} style={s.saveBtn}>
-              👋 Guest preview — sign up to save
+            <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
+              💌 Save my design
             </button>
           ) : (
             <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
@@ -1026,6 +1030,15 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         <LinkProjectModal
           onClose={() => setShowLinkModal(false)}
           onLinked={handleLinked}
+        />
+      )}
+
+      {showLeadModal && (
+        <LeadCaptureModal
+          companySlug={publicCompanySlug}
+          designSnapshot={buildPlannerData()}
+          designTotal={grandTotal || null}
+          onClose={() => setShowLeadModal(false)}
         />
       )}
 

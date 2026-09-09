@@ -28,6 +28,8 @@ class Lead(models.Model):
     source = models.CharField(max_length=100, blank=True)
     status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='NEW')
     notes = models.TextField(blank=True)
+    design_snapshot = models.JSONField(default=dict, blank=True)
+    design_total = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

@@ -24,6 +24,8 @@ import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
 import BillingReturn from './pages/BillingReturn';
 import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
+import LeadList from './pages/LeadList';
+import LeadDesignView from './pages/LeadDesignView';
 import TrialBanner from './components/TrialBanner';
 
 function PrivateRoute({ children }) {
@@ -54,6 +56,14 @@ export default function App() {
           <PrivateRoute><KitchenPlannerModule /></PrivateRoute>
         } />
         <Route path="/browse/:companySlug" element={<PublicCatalogBrowse />} />
+
+        {/* Leads */}
+        <Route path="/leads" element={
+          <PrivateRoute><LeadList /></PrivateRoute>
+        } />
+        <Route path="/leads/:id/view" element={
+          <PrivateRoute><LeadDesignView /></PrivateRoute>
+        } />
 
         {/* CRM */}
         <Route path="/collections" element={
