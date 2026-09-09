@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -15,15 +16,31 @@ const STATUS_COLORS = {
   DRAFT: '#888', ACTIVE: '#2AC87A', ON_HOLD: '#F39C12',
   COMPLETED: '#3498DB', CANCELLED: '#E74C3C',
 }
+const STATUS_KEYS = {
+  DRAFT: 'projectDetail.statusDraft', ACTIVE: 'projectDetail.statusActive', ON_HOLD: 'projectDetail.statusOnHold',
+  COMPLETED: 'projectDetail.statusCompleted', CANCELLED: 'projectDetail.statusCancelled',
+}
+const PAY_STATUS_KEYS = { PAID: 'projectDetail.paymentStatusPaid', PENDING: 'projectDetail.paymentStatusPending' }
+const CHEQUE_STATUS_KEYS = {
+  RECEIVED: 'projectDetail.chequeReceived', DEPOSITED: 'projectDetail.chequeDeposited',
+  CLEARED: 'projectDetail.chequeCleared', BOUNCED: 'projectDetail.chequeBounced',
+}
 
 const ROOM_ICONS = {
   kitchen: '🍳', bathroom: '🚿', bedroom: '🛏', living: '🛋',
   office: '💼', laundry: '👕', other: '📦',
 }
+const ROOM_TYPE_KEYS = {
+  kitchen: 'projectDetail.roomKitchen', bathroom: 'projectDetail.roomBathroom', bedroom: 'projectDetail.roomBedroom',
+  living: 'projectDetail.roomLiving', office: 'projectDetail.roomOffice', laundry: 'projectDetail.roomLaundry', other: 'projectDetail.roomOther',
+}
 
 export default function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
+  const dir = language === 'ar' ? 'rtl' : 'ltr'
+  const locale = language === 'ar' ? 'ar' : 'en-GB'
   const [project, setProject] = useState(null)
   const [rooms, setRooms] = useState([])
   const [payments, setPayments] = useState([])
@@ -104,7 +121,7 @@ export default function ProjectDetail() {
         setPayForm(f => ({ ...f, amount: '', reference: '', cheque_number: '', cheque_bank: '', cheque_due_date: '', notes: '' }))
         fetchData()
       } else {
-        alert('Failed to save payment: ' + JSON.stringify(await res.json()))
+        alert(t('projectDetail.failedSavePayment', { err: JSON.stringify(await res.json()) }))
       }
     } finally { setSavingPay(false) }
   }
@@ -120,17 +137,17 @@ export default function ProjectDetail() {
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>Loading...</div>
-  if (!project) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>Project not found</div>
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>{t('projectDetail.loading')}</div>
+  if (!project) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>{t('projectDetail.notFound')}</div>
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       {/* Top bar */}
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span onClick={() => navigate('/customers')} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>Customers</span>
+          <span onClick={() => navigate('/customers')} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>{t('projectDetail.customers')}</span>
           <span style={{ color: '#666', fontSize: 12 }}>›</span>
           <span onClick={() => navigate(`/customers/${project.client}`)} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>{project.client_name}</span>
           <span style={{ color: '#666', fontSize: 12 }}>›</span>
@@ -138,7 +155,7 @@ export default function ProjectDetail() {
         </div>
         <button onClick={() => navigate(`/customers/${project.client}`)}
           style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-          ← Back
+          {t('projectDetail.back')}
         </button>
       </div>
 
@@ -150,18 +167,18 @@ export default function ProjectDetail() {
             <div>
               <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>{project.name}</div>
               <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>
-                Client: <strong style={{ color: DARK }}>{project.client_name}</strong>
+                {t('projectDetail.clientLabel')} <strong style={{ color: DARK }}>{project.client_name}</strong>
                 {project.address && <span> · {project.address}</span>}
               </div>
               <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
-                Created: {new Date(project.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {t('projectDetail.createdLabel', { date: new Date(project.created_at).toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' }) })}
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
+            <div style={{ textAlign: 'end' }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{parseFloat(project.total_value).toFixed(2)} JD</div>
               <select value={project.status} onChange={e => updateStatus(e.target.value)}
                 style={{ marginTop: 8, padding: '5px 10px', border: `2px solid ${STATUS_COLORS[project.status] || '#888'}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[project.status] || '#888', background: (STATUS_COLORS[project.status] || '#888') + '15', outline: 'none', cursor: 'pointer' }}>
-                {['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{s}</option>)}
+                {['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
               </select>
             </div>
           </div>
@@ -170,9 +187,9 @@ export default function ProjectDetail() {
           {payments.length > 0 && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginTop: 16, paddingTop: 16, borderTop: '1px solid #F0EBE5' }}>
               {[
-                ['Total Value', parseFloat(project.total_value).toFixed(2) + ' JD', ACCENT],
-                ['Paid', totalPaid.toFixed(2) + ' JD', '#2AC87A'],
-                ['Pending', totalPending.toFixed(2) + ' JD', '#F39C12'],
+                [t('projectDetail.totalValue'), parseFloat(project.total_value).toFixed(2) + ' JD', ACCENT],
+                [t('projectDetail.paid'), totalPaid.toFixed(2) + ' JD', '#2AC87A'],
+                [t('projectDetail.pending'), totalPending.toFixed(2) + ' JD', '#F39C12'],
               ].map(([label, val, color]) => (
                 <div key={label} style={{ background: '#F7F4F0', borderRadius: 8, padding: '10px 14px', borderLeft: `3px solid ${color}` }}>
                   <div style={{ fontSize: 10, color: '#888', marginBottom: 2 }}>{label}</div>
@@ -185,7 +202,7 @@ export default function ProjectDetail() {
 
         {/* Tabs */}
         <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
-          {[['rooms', '🏠 Rooms'], ['payments', '💰 Payments']].map(([tab, label]) => (
+          {[['rooms', t('projectDetail.tabRooms')], ['payments', t('projectDetail.tabPayments')]].map(([tab, label]) => (
             <button key={tab} onClick={() => setActiveTab(tab)}
               style={{ padding: '8px 16px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                 background: activeTab === tab ? ACCENT : '#fff',
@@ -200,17 +217,17 @@ export default function ProjectDetail() {
         {activeTab === 'rooms' && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length} room{rooms.length !== 1 ? 's' : ''}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length === 1 ? t('projectDetail.roomCount') : t('projectDetail.roomCountPlural', { count: rooms.length })}</div>
               <button onClick={() => setShowAddRoom(true)}
                 style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                + New Room
+                {t('projectDetail.newRoom')}
               </button>
             </div>
             {rooms.length === 0 ? (
               <div style={{ background: '#fff', borderRadius: 12, padding: 40, textAlign: 'center', color: '#bbb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>🏠</div>
-                <div style={{ fontWeight: 600 }}>No rooms yet</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Add a room to start designing</div>
+                <div style={{ fontWeight: 600 }}>{t('projectDetail.noRoomsYet')}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>{t('projectDetail.addRoomHint')}</div>
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
@@ -222,10 +239,10 @@ export default function ProjectDetail() {
                     onClick={() => navigate(`/rooms/${room.id}`)}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>{ROOM_ICONS[room.room_type] || '📦'}</div>
                     <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{room.name}</div>
-                    <div style={{ fontSize: 11, color: '#888', marginTop: 2, textTransform: 'capitalize' }}>{room.room_type}</div>
+                    <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{parseFloat(room.grand_total).toFixed(2)} JD</span>
-                      <span style={{ fontSize: 11, color: '#888' }}>{new Date(room.updated_at).toLocaleDateString('en-GB')}</span>
+                      <span style={{ fontSize: 11, color: '#888' }}>{new Date(room.updated_at).toLocaleDateString(locale)}</span>
                     </div>
                   </div>
                 ))}
@@ -240,15 +257,15 @@ export default function ProjectDetail() {
             {payments.length === 0 ? (
               <div style={{ padding: 40, textAlign: 'center', color: '#bbb' }}>
                 <div style={{ fontSize: 36, marginBottom: 10 }}>💰</div>
-                <div style={{ fontWeight: 600 }}>No payments yet</div>
-                <div style={{ fontSize: 12, marginTop: 4 }}>Payments are created from the Contract tab</div>
+                <div style={{ fontWeight: 600 }}>{t('projectDetail.noPaymentsYet')}</div>
+                <div style={{ fontSize: 12, marginTop: 4 }}>{t('projectDetail.paymentsFromContractHint')}</div>
               </div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#FAFAFA' }}>
-                    {['Milestone', 'Amount', 'Due Date', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                    {[t('projectDetail.colMilestone'), t('projectDetail.colAmount'), t('projectDetail.colDueDate'), t('projectDetail.colStatus')].map((h, hi) => (
+                      <th key={hi} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -260,7 +277,7 @@ export default function ProjectDetail() {
                       <td style={{ padding: '12px 16px', color: '#888' }}>{p.due_date || '—'}</td>
                       <td style={{ padding: '12px 16px' }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: STATUS_COLORS[p.status] || '#888', background: (STATUS_COLORS[p.status] || '#888') + '18', padding: '3px 8px', borderRadius: 4 }}>
-                          {p.status}
+                          {PAY_STATUS_KEYS[p.status] ? t(PAY_STATUS_KEYS[p.status]) : p.status}
                         </span>
                       </td>
                     </tr>
@@ -274,45 +291,45 @@ export default function ProjectDetail() {
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', borderBottom: '1px solid #F7F4F0' }}>
               <div>
-                <div style={{ fontWeight: 800, color: DARK, fontSize: 14 }}>Transactions</div>
+                <div style={{ fontWeight: 800, color: DARK, fontSize: 14 }}>{t('projectDetail.transactions')}</div>
                 <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>
-                  Collected: <b style={{ color: '#2E7D32' }}>{totalCollected.toFixed(2)} JD</b>
-                  {' · '}Outstanding: <b style={{ color: '#C62828' }}>{(parseFloat(project?.total_value || 0) - totalCollected).toFixed(2)} JD</b>
+                  {t('projectDetail.collected')} <b style={{ color: '#2E7D32' }}>{totalCollected.toFixed(2)} JD</b>
+                  {' · '}{t('projectDetail.outstanding')} <b style={{ color: '#C62828' }}>{(parseFloat(project?.total_value || 0) - totalCollected).toFixed(2)} JD</b>
                 </div>
               </div>
               <button onClick={() => setShowPay(true)}
                 style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                + Record Payment
+                {t('projectDetail.recordPayment')}
               </button>
             </div>
             {transactions.length === 0 ? (
-              <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 12 }}>No transactions recorded yet</div>
+              <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 12 }}>{t('projectDetail.noTransactionsYet')}</div>
             ) : (
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#FAFAFA' }}>
-                    {['Date', 'Amount', 'Method', 'Installment', 'Reference', 'Status'].map(h => (
-                      <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                    {[t('projectDetail.colDate'), t('projectDetail.colAmount'), t('projectDetail.colMethod'), t('projectDetail.colInstallment'), t('projectDetail.colReference'), t('projectDetail.colStatus')].map((h, hi) => (
+                      <th key={hi} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map(t => (
-                    <tr key={t.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                      <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>{t.date_received}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 700, color: DARK }}>{parseFloat(t.amount).toFixed(2)} {t.currency}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12 }}>{t.method}{t.method === 'CHEQUE' && t.cheque_due_date ? ` (due ${t.cheque_due_date})` : ''}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{t.installment_label || '\u2014'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{t.method === 'CHEQUE' ? `${t.cheque_number || ''} ${t.cheque_bank || ''}`.trim() || '\u2014' : (t.reference || '\u2014')}</td>
+                  {transactions.map(tx => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                      <td style={{ padding: '10px 16px', color: '#888', fontSize: 12 }}>{tx.date_received}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 700, color: DARK }}>{parseFloat(tx.amount).toFixed(2)} {tx.currency}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12 }}>{tx.method}{tx.method === 'CHEQUE' && tx.cheque_due_date ? t('projectDetail.dueSuffix', { date: tx.cheque_due_date }) : ''}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{tx.installment_label || '\u2014'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{tx.method === 'CHEQUE' ? `${tx.cheque_number || ''} ${tx.cheque_bank || ''}`.trim() || '\u2014' : (tx.reference || '\u2014')}</td>
                       <td style={{ padding: '10px 16px' }}>
-                        {t.method === 'CHEQUE' ? (
-                          <select value={t.cheque_status} onChange={e => setChequeStatus(t, e.target.value)}
+                        {tx.method === 'CHEQUE' ? (
+                          <select value={tx.cheque_status} onChange={e => setChequeStatus(tx, e.target.value)}
                             style={{ fontSize: 11, fontWeight: 700, padding: '3px 6px', borderRadius: 4, border: '1px solid #E0DAD4', background: '#fff',
-                              color: t.cheque_status === 'CLEARED' ? '#2E7D32' : t.cheque_status === 'BOUNCED' ? '#C62828' : '#B8860B' }}>
-                            {['RECEIVED', 'DEPOSITED', 'CLEARED', 'BOUNCED'].map(s => <option key={s} value={s}>{s}</option>)}
+                              color: tx.cheque_status === 'CLEARED' ? '#2E7D32' : tx.cheque_status === 'BOUNCED' ? '#C62828' : '#B8860B' }}>
+                            {['RECEIVED', 'DEPOSITED', 'CLEARED', 'BOUNCED'].map(s => <option key={s} value={s}>{t(CHEQUE_STATUS_KEYS[s])}</option>)}
                           </select>
                         ) : (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D32', background: '#2E7D3218', padding: '3px 8px', borderRadius: 4 }}>COLLECTED</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2E7D32', background: '#2E7D3218', padding: '3px 8px', borderRadius: 4 }}>{t('projectDetail.collectedBadge')}</span>
                         )}
                       </td>
                     </tr>
@@ -327,15 +344,15 @@ export default function ProjectDetail() {
       {showPay && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)', maxHeight: '85vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 16 }}>Record Payment</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 16 }}>{t('projectDetail.recordPaymentTitle')}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <div style={{ flex: 2 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Amount *</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.amount')}</div>
                 <input type="number" value={payForm.amount} onChange={e => setPayForm(f => ({ ...f, amount: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Currency</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.currency')}</div>
                 <select value={payForm.currency} onChange={e => setPayForm(f => ({ ...f, currency: e.target.value }))}
                   style={{ width: '100%', padding: '8px 6px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, color: DARK, background: '#fff' }}>
                   <option>JOD</option><option>USD</option>
@@ -343,9 +360,9 @@ export default function ProjectDetail() {
               </div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Method</div>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.method')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6 }}>
-                {[['CASH', 'Cash'], ['TRANSFER', 'Transfer'], ['CHEQUE', 'Cheque']].map(([v, label]) => (
+                {[['CASH', t('projectDetail.methodCash')], ['TRANSFER', t('projectDetail.methodTransfer')], ['CHEQUE', t('projectDetail.methodCheque')]].map(([v, label]) => (
                   <div key={v} onClick={() => setPayForm(f => ({ ...f, method: v }))}
                     style={{ padding: '8px 4px', border: `1.5px solid ${payForm.method === v ? ACCENT : '#E0DAD4'}`, borderRadius: 7, cursor: 'pointer', textAlign: 'center',
                       background: payForm.method === v ? ACCENT + '12' : '#FAFAFA', fontSize: 11, fontWeight: 600, color: payForm.method === v ? ACCENT : '#666' }}>
@@ -356,15 +373,15 @@ export default function ProjectDetail() {
             </div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Date Received</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.dateReceived')}</div>
                 <input type="date" value={payForm.date_received} onChange={e => setPayForm(f => ({ ...f, date_received: e.target.value }))}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
               </div>
               <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Installment</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.installment')}</div>
                 <select value={payForm.installment} onChange={e => setPayForm(f => ({ ...f, installment: e.target.value }))}
                   style={{ width: '100%', padding: '8px 6px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, color: DARK, background: '#fff' }}>
-                  <option value="">None / general</option>
+                  <option value="">{t('projectDetail.noneGeneral')}</option>
                   {payments.map(p => <option key={p.id} value={p.id}>{p.label}</option>)}
                 </select>
               </div>
@@ -373,39 +390,39 @@ export default function ProjectDetail() {
               <>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Cheque No. *</div>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.chequeNumber')}</div>
                     <input value={payForm.cheque_number} onChange={e => setPayForm(f => ({ ...f, cheque_number: e.target.value }))}
                       style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Bank</div>
+                    <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.bank')}</div>
                     <input value={payForm.cheque_bank} onChange={e => setPayForm(f => ({ ...f, cheque_bank: e.target.value }))}
                       style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
                   </div>
                 </div>
                 <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Cheque Due Date (post-dated)</div>
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.chequeDueDate')}</div>
                   <input type="date" value={payForm.cheque_due_date} onChange={e => setPayForm(f => ({ ...f, cheque_due_date: e.target.value }))}
                     style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
                 </div>
               </>
             ) : (
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Reference</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.reference')}</div>
                 <input value={payForm.reference} onChange={e => setPayForm(f => ({ ...f, reference: e.target.value }))}
-                  placeholder="transfer ref, receipt no..."
+                  placeholder={t('projectDetail.referencePlaceholder')}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, boxSizing: 'border-box', color: DARK }} />
               </div>
             )}
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setShowPay(false)}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
-                Cancel
+                {t('projectDetail.cancel')}
               </button>
               <button onClick={savePayment} disabled={savingPay || !payForm.amount || (payForm.method === 'CHEQUE' && !payForm.cheque_number)}
                 style={{ flex: 2, padding: '10px', background: payForm.amount ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8,
                   cursor: payForm.amount ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {savingPay ? 'Saving...' : 'Save Payment'}
+                {savingPay ? t('projectDetail.saving') : t('projectDetail.savePayment')}
               </button>
             </div>
           </div>
@@ -415,39 +432,39 @@ export default function ProjectDetail() {
       {showAddRoom && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>New Room</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Add a room to {project.name}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('projectDetail.newRoomTitle')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('projectDetail.addRoomTo', { name: project.name })}</div>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Room Name *</div>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.roomName')}</div>
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="e.g. Main Kitchen"
+                placeholder={t('projectDetail.roomNamePlaceholder')}
                 style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
             </div>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Room Type</div>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.roomType')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
                 {[['kitchen','🍳'],['bathroom','🚿'],['bedroom','🛏'],['living','🛋'],['office','💼'],['laundry','👕'],['other','📦']].map(([type, icon]) => (
                   <div key={type} onClick={() => setForm(f => ({ ...f, room_type: type }))}
                     style={{ padding: '8px 4px', border: `1.5px solid ${form.room_type === type ? ACCENT : '#E0DAD4'}`, borderRadius: 7, cursor: 'pointer', textAlign: 'center', background: form.room_type === type ? ACCENT + '12' : '#FAFAFA' }}>
                     <div style={{ fontSize: 16 }}>{icon}</div>
-                    <div style={{ fontSize: 9, fontWeight: 600, color: form.room_type === type ? ACCENT : '#666', textTransform: 'capitalize', marginTop: 2 }}>{type}</div>
+                    <div style={{ fontSize: 9, fontWeight: 600, color: form.room_type === type ? ACCENT : '#666', marginTop: 2 }}>{t(ROOM_TYPE_KEYS[type])}</div>
                   </div>
                 ))}
               </div>
             </div>
             <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Notes</div>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.notes')}</div>
               <input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
                 style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
             </div>
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
               <button onClick={() => setShowAddRoom(false)}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
-                Cancel
+                {t('projectDetail.cancel')}
               </button>
               <button onClick={saveRoom} disabled={saving || !form.name.trim()}
                 style={{ flex: 2, padding: '10px', background: form.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: form.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {saving ? 'Saving...' : 'Create Room'}
+                {saving ? t('projectDetail.saving') : t('projectDetail.createRoom')}
               </button>
             </div>
           </div>
