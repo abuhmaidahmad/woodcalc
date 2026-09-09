@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH } from './formulaEngine'
+import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const GRID = 50
@@ -180,6 +181,7 @@ function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
 }
 
 function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange, offsetStart = 0, offsetEnd = 0 }) {
+  const { t } = useTranslation()
   const { x1, y1, x2, y2 } = wall
   const rawLen = Math.hypot(x2 - x1, y2 - y1) || 1
   const uxDir = (x2 - x1) / rawLen, uyDir = (y2 - y1) / rawLen
@@ -217,12 +219,12 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
               <input autoFocus type="number" defaultValue={innerLenMm}
                 onChange={e => onLengthChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
-                title="Length (mm) — Tab to angle, Enter to confirm"
+                title={t('roomCanvas.lengthAngleTitle')}
                 style={{ width: '50%', border: 'none', outline: 'none', borderRight: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : '#ddd'}`, fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
               <input type="number" defaultValue={editingAngleVal}
                 onChange={e => onAngleChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
-                title="Angle (°) — Enter to confirm"
+                title={t('roomCanvas.angleTitle')}
                 style={{ width: '50%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
             </div>
           </foreignObject>
@@ -285,6 +287,7 @@ export default function RoomCanvas({
   hideBacksplashTool,
   hideWallsElements,
 }) {
+  const { t } = useTranslation()
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -989,16 +992,16 @@ export default function RoomCanvas({
         <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
           <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null); setSelected(null); setSelectedType(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            ↖ Select
+            {t('roomCanvas.select')}
           </button>
           <button onClick={() => { setMode('draw'); setSelectedWall(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            ✏️ Draw walls
+            {t('roomCanvas.drawWalls')}
           </button>
           {!hideBacksplashTool && (
             <button onClick={() => { setMode('backsplash'); setStartPoint(null); setSelectedWall(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'backsplash' ? ACCENT : '#E0DAD4', background: mode === 'backsplash' ? ACCENT+'18' : '#fff', color: mode === 'backsplash' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              🧱 Backsplash Edges
+              {t('roomCanvas.backsplashEdges')}
             </button>
           )}
           <button onClick={undo} disabled={history.length <= 1}
@@ -1009,28 +1012,28 @@ export default function RoomCanvas({
             <button onClick={() => zoomAt(W/2, H/2, 0.77)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>+</button>
             <span style={{ fontSize: 10, color: '#888', minWidth: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
             <button onClick={() => zoomAt(W/2, H/2, 1.3)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>−</button>
-            <button onClick={fitView} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Fit</button>
+            <button onClick={fitView} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>{t('roomCanvas.fit')}</button>
             {(selectedWall !== null || selected != null) && (
-              <button onClick={zoomToSelection} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>Zoom Selection</button>
+              <button onClick={zoomToSelection} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>{t('roomCanvas.zoomSelection')}</button>
             )}
           </div>
           {mode === 'draw' && startPoint && (
             <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
-              {inputMode === 'length' ? <><strong style={{ color: ACCENT }}>{inputVal}mm</strong> inner · Tab→° · Enter</>
-               : inputMode === 'angle' ? <><strong>{lockedLength}mm</strong> @ <strong style={{ color: ACCENT }}>{inputVal}°</strong> · Enter</>
-               : <>Type length · Tab angle · Enter · Esc cancel · Alt+drag to pan</>}
+              {inputMode === 'length' ? t('roomCanvas.innerTabEnter', { val: inputVal })
+               : inputMode === 'angle' ? t('roomCanvas.atEnter', { len: lockedLength, angle: inputVal })
+               : t('roomCanvas.typeLengthHint')}
             </span>
           )}
-          {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>Click to place · Scroll to zoom · Alt+drag to pan</span>}
-          {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>Click a base cabinet's edge to toggle backsplash on that side · Esc to stop</span>}
+          {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.clickToPlaceHint')}</span>}
+          {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.backsplashHint')}</span>}
           {mode === 'select' && selectedWall !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderLeft: '1px solid #E0DAD4', paddingLeft: 10 }}>
-              <span style={{ fontSize: 11, color: '#888', marginRight: 2 }}>Length:</span>
-              {['center', 'inner', 'outer'].map(m => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 10 }}>
+              <span style={{ fontSize: 11, color: '#888', marginInlineEnd: 2 }}>{t('roomCanvas.length')}</span>
+              {[['center', t('roomCanvas.lengthModeCenter')], ['inner', t('roomCanvas.lengthModeInner')], ['outer', t('roomCanvas.lengthModeOuter')]].map(([m, label]) => (
                 <button key={m}
                   onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, lengthMode: m } : w))}
-                  style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize' }}>
-                  {m}
+                  style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                  {label}
                 </button>
               ))}
             </div>
@@ -1038,17 +1041,17 @@ export default function RoomCanvas({
           {mode === 'select' && selectedWall !== null && (
             <button onClick={() => { pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              🗑 Delete wall
+              {t('roomCanvas.deleteWall')}
             </button>
           )}
           {mode === 'select' && selectedWall === null && walls.length > 0 && (
             <button onClick={() => { pushHistory([]); setSelectedWall(null) }}
               style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>
-              Clear all
+              {t('roomCanvas.clearAll')}
             </button>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Wall</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
             <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
             <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
           </div>
@@ -1057,21 +1060,21 @@ export default function RoomCanvas({
             if (!el) return null
             const isWallEl = el.type === 'window' || el.type === 'door'
             return (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
                 {!isWallEl && <>
-                  <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+                  <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.rot')}</span>
                   <input type="number" min={0} max={359} step={1} value={el.rotation || 0}
                     onChange={e => { const val = (+e.target.value + 360) % 360; setElements(p => p.map(el2 => el2.id === selected ? { ...el2, rotation: val } : el2)) }}
                     style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
                   <span style={{ fontSize: 11, color: '#888' }}>°</span>
                 </>}
-                {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>✓ In wall {(el.wallIndex || 0) + 1}</span>}
+                {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>{t('roomCanvas.inWall', { n: (el.wallIndex || 0) + 1 })}</span>}
               </div>
             )
           })()}
           {mode === 'select' && selected && selectedType === 'cabinet' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Rot</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.rot')}</span>
               <input type="number" min={0} max={359} step={1}
                 value={cabinets.find(c => c.id === selected)?.rotation || 0}
                 onChange={e => { const val = (+e.target.value + 360) % 360; setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: val } : c)) }}
@@ -1080,21 +1083,21 @@ export default function RoomCanvas({
             </div>
           )}
           {mode === 'select' && selected && selectedType === 'cabinet' && elements.some(el => (el.type === 'window' || el.type === 'door') && el.embeddedInWall) && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
               <button
                 onClick={() => centerCabinetOnNearestOpening(selected)}
                 style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                🎯 Center on Opening
+                {t('roomCanvas.centerOnOpening')}
               </button>
             </div>
           )}
           {mode === 'select' && selected && selectedType === 'cabinet' && cabinets.find(c => c.id === selected)?.subtype === 'Blind' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderLeft: '1px solid #E0DAD4', paddingLeft: 12 }}>
-              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>Blind side</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.blindSide')}</span>
               <button
                 onClick={() => setCabinets(p => p.map(c => c.id === selected ? { ...c, blindSide: c.blindSide === 'right' ? 'left' : 'right' } : c))}
                 style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                {(cabinets.find(c => c.id === selected)?.blindSide || 'left') === 'left' ? '⬅ Blind Left / Door Right' : '➡ Blind Right / Door Left'}
+                {(cabinets.find(c => c.id === selected)?.blindSide || 'left') === 'left' ? t('roomCanvas.blindLeftDoorRight') : t('roomCanvas.blindRightDoorLeft')}
               </button>
             </div>
           )}
