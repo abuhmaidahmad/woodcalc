@@ -268,6 +268,22 @@ export default function Dashboard() {
   if (!user) return null;
 
   const cards = getCards(user.user_type, navigate, user.is_verified);
+  if (user.is_staff) {
+    cards.unshift(
+      {
+        icon: 'clients', title: 'Companies',
+        description: 'All manufacturer accounts, subscription status, and trial management.',
+        cta: 'Manage companies', ctaAction: () => navigate('/admin/companies'),
+        accent: '#2A6ACC',
+      },
+      {
+        icon: 'proposals', title: 'Feedback',
+        description: 'Review and triage feedback submitted across every company.',
+        cta: 'Review feedback', ctaAction: () => navigate('/admin/feedback'),
+        accent: '#8A2AC8',
+      },
+    );
+  }
   const roleColor = ROLE_COLORS[user.user_type] || '#C8902A';
 
   const handleLogout = () => {

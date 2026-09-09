@@ -59,6 +59,11 @@ export function getCompany() {
   return u?.company || null;
 }
 
+export function isStaff() {
+  const u = getUser();
+  return !!u?.is_staff;
+}
+
 export function getToken() {
   return localStorage.getItem('access_token');
 }

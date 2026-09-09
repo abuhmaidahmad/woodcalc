@@ -26,12 +26,28 @@ import BillingReturn from './pages/BillingReturn';
 import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
 import LeadList from './pages/LeadList';
 import LeadDesignView from './pages/LeadDesignView';
+import AdminCompanies from './pages/AdminCompanies';
+import AdminFeedback from './pages/AdminFeedback';
 import TrialBanner from './components/TrialBanner';
 import FeedbackWidget from './components/FeedbackWidget';
+import { isStaff } from './api/auth';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" />;
+  return (
+    <>
+      <TrialBanner />
+      {children}
+      <FeedbackWidget />
+    </>
+  );
+}
+
+function AdminRoute({ children }) {
+  const token = localStorage.getItem('access_token');
+  if (!token) return <Navigate to="/login" />;
+  if (!isStaff()) return <Navigate to="/dashboard" />;
   return (
     <>
       <TrialBanner />
@@ -65,6 +81,14 @@ export default function App() {
         } />
         <Route path="/leads/:id/view" element={
           <PrivateRoute><LeadDesignView /></PrivateRoute>
+        } />
+
+        {/* Platform admin */}
+        <Route path="/admin/companies" element={
+          <AdminRoute><AdminCompanies /></AdminRoute>
+        } />
+        <Route path="/admin/feedback" element={
+          <AdminRoute><AdminFeedback /></AdminRoute>
         } />
 
         {/* CRM */}
