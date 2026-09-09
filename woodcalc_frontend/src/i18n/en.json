@@ -625,5 +625,43 @@
     "goToDashboard": "Go to Dashboard",
     "confirmingTitle": "Confirming your payment…",
     "confirmingDesc": "This usually takes a few seconds."
+  },
+  "zonePresetPicker": {
+    "interiorLayout": "Interior Layout",
+    "preset1BigDrawer": "1 Big Drawer",
+    "preset2Drawers": "2 Drawers",
+    "preset4Drawers": "4 Drawers",
+    "preset2Small1BigDrawer": "2 Small + 1 Big Drawer",
+    "preset1SmallDrawer1Door": "1 Drawer + Door",
+    "preset1SmallDrawer2Doors": "1 Drawer + 2 Doors",
+    "preset2Small1Door": "2 Drawers + Door",
+    "selected": "Selected:",
+    "drawer": "Drawer",
+    "door": "Door",
+    "twoDoors": " (2 doors)"
+  },
+  "materialLibrary": {
+    "frontMaterial": "🚪 Front Material",
+    "carcassMaterial": "📦 Carcass Material",
+    "myLibrary": "📁 My Library",
+    "searchPlaceholder": "Search code or name...",
+    "filterAll": "All",
+    "filterSolid": "Solid",
+    "filterWood": "Wood",
+    "emptyMyLibraryCarcass": "No carcass materials in your catalog yet. Add them at /catalog.",
+    "emptyMyLibraryFront": "No front materials in your catalog yet. Add them at /catalog.",
+    "noResults": "No results",
+    "selected": "Selected",
+    "coreParticleboard": "PB",
+    "coreMdf": "MDF",
+    "coreHdf": "HDF",
+    "corePlywood": "Ply",
+    "coreSolidWood": "Solid",
+    "coreCompact": "Compact",
+    "finishMatt": "Matt",
+    "finishGloss": "Gloss",
+    "finishWood": "Wood",
+    "finishMetal": "Metal",
+    "finishOther": "Other"
   }
 }

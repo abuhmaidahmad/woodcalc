@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import { MATERIAL_DB } from './materialData'
+import { useTranslation } from '../../i18n/LanguageContext'
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
@@ -11,20 +12,21 @@ function forceHttps(url) {
 
 const ACCENT = '#C8902A'
 
-const CORE_LABEL = {
-  particleboard: 'PB', mdf: 'MDF', hdf: 'HDF',
-  plywood: 'Ply', solid_wood: 'Solid', compact: 'Compact',
+const CORE_LABEL_KEYS = {
+  particleboard: 'materialLibrary.coreParticleboard', mdf: 'materialLibrary.coreMdf', hdf: 'materialLibrary.coreHdf',
+  plywood: 'materialLibrary.corePlywood', solid_wood: 'materialLibrary.coreSolidWood', compact: 'materialLibrary.coreCompact',
 }
 
 const FINISH_BADGE = {
-  matt:  { label: 'Matt',  bg: '#F0EDE8', color: '#666' },
-  gloss: { label: 'Gloss', bg: '#E8F0F8', color: '#2A6ACC' },
-  wood:  { label: 'Wood',  bg: '#F5ECD8', color: '#8A5C1A' },
-  metal: { label: 'Metal', bg: '#E8EDF0', color: '#4A6A8A' },
-  other: { label: 'Other', bg: '#F0E8F5', color: '#7A4A8A' },
+  matt:  { labelKey: 'materialLibrary.finishMatt',  bg: '#F0EDE8', color: '#666' },
+  gloss: { labelKey: 'materialLibrary.finishGloss', bg: '#E8F0F8', color: '#2A6ACC' },
+  wood:  { labelKey: 'materialLibrary.finishWood',  bg: '#F5ECD8', color: '#8A5C1A' },
+  metal: { labelKey: 'materialLibrary.finishMetal', bg: '#E8EDF0', color: '#4A6A8A' },
+  other: { labelKey: 'materialLibrary.finishOther', bg: '#F0E8F5', color: '#7A4A8A' },
 }
 
 export default function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
+  const { t } = useTranslation()
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
@@ -74,7 +76,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {/* Target label */}
       <div style={{ fontSize: 10, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-        {target === 'front' ? '🚪 Front Material' : '📦 Carcass Material'}
+        {target === 'front' ? t('materialLibrary.frontMaterial') : t('materialLibrary.carcassMaterial')}
       </div>
 
       {/* Brand tabs */}
@@ -84,7 +86,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
             borderColor: brand === 'my_library' ? ACCENT : '#E0DAD4',
             background: brand === 'my_library' ? ACCENT + '18' : '#fff',
             color: brand === 'my_library' ? ACCENT : '#666' }}>
-          📁 My Library {catalogMaterials.length > 0 ? `(${catalogMaterials.length})` : ''}
+          {t('materialLibrary.myLibrary')} {catalogMaterials.length > 0 ? `(${catalogMaterials.length})` : ''}
         </button>
         {Object.entries(MATERIAL_DB).map(([key, b]) => (
           <button key={key} onClick={() => { setBrand(key); setSearch('') }}
@@ -99,7 +101,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
 
       {/* Search */}
       <input
-        placeholder="Search code or name..."
+        placeholder={t('materialLibrary.searchPlaceholder')}
         value={search}
         onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }}
@@ -107,7 +109,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
 
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 4 }}>
-        {[['all', 'All'], ['solid', 'Solid'], ['wood', 'Wood']].map(([id, label]) => (
+        {[['all', t('materialLibrary.filterAll')], ['solid', t('materialLibrary.filterSolid')], ['wood', t('materialLibrary.filterWood')]].map(([id, label]) => (
           <button key={id} onClick={() => setCategory(id)}
             style={{ flex: 1, padding: '4px 0', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
               borderColor: category === id ? ACCENT : '#E0DAD4',
@@ -123,8 +125,8 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '16px 0', textAlign: 'center' }}>
             {isMyLibrary
-            ? `No ${target === 'carcass' ? 'carcass' : 'front'} materials in your catalog yet. Add them at /catalog.`
-            : 'No results'}
+            ? (target === 'carcass' ? t('materialLibrary.emptyMyLibraryCarcass') : t('materialLibrary.emptyMyLibraryFront'))
+            : t('materialLibrary.noResults')}
           </div>
         )}
         {filtered.map(mat => {
@@ -153,10 +155,10 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
                 }
                 <div style={{ marginTop: 3, display: 'flex', gap: 3, alignItems: 'center' }}>
                   <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 4px', borderRadius: 3, background: '#EEE9E2', color: '#7A6A50' }}>
-                    {mat.thickness || 18}mm{mat.coreMaterial ? ' · ' + (CORE_LABEL[mat.coreMaterial] || mat.coreMaterial) : ''}
+                    {mat.thickness || 18}mm{mat.coreMaterial ? ' · ' + (CORE_LABEL_KEYS[mat.coreMaterial] ? t(CORE_LABEL_KEYS[mat.coreMaterial]) : mat.coreMaterial) : ''}
                   </span>
                   <span style={{ fontSize: 8, fontWeight: 600, padding: '1px 4px', borderRadius: 3, background: badge.bg, color: badge.color }}>
-                    {badge.label}
+                    {t(badge.labelKey)}
                   </span>
                 </div>
               </div>
@@ -172,7 +174,7 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
         if (!found) return null
         return (
           <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 7, border: `1.5px solid ${ACCENT}33` }}>
-            <div style={{ fontSize: 9, color: '#888' }}>Selected</div>
+            <div style={{ fontSize: 9, color: '#888' }}>{t('materialLibrary.selected')}</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
               <div style={{ width: 28, height: 28, borderRadius: 4, border: '1px solid #ddd', overflow: 'hidden', flexShrink: 0, background: found.hex }}>
                 {found.textureUrl && (

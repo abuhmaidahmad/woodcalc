@@ -625,5 +625,43 @@
     "goToDashboard": "الذهاب إلى لوحة التحكم",
     "confirmingTitle": "جارٍ تأكيد عملية الدفع…",
     "confirmingDesc": "هذا يستغرق عادةً بضع ثوانٍ فقط."
+  },
+  "zonePresetPicker": {
+    "interiorLayout": "التقسيم الداخلي",
+    "preset1BigDrawer": "درج كبير واحد",
+    "preset2Drawers": "درجان",
+    "preset4Drawers": "4 أدراج",
+    "preset2Small1BigDrawer": "درجان صغيران + درج كبير",
+    "preset1SmallDrawer1Door": "درج + باب",
+    "preset1SmallDrawer2Doors": "درج + بابان",
+    "preset2Small1Door": "درجان + باب",
+    "selected": "المحدد:",
+    "drawer": "درج",
+    "door": "باب",
+    "twoDoors": " (بابان)"
+  },
+  "materialLibrary": {
+    "frontMaterial": "🚪 مادة الواجهة",
+    "carcassMaterial": "📦 مادة الهيكل",
+    "myLibrary": "📁 مكتبتي",
+    "searchPlaceholder": "ابحث بالرمز أو الاسم...",
+    "filterAll": "الكل",
+    "filterSolid": "صلب",
+    "filterWood": "خشبي",
+    "emptyMyLibraryCarcass": "لا توجد مواد هيكل في كتالوجك بعد. أضفها من /catalog.",
+    "emptyMyLibraryFront": "لا توجد مواد واجهة في كتالوجك بعد. أضفها من /catalog.",
+    "noResults": "لا توجد نتائج",
+    "selected": "المحدد",
+    "coreParticleboard": "خشب مضغوط",
+    "coreMdf": "MDF",
+    "coreHdf": "HDF",
+    "corePlywood": "أبلكاش",
+    "coreSolidWood": "صلب",
+    "coreCompact": "مضغوط",
+    "finishMatt": "مطفي",
+    "finishGloss": "لامع",
+    "finishWood": "خشبي",
+    "finishMetal": "معدني",
+    "finishOther": "أخرى"
   }
 }
