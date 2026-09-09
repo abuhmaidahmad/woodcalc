@@ -13,6 +13,40 @@ const PLANS = [
   { id: 'enterprise', label: 'Enterprise', priceJod: 1200 },
 ]
 
+function ShareCatalogCard() {
+  const company = getCompany()
+  const [copied, setCopied] = useState(false)
+
+  if (!company) return null
+
+  const link = `${window.location.origin}/browse/${company.slug}`
+
+  const copyLink = async () => {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {}
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>Share your catalog</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>
+        Anyone with this link can browse your Kitchen Planner catalog and explore designs — no account needed.
+      </div>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <input readOnly value={link} onFocus={e => e.target.select()}
+          style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#F7F4F0' }} />
+        <button onClick={copyLink}
+          style={{ padding: '10px 18px', background: copied ? '#3a3' : ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+          {copied ? 'Copied!' : 'Copy link'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function BillingCard() {
   const company = getCompany()
   const [activating, setActivating] = useState(null)
@@ -200,6 +234,7 @@ export default function Settings() {
           )}
         </div>
 
+        <ShareCatalogCard />
         <BillingCard />
       </div>
     </div>

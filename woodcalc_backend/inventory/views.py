@@ -8,11 +8,13 @@ from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem,
 from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer
 
 
-class MaterialViewSet(TenantScopedMixin, ModelViewSet):
+class MaterialViewSet(PublicOrTenantScopedMixin, ModelViewSet):
+    # GET is public (no login needed) so customers can browse a manufacturer's
+    # material catalog via ?company=<slug>, same as Sink/DrawerSystem below.
     tenant_filter_field = 'tenant'
     queryset = Material.objects.all().order_by('sku')
     serializer_class = MaterialSerializer
-    permission_classes = [IsAuthenticated, HasActiveCompany]
+    permission_classes = [IsAuthenticatedOrReadOnly]
 
     def get_queryset(self):
         qs = super().get_queryset()

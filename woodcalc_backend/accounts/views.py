@@ -16,6 +16,7 @@ from .models import ManufacturerProfile, SupplierProfile
 from django.db import transaction
 from django.utils.text import slugify
 from tenants.models import Company, CompanyMembership
+from inventory.starter_catalog import seed_starter_catalog
 
 User = get_user_model()
 
@@ -84,6 +85,7 @@ def register_manufacturer(request):
                 user.manufacturer_profile.trade_license_document = doc
                 user.manufacturer_profile.save()
             company = create_company_for_manufacturer(user, user.manufacturer_profile.factory_company_name)
+            seed_starter_catalog(company)
         tokens = get_tokens_for_user(user)
         return Response({
             'user': UserMeSerializer(user).data,

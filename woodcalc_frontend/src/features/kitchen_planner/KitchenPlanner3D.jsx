@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { MATERIAL_DB, lamToCt } from './materialData'
+import { authFetch, withCompanyParam } from '../../api/auth'
 
 const ALL_CT_MATS = [
   ...COUNTERTOP_MATERIALS,
@@ -84,12 +85,10 @@ function forceHttps(url) {
   return url.replace(/^http:\/\//i, 'https://')
 }
 
-export function useMaterialTextureMap() {
+export function useMaterialTextureMap(companySlug) {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
-    fetch(API_BASE + '/api/inventory/materials/', {
-      headers: { Authorization: 'Bearer ' + localStorage.getItem('access_token') },
-    })
+    authFetch(withCompanyParam(API_BASE + '/api/inventory/materials/', companySlug))
       .then(r => r.json())
       .then(data => {
         const results = data.results || data
@@ -100,7 +99,7 @@ export function useMaterialTextureMap() {
         setTextureMap(map)
       })
       .catch(() => setTextureMap({}))
-  }, [])
+  }, [companySlug])
   return textureMap
 }
 

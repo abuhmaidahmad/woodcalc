@@ -23,6 +23,7 @@ import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
 import BillingReturn from './pages/BillingReturn';
+import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
 import TrialBanner from './components/TrialBanner';
 
 function PrivateRoute({ children }) {
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/kitchen-planner" element={
           <PrivateRoute><KitchenPlannerModule /></PrivateRoute>
         } />
+        <Route path="/browse/:companySlug" element={<PublicCatalogBrowse />} />
 
         {/* CRM */}
         <Route path="/collections" element={

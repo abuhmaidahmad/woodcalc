@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, saveSession } from '../../api/auth';
 
+const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
+
 export default function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -14,7 +16,7 @@ export default function Login() {
     setError('');
     const res = await loginUser(email, password);
     if (res.access) {
-      const userRes = await fetch('https://woodcalc-production.up.railway.app/api/auth/me/', {
+      const userRes = await fetch(API + '/api/auth/me/', {
         headers: { 'Authorization': 'Bearer ' + res.access, 'Content-Type': 'application/json' }
       });
       const userData = await userRes.json();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import MaterialLibrary from './MaterialLibrary'
-import { authFetch } from '../../api/auth'
+import { authFetch, withCompanyParam } from '../../api/auth'
 import { COUNTERTOP_MATERIALS, COUNTERTOP_CATEGORIES, COUNTERTOP_BRANDS, MATERIAL_DB, lamToCt } from './materialData'
 export { COUNTERTOP_MATERIALS }
 
@@ -150,21 +150,21 @@ function buildLibrary(baseHeight) {
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }
 }
 
-export function CountertopPicker({ selected, onSelect }) {
+export function CountertopPicker({ selected, onSelect, companySlug }) {
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
   const [catalogWorktops, setCatalogWorktops] = useState([])
 
   useEffect(() => {
-    authFetch(API_URL + '/api/inventory/materials/?material_type=worktop')
+    authFetch(withCompanyParam(API_URL + '/api/inventory/materials/?material_type=worktop', companySlug))
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setCatalogWorktops(list)
       })
       .catch(() => {})
-  }, [])
+  }, [companySlug])
 
   const myMaterials = catalogWorktops.map(t => ({
     id: `custom-${t.id}`,
@@ -301,7 +301,7 @@ export function CountertopPicker({ selected, onSelect }) {
   )
 }
 
-function ProjectSetup({ onConfirm, initial }) {
+function ProjectSetup({ onConfirm, initial, companySlug }) {
   const [baseHeight, setBaseHeight]     = useState(initial?.baseHeight || null)
   const [doorStyle, setDoorStyle]       = useState(initial?.doorStyle || null)
   const [golaColor, setGolaColor]       = useState(initial?.golaColor || 'black')
@@ -312,7 +312,7 @@ function ProjectSetup({ onConfirm, initial }) {
   const [drawerSystems, setDrawerSystems] = useState([])
   const [drawerSystem, setDrawerSystem] = useState(null)
   useEffect(() => {
-    authFetch(API_URL + '/api/inventory/drawer-systems/')
+    authFetch(withCompanyParam(API_URL + '/api/inventory/drawer-systems/', companySlug))
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
@@ -322,7 +322,7 @@ function ProjectSetup({ onConfirm, initial }) {
         else if (list.length && !drawerSystem) setDrawerSystem(list[0])
       })
       .catch(() => {})
-  }, [])
+  }, [companySlug])
   const [frontMaterialThickness, setFrontMaterialThickness] = useState(initial?.frontMaterialThickness || 18)
   const [frontFinish, setFrontFinish]   = useState(initial?.frontFinish || 'matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState(initial?.skirtingMaterial || 'match_countertop')
@@ -426,6 +426,7 @@ function ProjectSetup({ onConfirm, initial }) {
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Material</div>
         <MaterialLibrary
           target="front"
+          companySlug={companySlug}
           selectedCode={frontMaterialCode}
           onSelect={mat => {
             setFrontColor(mat.hex)
@@ -521,13 +522,13 @@ const CATEGORIES = [
   { id: 'accessories', icon: '🔧',  label: 'Acc.'    },
 ]
 
-export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet }) {
+export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet, companySlug }) {
   const [activeCategory, setActiveCategory] = useState('base')
   const [wallHeightFilter, setWallHeightFilter] = useState(null)
   const [subtypeFilter, setSubtypeFilter] = useState(null)
   const [search, setSearch] = useState('')
 
-  if (!baseHeight || !projectDefaults) return <ProjectSetup onConfirm={onSetupComplete} initial={projectDefaults ? { ...projectDefaults, baseHeight: baseHeight || projectDefaults.baseHeight } : null} />
+  if (!baseHeight || !projectDefaults) return <ProjectSetup onConfirm={onSetupComplete} initial={projectDefaults ? { ...projectDefaults, baseHeight: baseHeight || projectDefaults.baseHeight } : null} companySlug={companySlug} />
 
   const library = buildLibrary(baseHeight)
   const items = library[activeCategory] || []
@@ -590,19 +591,19 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
   )
 }
 
-export function SinkPicker({ selected, onSelect }) {
+export function SinkPicker({ selected, onSelect, companySlug }) {
   const [sinks, setSinks] = useState([])
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    authFetch(API_URL + '/api/inventory/sinks/')
+    authFetch(withCompanyParam(API_URL + '/api/inventory/sinks/', companySlug))
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setSinks(list)
       })
       .catch(() => {})
-  }, [])
+  }, [companySlug])
 
   const filtered = sinks.filter(s => {
     if (!search) return true

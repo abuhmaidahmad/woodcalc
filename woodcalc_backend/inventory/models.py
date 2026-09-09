@@ -165,7 +165,7 @@ class DrawerSystem(models.Model):
         ('wood_box', 'Wood box + runners'),
     ]
     tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='drawer_systems')
-    name = models.CharField(max_length=100, unique=True)
+    name = models.CharField(max_length=100)
     brand = models.CharField(max_length=100, blank=True, default='')
     box_construction = models.CharField(max_length=15, choices=BOX_CHOICES, default='wood_box')
     price_per_set = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
@@ -174,6 +174,7 @@ class DrawerSystem(models.Model):
 
     class Meta:
         ordering = ['sort_order', 'name']
+        unique_together = ('tenant', 'name')
 
     def __str__(self):
         return f"{self.brand} {self.name}".strip()

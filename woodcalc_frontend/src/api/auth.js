@@ -89,9 +89,10 @@ export async function authFetch(url, options = {}) {
   const token = localStorage.getItem('access_token')
   // Don't set Content-Type for FormData — the browser sets it with the multipart boundary
   const defaultHeaders = options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }
-  const headers = { ...defaultHeaders, ...options.headers, 'Authorization': 'Bearer ' + token }
+  const headers = { ...defaultHeaders, ...options.headers }
+  if (token) headers['Authorization'] = 'Bearer ' + token
   let res = await fetch(url, { ...options, headers })
-  if (res.status === 401) {
+  if (res.status === 401 && token) {
     const newToken = await refreshAccessToken()
     if (newToken) {
       headers['Authorization'] = 'Bearer ' + newToken
@@ -102,4 +103,9 @@ export async function authFetch(url, options = {}) {
     window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))
   }
   return res
+}
+
+export function withCompanyParam(url, companySlug) {
+  if (!companySlug) return url
+  return url + (url.includes('?') ? '&' : '?') + 'company=' + encodeURIComponent(companySlug)
 }

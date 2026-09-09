@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { authFetch } from '../../api/auth'
+import { authFetch, withCompanyParam } from '../../api/auth'
 import { MATERIAL_DB } from './materialData'
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -24,7 +24,7 @@ const FINISH_BADGE = {
   other: { label: 'Other', bg: '#F0E8F5', color: '#7A4A8A' },
 }
 
-export default function MaterialLibrary({ onSelect, selectedCode, target }) {
+export default function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
@@ -34,14 +34,14 @@ export default function MaterialLibrary({ onSelect, selectedCode, target }) {
 
   useEffect(() => {
     const url = API + '/api/inventory/materials/' + (typeFilter ? `?material_type=${typeFilter}` : '')
-    authFetch(url)
+    authFetch(withCompanyParam(url, companySlug))
       .then(r => r.json())
       .then(data => {
         const list = Array.isArray(data) ? data : (data.results || [])
         setCatalogMaterials(list)
       })
       .catch(() => {})
-  }, [typeFilter])
+  }, [typeFilter, companySlug])
 
   const myLibraryMaterials = catalogMaterials.map(t => ({
     code: t.sku || `custom-${t.id}`,

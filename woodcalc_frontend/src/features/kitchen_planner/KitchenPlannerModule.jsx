@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import { authFetch } from '../../api/auth'
+import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -673,7 +673,7 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
   const [roomId, setRoomId] = useState(initialRoomId)
   const [roomName, setRoomName] = useState(initialRoomName)
   const [projectId, setProjectId] = useState(initialProjectId)
@@ -704,15 +704,15 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
-  const textureMap = useMaterialTextureMap()
+  const textureMap = useMaterialTextureMap(publicCompanySlug)
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-    authFetch(API + '/api/inventory/drawer-systems/')
+    authFetch(withCompanyParam(API + '/api/inventory/drawer-systems/', publicCompanySlug))
       .then(r => r.json())
       .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
       .catch(() => {})
-  }, [])
+  }, [publicCompanySlug])
 
 
   // Restore saved data on mount
@@ -1008,9 +1008,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_silver">⬜ Skirting: PVC Silver</option>
             </select>
           )}
-          <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
-            {saving ? 'Saving…' : savedMsg || '💾 Save'}
-          </button>
+          {publicCompanySlug ? (
+            <span style={{ fontSize: 12, color: '#999', fontWeight: 600 }}>👋 Guest preview — sign up to save</span>
+          ) : (
+            <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
+              {saving ? 'Saving…' : savedMsg || '💾 Save'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -1062,7 +1066,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             </div>
             <div style={s.panelSection}>
               <div style={s.panelLabel}>Countertop</div>
-              <CountertopPicker selected={countertopMat?.id} onSelect={mat => setCountertopMat(mat)} />
+              <CountertopPicker selected={countertopMat?.id} onSelect={mat => setCountertopMat(mat)} companySlug={publicCompanySlug} />
             </div>
   
 
@@ -1266,6 +1270,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             <CabinetCatalog
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
+              companySlug={publicCompanySlug}
               onSetupComplete={(setup) => {
                 setBaseHeight(setup.baseHeight)
                 setProjectDefaults({
@@ -1354,7 +1359,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       </div>
                     )}
                     <div style={{ marginBottom: 10 }}>
-                      <SinkPicker selected={selCab.sinkId} onSelect={applySink} />
+                      <SinkPicker selected={selCab.sinkId} onSelect={applySink} companySlug={publicCompanySlug} />
                     </div>
                   </>
                 )}
@@ -1484,6 +1489,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 <div style={s.propSection}>Front Material</div>
                 <MaterialLibrary
                   target="front"
+                  companySlug={publicCompanySlug}
                   selectedCode={selCab.frontMaterialCode}
                   onSelect={mat => {
                     updateCab('frontColor', mat.hex)
@@ -1498,6 +1504,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     <div style={s.propSection}>Carcass Material</div>
     <MaterialLibrary
       target="carcass"
+      companySlug={publicCompanySlug}
       selectedCode={selCab.carcassMaterialCode}
       onSelect={mat => {
         updateCab('carcassColor', mat.hex)
@@ -1529,7 +1536,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: DARK }}>{projectName}</h2>
                   <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{cabinets.length} cabinets · Bill of Materials</div>
                 </div>
-                <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? 'Sending…' : '📤 Send to Manufacturing'}</button>
+                {!publicCompanySlug && (
+                  <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? 'Sending…' : '📤 Send to Manufacturing'}</button>
+                )}
               </div>
               {sentMsg && <div style={{ ...s.toast, background: sentMsg.startsWith('✓') ? '#2AC87A' : '#e74c3c' }}>{sentMsg}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
