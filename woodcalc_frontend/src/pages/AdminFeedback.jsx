@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { listAllFeedback, updateFeedback } from '../api/platformAdmin'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -9,12 +10,19 @@ const STATUS_OPTIONS = ['new', 'reviewing', 'planned', 'declined', 'done']
 const STATUS_COLORS = {
   new: '#C8902A', reviewing: '#2A6ACC', planned: '#8A2AC8', declined: '#999', done: '#2AC87A',
 }
+const STATUS_KEYS = {
+  new: 'adminFeedback.statusNew', reviewing: 'adminFeedback.statusReviewing', planned: 'adminFeedback.statusPlanned',
+  declined: 'adminFeedback.statusDeclined', done: 'adminFeedback.statusDone',
+}
 
 export default function AdminFeedback() {
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
   const [notesDraft, setNotesDraft] = useState({})
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
+  const dir = language === 'ar' ? 'rtl' : 'ltr'
+  const locale = language === 'ar' ? 'ar' : 'en-US'
 
   const fetchFeedback = async () => {
     setLoading(true)
@@ -42,35 +50,35 @@ export default function AdminFeedback() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Admin · Feedback</span>
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('adminFeedback.headerTitle')}</span>
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button onClick={() => navigate('/admin/companies')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Companies
+            {t('adminFeedback.companies')}
           </button>
           <button onClick={() => navigate('/dashboard')}
             style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-            Dashboard
+            {t('common.dashboard')}
           </button>
         </div>
       </div>
 
       <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
-          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>Feedback</h1>
-          <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{items.length} total, across all companies</div>
+          <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('adminFeedback.title')}</h1>
+          <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{t('adminFeedback.total', { count: items.length })}</div>
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>Loading...</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('adminFeedback.loading')}</div>
         ) : items.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>No feedback yet</div>
+          <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('adminFeedback.empty')}</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {items.map(item => (
@@ -79,21 +87,21 @@ export default function AdminFeedback() {
                   <div>
                     <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{item.tenant_name}</div>
                     <div style={{ fontSize: 11, color: '#999', marginTop: 2 }}>
-                      {item.page || '—'} · {new Date(item.created_at).toLocaleString()}
+                      {item.page || '—'} · {new Date(item.created_at).toLocaleString(locale)}
                     </div>
                   </div>
                   <select value={item.status} onChange={e => updateStatus(item, e.target.value)}
                     style={{ padding: '6px 10px', borderRadius: 6, border: `1.5px solid ${STATUS_COLORS[item.status]}`, color: STATUS_COLORS[item.status], fontSize: 11, fontWeight: 700, background: '#fff', cursor: 'pointer' }}>
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s.toUpperCase()}</option>)}
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
                   </select>
                 </div>
 
                 <div style={{ fontSize: 13, color: DARK, marginBottom: 12 }}>{item.message}</div>
 
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Your notes</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('adminFeedback.yourNotes')}</div>
                 <textarea value={notesDraft[item.id] ?? ''} onChange={e => setNotesDraft(d => ({ ...d, [item.id]: e.target.value }))}
                   onBlur={() => saveNotes(item)}
-                  placeholder="Private triage notes — never shown to the manufacturer"
+                  placeholder={t('adminFeedback.notesPlaceholder')}
                   rows={2}
                   style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, fontFamily: 'inherit', resize: 'vertical' }} />
               </div>
