@@ -54,6 +54,11 @@ export function getUser() {
   return u ? JSON.parse(u) : null;
 }
 
+export function getCompany() {
+  const u = getUser();
+  return u?.company || null;
+}
+
 export function getToken() {
   return localStorage.getItem('access_token');
 }
@@ -92,6 +97,9 @@ export async function authFetch(url, options = {}) {
       headers['Authorization'] = 'Bearer ' + newToken
       res = await fetch(url, { ...options, headers })
     }
+  }
+  if (res.status === 403) {
+    window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))
   }
   return res
 }

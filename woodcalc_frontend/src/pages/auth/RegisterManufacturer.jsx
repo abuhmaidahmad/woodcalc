@@ -27,7 +27,7 @@ export default function RegisterManufacturer() {
     const res = await registerManufacturer(fd);
     setLoading(false);
     if (res.tokens) {
-      saveSession(res.tokens, res.user);
+      saveSession(res.tokens, { ...res.user, company: res.company });
       navigate('/dashboard');
     } else {
       setErrors(res);

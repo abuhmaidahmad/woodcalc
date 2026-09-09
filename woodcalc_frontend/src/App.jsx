@@ -22,10 +22,17 @@ import SupplierStatement from './pages/SupplierStatement';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
+import TrialBanner from './components/TrialBanner';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
-  return token ? children : <Navigate to="/login" />;
+  if (!token) return <Navigate to="/login" />;
+  return (
+    <>
+      <TrialBanner />
+      {children}
+    </>
+  );
 }
 
 export default function App() {

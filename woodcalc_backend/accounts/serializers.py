@@ -125,9 +125,24 @@ class SupplierRegisterSerializer(serializers.ModelSerializer):
 
 
 class UserMeSerializer(serializers.ModelSerializer):
+    company = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'city', 'user_type', 'is_verified']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'city', 'user_type', 'is_verified', 'company']
+
+    def get_company(self, obj):
+        membership = getattr(obj, 'company_membership', None)
+        if not membership:
+            return None
+        company = membership.company
+        return {
+            'id': str(company.id),
+            'name': company.name,
+            'slug': company.slug,
+            'status': company.status,
+            'trial_ends_at': company.trial_ends_at,
+        }
 
 
 class EmailAccountSerializer(serializers.ModelSerializer):
