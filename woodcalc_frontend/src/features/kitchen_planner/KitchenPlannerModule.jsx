@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
@@ -674,6 +675,7 @@ function LinkProjectModal({ onClose, onLinked }) {
 }
 
 export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
+  const navigate = useNavigate()
   const [roomId, setRoomId] = useState(initialRoomId)
   const [roomName, setRoomName] = useState(initialRoomName)
   const [projectId, setProjectId] = useState(initialProjectId)
@@ -1009,7 +1011,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             </select>
           )}
           {publicCompanySlug ? (
-            <span style={{ fontSize: 12, color: '#999', fontWeight: 600 }}>👋 Guest preview — sign up to save</span>
+            <button onClick={() => navigate('/register/customer')} style={s.saveBtn}>
+              👋 Guest preview — sign up to save
+            </button>
           ) : (
             <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
               {saving ? 'Saving…' : savedMsg || '💾 Save'}
