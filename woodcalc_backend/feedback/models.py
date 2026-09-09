@@ -14,6 +14,7 @@ class Feedback(models.Model):
     tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="feedback_items")
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="feedback_items")
     message = models.TextField()
+    page = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=15, choices=Status.choices, default=Status.NEW)
     admin_notes = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)

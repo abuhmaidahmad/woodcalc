@@ -7,10 +7,10 @@ export async function listFeedback() {
   return res.json();
 }
 
-export async function submitFeedback(message) {
+export async function submitFeedback(message, page) {
   const res = await authFetch(`${BASE_URL}/api/feedback/`, {
     method: 'POST',
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, page }),
   });
   return res.json();
 }

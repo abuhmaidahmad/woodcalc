@@ -27,6 +27,7 @@ import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
 import LeadList from './pages/LeadList';
 import LeadDesignView from './pages/LeadDesignView';
 import TrialBanner from './components/TrialBanner';
+import FeedbackWidget from './components/FeedbackWidget';
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -35,6 +36,7 @@ function PrivateRoute({ children }) {
     <>
       <TrialBanner />
       {children}
+      <FeedbackWidget />
     </>
   );
 }

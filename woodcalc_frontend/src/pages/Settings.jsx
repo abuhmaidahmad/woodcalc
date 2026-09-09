@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { authFetch, getCompany } from '../api/auth'
 import { createCheckout } from '../api/billing'
-import { listFeedback, submitFeedback } from '../api/feedback'
+import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
 
 const ACCENT = '#C8902A'
@@ -133,8 +133,6 @@ function FeedbackCard() {
   const company = getCompany()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
 
   const fetchFeedback = async () => {
     setLoading(true)
@@ -149,35 +147,16 @@ function FeedbackCard() {
 
   if (!company) return null
 
-  const send = async () => {
-    if (!message.trim()) return
-    setSending(true)
-    try {
-      const res = await submitFeedback(message)
-      if (res.id) {
-        setMessage('')
-        fetchFeedback()
-      }
-    } catch {}
-    setSending(false)
-  }
-
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>Send Feedback</h2>
-      <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>
-        Suggest a feature or change — we review every submission before anything changes.
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>Your Feedback</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 4 }}>
+        Use the 💬 Feedback button in the bottom-right corner of any page to send new feedback — it's tracked here.
       </div>
 
-      <textarea value={message} onChange={e => setMessage(e.target.value)}
-        placeholder="What would help your team?"
-        rows={3}
-        style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: DARK, fontFamily: 'inherit', resize: 'vertical', marginBottom: 12 }} />
-
-      <button onClick={send} disabled={sending || !message.trim()}
-        style={{ padding: '10px 20px', background: message.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: message.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-        {sending ? 'Sending…' : 'Send Feedback'}
-      </button>
+      {!loading && items.length === 0 && (
+        <div style={{ color: '#bbb', fontSize: 12, marginTop: 16 }}>No feedback submitted yet.</div>
+      )}
 
       {!loading && items.length > 0 && (
         <div style={{ marginTop: 20, borderTop: '1px solid #F7F4F0', paddingTop: 16 }}>
