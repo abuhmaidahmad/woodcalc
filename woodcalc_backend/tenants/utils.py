@@ -1,4 +1,4 @@
-from .models import Company, CompanyMembership
+from .models import Company, CompanyMembership, CompanySettings
 
 
 def get_company_for_user(user):
@@ -12,3 +12,10 @@ def get_company_by_slug(slug):
     if not slug:
         return None
     return Company.objects.filter(slug=slug, status__in=[Company.Status.TRIALING, Company.Status.ACTIVE]).first()
+
+
+def get_company_settings(company):
+    if company is None:
+        return {}
+    settings, _ = CompanySettings.objects.get_or_create(company=company)
+    return settings.flags

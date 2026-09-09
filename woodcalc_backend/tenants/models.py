@@ -63,3 +63,12 @@ class CompanyMembership(models.Model):
 
     def __str__(self):
         return f"{self.user} @ {self.company} ({self.role})"
+
+
+class CompanySettings(models.Model):
+    company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name="settings")
+    flags = models.JSONField(default=dict, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Settings for {self.company}"

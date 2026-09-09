@@ -15,4 +15,6 @@ urlpatterns = [
     path('api/crm/', include('crm.urls')),
     path('api/srm/', include('srm.urls')),
     path('api/billing/', include('billing.urls')),
+    path('api/tenants/', include('tenants.urls')),
+    path('api/feedback/', include('feedback.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,9 +1,14 @@
 from django.contrib import admin
-from .models import Company, CompanyMembership
+from .models import Company, CompanyMembership, CompanySettings
 
 
 class CompanyMembershipInline(admin.TabularInline):
     model = CompanyMembership
+    extra = 0
+
+
+class CompanySettingsInline(admin.StackedInline):
+    model = CompanySettings
     extra = 0
 
 
@@ -13,7 +18,7 @@ class CompanyAdmin(admin.ModelAdmin):
     list_filter = ("plan", "status")
     search_fields = ("name", "slug")
     prepopulated_fields = {"slug": ("name",)}
-    inlines = [CompanyMembershipInline]
+    inlines = [CompanyMembershipInline, CompanySettingsInline]
 
 
 @admin.register(CompanyMembership)

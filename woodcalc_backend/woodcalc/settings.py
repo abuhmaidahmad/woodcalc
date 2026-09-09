@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'crm',
     'srm',
     'billing',
+    'feedback',
 ]
 
 MIDDLEWARE = [
