@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import RegisterLayout from '../../components/auth/RegisterLayout';
 import FormField, { Input } from '../../components/auth/FormField';
 import { registerCustomer, saveSession } from '../../api/auth';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 export default function RegisterCustomer() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', password: '', phone: '', city: '',
   });
@@ -25,40 +27,40 @@ export default function RegisterCustomer() {
       navigate('/dashboard');
     } else {
       setErrors(res);
-      setApiError(res.detail || 'Registration failed. Please check your details.');
+      setApiError(res.detail || t('registerCustomer.genericError'));
     }
   };
 
   return (
     <RegisterLayout role="customer" icon="🏠">
       <div style={styles.row}>
-        <FormField label="First name" error={errors.first_name?.[0]}>
-          <Input placeholder="Ahmad" value={form.first_name} onChange={set('first_name')} />
+        <FormField label={t('registerCustomer.firstName')} error={errors.first_name?.[0]}>
+          <Input placeholder={t('registerCustomer.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
-        <FormField label="Last name" error={errors.last_name?.[0]}>
-          <Input placeholder="Al-Hussein" value={form.last_name} onChange={set('last_name')} />
+        <FormField label={t('registerCustomer.lastName')} error={errors.last_name?.[0]}>
+          <Input placeholder={t('registerCustomer.lastNamePlaceholder')} value={form.last_name} onChange={set('last_name')} />
         </FormField>
       </div>
-      <FormField label="Email address" error={errors.email?.[0]}>
-        <Input type="email" placeholder="you@example.com" value={form.email} onChange={set('email')} />
+      <FormField label={t('registerCustomer.email')} error={errors.email?.[0]}>
+        <Input type="email" placeholder={t('registerCustomer.emailPlaceholder')} value={form.email} onChange={set('email')} />
       </FormField>
-      <FormField label="Password" error={errors.password?.[0]}>
-        <Input type="password" placeholder="Minimum 8 characters" value={form.password} onChange={set('password')} />
+      <FormField label={t('registerCustomer.password')} error={errors.password?.[0]}>
+        <Input type="password" placeholder={t('registerCustomer.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
       <div style={styles.row}>
-        <FormField label="Phone" error={errors.phone?.[0]}>
-          <Input placeholder="+962 7..." value={form.phone} onChange={set('phone')} />
+        <FormField label={t('registerCustomer.phone')} error={errors.phone?.[0]}>
+          <Input placeholder={t('registerCustomer.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
-        <FormField label="City" error={errors.city?.[0]}>
-          <Input placeholder="Amman" value={form.city} onChange={set('city')} />
+        <FormField label={t('registerCustomer.city')} error={errors.city?.[0]}>
+          <Input placeholder={t('registerCustomer.cityPlaceholder')} value={form.city} onChange={set('city')} />
         </FormField>
       </div>
       {apiError && <p style={styles.apiError}>{apiError}</p>}
       <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Creating account…' : 'Create account'}
+        {loading ? t('registerCustomer.submitting') : t('registerCustomer.submit')}
       </button>
       <p style={styles.loginLink}>
-        Already have an account? <a href="/login" style={styles.link}>Sign in</a>
+        {t('registerCustomer.haveAccount')} <a href="/login" style={styles.link}>{t('registerCustomer.signIn')}</a>
       </p>
     </RegisterLayout>
   );

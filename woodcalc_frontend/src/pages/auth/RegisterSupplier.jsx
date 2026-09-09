@@ -3,25 +3,27 @@ import { useNavigate } from 'react-router-dom';
 import RegisterLayout from '../../components/auth/RegisterLayout';
 import FormField, { Input } from '../../components/auth/FormField';
 import { registerSupplier, saveSession } from '../../api/auth';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 const MATERIAL_OPTIONS = [
-  { key: 'plywood', label: 'Plywood' },
-  { key: 'particleboard', label: 'Particleboard' },
-  { key: 'mdf', label: 'MDF' },
-  { key: 'hdf', label: 'HDF' },
-  { key: 'edge_banding', label: 'Edge Banding' },
-  { key: 'hinges', label: 'Hinges' },
-  { key: 'drawer_systems', label: 'Drawer Systems' },
-  { key: 'handles', label: 'Handles' },
-  { key: 'legs', label: 'Legs' },
-  { key: 'confirmat_screws', label: 'Confirmat Screws' },
-  { key: 'shelf_pins', label: 'Shelf Pins' },
-  { key: 'gola_profiles', label: 'Gola Profiles' },
-  { key: 'paint_lacquer', label: 'Paint / Lacquer' },
+  { key: 'plywood', labelKey: 'registerSupplier.matPlywood' },
+  { key: 'particleboard', labelKey: 'registerSupplier.matParticleboard' },
+  { key: 'mdf', labelKey: 'registerSupplier.matMdf' },
+  { key: 'hdf', labelKey: 'registerSupplier.matHdf' },
+  { key: 'edge_banding', labelKey: 'registerSupplier.matEdgeBanding' },
+  { key: 'hinges', labelKey: 'registerSupplier.matHinges' },
+  { key: 'drawer_systems', labelKey: 'registerSupplier.matDrawerSystems' },
+  { key: 'handles', labelKey: 'registerSupplier.matHandles' },
+  { key: 'legs', labelKey: 'registerSupplier.matLegs' },
+  { key: 'confirmat_screws', labelKey: 'registerSupplier.matConfirmatScrews' },
+  { key: 'shelf_pins', labelKey: 'registerSupplier.matShelfPins' },
+  { key: 'gola_profiles', labelKey: 'registerSupplier.matGolaProfiles' },
+  { key: 'paint_lacquer', labelKey: 'registerSupplier.matPaintLacquer' },
 ];
 
 export default function RegisterSupplier() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', password: '', phone: '', city: '',
     company_name: '', commercial_registration_number: '', delivery_coverage_area: '',
@@ -54,46 +56,46 @@ export default function RegisterSupplier() {
       navigate('/dashboard');
     } else {
       setErrors(res);
-      setApiError(res.detail || 'Registration failed.');
+      setApiError(res.detail || t('registerSupplier.genericError'));
     }
   };
 
   return (
     <RegisterLayout role="supplier" icon="📦">
       <div style={styles.row}>
-        <FormField label="First name" error={errors.first_name?.[0]}>
-          <Input placeholder="Rami" value={form.first_name} onChange={set('first_name')} />
+        <FormField label={t('registerSupplier.firstName')} error={errors.first_name?.[0]}>
+          <Input placeholder={t('registerSupplier.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
-        <FormField label="Last name" error={errors.last_name?.[0]}>
-          <Input placeholder="Barakat" value={form.last_name} onChange={set('last_name')} />
-        </FormField>
-      </div>
-      <FormField label="Email address" error={errors.email?.[0]}>
-        <Input type="email" placeholder="you@company.com" value={form.email} onChange={set('email')} />
-      </FormField>
-      <FormField label="Password" error={errors.password?.[0]}>
-        <Input type="password" placeholder="Minimum 8 characters" value={form.password} onChange={set('password')} />
-      </FormField>
-      <div style={styles.row}>
-        <FormField label="Phone" error={errors.phone?.[0]}>
-          <Input placeholder="+962 7..." value={form.phone} onChange={set('phone')} />
-        </FormField>
-        <FormField label="City" error={errors.city?.[0]}>
-          <Input placeholder="Amman" value={form.city} onChange={set('city')} />
+        <FormField label={t('registerSupplier.lastName')} error={errors.last_name?.[0]}>
+          <Input placeholder={t('registerSupplier.lastNamePlaceholder')} value={form.last_name} onChange={set('last_name')} />
         </FormField>
       </div>
-      <FormField label="Company name" error={errors.company_name?.[0]}>
-        <Input placeholder="Jordan Wood Supply Co." value={form.company_name} onChange={set('company_name')} />
+      <FormField label={t('registerSupplier.email')} error={errors.email?.[0]}>
+        <Input type="email" placeholder={t('registerSupplier.emailPlaceholder')} value={form.email} onChange={set('email')} />
+      </FormField>
+      <FormField label={t('registerSupplier.password')} error={errors.password?.[0]}>
+        <Input type="password" placeholder={t('registerSupplier.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
       <div style={styles.row}>
-        <FormField label="Commercial registration no." error={errors.commercial_registration_number?.[0]}>
-          <Input placeholder="CR-654321" value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
+        <FormField label={t('registerSupplier.phone')} error={errors.phone?.[0]}>
+          <Input placeholder={t('registerSupplier.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
-        <FormField label="Delivery coverage area" error={errors.delivery_coverage_area?.[0]}>
-          <Input placeholder="Amman, Zarqa, Irbid" value={form.delivery_coverage_area} onChange={set('delivery_coverage_area')} />
+        <FormField label={t('registerSupplier.city')} error={errors.city?.[0]}>
+          <Input placeholder={t('registerSupplier.cityPlaceholder')} value={form.city} onChange={set('city')} />
         </FormField>
       </div>
-      <FormField label="Materials you supply" hint="Tap to select all that apply">
+      <FormField label={t('registerSupplier.companyName')} error={errors.company_name?.[0]}>
+        <Input placeholder={t('registerSupplier.companyNamePlaceholder')} value={form.company_name} onChange={set('company_name')} />
+      </FormField>
+      <div style={styles.row}>
+        <FormField label={t('registerSupplier.crNumber')} error={errors.commercial_registration_number?.[0]}>
+          <Input placeholder={t('registerSupplier.crPlaceholder')} value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
+        </FormField>
+        <FormField label={t('registerSupplier.deliveryArea')} error={errors.delivery_coverage_area?.[0]}>
+          <Input placeholder={t('registerSupplier.deliveryAreaPlaceholder')} value={form.delivery_coverage_area} onChange={set('delivery_coverage_area')} />
+        </FormField>
+      </div>
+      <FormField label={t('registerSupplier.materialsSupplied')} hint={t('registerSupplier.materialsHint')}>
         <div style={styles.chipGrid}>
           {MATERIAL_OPTIONS.map(m => (
             <button
@@ -107,26 +109,26 @@ export default function RegisterSupplier() {
                 borderColor: selectedMaterials.includes(m.key) ? '#C8902A' : '#E0DAD4',
               }}
             >
-              {m.label}
+              {t(m.labelKey)}
             </button>
           ))}
         </div>
       </FormField>
-      <FormField label="Trade license document" hint="PDF or image — required for full access">
+      <FormField label={t('registerSupplier.document')} hint={t('registerSupplier.documentHint')}>
         <input
           type="file"
           accept=".pdf,.jpg,.jpeg,.png"
           onChange={e => setDocFile(e.target.files[0])}
           style={styles.fileInput}
         />
-        {docFile && <span style={styles.fileName}>✓ {docFile.name}</span>}
+        {docFile && <span style={styles.fileName}>{t('registerSupplier.documentSelected', { name: docFile.name })}</span>}
       </FormField>
       {apiError && <p style={styles.apiError}>{apiError}</p>}
       <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Creating account…' : 'Create account'}
+        {loading ? t('registerSupplier.submitting') : t('registerSupplier.submit')}
       </button>
       <p style={styles.loginLink}>
-        Already have an account? <a href="/login" style={styles.link}>Sign in</a>
+        {t('registerSupplier.haveAccount')} <a href="/login" style={styles.link}>{t('registerSupplier.signIn')}</a>
       </p>
     </RegisterLayout>
   );
