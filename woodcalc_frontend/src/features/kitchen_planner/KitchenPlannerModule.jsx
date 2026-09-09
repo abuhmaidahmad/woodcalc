@@ -11,6 +11,7 @@ import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
 import ErrorBoundary from '../../components/ErrorBoundary'
+import { useTranslation } from '../../i18n/LanguageContext'
 
 const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
@@ -74,14 +75,17 @@ const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const LIGHT = '#F7F4F0'
 
+// `label` stays in English — it's copied onto the placed element (addElement below)
+// and persisted as part of the saved room design, read back regardless of the
+// viewer's later language choice. `labelKey` is used only for the picker's display.
 const ROOM_ELEMENTS = [
-  { type: 'window',   label: 'Window',         icon: '🪟', color: '#87CEEB', w: 900,  h: 1200 },
-  { type: 'door',     label: 'Door',           icon: '🚪', color: '#DEB887', w: 900,  h: 2300 },
-  { type: 'electric', label: 'Electric Point', icon: '⚡', color: '#FFD700', w: 100,  h: 100  },
-  { type: 'water',    label: 'Water Supply',   icon: '💧', color: '#4FC3F7', w: 100,  h: 100  },
-  { type: 'drain',    label: 'Drain Point',    icon: '🕳',  color: '#90A4AE', w: 100,  h: 100  },
-  { type: 'gas',      label: 'Gas Point',      icon: '🔥', color: '#FF7043', w: 100,  h: 100  },
-  { type: 'column',   label: 'Column',         icon: '⬛', color: '#9E9E9E', w: 300,  h: 300  },
+  { type: 'window',   label: 'Window',         labelKey: 'kitchenPlannerModule.elWindow',        icon: '🪟', color: '#87CEEB', w: 900,  h: 1200 },
+  { type: 'door',     label: 'Door',           labelKey: 'kitchenPlannerModule.elDoor',           icon: '🚪', color: '#DEB887', w: 900,  h: 2300 },
+  { type: 'electric', label: 'Electric Point', labelKey: 'kitchenPlannerModule.elElectricPoint',  icon: '⚡', color: '#FFD700', w: 100,  h: 100  },
+  { type: 'water',    label: 'Water Supply',   labelKey: 'kitchenPlannerModule.elWaterSupply',    icon: '💧', color: '#4FC3F7', w: 100,  h: 100  },
+  { type: 'drain',    label: 'Drain Point',    labelKey: 'kitchenPlannerModule.elDrainPoint',     icon: '🕳',  color: '#90A4AE', w: 100,  h: 100  },
+  { type: 'gas',      label: 'Gas Point',      labelKey: 'kitchenPlannerModule.elGasPoint',       icon: '🔥', color: '#FF7043', w: 100,  h: 100  },
+  { type: 'column',   label: 'Column',         labelKey: 'kitchenPlannerModule.elColumn',         icon: '⬛', color: '#9E9E9E', w: 300,  h: 300  },
 ]
 
 const snap = v => Math.round(v / GRID) * GRID
@@ -124,12 +128,13 @@ function EBCell({ eb }) {
 
 // ─── Per-Cabinet Cut List ────────────────────────────────────────────
 function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = React.useState({})
   const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
   return (
     <div style={{ marginTop: 24 }}>
-      <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>📦 Per-Cabinet Cut List</div>
+      <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>{t('kitchenPlannerModule.perCabinetCutList')}</div>
       {cabinets.map((c, i) => {
         if (!isCarcassCabinet(c)) return null
         let result
@@ -148,7 +153,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 8 }}>{c.width}×{c.height}×{c.depth}mm · {c.doorStyle}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length} parts</span>
+                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length} {t('kitchenPlannerModule.parts')}</span>
                 <span style={{ color: ACCENT, fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
             </div>
@@ -157,8 +162,8 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#FAFAFA' }}>
-                      {['Part', 'Qty', 'W (mm)', 'H (mm)', 'Thick', 'Material', 'Edge Banding (T/B/L/R)'].map(h => (
-                        <th key={h} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
+                      {[t('kitchenPlannerModule.colPart'), t('kitchenPlannerModule.colQty'), t('kitchenPlannerModule.colWmm'), t('kitchenPlannerModule.colHmm'), t('kitchenPlannerModule.colThick'), t('kitchenPlannerModule.colMaterial'), t('kitchenPlannerModule.colEdgeBanding')].map((h, hi) => (
+                        <th key={hi} style={{ padding: '8px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -181,7 +186,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                       const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
                       return (
                         <tr key={'d'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>Door {di+1}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.door', { n: di+1 })}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
@@ -194,13 +199,13 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                   </tbody>
                 </table>
                 <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: '1px solid #F0EBE5', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, color: '#666' }}>🔩 Confirmats: <strong>{result.hardware.confirmats}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>🪛 Dowels: <strong>{result.hardware.dowels}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>🦵 Legs: <strong>{result.hardware.legs}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>🔧 Hinges: <strong>{result.doors.reduce((s,d)=>s+d.hinges,0)}</strong></span>
-                  {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>🖐 Handles: <strong>{result.hardware.handles}</strong></span>}
-                  {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>👆 Tip-On: <strong>{result.hardware.tip_on}</strong></span>}
-                  <span style={{ fontSize: 11, color: '#666' }}>📌 Back screws: <strong>{result.hardware.back_screws}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.confirmats')} <strong>{result.hardware.confirmats}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.dowels')} <strong>{result.hardware.dowels}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.legs')} <strong>{result.hardware.legs}</strong></span>
+                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.hinges')} <strong>{result.doors.reduce((s,d)=>s+d.hinges,0)}</strong></span>
+                  {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.handles')} <strong>{result.hardware.handles}</strong></span>}
+                  {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.tipOn')} <strong>{result.hardware.tip_on}</strong></span>}
+                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.backScrews')} <strong>{result.hardware.back_screws}</strong></span>
                 </div>
               </>
             )}
@@ -213,6 +218,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 
 // ─── Master Cut List for Workshop ───────────────────────────────────
 function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const { t } = useTranslation()
   const [expanded, setExpanded] = React.useState(true)
 
   // Build master grouped list
@@ -342,7 +348,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     <div style={{ marginTop: 24, marginBottom: 32 }}>
       <div onClick={() => setExpanded(p => !p)}
         style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>🏭 Master Cut List (Workshop)</span>
+        <span>{t('kitchenPlannerModule.masterCutList')}</span>
         <span style={{ color: ACCENT, fontSize: 14 }}>{expanded ? '▲' : '▼'}</span>
       </div>
       {expanded && (
@@ -351,8 +357,8 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#FAFAFA' }}>
-                  {['#', 'Part', 'W (mm)', 'H (mm)', 'Thick', 'Material', 'Qty', 'Edge Banding (T/B/L/R)'].map(h => (
-                    <th key={h} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
+                  {[t('kitchenPlannerModule.colNum'), t('kitchenPlannerModule.colPart'), t('kitchenPlannerModule.colWmm'), t('kitchenPlannerModule.colHmm'), t('kitchenPlannerModule.colThick'), t('kitchenPlannerModule.colMaterial'), t('kitchenPlannerModule.colQty'), t('kitchenPlannerModule.colEdgeBanding')].map((h, hi) => (
+                    <th key={hi} style={{ padding: '10px 12px', textAlign: 'left', fontSize: 10, fontWeight: 600, color: '#888' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -374,23 +380,28 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
           </div>
 
           {Object.entries(skirtingByMaterial).map(([matKey, data]) => {
-            const labels = { match_countertop: 'Skirting — Match Countertop', pvc_black: 'Skirting — PVC Black', pvc_champagne: 'Skirting — PVC Champagne', pvc_silver: 'Skirting — PVC Silver' }
+            const labels = {
+              match_countertop: t('kitchenPlannerModule.skirtingMatchCountertop'),
+              pvc_black: t('kitchenPlannerModule.skirtingPvcBlackFull'),
+              pvc_champagne: t('kitchenPlannerModule.skirtingPvcChampagneFull'),
+              pvc_silver: t('kitchenPlannerModule.skirtingPvcSilverFull'),
+            }
             return (
               <div key={matKey} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
                 <span style={{ fontSize: 20 }}>📏</span>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || 'Skirting Board'}</div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Covers adjustable legs on selected sides</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || t('kitchenPlannerModule.skirtingBoard')}</div>
+                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.coversLegsHint')}</div>
                 </div>
                 <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.meters.toFixed(2)} m</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
                   </div>
                   {data.elbows > 0 && (
                     <div>
                       <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.elbows}</div>
-                      <div style={{ fontSize: 11, color: '#888' }}>corner elbows</div>
+                      <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.cornerElbows')}</div>
                     </div>
                   )}
                 </div>
@@ -402,12 +413,12 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
               <span style={{ fontSize: 20 }}>💡</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>LED Strip Lighting</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Aluminum channel + diffuser, 18.6×12.5mm profile</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.ledStripLighting')}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.ledStripHint')}</div>
               </div>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{ledStripMeters.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
               </div>
             </div>
           )}
@@ -416,20 +427,20 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
               <span style={{ fontSize: 20 }}>🔩</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Shelf Support Pins</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>4 pins per shelf — rubber-tipped for glass, standard for wood</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.shelfSupportPins')}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.shelfPinsHint')}</div>
               </div>
               <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
                 {shelfPinsStandard > 0 && (
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsStandard}</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>standard</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.standard')}</div>
                   </div>
                 )}
                 {shelfPinsRubber > 0 && (
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsRubber}</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>rubber-tipped</div>
+                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.rubberTipped')}</div>
                   </div>
                 )}
               </div>
@@ -440,12 +451,12 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
               <span style={{ fontSize: 20 }}>🪛</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Gola Profile — L Shape</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Under-worktop channel (Richelieu art.1005 milling)</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileL')}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileLHint')}</div>
               </div>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.L.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
               </div>
             </div>
           )}
@@ -453,12 +464,12 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
               <span style={{ fontSize: 20 }}>🪛</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Gola Profile — C Shape</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Drawer stack channel (Richelieu art.1004 milling)</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileC')}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileCHint')}</div>
               </div>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.C.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>linear meters</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
               </div>
             </div>
           )}
@@ -466,12 +477,12 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div key={sysName} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
               <span style={{ fontSize: 20 }}>🗄️</span>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>Drawer Runners — {sysName}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>One set per drawer (bottom drawer of Gola stacks: TIP-ON)</div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.drawerRunners', { sys: sysName })}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.drawerRunnersHint')}</div>
               </div>
               <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
                 <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{sets}</div>
-                <div style={{ fontSize: 11, color: '#888' }}>runner sets</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.runnerSets')}</div>
               </div>
             </div>
           ))}
@@ -504,6 +515,8 @@ function aggregateBOM(cabinets) {
 }
 
 function LinkProjectModal({ onClose, onLinked }) {
+  const { t, language } = useTranslation()
+  const dir = language === 'ar' ? 'rtl' : 'ltr'
   const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
   const [step, setStep] = useState('client') // client -> project -> room
   const [clients, setClients] = useState([])
@@ -535,7 +548,7 @@ function LinkProjectModal({ onClose, onLinked }) {
       const d = await res.json()
       setProjects(Array.isArray(d) ? d : (d.results || []))
       setStep('project')
-    } catch { setErr('Could not load projects') }
+    } catch { setErr(t('kitchenPlannerModule.errLoadProjects')) }
     setBusy(false)
   }
 
@@ -545,8 +558,8 @@ function LinkProjectModal({ onClose, onLinked }) {
     try {
       const res = await authFetch(API + '/api/crm/clients/', { method: 'POST', body: JSON.stringify(clientForm) })
       if (res.ok) { const client = await res.json(); setShowNewClient(false); await pickClient(client) }
-      else setErr('Could not create client')
-    } catch { setErr('Could not create client') }
+      else setErr(t('kitchenPlannerModule.errCreateClient'))
+    } catch { setErr(t('kitchenPlannerModule.errCreateClient')) }
     setBusy(false)
   }
 
@@ -560,7 +573,7 @@ function LinkProjectModal({ onClose, onLinked }) {
       setExistingRooms(rooms)
       setShowNewRoom(rooms.length === 0)
       setStep('room')
-    } catch { setErr('Could not load rooms'); setStep('room') }
+    } catch { setErr(t('kitchenPlannerModule.errLoadRooms')); setStep('room') }
     setBusy(false)
   }
 
@@ -572,23 +585,23 @@ function LinkProjectModal({ onClose, onLinked }) {
     try {
       const res = await authFetch(API + '/api/crm/projects/', { method: 'POST', body: JSON.stringify({ ...projectForm, client: selectedClient.id }) })
       if (res.ok) { const project = await res.json(); setShowNewProject(false); pickProject(project) }
-      else setErr('Could not create project')
-    } catch { setErr('Could not create project') }
+      else setErr(t('kitchenPlannerModule.errCreateProject'))
+    } catch { setErr(t('kitchenPlannerModule.errCreateProject')) }
     setBusy(false)
   }
 
   const createRoomAndLink = async () => {
     if (!roomForm.name.trim()) return
     if (existingRooms.some(r => r.name.trim().toLowerCase() === roomForm.name.trim().toLowerCase())) {
-      setErr('A room with this name already exists in this project — pick it from the list instead.')
+      setErr(t('kitchenPlannerModule.errRoomExists'))
       return
     }
     setBusy(true); setErr('')
     try {
       const res = await authFetch(API + '/api/crm/rooms/', { method: 'POST', body: JSON.stringify({ ...roomForm, project: selectedProject.id }) })
       if (res.ok) { const room = await res.json(); onLinked(selectedProject.id, room.id, room.name) }
-      else setErr('Could not create room')
-    } catch { setErr('Could not create room') }
+      else setErr(t('kitchenPlannerModule.errCreateRoom'))
+    } catch { setErr(t('kitchenPlannerModule.errCreateRoom')) }
     setBusy(false)
   }
 
@@ -601,9 +614,9 @@ function LinkProjectModal({ onClose, onLinked }) {
 
   return (
     <div style={overlay} onClick={onClose}>
-      <div style={box} onClick={e => e.stopPropagation()}>
-        <h3 style={{ marginTop: 0 }}>Link this design to save it</h3>
-        <p style={{ fontSize: 12, color: '#888', marginTop: -8 }}>Select or create a Customer → Project → Room before saving.</p>
+      <div dir={dir} style={box} onClick={e => e.stopPropagation()}>
+        <h3 style={{ marginTop: 0 }}>{t('kitchenPlannerModule.linkTitle')}</h3>
+        <p style={{ fontSize: 12, color: '#888', marginTop: -8 }}>{t('kitchenPlannerModule.linkDesc')}</p>
         {err && <div style={{ color: '#c0392b', fontSize: 12, marginBottom: 8 }}>{err}</div>}
 
         {step === 'client' && !showNewClient && (
@@ -611,17 +624,17 @@ function LinkProjectModal({ onClose, onLinked }) {
             {clients.map(cl => (
               <div key={cl.id} style={row} onClick={() => pickClient(cl)}>{cl.name}</div>
             ))}
-            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewClient(true)}>+ New Customer</button>
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewClient(true)}>{t('kitchenPlannerModule.newCustomer')}</button>
           </>
         )}
         {step === 'client' && showNewClient && (
           <>
-            <input style={input} placeholder="Customer name" value={clientForm.name} onChange={e => setClientForm(f => ({ ...f, name: e.target.value }))} />
-            <input style={input} placeholder="Phone" value={clientForm.phone} onChange={e => setClientForm(f => ({ ...f, phone: e.target.value }))} />
-            <input style={input} placeholder="Address" value={clientForm.address} onChange={e => setClientForm(f => ({ ...f, address: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.customerNamePlaceholder')} value={clientForm.name} onChange={e => setClientForm(f => ({ ...f, name: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.phonePlaceholder')} value={clientForm.phone} onChange={e => setClientForm(f => ({ ...f, phone: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.addressPlaceholder')} value={clientForm.address} onChange={e => setClientForm(f => ({ ...f, address: e.target.value }))} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={btn} disabled={busy} onClick={createClient}>{busy ? '...' : 'Create & Continue'}</button>
-              <button style={btnGhost} onClick={() => setShowNewClient(false)}>Cancel</button>
+              <button style={btn} disabled={busy} onClick={createClient}>{busy ? '...' : t('kitchenPlannerModule.createContinue')}</button>
+              <button style={btnGhost} onClick={() => setShowNewClient(false)}>{t('kitchenPlannerModule.cancel')}</button>
             </div>
           </>
         )}
@@ -631,17 +644,17 @@ function LinkProjectModal({ onClose, onLinked }) {
             {projects.map(pr => (
               <div key={pr.id} style={row} onClick={() => pickProject(pr)}>{pr.name}</div>
             ))}
-            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewProject(true)}>+ New Project</button>
-            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('client')}>← Back</button></div>
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewProject(true)}>{t('kitchenPlannerModule.newProject')}</button>
+            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('client')}>{t('kitchenPlannerModule.back')}</button></div>
           </>
         )}
         {step === 'project' && showNewProject && (
           <>
-            <input style={input} placeholder="Project name" value={projectForm.name} onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))} />
-            <input style={input} placeholder="Address" value={projectForm.address} onChange={e => setProjectForm(f => ({ ...f, address: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.projectNamePlaceholder')} value={projectForm.name} onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.addressPlaceholder')} value={projectForm.address} onChange={e => setProjectForm(f => ({ ...f, address: e.target.value }))} />
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={btn} disabled={busy} onClick={createProject}>{busy ? '...' : 'Create & Continue'}</button>
-              <button style={btnGhost} onClick={() => setShowNewProject(false)}>Cancel</button>
+              <button style={btn} disabled={busy} onClick={createProject}>{busy ? '...' : t('kitchenPlannerModule.createContinue')}</button>
+              <button style={btnGhost} onClick={() => setShowNewProject(false)}>{t('kitchenPlannerModule.cancel')}</button>
             </div>
           </>
         )}
@@ -651,23 +664,23 @@ function LinkProjectModal({ onClose, onLinked }) {
             {existingRooms.map(rm => (
               <div key={rm.id} style={row} onClick={() => pickExistingRoom(rm)}>{rm.name} <span style={{ color: '#999', fontSize: 11 }}>({rm.room_type})</span></div>
             ))}
-            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewRoom(true)}>+ New Room</button>
-            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('project')}>← Back</button></div>
+            <button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setShowNewRoom(true)}>{t('kitchenPlannerModule.newRoom')}</button>
+            <div><button style={{ ...btnGhost, marginTop: 8 }} onClick={() => setStep('project')}>{t('kitchenPlannerModule.back')}</button></div>
           </>
         )}
         {step === 'room' && showNewRoom && (
           <>
-            <input style={input} placeholder="Room name" value={roomForm.name} onChange={e => setRoomForm(f => ({ ...f, name: e.target.value }))} />
+            <input style={input} placeholder={t('kitchenPlannerModule.roomNamePlaceholder')} value={roomForm.name} onChange={e => setRoomForm(f => ({ ...f, name: e.target.value }))} />
             <select style={input} value={roomForm.room_type} onChange={e => setRoomForm(f => ({ ...f, room_type: e.target.value }))}>
-              <option value="kitchen">Kitchen</option>
-              <option value="closet">Closet</option>
-              <option value="bathroom">Bathroom</option>
-              <option value="other">Other</option>
+              <option value="kitchen">{t('kitchenPlannerModule.roomTypeKitchen')}</option>
+              <option value="closet">{t('kitchenPlannerModule.roomTypeCloset')}</option>
+              <option value="bathroom">{t('kitchenPlannerModule.roomTypeBathroom')}</option>
+              <option value="other">{t('kitchenPlannerModule.roomTypeOther')}</option>
             </select>
             <div style={{ display: 'flex', gap: 8 }}>
-              <button style={btn} disabled={busy} onClick={createRoomAndLink}>{busy ? 'Saving…' : 'Create Room & Save'}</button>
-              {existingRooms.length > 0 && <button style={btnGhost} onClick={() => setShowNewRoom(false)}>← Existing rooms</button>}
-              <button style={btnGhost} onClick={() => setStep('project')}>← Project</button>
+              <button style={btn} disabled={busy} onClick={createRoomAndLink}>{busy ? t('kitchenPlannerModule.saving') : t('kitchenPlannerModule.createRoomSave')}</button>
+              {existingRooms.length > 0 && <button style={btnGhost} onClick={() => setShowNewRoom(false)}>{t('kitchenPlannerModule.existingRooms')}</button>}
+              <button style={btnGhost} onClick={() => setStep('project')}>{t('kitchenPlannerModule.backToProject')}</button>
             </div>
           </>
         )}
@@ -678,13 +691,15 @@ function LinkProjectModal({ onClose, onLinked }) {
 
 export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
+  const dir = language === 'ar' ? 'rtl' : 'ltr'
   const [roomId, setRoomId] = useState(initialRoomId)
   const [roomName, setRoomName] = useState(initialRoomName)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
-  const [projectName, setProjectName]         = useState('Untitled Kitchen')
+  const [projectName, setProjectName]         = useState(t('kitchenPlannerModule.untitledKitchen'))
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
   const [elements, setElements]               = useState([])
@@ -831,13 +846,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             body: JSON.stringify({ total_value: totalValue.toFixed(2) })
           })
         }
-        setSavedMsg(res.ok ? '✓ Saved' : '✗ Failed')
+        setSavedMsg(res.ok ? t('kitchenPlannerModule.saved') : t('kitchenPlannerModule.saveFailed'))
       } else {
         setSaving(false)
         setShowLinkModal(true)
         return
       }
-    } catch(err) { console.error('SAVE ERROR:', err); setSavedMsg('✗ No connection') }
+    } catch(err) { console.error('SAVE ERROR:', err); setSavedMsg(t('kitchenPlannerModule.saveNoConnection')) }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
   }
@@ -890,7 +905,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const newCabinets = cabinets.filter(c => !alreadySentIds.includes(c.id))
 
       if (newCabinets.length === 0) {
-        setSentMsg('✓ Already sent — no new cabinets to add')
+        setSentMsg(t('kitchenPlannerModule.alreadySent'))
         setSending(false)
         return
       }
@@ -944,22 +959,24 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           } catch {}
         }
 
-        setSentMsg('✓ ' + (isBackOrder ? 'Back Order ' : 'Work Order ') + orderNumber + ' sent! (' + newCabinets.length + ' new cabinets)')
+        setSentMsg(isBackOrder
+          ? t('kitchenPlannerModule.backOrderSent', { orderNumber, count: newCabinets.length })
+          : t('kitchenPlannerModule.workOrderSent', { orderNumber, count: newCabinets.length }))
       } else {
-        setSentMsg('✗ Failed (' + res.status + ')')
+        setSentMsg(t('kitchenPlannerModule.sendFailed', { status: res.status }))
       }
-    } catch { setSentMsg('✗ Cannot connect') }
+    } catch { setSentMsg(t('kitchenPlannerModule.sendCannotConnect')) }
     setSending(false)
   }
 
   return (
-    <div style={s.page}>
+    <div dir={dir} style={s.page}>
       <div style={s.topBar}>
         <div style={s.topLeft}>
           {onBack && (
             <button onClick={onBack}
               style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, marginRight: 8 }}>
-              ← Back
+              {t('kitchenPlannerModule.topBack')}
             </button>
           )}
           {editingName ? (
@@ -971,7 +988,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {projectName} <span style={{ color: '#888', fontSize: 12 }}>✎</span>
             </div>
           )}
-          <span style={s.cabCount}>{cabinets.length} cabinet{cabinets.length !== 1 ? 's' : ''}</span>
+          <span style={s.cabCount}>{cabinets.length === 1 ? t('kitchenPlannerModule.cabinetCount') : t('kitchenPlannerModule.cabinetCountPlural', { count: cabinets.length })}</span>
           {baseHeight && (
             <span style={{ fontSize: 10, color: '#888', background: 'rgba(255,255,255,0.08)', padding: '2px 7px', borderRadius: 4 }}>
               H{baseHeight}
@@ -980,12 +997,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         </div>
         <div style={s.tabs}>
           {[
-            ['room',     '📐 Room'],
-            ['planner',  '🗄 Cabinets'],
-            ['bom',      '📋 BOM'],
-            ['3d',       '🎮 3D'],
-            ['proposal', '💰 Proposal'],
-            ['contract', '📝 Contract'],
+            ['room',     t('kitchenPlannerModule.tabRoom')],
+            ['planner',  t('kitchenPlannerModule.tabCabinets')],
+            ['bom',      t('kitchenPlannerModule.tabBom')],
+            ['3d',       t('kitchenPlannerModule.tab3d')],
+            ['proposal', t('kitchenPlannerModule.tabProposal')],
+            ['contract', t('kitchenPlannerModule.tabContract')],
           ].map(([id, label]) => (
             <button key={id} onClick={() => setTab(id)}
               style={{ ...s.tab, ...(tab === id ? s.tabActive : {}) }}>
@@ -1009,19 +1026,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 setCabinets(prev => prev.map(c => ({ ...c, skirtingMaterial: newMat })))
               }}
               style={{ ...s.saveBtn, fontSize: 11, color: '#888', cursor: 'pointer' }}>
-              <option value="match_countertop">🪨 Skirting: Countertop</option>
-              <option value="pvc_black">⬛ Skirting: PVC Black</option>
-              <option value="pvc_champagne">🟫 Skirting: PVC Champagne</option>
-              <option value="pvc_silver">⬜ Skirting: PVC Silver</option>
+              <option value="match_countertop">{t('kitchenPlannerModule.skirtingCountertop')}</option>
+              <option value="pvc_black">{t('kitchenPlannerModule.skirtingPvcBlack')}</option>
+              <option value="pvc_champagne">{t('kitchenPlannerModule.skirtingPvcChampagne')}</option>
+              <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
           )}
           {publicCompanySlug ? (
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
-              💌 Save my design
+              {t('kitchenPlannerModule.saveMyDesign')}
             </button>
           ) : (
             <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
-              {saving ? 'Saving…' : savedMsg || '💾 Save'}
+              {saving ? t('kitchenPlannerModule.saving') : savedMsg || t('kitchenPlannerModule.save')}
             </button>
           )}
         </div>
@@ -1047,65 +1064,65 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         <div style={s.workspace}>
           <div style={s.leftPanel}>
 <div style={s.panelSection}>
-  <div style={s.panelLabel}>Room Size</div>
-  <label style={s.dimLabel}>Width (mm)<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
-  <label style={s.dimLabel}>Depth (mm)<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
-  <label style={s.dimLabel}>Ceiling Height (mm)<input type="number" value={room.ceilingHeight || 2800} onChange={e => setRoom(r => ({ ...r, ceilingHeight: +e.target.value }))} style={s.dimInput} /></label>
-  <label style={s.dimLabel}>Backsplash Height (mm)<input type="number" value={backsplashHeight} onChange={e => setBacksplashHeight(+e.target.value)} style={s.dimInput} /></label>
+  <div style={s.panelLabel}>{t('kitchenPlannerModule.roomSize')}</div>
+  <label style={s.dimLabel}>{t('kitchenPlannerModule.widthMm')}<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>{t('kitchenPlannerModule.depthMm')}<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>{t('kitchenPlannerModule.ceilingHeightMm')}<input type="number" value={room.ceilingHeight || 2800} onChange={e => setRoom(r => ({ ...r, ceilingHeight: +e.target.value }))} style={s.dimInput} /></label>
+  <label style={s.dimLabel}>{t('kitchenPlannerModule.backsplashHeightMm')}<input type="number" value={backsplashHeight} onChange={e => setBacksplashHeight(+e.target.value)} style={s.dimInput} /></label>
 </div>
 
             <div style={s.panelSection}>
-              <div style={s.panelLabel}>Room Elements</div>
+              <div style={s.panelLabel}>{t('kitchenPlannerModule.roomElements')}</div>
               {ROOM_ELEMENTS.map(el => (
                 <div key={el.type} onClick={() => addElement(el)} style={s.elementItem}
                   onMouseEnter={e => e.currentTarget.style.borderColor = ACCENT}
                   onMouseLeave={e => e.currentTarget.style.borderColor = '#E0DAD4'}>
                   <span style={{ fontSize: 18 }}>{el.icon}</span>
-                  <div><div style={s.elementLabel}>{el.label}</div><div style={s.elementSize}>{el.w}×{el.h}mm</div></div>
+                  <div><div style={s.elementLabel}>{t(el.labelKey)}</div><div style={s.elementSize}>{el.w}×{el.h}mm</div></div>
                 </div>
               ))}
             </div>
             <div style={s.panelSection}>
-              <div style={s.panelLabel}>Floor Tiles</div>
+              <div style={s.panelLabel}>{t('kitchenPlannerModule.floorTiles')}</div>
               {[
-                { id: 'white_large',  label: 'White Large',  color: '#F5F5F5', grout: '#ddd' },
-                { id: 'marble',       label: 'Marble',       color: '#E8E0D8', grout: '#ccc' },
-                { id: 'dark_slate',   label: 'Dark Slate',   color: '#4A4A4A', grout: '#333' },
-                { id: 'wood_parquet', label: 'Wood Parquet', color: '#C8A96E', grout: '#B8914E' },
-                { id: 'terracotta',   label: 'Terracotta',   color: '#C4703A', grout: '#A85A2A' },
-                { id: 'concrete',     label: 'Concrete',     color: '#9E9E9E', grout: '#888'   },
+                { id: 'white_large',  labelKey: 'kitchenPlannerModule.tileWhiteLarge',  color: '#F5F5F5', grout: '#ddd' },
+                { id: 'marble',       labelKey: 'kitchenPlannerModule.tileMarble',       color: '#E8E0D8', grout: '#ccc' },
+                { id: 'dark_slate',   labelKey: 'kitchenPlannerModule.tileDarkSlate',    color: '#4A4A4A', grout: '#333' },
+                { id: 'wood_parquet', labelKey: 'kitchenPlannerModule.tileWoodParquet',  color: '#C8A96E', grout: '#B8914E' },
+                { id: 'terracotta',   labelKey: 'kitchenPlannerModule.tileTerracotta',   color: '#C4703A', grout: '#A85A2A' },
+                { id: 'concrete',     labelKey: 'kitchenPlannerModule.tileConcrete',     color: '#9E9E9E', grout: '#888'   },
               ].map(tile => (
                 <div key={tile.id} onClick={() => setFloorTile(tile.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 8px', borderRadius: 7, marginBottom: 4, cursor: 'pointer', background: floorTile === tile.id ? '#C8902A12' : '#FAFAFA', border: `1.5px solid ${floorTile === tile.id ? '#C8902A' : '#E0DAD4'}` }}>
                   <div style={{ width: 28, height: 28, borderRadius: 4, background: tile.color, border: `2px solid ${tile.grout}`, backgroundImage: `linear-gradient(${tile.grout} 1px, transparent 1px), linear-gradient(90deg, ${tile.grout} 1px, transparent 1px)`, backgroundSize: '14px 14px', flexShrink: 0 }} />
-                  <span style={{ fontSize: 11, fontWeight: floorTile === tile.id ? 700 : 500, color: floorTile === tile.id ? '#C8902A' : '#555' }}>{tile.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: floorTile === tile.id ? 700 : 500, color: floorTile === tile.id ? '#C8902A' : '#555' }}>{t(tile.labelKey)}</span>
                 </div>
               ))}
             </div>
             <div style={s.panelSection}>
-              <div style={s.panelLabel}>Countertop</div>
+              <div style={s.panelLabel}>{t('kitchenPlannerModule.countertop')}</div>
               <CountertopPicker selected={countertopMat?.id} onSelect={mat => setCountertopMat(mat)} companySlug={publicCompanySlug} />
             </div>
-  
+
 
 <div style={s.panelSection}>
-  <div style={s.panelLabel}>Countertop Thickness</div>
-  {[16, 20, 30].map(t => (
-    <div key={t} onClick={() => setCountertopThickness(t)}
+  <div style={s.panelLabel}>{t('kitchenPlannerModule.countertopThickness')}</div>
+  {[16, 20, 30].map(th => (
+    <div key={th} onClick={() => setCountertopThickness(th)}
       style={{ display: 'inline-block', marginRight: 6, marginBottom: 6, padding: '5px 10px',
-        borderRadius: 6, border: `1.5px solid ${countertopThickness === t ? ACCENT : '#E0DAD4'}`,
-        background: countertopThickness === t ? ACCENT+'18' : '#fff',
-        color: countertopThickness === t ? ACCENT : '#555',
+        borderRadius: 6, border: `1.5px solid ${countertopThickness === th ? ACCENT : '#E0DAD4'}`,
+        background: countertopThickness === th ? ACCENT+'18' : '#fff',
+        color: countertopThickness === th ? ACCENT : '#555',
         fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
-      {t}mm
+      {th}mm
     </div>
   ))}
 </div>
 
             <div style={s.panelSection}>
-              <div style={s.panelLabel}>View Options</div>
-              <label style={s.toggle}><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />Show grid</label>
-              <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />Show dimensions</label>
+              <div style={s.panelLabel}>{t('kitchenPlannerModule.viewOptions')}</div>
+              <label style={s.toggle}><input type="checkbox" checked={showGrid} onChange={e => setShowGrid(e.target.checked)} />{t('kitchenPlannerModule.showGrid')}</label>
+              <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />{t('kitchenPlannerModule.showDimensions')}</label>
             </div>
           </div>
           <div style={s.canvasWrap}>
@@ -1126,10 +1143,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const fixedEnd = seg.fixedEnd || 'start'
           return (
             <div>
-              <div style={s.propTitle}>🧱 Backsplash</div>
-              <div style={s.propSection}>Length</div>
+              <div style={s.propTitle}>{t('kitchenPlannerModule.backsplashTitle')}</div>
+              <div style={s.propSection}>{t('kitchenPlannerModule.length')}</div>
               <div style={{ marginBottom: 10 }}>
-                <div style={s.propLabel}>Length (mm)</div>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.lengthMm')}</div>
                 <input type="number" value={lenMm}
                   onChange={e => {
                     const newLenMm = +e.target.value
@@ -1145,32 +1162,32 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   style={s.propInput} />
               </div>
               <div style={{ marginBottom: 10 }}>
-                <div style={s.propLabel}>Fixed point (stays put when length changes)</div>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.fixedPoint')}</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {['start', 'end'].map(fe => (
                     <button key={fe} onClick={() => setBacksplashSegments(p => p.map(s => s.id === seg.id ? { ...s, fixedEnd: fe } : s))}
                       style={{ flex: 1, padding: '6px', border: `1.5px solid ${fixedEnd === fe ? '#C8902A' : '#E0DAD4'}`, borderRadius: 6, background: fixedEnd === fe ? '#C8902A18' : '#fff', color: fixedEnd === fe ? '#C8902A' : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                      Fix {fe === 'start' ? 'Start' : 'End'}
+                      {fe === 'start' ? t('kitchenPlannerModule.fixStart') : t('kitchenPlannerModule.fixEnd')}
                     </button>
                   ))}
                 </div>
               </div>
-              <div style={s.propSection}>Details</div>
+              <div style={s.propSection}>{t('kitchenPlannerModule.details')}</div>
               <div style={{ marginBottom: 10 }}>
-                <div style={s.propLabel}>Height (mm) — applies to all backsplash segments</div>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.backsplashHeightAll')}</div>
                 <input type="number" value={backsplashHeight}
                   onChange={e => setBacksplashHeight(+e.target.value)}
                   style={s.propInput} />
               </div>
               <div style={{ marginBottom: 10 }}>
-                <div style={s.propLabel}>Thickness</div>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.thickness')}</div>
                 <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 6, fontSize: 12, color: '#8B5E3C', fontWeight: 600 }}>
                   {backsplashThickness}mm
                 </div>
               </div>
               <button onClick={() => { setBacksplashSegments(p => p.filter(s => s.id !== seg.id)); setSelected(null); setSelectedType(null) }}
                 style={{ padding: '6px 12px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-                🗑 Delete
+                {t('kitchenPlannerModule.delete')}
               </button>
             </div>
           )
@@ -1178,23 +1195,23 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   <div>
     <div style={s.propTitle}>{selEl.icon} {selEl.label}</div>
 
-    <div style={s.propSection}>Dimensions</div>
-    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Width (mm)</div><input type="number" value={selEl.w} onChange={e => updateEl('w', +e.target.value)} style={s.propInput} /></div>
-    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>Height (mm)</div><input type="number" value={selEl.h} onChange={e => updateEl('h', +e.target.value)} style={s.propInput} /></div>
+    <div style={s.propSection}>{t('kitchenPlannerModule.dimensions')}</div>
+    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>{t('kitchenPlannerModule.widthLabel')}</div><input type="number" value={selEl.w} onChange={e => updateEl('w', +e.target.value)} style={s.propInput} /></div>
+    <div style={{ marginBottom: 10 }}><div style={s.propLabel}>{t('kitchenPlannerModule.heightLabel')}</div><input type="number" value={selEl.h} onChange={e => updateEl('h', +e.target.value)} style={s.propInput} /></div>
 
-    <div style={s.propSection}>Position</div>
+    <div style={s.propSection}>{t('kitchenPlannerModule.position')}</div>
 
     {/* Surface toggle */}
     <div style={{ marginBottom: 10 }}>
-      <div style={s.propLabel}>Surface</div>
+      <div style={s.propLabel}>{t('kitchenPlannerModule.surface')}</div>
       <div style={{ display: 'flex', gap: 6 }}>
         {['wall', 'floor'].map(surface => (
           <button key={surface} onClick={() => updateEl('surface', surface)}
             style={{ flex: 1, padding: '6px', border: `1.5px solid ${(selEl.surface || 'wall') === surface ? ACCENT : '#E0DAD4'}`,
               borderRadius: 6, background: (selEl.surface || 'wall') === surface ? ACCENT+'18' : '#fff',
               color: (selEl.surface || 'wall') === surface ? ACCENT : '#666',
-              fontSize: 11, fontWeight: 700, cursor: 'pointer', textTransform: 'capitalize' }}>
-            {surface === 'wall' ? '🧱 Wall' : '⬛ Floor'}
+              fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+            {surface === 'wall' ? t('kitchenPlannerModule.surfaceWall') : t('kitchenPlannerModule.surfaceFloor')}
           </button>
         ))}
       </div>
@@ -1217,10 +1234,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       return (
         <>
           <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
-            ✓ Wall {(selEl.wallIndex || 0) + 1} · {wallLenMm}mm long
+            {t('kitchenPlannerModule.wallInfo', { n: (selEl.wallIndex || 0) + 1, len: wallLenMm })}
           </div>
           <div style={{ marginBottom: 10 }}>
-            <div style={s.propLabel}>Distance from wall start (mm)</div>
+            <div style={s.propLabel}>{t('kitchenPlannerModule.distFromWallStart')}</div>
             <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThickness)}
               onChange={e => {
                 const newDistMmCenter = (+e.target.value) - wallThickness / 2
@@ -1233,7 +1250,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               style={s.propInput} />
           </div>
           <div style={{ marginBottom: 10 }}>
-            <div style={s.propLabel}>Elevation from floor (mm)</div>
+            <div style={s.propLabel}>{t('kitchenPlannerModule.elevationFromFloor')}</div>
             <input type="number" value={selEl.elevation || 0}
               onChange={e => updateEl('elevation', +e.target.value)}
               style={s.propInput} />
@@ -1243,19 +1260,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     })() : (
       <>
         <div style={{ marginBottom: 10 }}>
-          <div style={s.propLabel}>Distance from left (mm)</div>
+          <div style={s.propLabel}>{t('kitchenPlannerModule.distFromLeft')}</div>
           <input type="number" value={Math.round((selEl.x || 0))}
             onChange={e => updateEl('x', +e.target.value)}
             style={s.propInput} />
         </div>
         <div style={{ marginBottom: 10 }}>
-          <div style={s.propLabel}>Distance from top (mm)</div>
+          <div style={s.propLabel}>{t('kitchenPlannerModule.distFromTop')}</div>
           <input type="number" value={Math.round((selEl.y || 0))}
             onChange={e => updateEl('y', +e.target.value)}
             style={s.propInput} />
         </div>
         <div style={{ marginBottom: 10 }}>
-          <div style={s.propLabel}>Elevation from floor (mm)</div>
+          <div style={s.propLabel}>{t('kitchenPlannerModule.elevationFromFloor')}</div>
           <input type="number" value={selEl.elevation || 0}
             onChange={e => updateEl('elevation', +e.target.value)}
             style={s.propInput} />
@@ -1266,17 +1283,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
     {selEl.type !== 'window' && selEl.type !== 'door' && (
       <div style={{ marginBottom: 10 }}>
-        <div style={s.propLabel}>Rotation (°)</div>
+        <div style={s.propLabel}>{t('kitchenPlannerModule.rotationDeg')}</div>
         <input type="number" min={0} max={359} value={selEl.rotation || 0}
           onChange={e => updateEl('rotation', (+e.target.value + 360) % 360)} style={s.propInput} />
       </div>
     )}
 
-    <button onClick={() => { setElements(p => p.filter(e => e.id !== selected)); setSelected(null) }} style={s.deleteBtn}>Delete</button>
+    <button onClick={() => { setElements(p => p.filter(e => e.id !== selected)); setSelected(null) }} style={s.deleteBtn}>{t('kitchenPlannerModule.deleteBtn')}</button>
   </div>
 
             ) : (
-              <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>👆</div>Click any element to edit</div>
+              <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>👆</div>{t('kitchenPlannerModule.clickElementToEdit')}</div>
             )}
           </div>
         </div>
@@ -1347,11 +1364,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <div style={s.propTitle}>{selCab.label}</div>
                   <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }}
                     style={{ padding: '4px 8px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
-                    🗑 Delete
+                    {t('kitchenPlannerModule.delete')}
                   </button>
                 </div>
-<div style={s.propSection}>Dimensions</div>
-{[['Width (mm)', 'width'], ['Height (mm)', 'height'], ['Depth (mm)', 'depth']].map(([label, key]) => (
+<div style={s.propSection}>{t('kitchenPlannerModule.dimensions')}</div>
+{[[t('kitchenPlannerModule.widthLabel'), 'width'], [t('kitchenPlannerModule.heightLabel'), 'height'], [t('kitchenPlannerModule.depthLabel'), 'depth']].map(([label, key]) => (
   <div key={key} style={{ marginBottom: 10 }}>
     <div style={s.propLabel}>{label}</div>
     <DimInput value={selCab[key]} onCommit={v => updateCab(key, v)} style={s.propInput} />
@@ -1359,19 +1376,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 ))}
 {(selCab.category === 'wall' || selCab.subtype === 'Shelf' || selCab.subtype === 'Open Shelf' || selCab.category === 'accessories') && (
   <div style={{ marginBottom: 10 }}>
-    <div style={s.propLabel}>Elevation from floor (mm)</div>
+    <div style={s.propLabel}>{t('kitchenPlannerModule.elevationFromFloor')}</div>
     <input type="number" value={selCab.elevation || 0} onChange={e => updateCab('elevation', +e.target.value)} style={s.propInput} />
   </div>
 )}
 
                 {['Sink', 'Single Sink', 'Double Sink'].includes(selCab.subtype) && (
                   <>
-                    <div style={s.propSection}>Sink</div>
+                    <div style={s.propSection}>{t('kitchenPlannerModule.sink')}</div>
                     {selCab.sinkId && (
                       <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{selCab.sinkBrand} {selCab.sinkModel}</div>
                         <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>
-                          {selCab.sinkCavityCount === 2 ? 'Double Bowl' : 'Single Bowl'} · {selCab.sinkWidthMm}×{selCab.sinkDepthMm}mm
+                          {selCab.sinkCavityCount === 2 ? t('kitchenPlannerModule.doubleBowl') : t('kitchenPlannerModule.singleBowl')} · {selCab.sinkWidthMm}×{selCab.sinkDepthMm}mm
                           {selCab.sinkPrice ? ` · ${selCab.sinkPrice}` : ''}
                         </div>
                       </div>
@@ -1381,12 +1398,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   </>
                 )}
-                <div style={s.propSection}>Material & Style</div>
+                <div style={s.propSection}>{t('kitchenPlannerModule.materialStyle')}</div>
                 {selCab.category !== 'accessories' && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={s.propLabel}>Door Style</div>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.doorStyle')}</div>
                     <select value={selCab.doorStyle} onChange={e => updateCab('doorStyle', e.target.value)} style={s.propSelect}>
-                      {['Handle', 'Gola', 'Push'].map(d => <option key={d}>{d}</option>)}
+                      <option value="Handle">{t('cabinetCatalog.doorStyleHandle')}</option>
+                      <option value="Gola">{t('cabinetCatalog.doorStyleGola')}</option>
+                      <option value="Push">{t('cabinetCatalog.doorStylePush')}</option>
                     </select>
                   </div>
                 )}
@@ -1397,7 +1416,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   const isGlassMaterial = selCab.category === 'wall' || selCab.subtype === 'Open Shelf'
                   return (
                     <div style={{ marginBottom: 10 }}>
-                      <div style={s.propLabel}>Shelves {isGlassMaterial ? '(Glass)' : '(Wood)'}</div>
+                      <div style={s.propLabel}>{isGlassMaterial ? t('kitchenPlannerModule.shelvesGlass') : t('kitchenPlannerModule.shelvesWood')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button onClick={() => updateCab('shelfCount', Math.max(0, current - 1))}
                           style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontWeight: 700, color: '#666' }}>−</button>
@@ -1406,7 +1425,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                           disabled={current >= maxShelves}
                           style={{ width: 28, height: 28, borderRadius: 6, border: '1.5px solid #E0DAD4', background: current >= maxShelves ? '#F5F5F5' : '#fff', cursor: current >= maxShelves ? 'not-allowed' : 'pointer', fontWeight: 700, color: current >= maxShelves ? '#ccc' : '#666' }}>+</button>
                       </div>
-                      <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>Max {maxShelves} — keeps 250mm clearance between shelves</div>
+                      <div style={{ fontSize: 10, color: '#999', marginTop: 4 }}>{t('kitchenPlannerModule.maxShelvesHint', { max: maxShelves })}</div>
                     </div>
                   )
                 })()}
@@ -1415,7 +1434,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   const currentDoors = selCab.doorCount ?? getDefaultDoorCount(selCab.width)
                   return (
                     <div style={{ marginBottom: 10 }}>
-                      <div style={s.propLabel}>Door Count</div>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.doorCount')}</div>
                       <div style={{ display: 'flex', gap: 6 }}>
                         {doorOptions.map(n => (
                           <button key={n} onClick={() => updateCab('doorCount', n)}
@@ -1433,9 +1452,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 })()}
                 {selCab.subtype === 'Glass Door' && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={s.propLabel}>Glass Type</div>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.glassType')}</div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      {[{ id: 'clear', label: '◻ Clear' }, { id: 'black', label: '⬛ Black' }].map(opt => (
+                      {[{ id: 'clear', label: t('kitchenPlannerModule.glassClear') }, { id: 'black', label: t('kitchenPlannerModule.glassBlack') }].map(opt => (
                         <div key={opt.id} onClick={() => updateCab('glassType', opt.id)}
                           style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${(selCab.glassType || 'clear') === opt.id ? ACCENT : '#E0DAD4'}`, background: (selCab.glassType || 'clear') === opt.id ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
                           <div style={{ fontSize: 11, fontWeight: 700, color: (selCab.glassType || 'clear') === opt.id ? ACCENT : '#666' }}>{opt.label}</div>
@@ -1450,14 +1469,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       onClick={() => updateCab('ledStripInterior', !selCab.ledStripInterior)}
                       style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.ledStripInterior ? ACCENT : '#E0DAD4'}`, background: selCab.ledStripInterior ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
                       <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripInterior ? ACCENT : '#ccc'}`, background: selCab.ledStripInterior ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripInterior ? '✓' : ''}</div>
-                      <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripInterior ? ACCENT : '#666' }}>💡 LED Strip (Interior)</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripInterior ? ACCENT : '#666' }}>{t('kitchenPlannerModule.ledStripInterior')}</span>
                     </div>
                     {selCab.category === 'wall' && (
                       <div
                         onClick={() => updateCab('ledStripUnder', !selCab.ledStripUnder)}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.ledStripUnder ? ACCENT : '#E0DAD4'}`, background: selCab.ledStripUnder ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
                         <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripUnder ? ACCENT : '#ccc'}`, background: selCab.ledStripUnder ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripUnder ? '✓' : ''}</div>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripUnder ? ACCENT : '#666' }}>💡 LED Strip (Under Cabinet)</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripUnder ? ACCENT : '#666' }}>{t('kitchenPlannerModule.ledStripUnder')}</span>
                       </div>
                     )}
                   </div>
@@ -1465,9 +1484,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
                 {['base', 'vanity', 'corner', 'tall'].includes(selCab.category) && (selCab.elevation || 0) === 0 && (
                   <div style={{ marginBottom: 10 }}>
-                    <div style={s.propLabel}>Skirting Board Sides</div>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.skirtingBoardSides')}</div>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
-                      {['front', 'back', 'left', 'right'].map(side => {
+                      {[['front', t('kitchenPlannerModule.sideFront')], ['back', t('kitchenPlannerModule.sideBack')], ['left', t('kitchenPlannerModule.sideLeft')], ['right', t('kitchenPlannerModule.sideRight')]].map(([side, sideLabel]) => {
                         const sides = selCab.skirtingSides || []
                         const active = sides.includes(side)
                         return (
@@ -1476,7 +1495,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                             updateCab('skirtingSides', next)
                           }}
                             style={{ padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
-                            <div style={{ fontSize: 9, fontWeight: 700, color: active ? ACCENT : '#888', textTransform: 'capitalize' }}>{side}</div>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: active ? ACCENT : '#888' }}>{sideLabel}</div>
                           </div>
                         )
                       })}
@@ -1485,7 +1504,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 )}
                 {['Drawers', '2Drw+Door'].includes(selCab.subtype) && (
                   <>
-                    <div style={s.propSection}>Drawer System</div>
+                    <div style={s.propSection}>{t('kitchenPlannerModule.drawerSystem')}</div>
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                       {availableDrawerSystems.map(sys => {
                         const isSel = (selCab.drawerSystem || 'Local Bearing') === sys.name
@@ -1500,11 +1519,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                         )
                       })}
                     </div>
-                    <div style={s.propSection}>Interior Layout</div>
+                    <div style={s.propSection}>{t('kitchenPlannerModule.interiorLayout')}</div>
                     <ZonePresetPicker height={selCab.height} width={selCab.width} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
                   </>
                 )}
-                <div style={s.propSection}>Front Material</div>
+                <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
                 <MaterialLibrary
                   target="front"
                   companySlug={publicCompanySlug}
@@ -1519,7 +1538,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 />
                {!['Shelf', 'Open Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && (
   <>
-    <div style={s.propSection}>Carcass Material</div>
+    <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
     <MaterialLibrary
       target="carcass"
       companySlug={publicCompanySlug}
@@ -1537,7 +1556,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
               </div>
             ) : (
-              <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>🗄</div>Click a cabinet to configure it</div>
+              <div style={s.emptyProp}><div style={{ fontSize: 28, marginBottom: 8 }}>🗄</div>{t('kitchenPlannerModule.clickCabinetToConfigure')}</div>
             )}
           </div>
         </div>
@@ -1546,27 +1565,27 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {tab === 'bom' && (
         <div style={{ flex: 1, overflow: 'auto', padding: 24 }}>
           {!cabinets.length ? (
-            <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontWeight: 600, color: DARK }}>No cabinets yet</div></div>
+            <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>📋</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.noCabinetsYet')}</div></div>
           ) : (
             <div style={{ maxWidth: 860 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
                 <div>
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: DARK }}>{projectName}</h2>
-                  <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{cabinets.length} cabinets · Bill of Materials</div>
+                  <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('kitchenPlannerModule.cabinetsBom', { count: cabinets.length })}</div>
                 </div>
                 {!publicCompanySlug && (
-                  <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? 'Sending…' : '📤 Send to Manufacturing'}</button>
+                  <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? t('kitchenPlannerModule.sending') : t('kitchenPlannerModule.sendToManufacturing')}</button>
                 )}
               </div>
               {sentMsg && <div style={{ ...s.toast, background: sentMsg.startsWith('✓') ? '#2AC87A' : '#e74c3c' }}>{sentMsg}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
-                {[['18mm Sheet', bom.sheet18+' m²', ACCENT], ['8mm HDF', bom.hdf8+' m²', '#E8A020'],
-                  ['Edge Banding', bom.edgeM+' m', '#9B59B6'], ['Blum Hinges', bom.hinges+' pcs', '#2AC87A'],
-                  ['Legs', bom.legs+' pcs', '#1ABC9C'], ['Confirmats', bom.confirmats+' pcs', '#E74C3C'],
-                  ['Dowels', bom.dowels+' pcs', '#F39C12'], ['Back Screws', bom.backScrews+' pcs', '#95A5A6'],
-                  ['Handles', bom.handles+' pcs', DARK],
-                  ['Cabinet Hangers', bom.cabinetHangers+' pcs', '#3498DB'],
-                  ['Backsplash', parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' m', '#8B5E3C'],
+                {[[t('kitchenPlannerModule.bomSheet18'), bom.sheet18+' '+t('kitchenPlannerModule.unitM2'), ACCENT], [t('kitchenPlannerModule.bomHdf8'), bom.hdf8+' '+t('kitchenPlannerModule.unitM2'), '#E8A020'],
+                  [t('kitchenPlannerModule.bomEdgeBanding'), bom.edgeM+' '+t('kitchenPlannerModule.unitM'), '#9B59B6'], [t('kitchenPlannerModule.bomHinges'), bom.hinges+' '+t('kitchenPlannerModule.unitPcs'), '#2AC87A'],
+                  [t('kitchenPlannerModule.bomLegs'), bom.legs+' '+t('kitchenPlannerModule.unitPcs'), '#1ABC9C'], [t('kitchenPlannerModule.bomConfirmats'), bom.confirmats+' '+t('kitchenPlannerModule.unitPcs'), '#E74C3C'],
+                  [t('kitchenPlannerModule.bomDowels'), bom.dowels+' '+t('kitchenPlannerModule.unitPcs'), '#F39C12'], [t('kitchenPlannerModule.bomBackScrews'), bom.backScrews+' '+t('kitchenPlannerModule.unitPcs'), '#95A5A6'],
+                  [t('kitchenPlannerModule.bomHandles'), bom.handles+' '+t('kitchenPlannerModule.unitPcs'), DARK],
+                  [t('kitchenPlannerModule.bomCabinetHangers'), bom.cabinetHangers+' '+t('kitchenPlannerModule.unitPcs'), '#3498DB'],
+                  [t('kitchenPlannerModule.bomBacksplash'), parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' '+t('kitchenPlannerModule.unitM'), '#8B5E3C'],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid '+color, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
                     <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{label}</div>
@@ -1577,12 +1596,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {cabinets.some(c => c.sinkId) && (
                 <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 24 }}>
                   <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>
-                    Sink Cutout Specifications <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>— for countertop fabrication</span>
+                    {t('kitchenPlannerModule.sinkCutoutSpecs')} <span style={{ fontWeight: 400, color: '#888', fontSize: 11 }}>{t('kitchenPlannerModule.forCountertopFab')}</span>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr style={{ background: '#FAFAFA' }}>
-                      {['Cabinet', 'Sink', 'Cavity', 'Cutout W × D (mm)', 'Mount', 'Price'].map(h => (
-                        <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                      {[t('kitchenPlannerModule.colCabinet'), t('kitchenPlannerModule.colSink'), t('kitchenPlannerModule.colCavity'), t('kitchenPlannerModule.colCutoutWD'), t('kitchenPlannerModule.colMount'), t('kitchenPlannerModule.colPrice')].map((h, hi) => (
+                        <th key={hi} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
@@ -1590,11 +1609,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                         <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
                           <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
                           <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkBrand} {c.sinkModel}</td>
-                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkCavityCount === 2 ? 'Double' : 'Single'}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkCavityCount === 2 ? t('kitchenPlannerModule.cavityDouble') : t('kitchenPlannerModule.cavitySingle')}</td>
                           <td style={{ padding: '10px 14px', fontSize: 12, fontFamily: 'monospace' }}>
                             {(c.sinkCutoutWidthMm || c.sinkWidthMm)} × {(c.sinkCutoutDepthMm || c.sinkDepthMm)}
                           </td>
-                          <td style={{ padding: '10px 14px', fontSize: 12, textTransform: 'capitalize' }}>{c.sinkMaterial === 'stainless_steel' ? 'Stainless Steel' : c.sinkMaterial === 'granite_composite' ? 'Granite Composite' : c.sinkMaterial}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 12, textTransform: 'capitalize' }}>{c.sinkMaterial === 'stainless_steel' ? t('cabinetCatalog.stainlessSteel') : c.sinkMaterial === 'granite_composite' ? t('cabinetCatalog.graniteComposite') : c.sinkMaterial}</td>
                           <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.sinkPrice || '—'}</td>
                         </tr>
                       ))}
@@ -1603,11 +1622,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 </div>
               )}
               <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>Cabinet List</div>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.cabinetList')}</div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead><tr style={{ background: '#FAFAFA' }}>
-                    {['#','Type','W × H × D','Material','Door Style','Carcass','Front'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                    {[t('kitchenPlannerModule.colNum'),t('kitchenPlannerModule.colType'),t('kitchenPlannerModule.colWHD'),t('kitchenPlannerModule.colMaterial'),t('kitchenPlannerModule.colDoorStyle'),t('kitchenPlannerModule.colCarcass'),t('kitchenPlannerModule.colFront')].map((h, hi) => (
+                      <th key={hi} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
                     ))}
                   </tr></thead>
                   <tbody>
@@ -1648,10 +1667,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {/* Keep the 3D canvas always mounted so countertopMat / floorTile changes
           propagate live without a remount. Only hide/show via CSS. */}
       <div style={{ flex: 1, display: tab === '3d' ? 'flex' : 'none', flexDirection: 'column' }}>
-        <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>3D view failed to load</div><div style={{ fontSize: 12, marginTop: 4 }}>Try switching tabs and back, or refresh the page</div></div>}>
+        <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.view3dFailed')}</div><div style={{ fontSize: 12, marginTop: 4 }}>{t('kitchenPlannerModule.view3dFailedHint')}</div></div>}>
           <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
         </ErrorBoundary>
-        {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
+        {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.addCabinetsFirst')}</div></div>}
       </div>
 
 {tab === 'proposal' && (
