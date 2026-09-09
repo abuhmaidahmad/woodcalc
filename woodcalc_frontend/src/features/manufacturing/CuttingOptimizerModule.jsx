@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { calculateCabinet } from '../kitchen_planner/formulaEngine'
 import { cabinetConfig, isCarcassCabinet } from '../kitchen_planner/KitchenPlannerModule'
+import { useTranslation } from '../../i18n/LanguageContext'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -62,6 +63,8 @@ function bomPanelsToParts(cabinets, group) {
 
 function CuttingOptimizerModule() {
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
+  const dir = language === 'ar' ? 'rtl' : 'ltr'
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
 
@@ -117,7 +120,7 @@ function CuttingOptimizerModule() {
   async function createAndOptimize() {
     setError('')
     if (!workOrderId || !materialId || !thickness) {
-      setError('Select a work order, material, and thickness.')
+      setError(t('cuttingOptimizer.errSelectAll'))
       return
     }
     setLoading(true)
@@ -135,7 +138,7 @@ function CuttingOptimizerModule() {
       })
       if (!createRes.ok) {
         const errData = await createRes.json().catch(() => ({}))
-        throw new Error(errData.detail || 'Failed to create cutting job')
+        throw new Error(errData.detail || t('cuttingOptimizer.errCreateJob'))
       }
       const created = await createRes.json()
 
@@ -145,7 +148,7 @@ function CuttingOptimizerModule() {
       })
       if (!optimizeRes.ok) {
         const errData = await optimizeRes.json().catch(() => ({}))
-        throw new Error(errData.detail || 'Failed to optimize cutting job')
+        throw new Error(errData.detail || t('cuttingOptimizer.errOptimizeJob'))
       }
       const optimized = await optimizeRes.json()
       setJob(optimized)
@@ -187,26 +190,26 @@ function CuttingOptimizerModule() {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
     if (!wo) {
-      setError('Select a work order first.')
+      setError(t('cuttingOptimizer.errSelectWorkOrder'))
       return
     }
     if (!wo.room_id_ref) {
-      setError('This work order has no linked room to load a BOM from.')
+      setError(t('cuttingOptimizer.errNoLinkedRoom'))
       return
     }
     setBomLoading(true)
     try {
       const res = await fetch(`${API}/api/crm/rooms/${wo.room_id_ref}/`, { headers: authHeaders })
-      if (!res.ok) throw new Error('Failed to load room BOM')
+      if (!res.ok) throw new Error(t('cuttingOptimizer.errLoadBom'))
       const room = await res.json()
       const cabinets = room.planner_data?.cabinets || []
       if (cabinets.length === 0) {
-        setError('No cabinets found in this room\'s saved plan.')
+        setError(t('cuttingOptimizer.errNoCabinets'))
         return
       }
       const bomParts = bomPanelsToParts(cabinets, group)
       if (bomParts.length === 0) {
-        setError(`No ${group} parts found in this room's BOM.`)
+        setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return
       }
       setParts(bomParts)
@@ -236,73 +239,73 @@ function CuttingOptimizerModule() {
   const labelStyle = { fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto' }}>
+    <div dir={dir} style={{ maxWidth: 1100, margin: '0 auto' }}>
       <button onClick={() => navigate('/production')}
         style={{ padding: '6px 12px', marginBottom: 12, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', fontSize: 12, color: '#555' }}>
-        ← Back to Production Board
+        {t('cuttingOptimizer.backToProduction')}
       </button>
-      <h1 style={{ color: '#2c3e50', marginBottom: 20 }}>Cutting Optimizer</h1>
+      <h1 style={{ color: '#2c3e50', marginBottom: 20 }}>{t('cuttingOptimizer.title')}</h1>
 
       <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
           <div>
-            <label style={labelStyle}>Work Order</label>
+            <label style={labelStyle}>{t('cuttingOptimizer.workOrder')}</label>
             <select style={inputStyle} value={workOrderId} onChange={e => setWorkOrderId(e.target.value)}>
-              <option value="">Select...</option>
+              <option value="">{t('cuttingOptimizer.select')}</option>
               {workOrders.map(w => <option key={w.id} value={w.id}>{w.order_number}</option>)}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Material / Thickness</label>
+            <label style={labelStyle}>{t('cuttingOptimizer.materialThickness')}</label>
             <select
               style={inputStyle}
               value={materialId && thickness ? `${materialId}|${thickness}` : ''}
               onChange={e => {
-                const [m, t] = e.target.value.split('|')
-                setMaterialId(m); setThickness(t)
+                const [m, th] = e.target.value.split('|')
+                setMaterialId(m); setThickness(th)
               }}
             >
-              <option value="">Select...</option>
+              <option value="">{t('cuttingOptimizer.select')}</option>
               {stockSheets.map(s => (
                 <option key={s.id} value={`${s.material}|${s.thickness}`}>
-                  Material #{s.material} - {s.thickness}mm ({s.width}x{s.height})
+                  {t('cuttingOptimizer.materialOption', { id: s.material, thickness: s.thickness, width: s.width, height: s.height })}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label style={labelStyle}>Kerf (mm)</label>
+            <label style={labelStyle}>{t('cuttingOptimizer.kerfMm')}</label>
             <input style={inputStyle} type="number" value={kerf} onChange={e => setKerf(e.target.value)} />
           </div>
         </div>
 
-        <label style={labelStyle}>Parts</label>
+        <label style={labelStyle}>{t('cuttingOptimizer.parts')}</label>
         <div style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
         {parts.map((p, idx) => (
           <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
-            <input style={inputStyle} placeholder="Label" value={p.label} onChange={e => updatePart(idx, 'label', e.target.value)} />
-            <input style={inputStyle} placeholder="Width mm" type="number" value={p.width} onChange={e => updatePart(idx, 'width', e.target.value)} />
-            <input style={inputStyle} placeholder="Height mm" type="number" value={p.height} onChange={e => updatePart(idx, 'height', e.target.value)} />
-            <input style={inputStyle} placeholder="Qty" type="number" value={p.quantity} onChange={e => updatePart(idx, 'quantity', e.target.value)} />
+            <input style={inputStyle} placeholder={t('cuttingOptimizer.labelPlaceholder')} value={p.label} onChange={e => updatePart(idx, 'label', e.target.value)} />
+            <input style={inputStyle} placeholder={t('cuttingOptimizer.widthMmPlaceholder')} type="number" value={p.width} onChange={e => updatePart(idx, 'width', e.target.value)} />
+            <input style={inputStyle} placeholder={t('cuttingOptimizer.heightMmPlaceholder')} type="number" value={p.height} onChange={e => updatePart(idx, 'height', e.target.value)} />
+            <input style={inputStyle} placeholder={t('cuttingOptimizer.qtyPlaceholder')} type="number" value={p.quantity} onChange={e => updatePart(idx, 'quantity', e.target.value)} />
             <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
               <input type="checkbox" checked={p.grain_locked} onChange={e => updatePart(idx, 'grain_locked', e.target.checked)} />
-              Grain locked
+              {t('cuttingOptimizer.grainLocked')}
             </label>
             <button onClick={() => removePart(idx)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>✕</button>
           </div>
         ))}
         </div>
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
-          + Add part
+          {t('cuttingOptimizer.addPart')}
         </button>
         <button onClick={() => loadFromBOM('carcass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
-          Load Carcass
+          {t('cuttingOptimizer.loadCarcass')}
         </button>
         <button onClick={() => loadFromBOM('front')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
-          Load Fronts
+          {t('cuttingOptimizer.loadFronts')}
         </button>
         <button onClick={() => loadFromBOM('back')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
-          Load Back Panels
+          {t('cuttingOptimizer.loadBackPanels')}
         </button>
 
         <div>
@@ -311,7 +314,7 @@ function CuttingOptimizerModule() {
             disabled={loading}
             style={{ padding: '10px 20px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           >
-            {loading ? 'Optimizing...' : 'Create & Optimize'}
+            {loading ? t('cuttingOptimizer.optimizing') : t('cuttingOptimizer.createOptimize')}
           </button>
           {error && <span style={{ color: '#e74c3c', marginLeft: 12 }}>{error}</span>}
         </div>
@@ -321,14 +324,14 @@ function CuttingOptimizerModule() {
         <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
             <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>
-              Job #{job.id} - {job.layouts.length} sheet(s) used
+              {t('cuttingOptimizer.jobHeader', { id: job.id, count: job.layouts.length })}
             </h2>
             <div>
               <button onClick={() => downloadExport('csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
-                Download CSV
+                {t('cuttingOptimizer.downloadCsv')}
               </button>
               <button onClick={() => downloadExport('pdf')} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
-                Download PDF
+                {t('cuttingOptimizer.downloadPdf')}
               </button>
             </div>
           </div>
@@ -336,13 +339,13 @@ function CuttingOptimizerModule() {
           {job.layouts.map(layout => (
             <div key={layout.id} style={{ marginBottom: 16 }}>
               <div style={{ fontWeight: 600, marginBottom: 8 }}>
-                Sheet {layout.sheet_index} - Waste {layout.waste_percent}%
+                {t('cuttingOptimizer.sheetWaste', { index: layout.sheet_index, waste: layout.waste_percent })}
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#ecf0f1' }}>
-                    {['Part', 'Width', 'Height', 'X', 'Y', 'Rotated'].map(h => (
-                      <th key={h} style={{ padding: 8, textAlign: 'left' }}>{h}</th>
+                    {[t('cuttingOptimizer.colPart'), t('cuttingOptimizer.colWidth'), t('cuttingOptimizer.colHeight'), t('cuttingOptimizer.colX'), t('cuttingOptimizer.colY'), t('cuttingOptimizer.colRotated')].map((h, hi) => (
+                      <th key={hi} style={{ padding: 8, textAlign: 'left' }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -354,7 +357,7 @@ function CuttingOptimizerModule() {
                       <td style={{ padding: 8 }}>{pl.height}</td>
                       <td style={{ padding: 8 }}>{pl.x}</td>
                       <td style={{ padding: 8 }}>{pl.y}</td>
-                      <td style={{ padding: 8 }}>{pl.rotated ? 'Yes' : 'No'}</td>
+                      <td style={{ padding: 8 }}>{pl.rotated ? t('cuttingOptimizer.yes') : t('cuttingOptimizer.no')}</td>
                     </tr>
                   ))}
                 </tbody>
