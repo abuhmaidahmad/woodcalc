@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import MaterialLibrary from './MaterialLibrary'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import { COUNTERTOP_MATERIALS, COUNTERTOP_CATEGORIES, COUNTERTOP_BRANDS, MATERIAL_DB, lamToCt } from './materialData'
+import { useTranslation } from '../../i18n/LanguageContext'
 export { COUNTERTOP_MATERIALS }
 
 const API_URL = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -68,6 +69,12 @@ const Icons = {
   accessory_gap_dish: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#eef0f1"/><rect x="8" y="12" width="32" height="6" rx="1" fill="#3d3d3d"/><circle cx="14" cy="15" r="1" fill="#111"/><circle cx="20" cy="15" r="1" fill="#111"/></svg>),
 }
 
+// Cabinet catalog labels/subtypes generated below (e.g. "Base 200", "Standard") stay in
+// English — they're stored on cabinet objects saved into room designs and read by exact
+// string match across RoomCanvas, ProposalTab, ContractTab and the cut-list/proposal
+// generators. Translating them would split saved designs by language, same reasoning as
+// materialData.js. Only the surrounding UI chrome (category tabs, filters, buttons) is
+// translated here.
 function buildLibrary(baseHeight) {
   const wallInc = baseHeight === 720 ? 180 : 200
   const wallHeights = []
@@ -151,6 +158,7 @@ function buildLibrary(baseHeight) {
 }
 
 export function CountertopPicker({ selected, onSelect, companySlug }) {
+  const { t } = useTranslation()
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
@@ -209,7 +217,7 @@ export function CountertopPicker({ selected, onSelect, companySlug }) {
         <button onClick={() => { setBrand('my_library'); setCategory('all') }}
           style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
             borderColor: brand === 'my_library' ? ACCENT : '#E0DAD4', background: brand === 'my_library' ? ACCENT+'18' : '#fff', color: brand === 'my_library' ? ACCENT : '#666' }}>
-          📁 My Library {catalogWorktops.length > 0 ? `(${catalogWorktops.length})` : ''}
+          {t('cabinetCatalog.myLibrary')} {catalogWorktops.length > 0 ? `(${catalogWorktops.length})` : ''}
         </button>
         {COUNTERTOP_BRANDS.map(b => (
           <button key={b} onClick={() => { setBrand(b); setCategory('all') }}
@@ -219,7 +227,7 @@ export function CountertopPicker({ selected, onSelect, companySlug }) {
           </button>
         ))}
         <span style={{ width: '100%', borderTop: '1px solid #E0DAD4', margin: '2px 0', fontSize: 9, color: '#bbb', letterSpacing: '0.06em', paddingTop: 3 }}>
-          LAMINATE BOARDS
+          {t('cabinetCatalog.laminateBoards')}
         </span>
         {Object.entries(MATERIAL_DB).map(([key, b]) => (
           <button key={key} onClick={() => { setBrand(key); setCategory('all') }}
@@ -231,17 +239,20 @@ export function CountertopPicker({ selected, onSelect, companySlug }) {
       </div>
 
       {/* Search */}
-      <input placeholder="Search material..." value={search} onChange={e => setSearch(e.target.value)}
+      <input placeholder={t('cabinetCatalog.searchMaterial')} value={search} onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
 
       {/* Category filter */}
       {!isMyLibrary && (
         <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-          {(isLaminateBrand ? ['all', 'solid', 'wood'] : COUNTERTOP_CATEGORIES).map(c => (
+          {(isLaminateBrand
+            ? [['all', t('cabinetCatalog.filterAll')], ['solid', t('cabinetCatalog.filterSolid')], ['wood', t('cabinetCatalog.filterWood')]]
+            : COUNTERTOP_CATEGORIES.map(c => [c, c])
+          ).map(([c, label]) => (
             <button key={c} onClick={() => setCategory(c)}
               style={{ padding: '3px 6px', borderRadius: 5, border: '1.5px solid', fontSize: 9, fontWeight: 600, cursor: 'pointer', textTransform: 'capitalize',
                 borderColor: category === c ? ACCENT : '#E0DAD4', background: category === c ? ACCENT+'18' : '#fff', color: category === c ? ACCENT : '#666' }}>
-              {c}
+              {label}
             </button>
           ))}
         </div>
@@ -251,7 +262,7 @@ export function CountertopPicker({ selected, onSelect, companySlug }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, maxHeight: 260, overflowY: 'auto' }}>
         {filtered.length === 0 && (
           <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '12px 0', textAlign: 'center' }}>
-            {isMyLibrary ? 'No worktop materials in catalog yet. Add them at /catalog.' : 'No results'}
+            {isMyLibrary ? t('cabinetCatalog.emptyWorktopLibrary') : t('cabinetCatalog.noResults')}
           </div>
         )}
         {filtered.map(mat => {
@@ -302,6 +313,7 @@ export function CountertopPicker({ selected, onSelect, companySlug }) {
 }
 
 function ProjectSetup({ onConfirm, initial, companySlug }) {
+  const { t } = useTranslation()
   const [baseHeight, setBaseHeight]     = useState(initial?.baseHeight || null)
   const [doorStyle, setDoorStyle]       = useState(initial?.doorStyle || null)
   const [golaColor, setGolaColor]       = useState(initial?.golaColor || 'black')
@@ -330,15 +342,15 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
   const ready = baseHeight && doorStyle
 
   const CARCASS_OPTIONS = [
-    { color: '#F5F0E8', label: 'Cream White' }, { color: '#FFFFFF', label: 'White' },
-    { color: '#E8E4DC', label: 'Off White' },   { color: '#C8C4BE', label: 'Light Grey' },
-    { color: '#4A4846', label: 'Anthracite' },  { color: '#1A1A1A', label: 'Black' },
+    { color: '#F5F0E8', label: t('cabinetCatalog.carcassCreamWhite') }, { color: '#FFFFFF', label: t('cabinetCatalog.carcassWhite') },
+    { color: '#E8E4DC', label: t('cabinetCatalog.carcassOffWhite') },   { color: '#C8C4BE', label: t('cabinetCatalog.carcassLightGrey') },
+    { color: '#4A4846', label: t('cabinetCatalog.carcassAnthracite') },  { color: '#1A1A1A', label: t('cabinetCatalog.carcassBlack') },
   ]
   const SKIRTING_OPTIONS = [
-    { id: 'match_countertop', label: 'Match Countertop', swatch: null },
-    { id: 'pvc_black', label: 'PVC Black', swatch: '#1a1a1a' },
-    { id: 'pvc_champagne', label: 'PVC Champagne', swatch: '#c8a96e' },
-    { id: 'pvc_silver', label: 'PVC Silver', swatch: '#c0c0c0' },
+    { id: 'match_countertop', label: t('cabinetCatalog.skirtingMatchCountertop'), swatch: null },
+    { id: 'pvc_black', label: t('cabinetCatalog.skirtingPvcBlack'), swatch: '#1a1a1a' },
+    { id: 'pvc_champagne', label: t('cabinetCatalog.skirtingPvcChampagne'), swatch: '#c8a96e' },
+    { id: 'pvc_silver', label: t('cabinetCatalog.skirtingPvcSilver'), swatch: '#c0c0c0' },
   ]
 
   const filteredCarcass = carcassSearch
@@ -349,38 +361,42 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
       <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '92vh', overflowY: 'auto' }}>
-        <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 4 }}>Project Setup</div>
-        <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>Set your kitchen standards. You can change per cabinet later.</div>
+        <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('cabinetCatalog.projectSetupTitle')}</div>
+        <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('cabinetCatalog.projectSetupDesc')}</div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Base Cabinet Height</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.baseCabinetHeight')}</div>
         <div style={{ display: 'flex', gap: 10, marginBottom: 18 }}>
           {[720, 800].map(h => (
             <div key={h} onClick={() => setBaseHeight(h)} style={{ flex: 1, padding: '12px 10px', border: `2px solid ${baseHeight === h ? ACCENT : '#E0DAD4'}`, borderRadius: 10, cursor: 'pointer', background: baseHeight === h ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
               <div style={{ fontSize: 20, fontWeight: 800, color: baseHeight === h ? ACCENT : DARK }}>{h}mm</div>
-              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{h === 720 ? '180mm wall increments' : '200mm wall increments'}</div>
+              <div style={{ fontSize: 10, color: '#888', marginTop: 2 }}>{h === 720 ? t('cabinetCatalog.wallIncrements180') : t('cabinetCatalog.wallIncrements200')}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Door Style</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.defaultDoorStyle')}</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-          {[{ id: 'Handle', icon: '🔲', desc: 'Bar handle' }, { id: 'Push', icon: '👆', desc: 'Push-to-open' }, { id: 'Gola', icon: '▬', desc: 'Aluminum channel' }].map(s => (
+          {[
+            { id: 'Handle', icon: '🔲', labelKey: 'cabinetCatalog.doorStyleHandle', descKey: 'cabinetCatalog.doorStyleHandleDesc' },
+            { id: 'Push', icon: '👆', labelKey: 'cabinetCatalog.doorStylePush', descKey: 'cabinetCatalog.doorStylePushDesc' },
+            { id: 'Gola', icon: '▬', labelKey: 'cabinetCatalog.doorStyleGola', descKey: 'cabinetCatalog.doorStyleGolaDesc' },
+          ].map(s => (
             <div key={s.id} onClick={() => setDoorStyle(s.id)} style={{ flex: 1, padding: '10px 6px', border: `2px solid ${doorStyle === s.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: doorStyle === s.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
               <div style={{ fontSize: 18, marginBottom: 2 }}>{s.icon}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: doorStyle === s.id ? ACCENT : DARK }}>{s.id}</div>
-              <div style={{ fontSize: 9, color: '#999' }}>{s.desc}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: doorStyle === s.id ? ACCENT : DARK }}>{t(s.labelKey)}</div>
+              <div style={{ fontSize: 9, color: '#999' }}>{t(s.descKey)}</div>
             </div>
           ))}
         </div>
 
         {doorStyle === 'Handle' && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Handle Position</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.handlePosition')}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-              {[{ id: 'top', icon: '⬆' }, { id: 'bottom', icon: '⬇' }].map(p => (
+              {[{ id: 'top', icon: '⬆', labelKey: 'cabinetCatalog.handlePosTop' }, { id: 'bottom', icon: '⬇', labelKey: 'cabinetCatalog.handlePosBottom' }].map(p => (
                 <div key={p.id} onClick={() => setHandlePos(p.id)} style={{ flex: 1, padding: '10px', border: `2px solid ${handlePos === p.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: handlePos === p.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
                   <div style={{ fontSize: 16 }}>{p.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: handlePos === p.id ? ACCENT : DARK }}>{p.id}</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: handlePos === p.id ? ACCENT : DARK }}>{t(p.labelKey)}</div>
                 </div>
               ))}
             </div>
@@ -389,22 +405,22 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
 
         {doorStyle === 'Gola' && (
           <>
-            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Gola Color</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.golaColor')}</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
-              {[{ id: 'black', color: '#1a1a1a' }, { id: 'silver', color: '#c0c0c0' }, { id: 'champagne', color: '#c8a96e' }].map(g => (
+              {[{ id: 'black', color: '#1a1a1a', labelKey: 'cabinetCatalog.golaColorBlack' }, { id: 'silver', color: '#c0c0c0', labelKey: 'cabinetCatalog.golaColorSilver' }, { id: 'champagne', color: '#c8a96e', labelKey: 'cabinetCatalog.golaColorChampagne' }].map(g => (
                 <div key={g.id} onClick={() => setGolaColor(g.id)} style={{ flex: 1, padding: '10px 6px', border: `2px solid ${golaColor === g.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: golaColor === g.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center' }}>
                   <div style={{ width: 28, height: 8, borderRadius: 4, background: g.color, margin: '0 auto 5px' }} />
-                  <div style={{ fontSize: 10, fontWeight: 700, color: golaColor === g.id ? ACCENT : DARK, textTransform: 'capitalize' }}>{g.id}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: golaColor === g.id ? ACCENT : DARK, textTransform: 'capitalize' }}>{t(g.labelKey)}</div>
                 </div>
               ))}
             </div>
           </>
         )}
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Default Carcass Color</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{t('cabinetCatalog.defaultCarcassColor')}</div>
         <input
           value={carcassSearch} onChange={e => setCarcassSearch(e.target.value)}
-          placeholder="Search carcass color..."
+          placeholder={t('cabinetCatalog.searchCarcassColor')}
           style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
         />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 18 }}>
@@ -419,11 +435,11 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
             )
           })}
           {filteredCarcass.length === 0 && (
-            <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '8px 0' }}>No match</div>
+            <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '8px 0' }}>{t('cabinetCatalog.noMatch')}</div>
           )}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Default Front Material</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.defaultFrontMaterial')}</div>
         <MaterialLibrary
           target="front"
           companySlug={companySlug}
@@ -437,24 +453,24 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
         />
         {frontMaterialCode && (
           <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
-            Selected: <strong style={{ color: DARK }}>{frontMaterialCode}</strong>
+            {t('cabinetCatalog.selected')} <strong style={{ color: DARK }}>{frontMaterialCode}</strong>
           </div>
         )}
         <div style={{ marginBottom: 16 }} />
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Drawer System</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.drawerSystem')}</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
           {drawerSystems.map(sys => (
             <div key={sys.id} onClick={() => setDrawerSystem(sys)}
               style={{ flex: '1 1 30%', padding: '8px 6px', border: `2px solid ${drawerSystem?.id === sys.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer',
                 background: drawerSystem?.id === sys.id ? ACCENT + '10' : '#FAFAFA', textAlign: 'center' }}>
               <div style={{ fontSize: 10, fontWeight: 700, color: drawerSystem?.id === sys.id ? ACCENT : DARK }}>{sys.name}</div>
-              <div style={{ fontSize: 8, color: '#999', marginTop: 2 }}>{sys.brand}{sys.box_construction === 'wood_box' ? ' · wood box' : ''}</div>
+              <div style={{ fontSize: 8, color: '#999', marginTop: 2 }}>{sys.brand}{sys.box_construction === 'wood_box' ? t('cabinetCatalog.woodBox') : ''}</div>
             </div>
           ))}
         </div>
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Skirting Board Material</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.skirtingBoardMaterial')}</div>
         <div style={{ display: 'flex', gap: 8, marginBottom: 24, flexWrap: 'wrap' }}>
           {SKIRTING_OPTIONS.map(opt => (
             <div key={opt.id} onClick={() => setSkirtingMaterial(opt.id)} style={{ flex: '1 1 45%', padding: '8px 6px', border: `2px solid ${skirtingMaterial === opt.id ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: 'pointer', background: skirtingMaterial === opt.id ? ACCENT+'10' : '#FAFAFA', textAlign: 'center', display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center' }}>
@@ -471,7 +487,7 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
         <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial, drawerSystem: drawerSystem?.name || 'Local Bearing', drawerBoxConstruction: drawerSystem?.box_construction || 'wood_box' })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
-          Start Designing →
+          {t('cabinetCatalog.startDesigning')}
         </button>
       </div>
     </div>
@@ -492,37 +508,40 @@ function CabinetCard({ item, onAdd }) {
 }
 
 function WallHeightFilter({ baseHeight, selected, onChange }) {
+  const { t } = useTranslation()
   const inc = baseHeight === 720 ? 180 : 200
   const heights = []
   for (let h = inc; h <= inc * 6; h += inc) heights.push(h)
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-      <button onClick={() => onChange(null)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${!selected ? ACCENT : '#E0DAD4'}`, background: !selected ? ACCENT : '#fff', color: !selected ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>All</button>
+      <button onClick={() => onChange(null)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${!selected ? ACCENT : '#E0DAD4'}`, background: !selected ? ACCENT : '#fff', color: !selected ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>{t('cabinetCatalog.all')}</button>
       {heights.map(h => <button key={h} onClick={() => onChange(h)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${selected === h ? ACCENT : '#E0DAD4'}`, background: selected === h ? ACCENT : '#fff', color: selected === h ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>{h}</button>)}
     </div>
   )
 }
 
 function SubtypeFilter({ items, selected, onChange }) {
+  const { t } = useTranslation()
   const subtypes = ['All', ...new Set(items.map(i => i.subtype).filter(Boolean))]
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
-      {subtypes.map(s => <button key={s} onClick={() => onChange(s === 'All' ? null : s)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${(selected === s || (!selected && s === 'All')) ? ACCENT : '#E0DAD4'}`, background: (selected === s || (!selected && s === 'All')) ? ACCENT : '#fff', color: (selected === s || (!selected && s === 'All')) ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>{s}</button>)}
+      {subtypes.map(s => <button key={s} onClick={() => onChange(s === 'All' ? null : s)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${(selected === s || (!selected && s === 'All')) ? ACCENT : '#E0DAD4'}`, background: (selected === s || (!selected && s === 'All')) ? ACCENT : '#fff', color: (selected === s || (!selected && s === 'All')) ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>{s === 'All' ? t('cabinetCatalog.all') : s}</button>)}
     </div>
   )
 }
 
 const CATEGORIES = [
-  { id: 'base',        icon: '🗄',  label: 'Base'    },
-  { id: 'wall',        icon: '🪟',  label: 'Wall'    },
-  { id: 'tall',        icon: '🏛',  label: 'Tall'    },
-  { id: 'vanity',      icon: '🚿',  label: 'Vanity'  },
-  { id: 'corner',      icon: '📐',  label: 'Corner'  },
-  { id: 'specialty',   icon: '✨',  label: 'Special' },
-  { id: 'accessories', icon: '🔧',  label: 'Acc.'    },
+  { id: 'base',        icon: '🗄',  labelKey: 'cabinetCatalog.categoryBase'    },
+  { id: 'wall',        icon: '🪟',  labelKey: 'cabinetCatalog.categoryWall'    },
+  { id: 'tall',        icon: '🏛',  labelKey: 'cabinetCatalog.categoryTall'    },
+  { id: 'vanity',      icon: '🚿',  labelKey: 'cabinetCatalog.categoryVanity'  },
+  { id: 'corner',      icon: '📐',  labelKey: 'cabinetCatalog.categoryCorner'  },
+  { id: 'specialty',   icon: '✨',  labelKey: 'cabinetCatalog.categorySpecial' },
+  { id: 'accessories', icon: '🔧',  labelKey: 'cabinetCatalog.categoryAcc'    },
 ]
 
 export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet, companySlug }) {
+  const { t } = useTranslation()
   const [activeCategory, setActiveCategory] = useState('base')
   const [wallHeightFilter, setWallHeightFilter] = useState(null)
   const [subtypeFilter, setSubtypeFilter] = useState(null)
@@ -557,12 +576,12 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
         {CATEGORIES.map(cat => (
           <button key={cat.id} onClick={() => { setActiveCategory(cat.id); setSubtypeFilter(null); setWallHeightFilter(null); setSearch('') }}
             style={{ padding: '7px 2px', border: 'none', borderBottom: `2px solid ${activeCategory === cat.id ? ACCENT : 'transparent'}`, background: activeCategory === cat.id ? ACCENT+'10' : 'transparent', color: activeCategory === cat.id ? ACCENT : '#888', fontSize: 8, fontWeight: 700, cursor: 'pointer', textAlign: 'center', lineHeight: 1.4 }}>
-            {cat.icon}<br/>{cat.label}
+            {cat.icon}<br/>{t(cat.labelKey)}
           </button>
         ))}
       </div>
       <div style={{ padding: '8px 8px 4px' }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search…" style={{ width: '100%', padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('cabinetCatalog.searchEllipsis')} style={{ width: '100%', padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box', color: DARK }} />
       </div>
       <div style={{ padding: '0 8px', flexShrink: 0 }}>
         {activeCategory === 'wall'
@@ -571,20 +590,20 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
       </div>
       <div style={{ flex: 1, overflowY: 'auto', padding: '4px 8px 12px' }}>
         <div style={{ fontSize: 9, color: '#aaa', marginBottom: 6, display: 'flex', justifyContent: 'space-between' }}>
-          <span>{activeCategory === 'wall' && <span>Elev: <strong style={{ color: ACCENT }}>{library.wallElevation}mm</strong> · </span>}Default: <strong style={{ color: ACCENT }}>{projectDefaults.doorStyle}</strong></span>
+          <span>{activeCategory === 'wall' && <span>{t('cabinetCatalog.elevation')} <strong style={{ color: ACCENT }}>{library.wallElevation}mm</strong> · </span>}{t('cabinetCatalog.defaultLabel')} <strong style={{ color: ACCENT }}>{projectDefaults.doorStyle}</strong></span>
           <span style={{ color: '#ccc' }}>{displayItems.length}</span>
         </div>
         {displayItems.length === 0
-          ? <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>No items found</div>
+          ? <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>{t('cabinetCatalog.noItemsFound')}</div>
           : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>{displayItems.map(item => <CabinetCard key={item.id} item={item} onAdd={handleAdd} />)}</div>}
       </div>
       <div style={{ padding: '8px', borderTop: '1px solid #E8E4DF', flexShrink: 0, background: '#FAFAFA' }}>
-        <div style={{ fontSize: 9, color: '#999', marginBottom: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Project Defaults</div>
+        <div style={{ fontSize: 9, color: '#999', marginBottom: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('cabinetCatalog.projectDefaults')}</div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={{ fontSize: 9, background: ACCENT+'15', color: ACCENT, padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>H{baseHeight}</span>
           <span style={{ fontSize: 9, background: '#f0f0f0', color: '#555', padding: '2px 6px', borderRadius: 4, fontWeight: 600 }}>{projectDefaults.doorStyle}</span>
-          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.carcassColor || '#F5F0E8', border: '1px solid #ddd' }} title="Carcass" />
-          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.frontColor || '#FFFFFF', border: '1px solid #ddd' }} title="Front" />
+          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.carcassColor || '#F5F0E8', border: '1px solid #ddd' }} title={t('cabinetCatalog.carcassTitle')} />
+          <div style={{ width: 14, height: 14, borderRadius: 3, background: projectDefaults.frontColor || '#FFFFFF', border: '1px solid #ddd' }} title={t('cabinetCatalog.frontTitle')} />
         </div>
       </div>
     </div>
@@ -592,6 +611,7 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
 }
 
 export function SinkPicker({ selected, onSelect, companySlug }) {
+  const { t } = useTranslation()
   const [sinks, setSinks] = useState([])
   const [search, setSearch] = useState('')
 
@@ -613,12 +633,12 @@ export function SinkPicker({ selected, onSelect, companySlug }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <input placeholder="Search sinks..." value={search} onChange={e => setSearch(e.target.value)}
+      <input placeholder={t('cabinetCatalog.searchSinks')} value={search} onChange={e => setSearch(e.target.value)}
         style={{ padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', width: '100%', boxSizing: 'border-box' }} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 320, overflowY: 'auto' }}>
         {filtered.length === 0 && (
           <div style={{ fontSize: 11, color: '#bbb', padding: '12px 0', textAlign: 'center' }}>
-            No sinks in catalog yet. Add them in the admin panel.
+            {t('cabinetCatalog.emptySinks')}
           </div>
         )}
         {filtered.map(sink => {
@@ -633,7 +653,7 @@ export function SinkPicker({ selected, onSelect, companySlug }) {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{sink.brand} {sink.model_name}</div>
                 <div style={{ fontSize: 10, color: '#888' }}>
-                  {sink.cavity_count === 2 ? 'Double Bowl' : 'Single Bowl'} · {sink.material === 'stainless_steel' ? 'Stainless Steel' : sink.material === 'granite_composite' ? 'Granite Composite' : sink.material} · {sink.width_mm}×{sink.depth_mm}mm
+                  {sink.cavity_count === 2 ? t('cabinetCatalog.doubleBowl') : t('cabinetCatalog.singleBowl')} · {sink.material === 'stainless_steel' ? t('cabinetCatalog.stainlessSteel') : sink.material === 'granite_composite' ? t('cabinetCatalog.graniteComposite') : sink.material} · {sink.width_mm}×{sink.depth_mm}mm
                 </div>
               </div>
               {sink.price && <div style={{ fontSize: 11, fontWeight: 700, color: ACCENT }}>{sink.price}</div>}
