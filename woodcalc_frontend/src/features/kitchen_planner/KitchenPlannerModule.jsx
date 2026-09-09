@@ -10,6 +10,7 @@ import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } fr
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
+import ErrorBoundary from '../../components/ErrorBoundary'
 
 const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
@@ -1647,7 +1648,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {/* Keep the 3D canvas always mounted so countertopMat / floorTile changes
           propagate live without a remount. Only hide/show via CSS. */}
       <div style={{ flex: 1, display: tab === '3d' ? 'flex' : 'none', flexDirection: 'column' }}>
-        <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
+        <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>3D view failed to load</div><div style={{ fontSize: 12, marginTop: 4 }}>Try switching tabs and back, or refresh the page</div></div>}>
+          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
+        </ErrorBoundary>
         {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>Add cabinets first</div></div>}
       </div>
 

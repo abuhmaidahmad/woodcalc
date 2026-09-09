@@ -1687,8 +1687,10 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
           resolution={512} color="#150800"
         />
 
-        {/* Apartment preset: warm indoor reflections without the harsh studio overexposure */}
-        <Environment preset="apartment" intensity={0.6} />
+        {/* Self-hosted apartment HDRI (warm indoor reflections) — drei's preset="apartment"
+            fetches this same file from raw.githubusercontent.com at runtime, which is prone
+            to intermittent 503s and crashes the whole page when it fails. */}
+        <Environment files="/lebombo_1k.hdr" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
         <EffectComposer enableNormalPass multisampling={4}>
