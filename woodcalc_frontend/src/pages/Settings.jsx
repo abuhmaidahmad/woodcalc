@@ -1,10 +1,94 @@
 import React, { useState, useEffect } from 'react'
-import { authFetch } from '../api/auth'
+import { authFetch, getCompany } from '../api/auth'
+import { createCheckout } from '../api/billing'
 import { useNavigate } from 'react-router-dom'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+
+const PLANS = [
+  { id: 'starter', label: 'Starter', priceJod: 300 },
+  { id: 'pro', label: 'Pro', priceJod: 600 },
+  { id: 'enterprise', label: 'Enterprise', priceJod: 1200 },
+]
+
+function BillingCard() {
+  const company = getCompany()
+  const [activating, setActivating] = useState(null)
+  const [error, setError] = useState('')
+
+  if (!company) return null
+
+  const isActive = company.status === 'active'
+
+  const activate = async (plan) => {
+    setActivating(plan)
+    setError('')
+    try {
+      const res = await createCheckout(plan)
+      if (res.redirect_url) {
+        window.location.href = res.redirect_url
+      } else {
+        setError(res.detail || 'Could not start checkout.')
+        setActivating(null)
+      }
+    } catch {
+      setError('Could not start checkout.')
+      setActivating(null)
+    }
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>Billing</h2>
+        <span style={{
+          fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+          color: isActive ? '#3a3' : '#8A5A00',
+          background: isActive ? '#eef7ee' : '#FCE9C7',
+        }}>
+          {company.status.toUpperCase()}
+        </span>
+      </div>
+
+      {isActive ? (
+        <>
+          <div style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
+            Current plan: <strong style={{ color: DARK }}>{company.plan}</strong>
+            {company.subscription_ends_at && (
+              <> · Renews on {new Date(company.subscription_ends_at).toLocaleDateString()}</>
+            )}
+          </div>
+          <button onClick={() => activate(company.plan)} disabled={activating === company.plan}
+            style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+            {activating === company.plan ? 'Redirecting…' : 'Update card'}
+          </button>
+        </>
+      ) : (
+        <>
+          <div style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
+            Activate a plan to keep using WoodCalc after your trial ends.
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {PLANS.map(p => (
+              <button key={p.id} onClick={() => activate(p.id)} disabled={activating === p.id}
+                style={{ flex: '1 1 140px', padding: '14px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: DARK }}>{p.label}</div>
+                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{p.priceJod} JOD/year</div>
+                <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginTop: 8 }}>
+                  {activating === p.id ? 'Redirecting…' : 'Activate →'}
+                </div>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {error && <div style={{ fontSize: 12, color: '#c33', marginTop: 12 }}>{error}</div>}
+    </div>
+  )
+}
 
 export default function Settings() {
   const [emailAccount, setEmailAccount] = useState(null)
@@ -115,6 +199,8 @@ export default function Settings() {
             </>
           )}
         </div>
+
+        <BillingCard />
       </div>
     </div>
   )

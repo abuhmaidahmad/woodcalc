@@ -18,6 +18,11 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv(
 EMAIL_ENCRYPTION_KEY = config('EMAIL_ENCRYPTION_KEY', default='')
 RESEND_API_KEY = config('RESEND_API_KEY', default='')
 
+PAYTABS_PROFILE_ID = config('PAYTABS_PROFILE_ID', default='')
+PAYTABS_SERVER_KEY = config('PAYTABS_SERVER_KEY', default='')
+PAYTABS_ENCRYPTION_KEY = config('PAYTABS_ENCRYPTION_KEY', default='')
+PAYTABS_BASE_URL = config('PAYTABS_BASE_URL', default='https://secure.paytabs.com')
+
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
@@ -46,6 +51,7 @@ INSTALLED_APPS = [
     'hr',
     'crm',
     'srm',
+    'billing',
 ]
 
 MIDDLEWARE = [

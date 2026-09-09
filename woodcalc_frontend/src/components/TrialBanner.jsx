@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCompany } from '../api/auth';
 
 function computeBanner(company) {
@@ -31,6 +32,7 @@ const TONE_STYLES = {
 };
 
 export default function TrialBanner() {
+  const navigate = useNavigate();
   const [banner, setBanner] = useState(() => computeBanner(getCompany()));
 
   useEffect(() => {
@@ -51,8 +53,8 @@ export default function TrialBanner() {
 
   const tone = TONE_STYLES[banner.tone];
   return (
-    <div style={{ ...styles.bar, ...tone }}>
-      {banner.text}
+    <div onClick={() => navigate('/settings')} style={{ ...styles.bar, ...tone }}>
+      {banner.text} <span style={styles.link}>Manage billing →</span>
     </div>
   );
 }
@@ -65,5 +67,9 @@ const styles = {
     fontWeight: 600,
     textAlign: 'center',
     boxSizing: 'border-box',
+    cursor: 'pointer',
+  },
+  link: {
+    textDecoration: 'underline',
   },
 };

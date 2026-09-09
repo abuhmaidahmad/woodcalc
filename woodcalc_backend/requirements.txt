@@ -16,3 +16,4 @@ Pillow==12.2.0
 cryptography
 resend
 reportlab
+requests==2.34.2

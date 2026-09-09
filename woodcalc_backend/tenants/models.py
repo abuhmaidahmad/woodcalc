@@ -26,8 +26,6 @@ class Company(models.Model):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.TRIALING)
     trial_ends_at = models.DateTimeField(null=True, blank=True)
     subscription_ends_at = models.DateTimeField(null=True, blank=True)
-    stripe_customer_id = models.CharField(max_length=255, null=True, blank=True)
-    stripe_subscription_id = models.CharField(max_length=255, null=True, blank=True)
     max_users = models.PositiveIntegerField(default=5)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

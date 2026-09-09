@@ -22,6 +22,7 @@ import SupplierStatement from './pages/SupplierStatement';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
 import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
+import BillingReturn from './pages/BillingReturn';
 import TrialBanner from './components/TrialBanner';
 
 function PrivateRoute({ children }) {
@@ -104,6 +105,9 @@ export default function App() {
         } />
         <Route path="/settings" element={
           <PrivateRoute><Settings /></PrivateRoute>
+        } />
+        <Route path="/billing/return" element={
+          <PrivateRoute><BillingReturn /></PrivateRoute>
         } />
 
         {/* Dashboard */}
