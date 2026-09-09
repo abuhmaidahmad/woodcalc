@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch } from '../api/auth'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -9,9 +10,14 @@ const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.rail
 const STATUS_COLORS = {
   NEW: '#888', IN_PROGRESS: '#2A7AC8', COMPLETED: '#2AC87A', CANCELLED: '#E74C3C',
 }
+const STATUS_KEYS = {
+  NEW: 'common.woStatusNew', IN_PROGRESS: 'common.woStatusInProgress',
+  COMPLETED: 'common.woStatusCompleted', CANCELLED: 'common.woStatusCancelled',
+}
 
 export default function ProductionBoard() {
   const navigate = useNavigate()
+  const { t, language } = useTranslation()
   const [orders, setOrders] = useState([])
   const [stations, setStations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -96,27 +102,27 @@ export default function ProductionBoard() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Production Board</span>
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('productionBoard.title')}</span>
         </div>
         <button onClick={() => navigate('/dashboard')}
           style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-          ← Dashboard
+          {language === 'ar' ? '→' : '←'} {t('common.navDashboard')}
         </button>
       </div>
 
       <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
         {/* Orders list */}
-        <div style={{ width: 360, borderRight: '1px solid #E0DAD4', overflow: 'auto', padding: 16 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 12 }}>{orders.length} Work Orders</div>
+        <div style={{ width: 360, borderInlineEnd: '1px solid #E0DAD4', overflow: 'auto', padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 12 }}>{orders.length} {t('productionBoard.workOrders')}</div>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>Loading...</div>
+            <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('common.loading')}</div>
           ) : orders.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>No work orders yet</div>
+            <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('productionBoard.emptyOrders')}</div>
           ) : (
             orders.map(o => (
               <div key={o.id} onClick={() => openOrder(o)}
@@ -124,11 +130,11 @@ export default function ProductionBoard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{o.order_number}</div>
                   <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLORS[o.status], background: STATUS_COLORS[o.status] + '18', padding: '2px 8px', borderRadius: 4 }}>
-                    {o.status.replace('_', ' ')}
+                    {STATUS_KEYS[o.status] ? t(STATUS_KEYS[o.status]) : o.status}
                   </span>
                 </div>
                 <div style={{ fontSize: 12, color: '#666' }}>{o.product_name}</div>
-                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{o.customer_name} · {o.quantity} cabinets</div>
+                <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{o.customer_name} · {o.quantity} {t('productionBoard.cabinets')}</div>
               </div>
             ))
           )}
@@ -139,7 +145,7 @@ export default function ProductionBoard() {
           {!selected ? (
             <div style={{ textAlign: 'center', padding: 80, color: '#bbb' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>🏭</div>
-              <div>Select a work order to view details</div>
+              <div>{t('productionBoard.selectOrder')}</div>
             </div>
           ) : (
             <div style={{ maxWidth: 900 }}>
@@ -148,16 +154,16 @@ export default function ProductionBoard() {
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: DARK }}>{selected.order_number}</div>
                     <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{selected.product_name}</div>
-                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>Customer: <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('productionBoard.customer')} <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                     <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)}
                       style={{ padding: '6px 12px', border: `2px solid ${STATUS_COLORS[selected.status]}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[selected.status], background: STATUS_COLORS[selected.status] + '15', outline: 'none', cursor: 'pointer' }}>
-                      {['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                      {['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
                     </select>
                     <button onClick={() => navigate(`/cutting-optimizer?work_order=${selected.id}`)}
                       style={{ padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                      Cutting Optimizer
+                      {t('productionBoard.cuttingOptimizer')}
                     </button>
                   </div>
                 </div>
@@ -165,7 +171,7 @@ export default function ProductionBoard() {
 
               {/* Station tracker */}
               <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: DARK, marginBottom: 16 }}>Station Progress</div>
+                <div style={{ fontWeight: 700, fontSize: 14, color: DARK, marginBottom: 16 }}>{t('productionBoard.stationProgress')}</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {stations.map(st => {
                     const status = getStationStatus(st.id)
@@ -175,22 +181,22 @@ export default function ProductionBoard() {
                         <span style={{ fontSize: 18 }}>{status === 'done' ? '✅' : status === 'active' ? '🔧' : '⬜'}</span>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{st.name}</div>
-                          {log?.started_at && <div style={{ fontSize: 10, color: '#888' }}>Started: {new Date(log.started_at).toLocaleString('en-GB')}{log.ended_at ? ` · Ended: ${new Date(log.ended_at).toLocaleString('en-GB')}` : ''}</div>}
+                          {log?.started_at && <div style={{ fontSize: 10, color: '#888' }}>{t('productionBoard.started')} {new Date(log.started_at).toLocaleString('en-GB')}{log.ended_at ? ` ${t('productionBoard.ended')} ${new Date(log.ended_at).toLocaleString('en-GB')}` : ''}</div>}
                         </div>
                         {status === 'pending' && (
                           <button onClick={() => startStation(st.id)}
                             style={{ padding: '6px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                            Start
+                            {t('productionBoard.start')}
                           </button>
                         )}
                         {status === 'active' && (
                           <button onClick={() => endStation(log.id)}
                             style={{ padding: '6px 14px', background: '#2AC87A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
-                            Complete
+                            {t('productionBoard.complete')}
                           </button>
                         )}
                         {status === 'done' && (
-                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2AC87A' }}>Done</span>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: '#2AC87A' }}>{t('productionBoard.done')}</span>
                         )}
                       </div>
                     )
@@ -200,14 +206,14 @@ export default function ProductionBoard() {
 
               {/* Cut list items */}
               <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>Cut List ({items.length} items)</div>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>{t('productionBoard.cutList')} ({items.length} {t('productionBoard.items')})</div>
                 {items.length === 0 ? (
-                  <div style={{ padding: 30, textAlign: 'center', color: '#bbb', fontSize: 12 }}>No items attached</div>
+                  <div style={{ padding: 30, textAlign: 'center', color: '#bbb', fontSize: 12 }}>{t('productionBoard.noItems')}</div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead><tr style={{ background: '#FAFAFA' }}>
-                      {['Description', 'Qty', 'Unit'].map(h => (
-                        <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                      {[t('productionBoard.colDescription'), t('productionBoard.colQty'), t('productionBoard.colUnit')].map((h, i) => (
+                        <th key={i} style={{ padding: '10px 16px', textAlign: 'start', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
                       ))}
                     </tr></thead>
                     <tbody>
