@@ -1,47 +1,26 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 const roles = [
-  {
-    key: 'customer',
-    icon: '🏠',
-    title: 'Customer',
-    description: 'Configure and order kitchen cabinets for your home or project.',
-    path: '/register/customer',
-  },
-  {
-    key: 'architect',
-    icon: '📐',
-    title: 'Architect / Designer',
-    description: 'Spec and propose cabinets for your clients with professional tools.',
-    path: '/register/architect',
-  },
-  {
-    key: 'manufacturer',
-    icon: '🏭',
-    title: 'Manufacturer',
-    description: 'Receive orders, manage production, and grow your factory business.',
-    path: '/register/manufacturer',
-  },
-  {
-    key: 'supplier',
-    icon: '📦',
-    title: 'Supplier',
-    description: 'List your materials and reach manufacturers across Jordan.',
-    path: '/register/supplier',
-  },
+  { key: 'customer', icon: '🏠', titleKey: 'roleSelect.customerTitle', descKey: 'roleSelect.customerDesc', path: '/register/customer' },
+  { key: 'architect', icon: '📐', titleKey: 'roleSelect.architectTitle', descKey: 'roleSelect.architectDesc', path: '/register/architect' },
+  { key: 'manufacturer', icon: '🏭', titleKey: 'roleSelect.manufacturerTitle', descKey: 'roleSelect.manufacturerDesc', path: '/register/manufacturer' },
+  { key: 'supplier', icon: '📦', titleKey: 'roleSelect.supplierTitle', descKey: 'roleSelect.supplierDesc', path: '/register/supplier' },
 ];
 
 export default function RoleSelect() {
   const navigate = useNavigate();
+  const { t, language } = useTranslation();
+  const arrow = language === 'ar' ? '←' : '→';
 
   return (
-    <div style={styles.page}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       <div style={styles.container}>
         <div style={styles.header}>
           <div style={styles.logoMark}>W</div>
-          <h1 style={styles.title}>Join WoodCalc</h1>
-          <p style={styles.subtitle}>Choose your role to get started</p>
+          <h1 style={styles.title}>{t('roleSelect.title')}</h1>
+          <p style={styles.subtitle}>{t('roleSelect.subtitle')}</p>
         </div>
 
         <div style={styles.grid}>
@@ -60,16 +39,16 @@ export default function RoleSelect() {
               }}
             >
               <span style={styles.icon}>{role.icon}</span>
-              <h3 style={styles.cardTitle}>{role.title}</h3>
-              <p style={styles.cardDesc}>{role.description}</p>
-              <span style={styles.cta}>Create account →</span>
+              <h3 style={styles.cardTitle}>{t(role.titleKey)}</h3>
+              <p style={styles.cardDesc}>{t(role.descKey)}</p>
+              <span style={styles.cta}>{t('roleSelect.createAccount')} {arrow}</span>
             </button>
           ))}
         </div>
 
         <p style={styles.loginLink}>
-          Already have an account?{' '}
-          <a href="/login" style={styles.link}>Sign in</a>
+          {t('roleSelect.haveAccount')}{' '}
+          <a href="/login" style={styles.link}>{t('roleSelect.signIn')}</a>
         </p>
       </div>
     </div>
@@ -114,7 +93,7 @@ const styles = {
     border: '1.5px solid #E0DAD4',
     borderRadius: 14,
     padding: '28px 24px',
-    textAlign: 'left',
+    textAlign: 'start',
     cursor: 'pointer',
     transition: 'border-color 0.15s, box-shadow 0.15s',
     boxShadow: '0 2px 8px rgba(0,0,0,0.06)',

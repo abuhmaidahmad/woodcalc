@@ -1,26 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCompany } from '../api/auth';
+import { useTranslation } from '../i18n/LanguageContext';
 
-function computeBanner(company) {
+function computeBanner(company, t) {
   if (!company) return null;
 
   if (company.status === 'suspended' || company.status === 'canceled') {
-    return { tone: 'danger', text: 'Your subscription has been suspended. Contact us to restore access.' };
+    return { tone: 'danger', text: t('trialBanner.suspended') };
   }
   if (company.status === 'past_due') {
-    return { tone: 'danger', text: 'Payment past due — update billing to avoid losing access.' };
+    return { tone: 'danger', text: t('trialBanner.pastDue') };
   }
   if (company.status === 'trialing') {
     if (!company.trial_ends_at) return null;
     const daysLeft = Math.ceil((new Date(company.trial_ends_at) - new Date()) / 86400000);
     if (daysLeft <= 0) {
-      return { tone: 'danger', text: 'Your free trial has expired. Contact us to activate a subscription and keep using WoodCalc.' };
+      return { tone: 'danger', text: t('trialBanner.expired') };
     }
     if (daysLeft <= 3) {
-      return { tone: 'warning', text: `Your trial ends in ${daysLeft} day${daysLeft === 1 ? '' : 's'} — contact us to activate a paid plan.` };
+      return { tone: 'warning', text: t('trialBanner.endingSoon', { days: daysLeft }) };
     }
-    return { tone: 'info', text: `Free trial: ${daysLeft} days left.` };
+    return { tone: 'info', text: t('trialBanner.trialLeft', { days: daysLeft }) };
   }
   return null;
 }
@@ -33,28 +34,24 @@ const TONE_STYLES = {
 
 export default function TrialBanner() {
   const navigate = useNavigate();
-  const [banner, setBanner] = useState(() => computeBanner(getCompany()));
+  const { t, language } = useTranslation();
+  const [banner, setBanner] = useState(() => computeBanner(getCompany(), t));
 
   useEffect(() => {
     const onAccessDenied = () => {
       const company = getCompany();
-      setBanner(
-        computeBanner(company) || {
-          tone: 'danger',
-          text: 'Access is currently blocked for your company account. Contact us for help.',
-        }
-      );
+      setBanner(computeBanner(company, t) || { tone: 'danger', text: t('trialBanner.blocked') });
     };
     window.addEventListener('woodcalc:access-denied', onAccessDenied);
     return () => window.removeEventListener('woodcalc:access-denied', onAccessDenied);
-  }, []);
+  }, [t]);
 
   if (!banner) return null;
 
   const tone = TONE_STYLES[banner.tone];
   return (
-    <div onClick={() => navigate('/settings')} style={{ ...styles.bar, ...tone }}>
-      {banner.text} <span style={styles.link}>Manage billing →</span>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} onClick={() => navigate('/settings')} style={{ ...styles.bar, ...tone }}>
+      {banner.text} <span style={styles.link}>{t('trialBanner.manageBilling')} {language === 'ar' ? '←' : '→'}</span>
     </div>
   );
 }

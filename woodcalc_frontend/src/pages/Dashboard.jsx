@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser, logout } from '../api/auth';
+import { useTranslation } from '../i18n/LanguageContext';
 
 // ─── Icon Components ───────────────────────────────────────────────
 function Icon({ d }) {
@@ -30,6 +31,7 @@ const ICONS = {
 
 // ─── Card Component ─────────────────────────────────────────────────
 function DashCard({ icon, title, description, cta, ctaAction, accent, badge }) {
+  const { language } = useTranslation();
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -57,7 +59,7 @@ function DashCard({ icon, title, description, cta, ctaAction, accent, badge }) {
           onClick={ctaAction}
           style={{ ...styles.ctaBtn, color: accent, borderColor: accent + '40' }}
         >
-          {cta} →
+          {cta} {language === 'ar' ? '←' : '→'}
         </button>
       )}
     </div>
@@ -65,170 +67,55 @@ function DashCard({ icon, title, description, cta, ctaAction, accent, badge }) {
 }
 
 // ─── Role Configs ────────────────────────────────────────────────────
-function getCards(userType, navigate, isVerified) {
+function getCards(userType, navigate, isVerified, t) {
+  const verify = {
+    icon: 'verify',
+    title: isVerified ? t('dashboard.verifiedTitle') : t('dashboard.pendingTitle'),
+    description: isVerified ? t('dashboard.verifiedDesc') : t('dashboard.pendingDesc'),
+    cta: isVerified ? null : t('dashboard.pendingCta'),
+    ctaAction: () => navigate('/verification'),
+    accent: isVerified ? '#2AC87A' : '#E8A020',
+    badge: isVerified ? `✓ ${t('dashboard.verifiedBadge')}` : t('dashboard.pendingBadge'),
+  };
+
   switch (userType) {
     case 'customer':
       return [
-        {
-          icon: 'projects', title: 'My Projects',
-          description: 'Your saved cabinet configurations and active designs.',
-          cta: 'View projects', ctaAction: () => navigate('/customers'),
-          accent: '#C8902A',
-        },
-        {
-          icon: 'orders', title: 'Order History',
-          description: 'Track the status of your placed orders.',
-          cta: 'View orders', ctaAction: () => navigate('/orders'),
-          accent: '#2A7AC8',
-        },
-        {
-          icon: 'design', title: 'Start New Design',
-          description: 'Launch the Kitchen Planner and configure your cabinets.',
-          cta: 'Open planner', ctaAction: () => navigate('/kitchen-planner'),
-          accent: '#2AC87A',
-        },
-        {
-          icon: 'quotes', title: 'Saved Quotes',
-          description: 'Review and share your saved cabinet proposals.',
-          cta: 'View quotes', ctaAction: () => navigate('/quotes'),
-          accent: '#C82A7A',
-        },
+        { icon: 'projects', title: t('dashboard.customerProjectsTitle'), description: t('dashboard.customerProjectsDesc'), cta: t('dashboard.customerProjectsCta'), ctaAction: () => navigate('/customers'), accent: '#C8902A' },
+        { icon: 'orders', title: t('dashboard.customerOrdersTitle'), description: t('dashboard.customerOrdersDesc'), cta: t('dashboard.customerOrdersCta'), ctaAction: () => navigate('/orders'), accent: '#2A7AC8' },
+        { icon: 'design', title: t('dashboard.customerDesignTitle'), description: t('dashboard.customerDesignDesc'), cta: t('dashboard.customerDesignCta'), ctaAction: () => navigate('/kitchen-planner'), accent: '#2AC87A' },
+        { icon: 'quotes', title: t('dashboard.customerQuotesTitle'), description: t('dashboard.customerQuotesDesc'), cta: t('dashboard.customerQuotesCta'), ctaAction: () => navigate('/quotes'), accent: '#C82A7A' },
       ];
 
     case 'architect':
       return [
-        {
-          icon: 'clients', title: 'My Client Projects',
-          description: 'All active and completed projects for your clients.',
-          cta: 'View projects', ctaAction: () => navigate('/customers'),
-          accent: '#C8902A',
-        },
-        {
-          icon: 'proposals', title: 'Proposals Sent',
-          description: 'Track proposals you have sent to clients.',
-          cta: 'View proposals', ctaAction: () => navigate('/proposals'),
-          accent: '#2A7AC8',
-        },
-        {
-          icon: 'design', title: 'Start New Design',
-          description: 'Launch the Kitchen Planner for a new client project.',
-          cta: 'Open planner', ctaAction: () => navigate('/kitchen-planner'),
-          accent: '#2AC87A',
-        },
-        {
-          icon: 'commission', title: 'Commissions',
-          description: 'Track your earnings and commission history.',
-          cta: 'View earnings', ctaAction: () => navigate('/commissions'),
-          accent: '#C82A7A',
-        },
+        { icon: 'clients', title: t('dashboard.architectProjectsTitle'), description: t('dashboard.architectProjectsDesc'), cta: t('dashboard.architectProjectsCta'), ctaAction: () => navigate('/customers'), accent: '#C8902A' },
+        { icon: 'proposals', title: t('dashboard.architectProposalsTitle'), description: t('dashboard.architectProposalsDesc'), cta: t('dashboard.architectProposalsCta'), ctaAction: () => navigate('/proposals'), accent: '#2A7AC8' },
+        { icon: 'design', title: t('dashboard.architectDesignTitle'), description: t('dashboard.architectDesignDesc'), cta: t('dashboard.architectDesignCta'), ctaAction: () => navigate('/kitchen-planner'), accent: '#2AC87A' },
+        { icon: 'commission', title: t('dashboard.architectCommissionTitle'), description: t('dashboard.architectCommissionDesc'), cta: t('dashboard.architectCommissionCta'), ctaAction: () => navigate('/commissions'), accent: '#C82A7A' },
       ];
 
     case 'manufacturer':
       return [
-        {
-          icon: 'clients', title: 'Customers',
-          description: 'Manage your clients, projects, rooms and payments.',
-          cta: 'View customers', ctaAction: () => navigate('/customers'),
-          accent: '#C8902A',
-        },
-        {
-          icon: 'design', title: 'Kitchen Planner',
-          description: 'Design kitchens and generate proposals for clients.',
-          cta: 'Open planner', ctaAction: () => navigate('/kitchen-planner'),
-          accent: '#2AC87A',
-        },
-        {
-          icon: 'clients', title: 'Leads',
-          description: 'Designs and contact info captured from your public catalog, ready to follow up on.',
-          cta: 'View leads', ctaAction: () => navigate('/leads'),
-          accent: '#2A6ACC',
-        },
-        {
-          icon: 'materials', title: 'Materials Catalog',
-          description: 'Upload and manage cabinet finishes, textures, board sizes and pricing.',
-          cta: 'Manage catalog', ctaAction: () => navigate('/catalog'),
-          accent: '#C8902A',
-        },
-        {
-          icon: 'suppliers', title: 'Suppliers',
-          description: 'Manage supplier relationships and contact details.',
-          cta: 'View suppliers', ctaAction: () => navigate('/suppliers'),
-          accent: '#8A2AC8',
-        },
-        {
-          icon: 'orders', title: 'Purchase Orders',
-          description: 'Create and track purchase orders, receive stock into inventory.',
-          cta: 'View orders', ctaAction: () => navigate('/purchase-orders'),
-          accent: '#8A2AC8',
-        },
-        {
-          icon: 'materials', title: 'Materials (Stock)',
-          description: 'Track stock-tracked SKUs, quantities, and reorder levels.',
-          cta: 'View materials', ctaAction: () => navigate('/materials'),
-          accent: '#8A2AC8',
-        },
-        {
-          icon: 'incoming', title: 'Incoming Orders',
-          description: 'New cabinet orders waiting for your confirmation.',
-          cta: 'View orders', ctaAction: () => navigate('/orders'),
-          accent: '#2A7AC8',
-        },
-        {
-          icon: 'production', title: 'Production Board',
-          description: 'Track active production jobs and station progress.',
-          cta: 'Open board', ctaAction: () => navigate('/production'),
-          accent: '#8A2AC8',
-        },
-        {
-          icon: 'revenue', title: 'Revenue',
-          description: 'Monthly earnings and payment summaries.',
-          cta: 'View revenue', ctaAction: () => navigate('/revenue'),
-          accent: '#2A7AC8',
-        },
-        {
-          icon: 'verify',
-          title: isVerified ? 'Account Verified' : 'Verification Pending',
-          description: isVerified
-            ? 'Your trade license has been verified. Full access unlocked.'
-            : 'Your documents are under review. Some features are limited until verified.',
-          cta: isVerified ? null : 'Upload documents',
-          ctaAction: () => navigate('/verification'),
-          accent: isVerified ? '#2AC87A' : '#E8A020',
-          badge: isVerified ? '✓ Verified' : 'Pending',
-        },
+        { icon: 'clients', title: t('dashboard.mfgCustomersTitle'), description: t('dashboard.mfgCustomersDesc'), cta: t('dashboard.mfgCustomersCta'), ctaAction: () => navigate('/customers'), accent: '#C8902A' },
+        { icon: 'design', title: t('dashboard.mfgPlannerTitle'), description: t('dashboard.mfgPlannerDesc'), cta: t('dashboard.mfgPlannerCta'), ctaAction: () => navigate('/kitchen-planner'), accent: '#2AC87A' },
+        { icon: 'clients', title: t('dashboard.mfgLeadsTitle'), description: t('dashboard.mfgLeadsDesc'), cta: t('dashboard.mfgLeadsCta'), ctaAction: () => navigate('/leads'), accent: '#2A6ACC' },
+        { icon: 'materials', title: t('dashboard.mfgCatalogTitle'), description: t('dashboard.mfgCatalogDesc'), cta: t('dashboard.mfgCatalogCta'), ctaAction: () => navigate('/catalog'), accent: '#C8902A' },
+        { icon: 'suppliers', title: t('dashboard.mfgSuppliersTitle'), description: t('dashboard.mfgSuppliersDesc'), cta: t('dashboard.mfgSuppliersCta'), ctaAction: () => navigate('/suppliers'), accent: '#8A2AC8' },
+        { icon: 'orders', title: t('dashboard.mfgPurchaseOrdersTitle'), description: t('dashboard.mfgPurchaseOrdersDesc'), cta: t('dashboard.mfgPurchaseOrdersCta'), ctaAction: () => navigate('/purchase-orders'), accent: '#8A2AC8' },
+        { icon: 'materials', title: t('dashboard.mfgMaterialsStockTitle'), description: t('dashboard.mfgMaterialsStockDesc'), cta: t('dashboard.mfgMaterialsStockCta'), ctaAction: () => navigate('/materials'), accent: '#8A2AC8' },
+        { icon: 'incoming', title: t('dashboard.mfgIncomingTitle'), description: t('dashboard.mfgIncomingDesc'), cta: t('dashboard.mfgIncomingCta'), ctaAction: () => navigate('/orders'), accent: '#2A7AC8' },
+        { icon: 'production', title: t('dashboard.mfgProductionTitle'), description: t('dashboard.mfgProductionDesc'), cta: t('dashboard.mfgProductionCta'), ctaAction: () => navigate('/production'), accent: '#8A2AC8' },
+        { icon: 'revenue', title: t('dashboard.mfgRevenueTitle'), description: t('dashboard.mfgRevenueDesc'), cta: t('dashboard.mfgRevenueCta'), ctaAction: () => navigate('/revenue'), accent: '#2A7AC8' },
+        verify,
       ];
 
     case 'supplier':
       return [
-        {
-          icon: 'materials', title: 'Materials Catalog',
-          description: 'Manage your listed materials and pricing.',
-          cta: 'Manage catalog', ctaAction: () => navigate('/catalog'),
-          accent: '#C8902A',
-        },
-        {
-          icon: 'incoming', title: 'Incoming Orders',
-          description: 'Material orders placed by manufacturers.',
-          cta: 'View orders', ctaAction: () => navigate('/orders'),
-          accent: '#2A7AC8',
-        },
-        {
-          icon: 'revenue', title: 'Revenue',
-          description: 'Monthly earnings and payment summaries.',
-          cta: 'View revenue', ctaAction: () => navigate('/revenue'),
-          accent: '#2AC87A',
-        },
-        {
-          icon: 'verify',
-          title: isVerified ? 'Account Verified' : 'Verification Pending',
-          description: isVerified
-            ? 'Your trade license has been verified. Full access unlocked.'
-            : 'Your documents are under review. Some features are limited until verified.',
-          cta: isVerified ? null : 'Upload documents',
-          ctaAction: () => navigate('/verification'),
-          accent: isVerified ? '#2AC87A' : '#E8A020',
-          badge: isVerified ? '✓ Verified' : 'Pending',
-        },
+        { icon: 'materials', title: t('dashboard.supplierCatalogTitle'), description: t('dashboard.supplierCatalogDesc'), cta: t('dashboard.supplierCatalogCta'), ctaAction: () => navigate('/catalog'), accent: '#C8902A' },
+        { icon: 'incoming', title: t('dashboard.supplierIncomingTitle'), description: t('dashboard.supplierIncomingDesc'), cta: t('dashboard.supplierIncomingCta'), ctaAction: () => navigate('/orders'), accent: '#2A7AC8' },
+        { icon: 'revenue', title: t('dashboard.supplierRevenueTitle'), description: t('dashboard.supplierRevenueDesc'), cta: t('dashboard.supplierRevenueCta'), ctaAction: () => navigate('/revenue'), accent: '#2AC87A' },
+        verify,
       ];
 
     default:
@@ -237,11 +124,11 @@ function getCards(userType, navigate, isVerified) {
 }
 
 // ─── Role Labels ─────────────────────────────────────────────────────
-const ROLE_LABELS = {
-  customer: 'Customer',
-  architect: 'Architect / Designer',
-  manufacturer: 'Manufacturer',
-  supplier: 'Supplier',
+const ROLE_KEYS = {
+  customer: 'dashboard.roleCustomer',
+  architect: 'dashboard.roleArchitect',
+  manufacturer: 'dashboard.roleManufacturer',
+  supplier: 'dashboard.roleSupplier',
 };
 
 const ROLE_COLORS = {
@@ -254,6 +141,7 @@ const ROLE_COLORS = {
 // ─── Dashboard Page ──────────────────────────────────────────────────
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { t, language } = useTranslation();
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -267,19 +155,19 @@ export default function Dashboard() {
 
   if (!user) return null;
 
-  const cards = getCards(user.user_type, navigate, user.is_verified);
+  const cards = getCards(user.user_type, navigate, user.is_verified, t);
   if (user.is_staff) {
     cards.unshift(
       {
-        icon: 'clients', title: 'Companies',
-        description: 'All manufacturer accounts, subscription status, and trial management.',
-        cta: 'Manage companies', ctaAction: () => navigate('/admin/companies'),
+        icon: 'clients', title: t('dashboard.adminCompaniesTitle'),
+        description: t('dashboard.adminCompaniesDesc'),
+        cta: t('dashboard.adminCompaniesCta'), ctaAction: () => navigate('/admin/companies'),
         accent: '#2A6ACC',
       },
       {
-        icon: 'proposals', title: 'Feedback',
-        description: 'Review and triage feedback submitted across every company.',
-        cta: 'Review feedback', ctaAction: () => navigate('/admin/feedback'),
+        icon: 'proposals', title: t('dashboard.adminFeedbackTitle'),
+        description: t('dashboard.adminFeedbackDesc'),
+        cta: t('dashboard.adminFeedbackCta'), ctaAction: () => navigate('/admin/feedback'),
         accent: '#8A2AC8',
       },
     );
@@ -292,7 +180,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={styles.page}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       {/* Top Bar */}
       <div style={styles.topBar}>
         <div style={styles.topLeft}>
@@ -309,16 +197,16 @@ export default function Dashboard() {
                 {user.first_name} {user.last_name}
               </div>
               <div style={{ ...styles.roleTag, color: roleColor }}>
-                {ROLE_LABELS[user.user_type]}
+                {t(ROLE_KEYS[user.user_type])}
               </div>
             </div>
           </div>
           <button onClick={() => navigate('/settings')}
             style={{ ...styles.logoutBtn, color: '#ccc' }}>
-            Settings
+            {t('common.settings')}
           </button>
           <button style={styles.logoutBtn} onClick={handleLogout}>
-            Sign out
+            {t('common.signOut')}
           </button>
         </div>
       </div>
@@ -327,10 +215,10 @@ export default function Dashboard() {
       <div style={styles.content}>
         <div style={styles.greeting}>
           <h1 style={styles.greetingTitle}>
-            Welcome back, {user.first_name} 👋
+            {t('dashboard.welcome', { name: user.first_name })}
           </h1>
           <p style={styles.greetingSubtitle}>
-            Here's what's happening with your account.
+            {t('dashboard.subtitle')}
           </p>
         </div>
 
@@ -469,7 +357,7 @@ const styles = {
   badge: {
     position: 'absolute',
     top: 16,
-    right: 16,
+    insetInlineEnd: 16,
     fontSize: 11,
     fontWeight: 600,
     padding: '3px 8px',

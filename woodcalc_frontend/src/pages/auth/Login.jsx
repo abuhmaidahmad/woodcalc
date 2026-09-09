@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, saveSession } from '../../api/auth';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
 export default function Login() {
   const navigate = useNavigate();
+  const { t, language } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -23,23 +25,23 @@ export default function Login() {
       saveSession({ access: res.access, refresh: res.refresh }, userData);
       navigate('/dashboard');
     } else {
-      setError('Invalid email or password.');
+      setError(t('login.error'));
     }
     setLoading(false);
   };
 
   return (
-    <div style={styles.page}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       <div style={styles.card}>
         <div style={styles.logoMark}>W</div>
-        <h1 style={styles.title}>Sign in to WoodCalc</h1>
-        <p style={styles.subtitle}>Jordan's cabinet configurator platform</p>
+        <h1 style={styles.title}>{t('login.title')}</h1>
+        <p style={styles.subtitle}>{t('login.subtitle')}</p>
 
         <div style={styles.field}>
-          <label style={styles.label}>Email address</label>
+          <label style={styles.label}>{t('login.emailLabel')}</label>
           <input
             type="email"
-            placeholder="you@example.com"
+            placeholder={t('login.emailPlaceholder')}
             value={email}
             onChange={e => setEmail(e.target.value)}
             style={styles.input}
@@ -48,10 +50,10 @@ export default function Login() {
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>Password</label>
+          <label style={styles.label}>{t('login.passwordLabel')}</label>
           <input
             type="password"
-            placeholder="Your password"
+            placeholder={t('login.passwordPlaceholder')}
             value={password}
             onChange={e => setPassword(e.target.value)}
             style={styles.input}
@@ -62,12 +64,12 @@ export default function Login() {
         {error && <p style={styles.error}>{error}</p>}
 
         <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
-          {loading ? 'Signing in…' : 'Sign in'}
+          {loading ? t('login.signingIn') : t('login.signIn')}
         </button>
 
         <p style={styles.registerLink}>
-          Don't have an account?{' '}
-          <a href="/register" style={styles.link}>Create one</a>
+          {t('login.noAccount')}{' '}
+          <a href="/register" style={styles.link}>{t('login.createOne')}</a>
         </p>
       </div>
     </div>

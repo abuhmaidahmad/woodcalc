@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import RegisterLayout from '../../components/auth/RegisterLayout';
 import FormField, { Input } from '../../components/auth/FormField';
 import { registerManufacturer, saveSession } from '../../api/auth';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 export default function RegisterManufacturer() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     first_name: '', last_name: '', email: '', password: '', phone: '', city: '',
     factory_company_name: '', commercial_registration_number: '',
@@ -31,49 +33,49 @@ export default function RegisterManufacturer() {
       navigate('/dashboard');
     } else {
       setErrors(res);
-      setApiError(res.detail || 'Registration failed.');
+      setApiError(res.detail || t('registerManufacturer.genericError'));
     }
   };
 
   return (
     <RegisterLayout role="manufacturer" icon="🏭">
       <div style={styles.row}>
-        <FormField label="First name" error={errors.first_name?.[0]}>
-          <Input placeholder="Khalid" value={form.first_name} onChange={set('first_name')} />
+        <FormField label={t('registerManufacturer.firstName')} error={errors.first_name?.[0]}>
+          <Input placeholder={t('registerManufacturer.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
-        <FormField label="Last name" error={errors.last_name?.[0]}>
-          <Input placeholder="Nasser" value={form.last_name} onChange={set('last_name')} />
+        <FormField label={t('registerManufacturer.lastName')} error={errors.last_name?.[0]}>
+          <Input placeholder={t('registerManufacturer.lastNamePlaceholder')} value={form.last_name} onChange={set('last_name')} />
         </FormField>
       </div>
-      <FormField label="Email address" error={errors.email?.[0]}>
-        <Input type="email" placeholder="you@factory.com" value={form.email} onChange={set('email')} />
+      <FormField label={t('registerManufacturer.email')} error={errors.email?.[0]}>
+        <Input type="email" placeholder={t('registerManufacturer.emailPlaceholder')} value={form.email} onChange={set('email')} />
       </FormField>
-      <FormField label="Password" error={errors.password?.[0]}>
-        <Input type="password" placeholder="Minimum 8 characters" value={form.password} onChange={set('password')} />
+      <FormField label={t('registerManufacturer.password')} error={errors.password?.[0]}>
+        <Input type="password" placeholder={t('registerManufacturer.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
       <div style={styles.row}>
-        <FormField label="Phone" error={errors.phone?.[0]}>
-          <Input placeholder="+962 7..." value={form.phone} onChange={set('phone')} />
+        <FormField label={t('registerManufacturer.phone')} error={errors.phone?.[0]}>
+          <Input placeholder={t('registerManufacturer.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
-        <FormField label="City" error={errors.city?.[0]}>
-          <Input placeholder="Zarqa" value={form.city} onChange={set('city')} />
+        <FormField label={t('registerManufacturer.city')} error={errors.city?.[0]}>
+          <Input placeholder={t('registerManufacturer.cityPlaceholder')} value={form.city} onChange={set('city')} />
         </FormField>
       </div>
-      <FormField label="Factory / Company name" error={errors.factory_company_name?.[0]}>
-        <Input placeholder="Al-Nasser Woodworks" value={form.factory_company_name} onChange={set('factory_company_name')} />
+      <FormField label={t('registerManufacturer.companyName')} error={errors.factory_company_name?.[0]}>
+        <Input placeholder={t('registerManufacturer.companyNamePlaceholder')} value={form.factory_company_name} onChange={set('factory_company_name')} />
       </FormField>
       <div style={styles.row}>
-        <FormField label="Commercial registration no." error={errors.commercial_registration_number?.[0]}>
-          <Input placeholder="CR-123456" value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
+        <FormField label={t('registerManufacturer.crNumber')} error={errors.commercial_registration_number?.[0]}>
+          <Input placeholder={t('registerManufacturer.crPlaceholder')} value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
         </FormField>
-        <FormField label="Governorate / Region" error={errors.governorate_region?.[0]}>
-          <Input placeholder="Zarqa Governorate" value={form.governorate_region} onChange={set('governorate_region')} />
+        <FormField label={t('registerManufacturer.region')} error={errors.governorate_region?.[0]}>
+          <Input placeholder={t('registerManufacturer.regionPlaceholder')} value={form.governorate_region} onChange={set('governorate_region')} />
         </FormField>
       </div>
-      <FormField label="Production capacity" hint="e.g. 80 cabinets/week" error={errors.production_capacity?.[0]}>
-        <Input placeholder="80 cabinets/week" value={form.production_capacity} onChange={set('production_capacity')} />
+      <FormField label={t('registerManufacturer.capacity')} hint={t('registerManufacturer.capacityHint')} error={errors.production_capacity?.[0]}>
+        <Input placeholder={t('registerManufacturer.capacityPlaceholder')} value={form.production_capacity} onChange={set('production_capacity')} />
       </FormField>
-      <FormField label="Trade license document" hint="PDF or image — required for full access">
+      <FormField label={t('registerManufacturer.document')} hint={t('registerManufacturer.documentHint')}>
         <input
           type="file"
           accept=".pdf,.jpg,.jpeg,.png"
@@ -84,10 +86,10 @@ export default function RegisterManufacturer() {
       </FormField>
       {apiError && <p style={styles.apiError}>{apiError}</p>}
       <button style={styles.btn} onClick={handleSubmit} disabled={loading}>
-        {loading ? 'Creating account…' : 'Create account'}
+        {loading ? t('registerManufacturer.submitting') : t('registerManufacturer.submit')}
       </button>
       <p style={styles.loginLink}>
-        Already have an account? <a href="/login" style={styles.link}>Sign in</a>
+        {t('registerManufacturer.haveAccount')} <a href="/login" style={styles.link}>{t('registerManufacturer.signIn')}</a>
       </p>
     </RegisterLayout>
   );

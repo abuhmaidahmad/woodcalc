@@ -30,6 +30,7 @@ import AdminCompanies from './pages/AdminCompanies';
 import AdminFeedback from './pages/AdminFeedback';
 import TrialBanner from './components/TrialBanner';
 import FeedbackWidget from './components/FeedbackWidget';
+import LanguageSwitcher from './components/LanguageSwitcher';
 import { isStaff } from './api/auth';
 
 function PrivateRoute({ children }) {
@@ -60,6 +61,7 @@ function AdminRoute({ children }) {
 export default function App() {
   return (
     <BrowserRouter>
+      <LanguageSwitcher />
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<Login />} />

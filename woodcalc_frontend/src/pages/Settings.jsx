@@ -3,6 +3,7 @@ import { authFetch, getCompany } from '../api/auth'
 import { createCheckout } from '../api/billing'
 import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
+import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -19,6 +20,7 @@ const PLANS = [
 ]
 
 function ShareCatalogCard() {
+  const { t } = useTranslation()
   const company = getCompany()
   const [copied, setCopied] = useState(false)
 
@@ -36,16 +38,16 @@ function ShareCatalogCard() {
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>Share your catalog</h2>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.shareTitle')}</h2>
       <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>
-        Anyone with this link can browse your Kitchen Planner catalog and explore designs — no account needed.
+        {t('settings.shareDesc')}
       </div>
       <div style={{ display: 'flex', gap: 10 }}>
         <input readOnly value={link} onFocus={e => e.target.select()}
           style={{ flex: 1, padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#F7F4F0' }} />
         <button onClick={copyLink}
           style={{ padding: '10px 18px', background: copied ? '#3a3' : ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-          {copied ? 'Copied!' : 'Copy link'}
+          {copied ? t('settings.shareCopied') : t('settings.shareCopy')}
         </button>
       </div>
     </div>
@@ -53,6 +55,7 @@ function ShareCatalogCard() {
 }
 
 function BillingCard() {
+  const { t, language } = useTranslation()
   const company = getCompany()
   const [activating, setActivating] = useState(null)
   const [error, setError] = useState('')
@@ -60,6 +63,7 @@ function BillingCard() {
   if (!company) return null
 
   const isActive = company.status === 'active'
+  const arrow = language === 'ar' ? '←' : '→'
 
   const activate = async (plan) => {
     setActivating(plan)
@@ -69,11 +73,11 @@ function BillingCard() {
       if (res.redirect_url) {
         window.location.href = res.redirect_url
       } else {
-        setError(res.detail || 'Could not start checkout.')
+        setError(res.detail || t('settings.billingError'))
         setActivating(null)
       }
     } catch {
-      setError('Could not start checkout.')
+      setError(t('settings.billingError'))
       setActivating(null)
     }
   }
@@ -81,7 +85,7 @@ function BillingCard() {
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>Billing</h2>
+        <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.billingTitle')}</h2>
         <span style={{
           fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
           color: isActive ? '#3a3' : '#8A5A00',
@@ -94,29 +98,29 @@ function BillingCard() {
       {isActive ? (
         <>
           <div style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
-            Current plan: <strong style={{ color: DARK }}>{company.plan}</strong>
+            {t('settings.billingActivePlan')} <strong style={{ color: DARK }}>{company.plan}</strong>
             {company.subscription_ends_at && (
-              <> · Renews on {new Date(company.subscription_ends_at).toLocaleDateString()}</>
+              <> · {t('settings.billingRenews')} {new Date(company.subscription_ends_at).toLocaleDateString()}</>
             )}
           </div>
           <button onClick={() => activate(company.plan)} disabled={activating === company.plan}
             style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            {activating === company.plan ? 'Redirecting…' : 'Update card'}
+            {activating === company.plan ? t('settings.billingRedirecting') : t('settings.billingUpdateCard')}
           </button>
         </>
       ) : (
         <>
           <div style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
-            Activate a plan to keep using WoodCalc after your trial ends.
+            {t('settings.billingInactiveDesc')}
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
             {PLANS.map(p => (
               <button key={p.id} onClick={() => activate(p.id)} disabled={activating === p.id}
-                style={{ flex: '1 1 140px', padding: '14px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', textAlign: 'left' }}>
+                style={{ flex: '1 1 140px', padding: '14px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', textAlign: 'start' }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: DARK }}>{p.label}</div>
                 <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{p.priceJod} JOD/year</div>
                 <div style={{ fontSize: 11, color: ACCENT, fontWeight: 600, marginTop: 8 }}>
-                  {activating === p.id ? 'Redirecting…' : 'Activate →'}
+                  {activating === p.id ? t('settings.billingRedirecting') : `${t('settings.billingActivate')} ${arrow}`}
                 </div>
               </button>
             ))}
@@ -130,6 +134,7 @@ function BillingCard() {
 }
 
 function FeedbackCard() {
+  const { t } = useTranslation()
   const company = getCompany()
   const [items, setItems] = useState([])
   const [loading, setLoading] = useState(true)
@@ -149,13 +154,13 @@ function FeedbackCard() {
 
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
-      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>Your Feedback</h2>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.feedbackTitle')}</h2>
       <div style={{ color: '#888', fontSize: 12, marginBottom: 4 }}>
-        Use the 💬 Feedback button in the bottom-right corner of any page to send new feedback — it's tracked here.
+        {t('settings.feedbackDesc')}
       </div>
 
       {!loading && items.length === 0 && (
-        <div style={{ color: '#bbb', fontSize: 12, marginTop: 16 }}>No feedback submitted yet.</div>
+        <div style={{ color: '#bbb', fontSize: 12, marginTop: 16 }}>{t('settings.feedbackEmpty')}</div>
       )}
 
       {!loading && items.length > 0 && (
@@ -178,6 +183,7 @@ function FeedbackCard() {
 }
 
 export default function Settings() {
+  const { t, language } = useTranslation()
   const [emailAccount, setEmailAccount] = useState(null)
   const [loading, setLoading] = useState(true)
   const [form, setForm] = useState({ email_address: '', app_password: '' })
@@ -209,79 +215,79 @@ export default function Settings() {
       })
       if (res.ok) {
         setForm({ email_address: '', app_password: '' })
-        setMessage('Email account connected successfully.')
+        setMessage(t('settings.emailSuccess'))
         fetchEmailAccount()
       } else {
         const err = await res.json()
-        setMessage('Error: ' + JSON.stringify(err))
+        setMessage(t('settings.emailError') + ' ' + JSON.stringify(err))
       }
     } catch {}
     setSaving(false)
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
-          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>Settings</span>
+          <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('settings.title')}</span>
         </div>
         <button onClick={() => navigate('/dashboard')}
           style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-          Dashboard
+          {t('common.dashboard')}
         </button>
       </div>
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
-        <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: DARK }}>Settings</h1>
-        <div style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>Manage your account preferences</div>
+        <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: DARK }}>{t('settings.title')}</h1>
+        <div style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>{t('settings.subtitle')}</div>
 
         <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>Purchasing Email</h2>
+            <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.emailTitle')}</h2>
             {emailAccount && (
-              <span style={{ fontSize: 11, color: '#3a3', background: '#eef7ee', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>CONNECTED</span>
+              <span style={{ fontSize: 11, color: '#3a3', background: '#eef7ee', padding: '2px 8px', borderRadius: 4, fontWeight: 600 }}>{t('settings.emailConnected')}</span>
             )}
           </div>
           <div style={{ color: '#888', fontSize: 12, marginBottom: 20 }}>
-            Connect your email so the system can send Purchase Orders directly to suppliers.
+            {t('settings.emailDesc')}
           </div>
 
           {loading ? (
-            <div style={{ color: '#bbb', fontSize: 13 }}>Loading...</div>
+            <div style={{ color: '#bbb', fontSize: 13 }}>{t('common.loading')}</div>
           ) : (
             <>
               {emailAccount && (
                 <div style={{ background: '#F7F4F0', borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 13, color: DARK }}>
-                  Currently connected: <strong>{emailAccount.email_address}</strong>
+                  {t('settings.emailCurrentlyConnected')} <strong>{emailAccount.email_address}</strong>
                 </div>
               )}
 
               <div style={{ marginBottom: 12 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>Gmail Address</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('settings.emailGmailLabel')}</div>
                 <input type="email" value={form.email_address} onChange={e => setForm(f => ({ ...f, email_address: e.target.value }))}
-                  placeholder="purchasing@yourcompany.com"
+                  placeholder={t('settings.emailGmailPlaceholder')}
                   style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: DARK }} />
               </div>
 
               <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>App Password</div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('settings.emailAppPasswordLabel')}</div>
                 <input type="password" value={form.app_password} onChange={e => setForm(f => ({ ...f, app_password: e.target.value }))}
-                  placeholder="16-character app password"
+                  placeholder={t('settings.emailAppPasswordPlaceholder')}
                   style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: DARK }} />
               </div>
               <div style={{ fontSize: 11, color: '#999', marginBottom: 20 }}>
-                Not your regular Gmail password — generate an App Password from your Google Account security settings.
+                {t('settings.emailAppPasswordHint')}
               </div>
 
               {message && (
-                <div style={{ fontSize: 12, color: message.startsWith('Error') ? '#c33' : '#3a3', marginBottom: 12 }}>{message}</div>
+                <div style={{ fontSize: 12, color: message.startsWith(t('settings.emailError')) ? '#c33' : '#3a3', marginBottom: 12 }}>{message}</div>
               )}
 
               <button onClick={connectEmail} disabled={saving || !form.email_address.trim() || !form.app_password.trim()}
                 style={{ padding: '10px 20px', background: (form.email_address.trim() && form.app_password.trim()) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: (form.email_address.trim() && form.app_password.trim()) ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-                {saving ? 'Connecting...' : emailAccount ? 'Update Email Account' : 'Connect Email Account'}
+                {saving ? t('settings.emailConnecting') : emailAccount ? t('settings.emailUpdateBtn') : t('settings.emailConnectBtn')}
               </button>
             </>
           )}

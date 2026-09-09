@@ -1,32 +1,35 @@
 import React from 'react';
+import { useTranslation } from '../../i18n/LanguageContext';
 
 export default function RegisterLayout({ role, icon, children }) {
+  const { t, language } = useTranslation();
+  const arrow = language === 'ar' ? '→' : '←';
   const roleLabels = {
-    customer: 'Customer',
-    architect: 'Architect / Designer',
-    manufacturer: 'Manufacturer',
-    supplier: 'Supplier',
+    customer: t('registerLayout.roleCustomer'),
+    architect: t('registerLayout.roleArchitect'),
+    manufacturer: t('registerLayout.roleManufacturer'),
+    supplier: t('registerLayout.roleSupplier'),
   };
 
   return (
-    <div style={styles.page}>
+    <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       <div style={styles.panel}>
         {/* Left brand strip */}
         <div style={styles.brand}>
           <div style={styles.logoMark}>W</div>
           <h1 style={styles.logoText}>WoodCalc</h1>
-          <p style={styles.tagline}>Jordan's cabinet configurator platform</p>
+          <p style={styles.tagline}>{t('registerLayout.tagline')}</p>
           <div style={styles.roleTag}>{icon} {roleLabels[role]}</div>
         </div>
 
         {/* Right form area */}
         <div style={styles.formArea}>
-          <a href="/register" style={styles.backLink}>← Choose a different role</a>
-          <h2 style={styles.formTitle}>Create your account</h2>
+          <a href="/register" style={styles.backLink}>{arrow} {t('registerLayout.backLink')}</a>
+          <h2 style={styles.formTitle}>{t('registerLayout.formTitle')}</h2>
           <p style={styles.formSub}>
             {role === 'manufacturer' || role === 'supplier'
-              ? "You'll get instant limited access. Full access unlocks after document verification."
-              : 'Get started in seconds.'}
+              ? t('registerLayout.formSubVerified')
+              : t('registerLayout.formSubDefault')}
           </p>
           {children}
         </div>
