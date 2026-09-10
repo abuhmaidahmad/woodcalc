@@ -64,6 +64,12 @@ export function isStaff() {
   return !!u?.is_staff;
 }
 
+export function hasPermission(code) {
+  const company = getCompany();
+  if (!company) return false;
+  return company.role === 'owner' || (company.permissions || []).includes(code);
+}
+
 export function getToken() {
   return localStorage.getItem('access_token');
 }
@@ -105,7 +111,17 @@ export async function authFetch(url, options = {}) {
     }
   }
   if (res.status === 403) {
-    window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))
+    // Distinguish "company access blocked" (trial expired/suspended, HasActiveCompany)
+    // from "missing a granular permission" (RequirePermission('hr.view_salary') etc.)
+    // — only the former should trigger the global trial/billing banner.
+    let isPermissionDenied = false
+    try {
+      const body = await res.clone().json()
+      isPermissionDenied = typeof body?.detail === 'string' && body.detail.startsWith('Missing permission:')
+    } catch {}
+    if (!isPermissionDenied) {
+      window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))
+    }
   }
   return res
 }

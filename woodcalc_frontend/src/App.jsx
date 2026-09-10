@@ -20,6 +20,9 @@ import SupplierList from './pages/SupplierList';
 import PurchaseOrderList from './pages/PurchaseOrderList';
 import SupplierStatement from './pages/SupplierStatement';
 import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
+import EmployeeList from './pages/EmployeeList';
+import EmployeeDetail from './pages/EmployeeDetail';
+import PayrollRun from './pages/PayrollRun';
 import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
 import BillingReturn from './pages/BillingReturn';
@@ -145,6 +148,17 @@ export default function App() {
         } />
         <Route path="/settings" element={
           <PrivateRoute><Settings /></PrivateRoute>
+        } />
+
+        {/* HR */}
+        <Route path="/hr/employees" element={
+          <PrivateRoute><EmployeeList /></PrivateRoute>
+        } />
+        <Route path="/hr/employees/:id" element={
+          <PrivateRoute><EmployeeDetail /></PrivateRoute>
+        } />
+        <Route path="/hr/payroll" element={
+          <PrivateRoute><PayrollRun /></PrivateRoute>
         } />
         <Route path="/billing/return" element={
           <PrivateRoute><BillingReturn /></PrivateRoute>

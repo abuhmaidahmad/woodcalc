@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUser, logout } from '../api/auth';
+import { getUser, logout, authFetch } from '../api/auth';
 import { useTranslation } from '../i18n/LanguageContext';
+
+const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
 // ─── Icon Components ───────────────────────────────────────────────
 function Icon({ d }) {
@@ -107,6 +109,7 @@ function getCards(userType, navigate, isVerified, t) {
         { icon: 'incoming', title: t('dashboard.mfgIncomingTitle'), description: t('dashboard.mfgIncomingDesc'), cta: t('dashboard.mfgIncomingCta'), ctaAction: () => navigate('/orders'), accent: '#2A7AC8' },
         { icon: 'production', title: t('dashboard.mfgProductionTitle'), description: t('dashboard.mfgProductionDesc'), cta: t('dashboard.mfgProductionCta'), ctaAction: () => navigate('/production'), accent: '#8A2AC8' },
         { icon: 'revenue', title: t('dashboard.mfgRevenueTitle'), description: t('dashboard.mfgRevenueDesc'), cta: t('dashboard.mfgRevenueCta'), ctaAction: () => navigate('/revenue'), accent: '#2A7AC8' },
+        { icon: 'clients', title: t('dashboard.mfgHrTitle'), description: t('dashboard.mfgHrDesc'), cta: t('dashboard.mfgHrCta'), ctaAction: () => navigate('/hr/employees'), accent: '#2A6ACC' },
         verify,
       ];
 
@@ -151,6 +154,15 @@ export default function Dashboard() {
       return;
     }
     setUser(u);
+    // Refresh the cached user (incl. company.role/permissions) each time the
+    // dashboard is visited, so a permission grant/revoke from the Team card
+    // takes effect without forcing a full re-login.
+    authFetch(API + '/api/auth/me/').then(res => res.ok ? res.json() : null).then(fresh => {
+      if (fresh) {
+        localStorage.setItem('user', JSON.stringify(fresh));
+        setUser(fresh);
+      }
+    }).catch(() => {});
   }, []);
 
   if (!user) return null;

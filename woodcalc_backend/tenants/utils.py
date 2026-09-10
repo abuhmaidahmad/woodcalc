@@ -8,6 +8,12 @@ def get_company_for_user(user):
     return membership.company if membership else None
 
 
+def get_membership_for_user(user):
+    if user is None or not user.is_authenticated:
+        return None
+    return CompanyMembership.objects.select_related("company").filter(user=user).first()
+
+
 def get_company_by_slug(slug):
     if not slug:
         return None

@@ -56,6 +56,7 @@ class CompanyMembership(models.Model):
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="memberships")
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="company_membership")
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.STAFF)
+    permissions = models.JSONField(default=list, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

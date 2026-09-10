@@ -142,6 +142,8 @@ class UserMeSerializer(serializers.ModelSerializer):
             'slug': company.slug,
             'status': company.status,
             'trial_ends_at': company.trial_ends_at,
+            'role': membership.role,
+            'permissions': membership.permissions,
         }
 
 

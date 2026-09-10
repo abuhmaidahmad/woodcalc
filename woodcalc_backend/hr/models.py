@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from tenants.models import Company
 
@@ -26,17 +27,27 @@ class Attendance(models.Model):
     check_out = models.TimeField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PRESENT')
 
+    class Meta:
+        unique_together = ('employee', 'date')
+
     def __str__(self):
         return f'{self.employee} - {self.date}'
 
 
 class LeaveRequest(models.Model):
     STATUS_CHOICES = [('PENDING', 'Pending'), ('APPROVED', 'Approved'), ('REJECTED', 'Rejected')]
+    LEAVE_TYPE_CHOICES = [('ANNUAL', 'Annual'), ('SICK', 'Sick'), ('UNPAID', 'Unpaid'), ('OTHER', 'Other')]
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE, related_name='leave_requests')
+    leave_type = models.CharField(max_length=10, choices=LEAVE_TYPE_CHOICES, default='ANNUAL')
     start_date = models.DateField()
     end_date = models.DateField()
     reason = models.CharField(max_length=300, blank=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='PENDING')
+    decision_note = models.CharField(max_length=300, blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='leave_reviews',
+    )
 
     def __str__(self):
         return f'{self.employee} {self.start_date} - {self.end_date}'
@@ -49,7 +60,15 @@ class Payroll(models.Model):
     bonuses = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     deductions = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     net_pay = models.DecimalField(max_digits=12, decimal_places=2, default=0)
+    notes = models.CharField(max_length=300, blank=True)
     paid = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ('employee', 'period')
+
+    def save(self, *args, **kwargs):
+        self.net_pay = self.base_salary + self.bonuses - self.deductions
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.employee} - {self.period}'

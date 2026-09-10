@@ -4,6 +4,7 @@ import { createCheckout } from '../api/billing'
 import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
+import TeamCard from '../components/TeamCard'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -295,6 +296,7 @@ export default function Settings() {
 
         <ShareCatalogCard />
         <BillingCard />
+        <TeamCard />
         <FeedbackCard />
       </div>
     </div>
