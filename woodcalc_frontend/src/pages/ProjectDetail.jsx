@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Logo from '../components/Logo'
 import { authFetch } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
@@ -145,7 +146,7 @@ export default function ProjectDetail() {
       {/* Top bar */}
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
+          <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
           <span onClick={() => navigate('/customers')} style={{ color: '#888', fontSize: 13, cursor: 'pointer' }}>{t('projectDetail.customers')}</span>
           <span style={{ color: '#666', fontSize: 12 }}>›</span>

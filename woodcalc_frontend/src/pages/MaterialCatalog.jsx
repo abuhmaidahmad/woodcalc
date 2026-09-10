@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import Logo from '../components/Logo'
 import { useNavigate } from 'react-router-dom'
 import { authFetch } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
@@ -198,7 +199,7 @@ export default function MaterialCatalog() {
       {/* Top bar */}
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span onClick={() => navigate('/dashboard')} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: 'pointer' }}>WoodCalc</span>
+          <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#555', fontSize: 12 }}>|</span>
           <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('materialCatalog.title')}</span>
         </div>

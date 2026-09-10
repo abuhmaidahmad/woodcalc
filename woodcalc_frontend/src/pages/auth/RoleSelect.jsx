@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from '../../i18n/LanguageContext';
+import Logo from '../../components/Logo';
 
 const roles = [
   { key: 'customer', icon: '🏠', titleKey: 'roleSelect.customerTitle', descKey: 'roleSelect.customerDesc', path: '/register/customer' },
@@ -18,7 +19,7 @@ export default function RoleSelect() {
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       <div style={styles.container}>
         <div style={styles.header}>
-          <div style={styles.logoMark}>W</div>
+          <Logo height={52} style={{ margin: '0 auto 16px' }} />
           <h1 style={styles.title}>{t('roleSelect.title')}</h1>
           <p style={styles.subtitle}>{t('roleSelect.subtitle')}</p>
         </div>
@@ -67,19 +68,6 @@ const styles = {
   },
   container: { maxWidth: 800, width: '100%' },
   header: { textAlign: 'center', marginBottom: 40 },
-  logoMark: {
-    width: 56,
-    height: 56,
-    background: '#C8902A',
-    borderRadius: 14,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 28,
-    fontWeight: 800,
-    color: '#fff',
-    margin: '0 auto 16px',
-  },
   title: { fontSize: 32, fontWeight: 700, color: '#1A1A1A', margin: '0 0 8px' },
   subtitle: { fontSize: 16, color: '#666', margin: 0 },
   grid: {

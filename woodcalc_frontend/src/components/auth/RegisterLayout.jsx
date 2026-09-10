@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from '../../i18n/LanguageContext';
+import Logo from '../Logo';
 
 export default function RegisterLayout({ role, icon, children }) {
   const { t, language } = useTranslation();
@@ -16,8 +17,7 @@ export default function RegisterLayout({ role, icon, children }) {
       <div style={styles.panel}>
         {/* Left brand strip */}
         <div style={styles.brand}>
-          <div style={styles.logoMark}>W</div>
-          <h1 style={styles.logoText}>WoodCalc</h1>
+          <Logo forDarkBg height={36} style={{ marginBottom: 4, alignSelf: 'flex-start' }} />
           <p style={styles.tagline}>{t('registerLayout.tagline')}</p>
           <div style={styles.roleTag}>{icon} {roleLabels[role]}</div>
         </div>
@@ -69,25 +69,6 @@ const styles = {
     flexDirection: 'column',
     gap: 12,
     flexShrink: 0,
-  },
-  logoMark: {
-    width: 48,
-    height: 48,
-    background: ACCENT,
-    borderRadius: 10,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 24,
-    fontWeight: 800,
-    color: '#fff',
-    marginBottom: 4,
-  },
-  logoText: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 700,
-    margin: 0,
   },
   tagline: {
     color: '#888',

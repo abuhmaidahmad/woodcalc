@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUser, logout, authFetch } from '../api/auth';
 import { useTranslation } from '../i18n/LanguageContext';
+import Logo from '../components/Logo';
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
@@ -196,8 +197,7 @@ export default function Dashboard() {
       {/* Top Bar */}
       <div style={styles.topBar}>
         <div style={styles.topLeft}>
-          <div style={styles.logoMark}>W</div>
-          <span style={styles.logoText}>WoodCalc</span>
+          <Logo forDarkBg height={26} />
         </div>
         <div style={styles.topRight}>
           <div style={styles.userInfo}>

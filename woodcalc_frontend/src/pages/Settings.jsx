@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import Logo from '../components/Logo'
 import { authFetch, getCompany } from '../api/auth'
 import { createCheckout } from '../api/billing'
 import { listFeedback } from '../api/feedback'
@@ -230,7 +231,7 @@ export default function Settings() {
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span onClick={() => navigate("/dashboard")} style={{ color: ACCENT, fontWeight: 800, fontSize: 18, cursor: "pointer" }}>WoodCalc</span>
+          <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
           <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('settings.title')}</span>
         </div>

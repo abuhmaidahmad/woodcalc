@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { loginUser, saveSession } from '../../api/auth';
 import { useTranslation } from '../../i18n/LanguageContext';
+import Logo from '../../components/Logo';
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
@@ -33,7 +34,7 @@ export default function Login() {
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       <div style={styles.card}>
-        <div style={styles.logoMark}>W</div>
+        <Logo height={44} style={{ margin: '0 auto 20px' }} />
         <h1 style={styles.title}>{t('login.title')}</h1>
         <p style={styles.subtitle}>{t('login.subtitle')}</p>
 
@@ -93,19 +94,6 @@ const styles = {
     width: '100%',
     maxWidth: 420,
     boxShadow: '0 8px 48px rgba(0,0,0,0.10)',
-  },
-  logoMark: {
-    width: 48,
-    height: 48,
-    background: '#C8902A',
-    borderRadius: 12,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: 24,
-    fontWeight: 800,
-    color: '#fff',
-    margin: '0 auto 20px',
   },
   title: {
     fontSize: 24,
