@@ -217,10 +217,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 }
 
 // ─── Master Cut List for Workshop ───────────────────────────────────
-function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
-  const { t } = useTranslation()
-  const [expanded, setExpanded] = React.useState(true)
-
+function computeMasterCutList(cabinets, calculateCabinet) {
   // Build master grouped list
   const masterMap = {}
   const skirtingByMaterial = {}
@@ -344,6 +341,139 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     return a.material.localeCompare(b.material)
   })
 
+  return { rows, skirtingByMaterial, golaProfileMeters, drawerSystems, ledStripMeters, shelfPinsStandard, shelfPinsRubber }
+}
+
+// ─── Hardware / misc-materials summary (skirting, shelf pins, drawer
+// runners, etc.) — shown up top so the workshop sees total hardware
+// needs before scrolling through the full cut lists below.
+function HardwareSummary({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const { t } = useTranslation()
+  const { skirtingByMaterial, golaProfileMeters, drawerSystems, ledStripMeters, shelfPinsStandard, shelfPinsRubber } = computeMasterCutList(cabinets, calculateCabinet)
+
+  const hasAny = Object.keys(skirtingByMaterial).length > 0 || ledStripMeters > 0 || shelfPinsStandard > 0 || shelfPinsRubber > 0 || golaProfileMeters.L > 0 || golaProfileMeters.C > 0 || Object.keys(drawerSystems).length > 0
+  if (!hasAny) return null
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>{t('kitchenPlannerModule.hardwareSummary')}</div>
+
+      {Object.entries(skirtingByMaterial).map(([matKey, data]) => {
+        const labels = {
+          match_countertop: t('kitchenPlannerModule.skirtingMatchCountertop'),
+          pvc_black: t('kitchenPlannerModule.skirtingPvcBlackFull'),
+          pvc_champagne: t('kitchenPlannerModule.skirtingPvcChampagneFull'),
+          pvc_silver: t('kitchenPlannerModule.skirtingPvcSilverFull'),
+        }
+        return (
+          <div key={matKey} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+            <span style={{ fontSize: 20 }}>📏</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || t('kitchenPlannerModule.skirtingBoard')}</div>
+              <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.coversLegsHint')}</div>
+            </div>
+            <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.meters.toFixed(2)} m</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
+              </div>
+              {data.elbows > 0 && (
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.elbows}</div>
+                  <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.cornerElbows')}</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      })}
+
+      {ledStripMeters > 0 && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>💡</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.ledStripLighting')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.ledStripHint')}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{ledStripMeters.toFixed(2)} m</div>
+            <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
+          </div>
+        </div>
+      )}
+
+      {(shelfPinsStandard > 0 || shelfPinsRubber > 0) && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>🔩</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.shelfSupportPins')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.shelfPinsHint')}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
+            {shelfPinsStandard > 0 && (
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsStandard}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.standard')}</div>
+              </div>
+            )}
+            {shelfPinsRubber > 0 && (
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsRubber}</div>
+                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.rubberTipped')}</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {golaProfileMeters.L > 0 && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>🪛</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileL')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileLHint')}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.L.toFixed(2)} m</div>
+            <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
+          </div>
+        </div>
+      )}
+      {golaProfileMeters.C > 0 && (
+        <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>🪛</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileC')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileCHint')}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.C.toFixed(2)} m</div>
+            <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
+          </div>
+        </div>
+      )}
+      {Object.entries(drawerSystems).map(([sysName, sets]) => (
+        <div key={sysName} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <span style={{ fontSize: 20 }}>🗄️</span>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.drawerRunners', { sys: sysName })}</div>
+            <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.drawerRunnersHint')}</div>
+          </div>
+          <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
+            <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{sets}</div>
+            <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.runnerSets')}</div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+  const { t } = useTranslation()
+  const [expanded, setExpanded] = React.useState(true)
+  const { rows } = computeMasterCutList(cabinets, calculateCabinet)
+
   return (
     <div style={{ marginTop: 24, marginBottom: 32 }}>
       <div onClick={() => setExpanded(p => !p)}
@@ -378,114 +508,6 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
               </tbody>
             </table>
           </div>
-
-          {Object.entries(skirtingByMaterial).map(([matKey, data]) => {
-            const labels = {
-              match_countertop: t('kitchenPlannerModule.skirtingMatchCountertop'),
-              pvc_black: t('kitchenPlannerModule.skirtingPvcBlackFull'),
-              pvc_champagne: t('kitchenPlannerModule.skirtingPvcChampagneFull'),
-              pvc_silver: t('kitchenPlannerModule.skirtingPvcSilverFull'),
-            }
-            return (
-              <div key={matKey} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-                <span style={{ fontSize: 20 }}>📏</span>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{labels[matKey] || t('kitchenPlannerModule.skirtingBoard')}</div>
-                  <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.coversLegsHint')}</div>
-                </div>
-                <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.meters.toFixed(2)} m</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
-                  </div>
-                  {data.elbows > 0 && (
-                    <div>
-                      <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{data.elbows}</div>
-                      <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.cornerElbows')}</div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-
-          {ledStripMeters > 0 && (
-            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-              <span style={{ fontSize: 20 }}>💡</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.ledStripLighting')}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.ledStripHint')}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{ledStripMeters.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
-              </div>
-            </div>
-          )}
-
-          {(shelfPinsStandard > 0 || shelfPinsRubber > 0) && (
-            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-              <span style={{ fontSize: 20 }}>🔩</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.shelfSupportPins')}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.shelfPinsHint')}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right', display: 'flex', gap: 20 }}>
-                {shelfPinsStandard > 0 && (
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsStandard}</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.standard')}</div>
-                  </div>
-                )}
-                {shelfPinsRubber > 0 && (
-                  <div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{shelfPinsRubber}</div>
-                    <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.rubberTipped')}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {golaProfileMeters.L > 0 && (
-            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-              <span style={{ fontSize: 20 }}>🪛</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileL')}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileLHint')}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.L.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
-              </div>
-            </div>
-          )}
-          {golaProfileMeters.C > 0 && (
-            <div style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-              <span style={{ fontSize: 20 }}>🪛</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.golaProfileC')}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.golaProfileCHint')}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{golaProfileMeters.C.toFixed(2)} m</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.linearMeters')}</div>
-              </div>
-            </div>
-          )}
-          {Object.entries(drawerSystems).map(([sysName, sets]) => (
-            <div key={sysName} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', gap: 16, marginTop: 12 }}>
-              <span style={{ fontSize: 20 }}>🗄️</span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{t('kitchenPlannerModule.drawerRunners', { sys: sysName })}</div>
-                <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('kitchenPlannerModule.drawerRunnersHint')}</div>
-              </div>
-              <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-                <div style={{ fontSize: 20, fontWeight: 800, color: ACCENT }}>{sets}</div>
-                <div style={{ fontSize: 11, color: '#888' }}>{t('kitchenPlannerModule.runnerSets')}</div>
-              </div>
-            </div>
-          ))}
         </>
       )}
     </div>
@@ -1654,6 +1676,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </tbody>
                 </table>
               </div>
+
+              {/* Hardware summary (skirting, shelf pins, drawer runners, etc.) up top,
+                  before the detailed cut lists below */}
+              <HardwareSummary cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
 
               {/* Cut Lists */}
               <PerCabinetCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
