@@ -1410,6 +1410,7 @@
     "lastName": "اسم العائلة",
     "jobTitle": "المسمى الوظيفي",
     "department": "القسم",
+    "selectDepartment": "— اختر القسم —",
     "email": "البريد الإلكتروني",
     "phone": "الهاتف",
     "hireDate": "تاريخ التعيين",

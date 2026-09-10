@@ -1410,6 +1410,7 @@
     "lastName": "Last name",
     "jobTitle": "Job title",
     "department": "Department",
+    "selectDepartment": "— Select department —",
     "email": "Email",
     "phone": "Phone",
     "hireDate": "Hire date",

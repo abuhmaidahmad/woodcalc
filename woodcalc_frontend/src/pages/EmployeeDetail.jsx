@@ -5,7 +5,7 @@ import {
   getEmployee, updateEmployee, deleteEmployee,
   listAttendance, createAttendance,
   listLeaveRequests, createLeaveRequest, approveLeaveRequest, rejectLeaveRequest,
-  listPayroll,
+  listPayroll, listDepartments,
 } from '../api/hr'
 import { exportPayslipPDF } from '../utils/payslipPdf'
 import { useTranslation } from '../i18n/LanguageContext'
@@ -26,10 +26,13 @@ export default function EmployeeDetail() {
   const locale = language === 'ar' ? 'ar' : 'en-GB'
 
   const [employee, setEmployee] = useState(null)
+  const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('profile')
   const [form, setForm] = useState(null)
   const [saving, setSaving] = useState(false)
+
+  const deptLabel = d => language === 'ar' ? d.name_ar : d.name_en
 
   const [attendance, setAttendance] = useState([])
   const [attForm, setAttForm] = useState({ date: '', check_in: '', check_out: '', status: 'PRESENT' })
@@ -76,15 +79,24 @@ export default function EmployeeDetail() {
     } catch {}
   }
 
-  useEffect(() => { fetchEmployee(); fetchAttendance(); fetchLeave(); fetchPayroll() }, [id])
+  const fetchDepartments = async () => {
+    try {
+      const data = await listDepartments()
+      const list = Array.isArray(data) ? data : (data.results || [])
+      setDepartments(list.filter(d => d.is_active))
+    } catch {}
+  }
+
+  useEffect(() => { fetchEmployee(); fetchAttendance(); fetchLeave(); fetchPayroll(); fetchDepartments() }, [id])
 
   const saveProfile = async () => {
     setSaving(true)
     try {
       const body = { ...form }
-      delete body.id; delete body.tenant
+      delete body.id; delete body.tenant; delete body.department_detail
       if (!canViewSalary) delete body.salary
       if (!body.hire_date) delete body.hire_date
+      if (!body.department) body.department = null
       const updated = await updateEmployee(id, body)
       setEmployee(updated)
       setForm(updated)
@@ -166,7 +178,15 @@ export default function EmployeeDetail() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.jobTitle')} value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} disabled={!canManage} />
-              <Field label={t('hr.department')} value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} disabled={!canManage} />
+              <div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('hr.department')}</div>
+                <select value={form.department ?? ''} disabled={!canManage}
+                  onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                  style={{ padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, background: canManage ? '#fff' : '#F7F4F0' }}>
+                  <option value="">{t('hr.selectDepartment')}</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{deptLabel(d)}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.email')} type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} disabled={!canManage} />

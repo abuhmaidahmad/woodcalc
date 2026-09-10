@@ -1,9 +1,18 @@
 from rest_framework import serializers
 from tenants.permissions import user_has_permission
-from .models import Employee, Attendance, LeaveRequest, Payroll
+from .models import Employee, Attendance, LeaveRequest, Payroll, Department
+
+
+class DepartmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Department
+        fields = ['id', 'name_en', 'name_ar', 'is_active']
+        extra_kwargs = {'tenant': {'read_only': True}}
 
 
 class EmployeeSerializer(serializers.ModelSerializer):
+    department_detail = DepartmentSerializer(source='department', read_only=True)
+
     class Meta:
         model = Employee
         fields = '__all__'

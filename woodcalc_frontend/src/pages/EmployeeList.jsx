@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { hasPermission } from '../api/auth'
-import { listEmployees, createEmployee } from '../api/hr'
+import { listEmployees, createEmployee, listDepartments } from '../api/hr'
 import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -14,6 +14,7 @@ export default function EmployeeList() {
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const navigate = useNavigate()
   const [employees, setEmployees] = useState([])
+  const [departments, setDepartments] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [showAdd, setShowAdd] = useState(false)
@@ -33,12 +34,22 @@ export default function EmployeeList() {
     setLoading(false)
   }
 
-  useEffect(() => { if (canView) fetchEmployees() }, [])
+  const fetchDepartments = async () => {
+    try {
+      const data = await listDepartments()
+      const list = Array.isArray(data) ? data : (data.results || [])
+      setDepartments(list.filter(d => d.is_active))
+    } catch {}
+  }
+
+  useEffect(() => { if (canView) { fetchEmployees(); fetchDepartments() } }, [])
+
+  const deptLabel = d => language === 'ar' ? d.name_ar : d.name_en
 
   const filtered = employees.filter(e =>
     `${e.first_name} ${e.last_name}`.toLowerCase().includes(search.toLowerCase()) ||
     e.job_title?.toLowerCase().includes(search.toLowerCase()) ||
-    e.department?.toLowerCase().includes(search.toLowerCase())
+    (e.department_detail && deptLabel(e.department_detail).toLowerCase().includes(search.toLowerCase()))
   )
 
   const saveEmployee = async () => {
@@ -48,6 +59,7 @@ export default function EmployeeList() {
       const body = { ...form }
       if (!canViewSalary || !body.salary) delete body.salary
       if (!body.hire_date) delete body.hire_date
+      if (!body.department) delete body.department
       const res = await createEmployee(body)
       if (res.id) {
         setForm(EMPTY_FORM)
@@ -127,7 +139,7 @@ export default function EmployeeList() {
                     style={{ borderBottom: '1px solid #F7F4F0', cursor: 'pointer' }}>
                     <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{emp.first_name} {emp.last_name}</td>
                     <td style={{ padding: '10px 14px', fontSize: 12 }}>{emp.job_title || '—'}</td>
-                    <td style={{ padding: '10px 14px', fontSize: 12 }}>{emp.department || '—'}</td>
+                    <td style={{ padding: '10px 14px', fontSize: 12 }}>{emp.department_detail ? deptLabel(emp.department_detail) : '—'}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: emp.active ? '#2AC87A' : '#999', background: emp.active ? '#2AC87A18' : '#99999918', padding: '3px 8px', borderRadius: 4 }}>
                         {emp.active ? t('hr.statusActive') : t('hr.statusInactive')}
@@ -154,7 +166,14 @@ export default function EmployeeList() {
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.jobTitle')} value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} />
-              <Field label={t('hr.department')} value={form.department} onChange={v => setForm(f => ({ ...f, department: v }))} />
+              <div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('hr.department')}</div>
+                <select value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, background: '#fff' }}>
+                  <option value="">{t('hr.selectDepartment')}</option>
+                  {departments.map(d => <option key={d.id} value={d.id}>{deptLabel(d)}</option>)}
+                </select>
+              </div>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.email')} type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />

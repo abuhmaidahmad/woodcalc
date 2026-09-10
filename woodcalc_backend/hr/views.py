@@ -4,8 +4,21 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany, RequirePermission
-from .models import Employee, Attendance, LeaveRequest, Payroll
-from .serializers import EmployeeSerializer, AttendanceSerializer, LeaveRequestSerializer, PayrollSerializer
+from .models import Employee, Attendance, LeaveRequest, Payroll, Department
+from .serializers import EmployeeSerializer, AttendanceSerializer, LeaveRequestSerializer, PayrollSerializer, DepartmentSerializer
+
+
+class DepartmentViewSet(TenantScopedMixin, ModelViewSet):
+    queryset = Department.objects.all()
+    serializer_class = DepartmentSerializer
+
+    def get_permissions(self):
+        base = [IsAuthenticated(), HasActiveCompany()]
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            base.append(RequirePermission('hr.manage_employees')())
+        else:
+            base.append(RequirePermission('hr.view_employees')())
+        return base
 
 
 class EmployeeViewSet(TenantScopedMixin, ModelViewSet):

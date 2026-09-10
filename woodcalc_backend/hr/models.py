@@ -3,12 +3,59 @@ from django.db import models
 from tenants.models import Company
 
 
+class Department(models.Model):
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='departments', null=True)
+    name_en = models.CharField(max_length=100)
+    name_ar = models.CharField(max_length=100)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('tenant', 'name_en')
+        ordering = ['name_en']
+
+    def __str__(self):
+        return self.name_en
+
+
+DEFAULT_DEPARTMENTS = [
+    ('Management', 'الإدارة'),
+    ('Sales', 'المبيعات'),
+    ('Design', 'التصميم'),
+    ('Accounting & Finance', 'المحاسبة والمالية'),
+    ('Procurement', 'المشتريات'),
+    ('Warehouse & Store', 'المستودع والمخزن'),
+    ('Production', 'الإنتاج'),
+    ('Cutting Station', 'محطة القص'),
+    ('Edge Banding', 'تغليف الحواف'),
+    ('CNC', 'سي إن سي'),
+    ('Assembly', 'التجميع'),
+    ('Painting & Finishing', 'الدهان والتشطيب'),
+    ('Quality Control', 'ضبط الجودة'),
+    ('Installation', 'التركيب'),
+    ('Delivery & Logistics', 'التوصيل واللوجستيات'),
+    ('Customer Service', 'خدمة العملاء'),
+    ('HR', 'الموارد البشرية'),
+    ('IT', 'تقنية المعلومات'),
+]
+
+
+def seed_default_departments(company):
+    """Create the standard department set for a company, skipping any that
+    already exist (matched on name_en). Safe to call more than once."""
+    existing = set(company.departments.values_list('name_en', flat=True))
+    Department.objects.bulk_create([
+        Department(tenant=company, name_en=name_en, name_ar=name_ar)
+        for name_en, name_ar in DEFAULT_DEPARTMENTS
+        if name_en not in existing
+    ])
+
+
 class Employee(models.Model):
     tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='employees')
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
     job_title = models.CharField(max_length=100, blank=True)
-    department = models.CharField(max_length=100, blank=True)
+    department = models.ForeignKey(Department, on_delete=models.PROTECT, null=True, blank=True, related_name='employees')
     email = models.EmailField(blank=True)
     phone = models.CharField(max_length=50, blank=True)
     hire_date = models.DateField(null=True, blank=True)
