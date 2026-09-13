@@ -96,6 +96,20 @@ function CuttingOptimizerModule() {
       setWorkOrderId(preselectId)
       setPreselectedFromUrl(true)
     }
+
+    const cadcamImportId = params.get('cadcam_import')
+    if (cadcamImportId) {
+      const raw = sessionStorage.getItem(`cadcam_group_${cadcamImportId}`)
+      if (raw) {
+        try {
+          const group = JSON.parse(raw)
+          setMaterialId(String(group.material))
+          setThickness(String(group.thickness))
+          setParts(group.parts.map(p => ({ ...p, quantity: String(p.quantity) })))
+        } catch {}
+        sessionStorage.removeItem(`cadcam_group_${cadcamImportId}`)
+      }
+    }
   }, [])
 
   useEffect(() => {

@@ -109,6 +109,7 @@ function getCards(userType, navigate, isVerified, t) {
         { icon: 'materials', title: t('dashboard.mfgMaterialsStockTitle'), description: t('dashboard.mfgMaterialsStockDesc'), cta: t('dashboard.mfgMaterialsStockCta'), ctaAction: () => navigate('/materials'), accent: '#8A2AC8' },
         { icon: 'incoming', title: t('dashboard.mfgIncomingTitle'), description: t('dashboard.mfgIncomingDesc'), cta: t('dashboard.mfgIncomingCta'), ctaAction: () => navigate('/orders'), accent: '#2A7AC8' },
         { icon: 'production', title: t('dashboard.mfgProductionTitle'), description: t('dashboard.mfgProductionDesc'), cta: t('dashboard.mfgProductionCta'), ctaAction: () => navigate('/production'), accent: '#8A2AC8' },
+        { icon: 'incoming', title: t('dashboard.mfgCadCamTitle'), description: t('dashboard.mfgCadCamDesc'), cta: t('dashboard.mfgCadCamCta'), ctaAction: () => navigate('/cadcam-import'), accent: '#2A6ACC' },
         { icon: 'revenue', title: t('dashboard.mfgRevenueTitle'), description: t('dashboard.mfgRevenueDesc'), cta: t('dashboard.mfgRevenueCta'), ctaAction: () => navigate('/revenue'), accent: '#2A7AC8' },
         { icon: 'clients', title: t('dashboard.mfgHrTitle'), description: t('dashboard.mfgHrDesc'), cta: t('dashboard.mfgHrCta'), ctaAction: () => navigate('/hr/employees'), accent: '#2A6ACC' },
         verify,

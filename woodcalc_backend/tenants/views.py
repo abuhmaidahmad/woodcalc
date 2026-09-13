@@ -5,16 +5,21 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .mixins import TenantScopedMixin
-from .models import CompanyMembership
+from .models import CompanyMembership, CompanySettings
 from .permissions import HasActiveCompany, RequirePermission
 from .permissions_registry import PERMISSIONS
 from .serializers import MembershipSerializer, MembershipCreateSerializer
 from .utils import get_company_settings
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated, HasActiveCompany])
 def company_settings(request):
+    if request.method == 'PATCH':
+        settings, _ = CompanySettings.objects.get_or_create(company=request.company)
+        settings.flags = {**settings.flags, **request.data}
+        settings.save(update_fields=['flags', 'updated_at'])
+        return Response(settings.flags)
     return Response(get_company_settings(request.company))
 
 
