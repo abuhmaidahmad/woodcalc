@@ -43,6 +43,25 @@ export async function loginUser(email, password) {
   return res.json();
 }
 
+export async function requestPasswordReset(email) {
+  const res = await fetch(`${BASE_URL}/api/auth/password-reset/request/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  return res.json();
+}
+
+export async function confirmPasswordReset(token, newPassword) {
+  const res = await fetch(`${BASE_URL}/api/auth/password-reset/confirm/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token, new_password: newPassword }),
+  });
+  const data = await res.json();
+  return { ok: res.ok, ...data };
+}
+
 export function saveSession(tokens, user) {
   localStorage.setItem('access_token', tokens.access);
   localStorage.setItem('refresh_token', tokens.refresh);

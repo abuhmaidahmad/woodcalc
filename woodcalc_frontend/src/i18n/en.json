@@ -52,7 +52,35 @@
     "signIn": "Sign in",
     "error": "Invalid email or password.",
     "noAccount": "Don't have an account?",
-    "createOne": "Create one"
+    "createOne": "Create one",
+    "forgotPasswordLink": "Forgot password?"
+  },
+  "forgotPassword": {
+    "title": "Reset your password",
+    "subtitle": "Enter the email address on your account and we'll send you a link to reset your password.",
+    "submit": "Send reset link",
+    "sending": "Sending…",
+    "sentTitle": "Check your email",
+    "sentMessage": "If an account exists for that email, we've sent a password reset link. It expires in 1 hour.",
+    "backToLogin": "Back to sign in"
+  },
+  "resetPassword": {
+    "title": "Set a new password",
+    "subtitle": "Choose a new password for your account.",
+    "newPasswordLabel": "New password",
+    "newPasswordPlaceholder": "Minimum 8 characters",
+    "confirmPasswordLabel": "Confirm new password",
+    "confirmPasswordPlaceholder": "Re-enter your new password",
+    "submit": "Set new password",
+    "saving": "Saving…",
+    "errTooShort": "Password must be at least 8 characters.",
+    "errMismatch": "Passwords don't match.",
+    "errGeneric": "Something went wrong. Please try again.",
+    "doneTitle": "Password updated",
+    "doneMessage": "Your password has been changed. You can now sign in with your new password.",
+    "missingTokenTitle": "Invalid reset link",
+    "missingTokenMessage": "This link is missing its reset token. Please request a new one.",
+    "requestNewLink": "Request a new reset link"
   },
   "roleSelect": {
     "title": "Join WoodCalc",

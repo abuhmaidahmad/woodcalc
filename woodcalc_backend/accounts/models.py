@@ -95,3 +95,18 @@ class EmailAccount(models.Model):
 
     def __str__(self):
         return f"{self.user.email} -> {self.email_address}"
+
+
+class PasswordResetToken(models.Model):
+    """A single-use, time-limited token for the 'forgot password' email link.
+    Only the SHA-256 hash of the raw token is stored — the raw value is
+    emailed once and never persisted, same principle as not storing plaintext
+    passwords."""
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Reset token for {self.user.email} (used={self.used_at is not None})"

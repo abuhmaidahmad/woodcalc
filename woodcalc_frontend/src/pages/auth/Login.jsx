@@ -51,7 +51,10 @@ export default function Login() {
         </div>
 
         <div style={styles.field}>
-          <label style={styles.label}>{t('login.passwordLabel')}</label>
+          <div style={styles.labelRow}>
+            <label style={styles.label}>{t('login.passwordLabel')}</label>
+            <a href="/forgot-password" style={styles.forgotLink}>{t('login.forgotPasswordLink')}</a>
+          </div>
           <input
             type="password"
             placeholder={t('login.passwordPlaceholder')}
@@ -115,6 +118,17 @@ const styles = {
     fontWeight: 600,
     color: '#333',
     marginBottom: 6,
+  },
+  labelRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+  },
+  forgotLink: {
+    fontSize: 12,
+    color: '#C8902A',
+    fontWeight: 600,
+    textDecoration: 'none',
   },
   input: {
     width: '100%',

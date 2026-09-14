@@ -11,6 +11,8 @@ from .serializers import (
     ManufacturerRegisterSerializer,
     SupplierRegisterSerializer,
     UserMeSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
 )
 from .models import ManufacturerProfile, SupplierProfile
 from django.db import transaction
@@ -180,3 +182,52 @@ def email_account(request):
         serializer.save()
         return Response({'message': 'Email account connected successfully.'}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    from datetime import timedelta
+    from django.utils import timezone
+    from .password_reset import create_reset_token, send_reset_email
+
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    email = serializer.validated_data['email']
+
+    generic_response = Response(
+        {'message': "If an account exists for that email, we've sent a password reset link."}
+    )
+
+    user = User.objects.filter(email__iexact=email).first()
+    if user is None:
+        return generic_response
+
+    recent_token = user.password_reset_tokens.filter(
+        used_at__isnull=True, created_at__gte=timezone.now() - timedelta(seconds=60),
+    ).exists()
+    if recent_token:
+        return generic_response
+
+    raw_token = create_reset_token(user)
+    send_reset_email(user, raw_token)
+    return generic_response
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def confirm_password_reset(request):
+    from .password_reset import consume_reset_token
+
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+
+    try:
+        consume_reset_token(
+            serializer.validated_data['token'],
+            serializer.validated_data['new_password'],
+        )
+    except ValueError as e:
+        return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response({'message': 'Password updated successfully.'})

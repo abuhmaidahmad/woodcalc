@@ -17,6 +17,7 @@ ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=Csv(
 
 EMAIL_ENCRYPTION_KEY = config('EMAIL_ENCRYPTION_KEY', default='')
 RESEND_API_KEY = config('RESEND_API_KEY', default='')
+FRONTEND_URL = config('FRONTEND_URL', default='https://woodcalc-seven.vercel.app')
 
 PAYTABS_PROFILE_ID = config('PAYTABS_PROFILE_ID', default='')
 PAYTABS_SERVER_KEY = config('PAYTABS_SERVER_KEY', default='')

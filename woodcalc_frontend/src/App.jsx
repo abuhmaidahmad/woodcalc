@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import RoleSelect from './pages/auth/RoleSelect';
 import Login from './pages/auth/Login';
+import ForgotPassword from './pages/auth/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
 import RegisterCustomer from './pages/auth/RegisterCustomer';
 import RegisterArchitect from './pages/auth/RegisterArchitect';
 import RegisterManufacturer from './pages/auth/RegisterManufacturer';
@@ -69,6 +71,8 @@ export default function App() {
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/register" element={<RoleSelect />} />
         <Route path="/register/customer" element={<RegisterCustomer />} />
         <Route path="/register/architect" element={<RegisterArchitect />} />

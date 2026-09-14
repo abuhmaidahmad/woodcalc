@@ -9,4 +9,6 @@ urlpatterns = [
     path('me/', views.me, name='me'),
     path('upload-document/', views.upload_verification_document, name='upload_document'),
     path('email-account/', views.email_account, name='email_account'),
+    path('password-reset/request/', views.request_password_reset, name='password_reset_request'),
+    path('password-reset/confirm/', views.confirm_password_reset, name='password_reset_confirm'),
 ]
