@@ -19,14 +19,14 @@ export default function configuratorSteps(t, setTab, ensureConfiguratorSetup) {
       target: '#onboarding-configurator-project',
       title: t('onboarding.configuratorStep1Title'),
       content: t('onboarding.configuratorStep1Content'),
-      placement: 'bottom',
+      placement: 'auto',
       skipBeacon: true,
     },
     {
       target: '#onboarding-configurator-tabs',
       title: t('onboarding.configuratorStep2Title'),
       content: t('onboarding.configuratorStep2Content'),
-      placement: 'bottom',
+      placement: 'auto',
     },
     {
       target: '#onboarding-configurator-room-size',
@@ -60,7 +60,7 @@ export default function configuratorSteps(t, setTab, ensureConfiguratorSetup) {
       target: '#onboarding-configurator-room-canvas',
       title: t('onboarding.configuratorStep7Title'),
       content: t('onboarding.configuratorStep7Content'),
-      placement: 'top',
+      placement: 'center',
       before: switchTab(setTab, 'room'),
     },
     {
@@ -81,7 +81,7 @@ export default function configuratorSteps(t, setTab, ensureConfiguratorSetup) {
       target: '#onboarding-configurator-cabinets-canvas',
       title: t('onboarding.configuratorStep10Title'),
       content: t('onboarding.configuratorStep10Content'),
-      placement: 'top',
+      placement: 'center',
       before: switchTabWithSetup(setTab, 'planner', ensureConfiguratorSetup),
     },
     {

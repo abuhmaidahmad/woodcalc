@@ -4,14 +4,14 @@ export default function dashboardSteps(t) {
       target: '#onboarding-dashboard-greeting',
       title: t('onboarding.dashboardStep1Title'),
       content: t('onboarding.dashboardStep1Content'),
-      placement: 'bottom',
+      placement: 'auto',
       skipBeacon: true,
     },
     {
       target: '#onboarding-dashboard-grid',
       title: t('onboarding.dashboardStep2Title'),
       content: t('onboarding.dashboardStep2Content'),
-      placement: 'top',
+      placement: 'auto',
     },
   ]
 }
