@@ -10,7 +10,7 @@ from .models import PasswordResetToken
 
 resend.api_key = settings.RESEND_API_KEY
 
-DEFAULT_FROM_ADDRESS = "WoodCalc <accounts@purchasing.petsaholics.com>"
+DEFAULT_FROM_ADDRESS = "WoodCalc <info@woodcalcerp.com>"
 TOKEN_TTL = timedelta(hours=1)
 
 
