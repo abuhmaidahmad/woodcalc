@@ -149,3 +149,25 @@ export function withCompanyParam(url, companySlug) {
   if (!companySlug) return url
   return url + (url.includes('?') ? '&' : '?') + 'company=' + encodeURIComponent(companySlug)
 }
+
+export async function fetchOnboardingProgress() {
+  const res = await authFetch(`${BASE_URL}/api/auth/me/`)
+  const data = await res.json()
+  return data.onboarding_progress || {}
+}
+
+export async function markOnboardingComplete(moduleKey) {
+  const res = await authFetch(`${BASE_URL}/api/auth/me/`, {
+    method: 'PATCH',
+    body: JSON.stringify({ module_key: moduleKey }),
+  })
+  const data = await res.json()
+  if (res.ok) {
+    const user = getUser()
+    if (user) {
+      user.onboarding_progress = data.onboarding_progress
+      localStorage.setItem('user', JSON.stringify(user))
+    }
+  }
+  return data
+}

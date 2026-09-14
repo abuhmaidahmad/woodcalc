@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { getUser, logout, authFetch } from '../api/auth';
 import { useTranslation } from '../i18n/LanguageContext';
 import Logo from '../components/Logo';
+import OnboardingTour from '../components/OnboardingTour';
+import dashboardSteps from '../onboardingSteps/dashboard';
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
@@ -226,7 +228,7 @@ export default function Dashboard() {
 
       {/* Main Content */}
       <div style={styles.content}>
-        <div style={styles.greeting}>
+        <div id="onboarding-dashboard-greeting" style={styles.greeting}>
           <h1 style={styles.greetingTitle}>
             {t('dashboard.welcome', { name: user.first_name })}
           </h1>
@@ -236,12 +238,13 @@ export default function Dashboard() {
         </div>
 
         {/* Cards Grid */}
-        <div style={styles.grid}>
+        <div id="onboarding-dashboard-grid" style={styles.grid}>
           {cards.map((card, i) => (
             <DashCard key={i} {...card} />
           ))}
         </div>
       </div>
+      <OnboardingTour moduleKey="dashboard" steps={dashboardSteps(t)} />
     </div>
   );
 }

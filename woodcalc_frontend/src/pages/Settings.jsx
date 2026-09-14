@@ -6,6 +6,7 @@ import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 import TeamCard from '../components/TeamCard'
+import { ONBOARDING_MODULES } from '../onboardingSteps'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -184,6 +185,36 @@ function FeedbackCard() {
   )
 }
 
+function TourCard() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+
+  const replay = (module) => {
+    sessionStorage.setItem(`replay_tour_${module.key}`, '1')
+    navigate(module.path)
+  }
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('onboarding.settingsTitle')}</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>
+        {t('onboarding.settingsDesc')}
+      </div>
+      <div>
+        {ONBOARDING_MODULES.map(module => (
+          <div key={module.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderTop: '1px solid #F7F4F0' }}>
+            <div style={{ fontSize: 13, color: DARK, fontWeight: 600 }}>{t(module.labelKey)}</div>
+            <button onClick={() => replay(module)}
+              style={{ padding: '7px 14px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: DARK }}>
+              {t('onboarding.replayBtn')}
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { t, language } = useTranslation()
   const [emailAccount, setEmailAccount] = useState(null)
@@ -298,6 +329,7 @@ export default function Settings() {
         <ShareCatalogCard />
         <BillingCard />
         <TeamCard />
+        <TourCard />
         <FeedbackCard />
       </div>
     </div>

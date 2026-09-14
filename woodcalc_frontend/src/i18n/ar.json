@@ -1573,5 +1573,20 @@
     "sendToOptimizer": "إرسال القطع إلى محسّن القص",
     "sending": "جارِ الإرسال...",
     "recentImports": "الاستيرادات الأخيرة"
+  },
+  "onboarding": {
+    "dashboardStep1Title": "مرحبًا بك في WoodCalc",
+    "dashboardStep1Content": "هذه لوحة التحكم الخاصة بك. إليك نظرة سريعة على مكان كل شيء.",
+    "dashboardStep2Title": "أدواتك",
+    "dashboardStep2Content": "تفتح كل بطاقة جزءًا مختلفًا من WoodCalc. اضغط على إحداها للبدء.",
+    "configuratorStep1Title": "مشروعك",
+    "configuratorStep1Content": "يعرض هذا اسم مشروعك الحالي وعدد الخزائن. اضغط على الاسم لإعادة تسميته.",
+    "configuratorStep2Title": "التنقل بين الخطوات",
+    "configuratorStep2Content": "استخدم هذه التبويبات للتنقل بين تخطيط الغرفة والخزائن وقائمة المواد والعرض ثلاثي الأبعاد والعرض التقديمي والعقد.",
+    "settingsTitle": "جولات التعريف",
+    "settingsDesc": "أعد تشغيل جولة الترحيب لأي وحدة دون التأثير على حالة إتمامها.",
+    "moduleDashboard": "لوحة التحكم",
+    "moduleConfigurator": "مخطط المطبخ",
+    "replayBtn": "إعادة تشغيل الجولة"
   }
 }

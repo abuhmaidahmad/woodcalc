@@ -129,7 +129,7 @@ class UserMeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'city', 'user_type', 'is_verified', 'is_staff', 'company']
+        fields = ['id', 'first_name', 'last_name', 'email', 'phone', 'city', 'user_type', 'is_verified', 'is_staff', 'company', 'onboarding_progress']
 
     def get_company(self, obj):
         membership = getattr(obj, 'company_membership', None)

@@ -1573,5 +1573,20 @@
     "sendToOptimizer": "Send parts to Cutting Optimizer",
     "sending": "Sending...",
     "recentImports": "Recent imports"
+  },
+  "onboarding": {
+    "dashboardStep1Title": "Welcome to WoodCalc",
+    "dashboardStep1Content": "This is your dashboard. Here's a quick look at where everything lives.",
+    "dashboardStep2Title": "Your tools",
+    "dashboardStep2Content": "Each card opens a different part of WoodCalc. Click one to get started.",
+    "configuratorStep1Title": "Your project",
+    "configuratorStep1Content": "This shows your current project name and cabinet count. Click the name to rename it.",
+    "configuratorStep2Title": "Move between steps",
+    "configuratorStep2Content": "Use these tabs to move between the room layout, cabinets, BOM, 3D view, proposal, and contract.",
+    "settingsTitle": "Onboarding tours",
+    "settingsDesc": "Replay any module's welcome tour without affecting its completion status.",
+    "moduleDashboard": "Dashboard",
+    "moduleConfigurator": "Kitchen Planner",
+    "replayBtn": "Replay tour"
   }
 }

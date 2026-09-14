@@ -127,9 +127,17 @@ def register_supplier(request):
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-@api_view(['GET'])
+@api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated])
 def me(request):
+    if request.method == 'PATCH':
+        module_key = request.data.get('module_key')
+        if not module_key:
+            return Response({'detail': 'module_key is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        user = request.user
+        user.onboarding_progress = {**user.onboarding_progress, module_key: True}
+        user.save(update_fields=['onboarding_progress'])
+        return Response(UserMeSerializer(user).data)
     return Response(UserMeSerializer(request.user).data)
 
 

@@ -12,6 +12,8 @@ import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { useTranslation } from '../../i18n/LanguageContext'
+import OnboardingTour from '../../components/OnboardingTour'
+import configuratorSteps from '../../onboardingSteps/configurator'
 
 const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
@@ -994,7 +996,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   return (
     <div dir={dir} style={s.page}>
       <div style={s.topBar}>
-        <div style={s.topLeft}>
+        <div id="onboarding-configurator-project" style={s.topLeft}>
           {onBack && (
             <button onClick={onBack}
               style={{ padding: '5px 10px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, marginRight: 8 }}>
@@ -1017,7 +1019,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             </span>
           )}
         </div>
-        <div style={s.tabs}>
+        <div id="onboarding-configurator-tabs" style={s.tabs}>
           {[
             ['room',     t('kitchenPlannerModule.tabRoom')],
             ['planner',  t('kitchenPlannerModule.tabCabinets')],
@@ -1717,6 +1719,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   />
 )}
 
+      <OnboardingTour moduleKey="configurator" steps={configuratorSteps(t)} />
     </div>
   )
 }
