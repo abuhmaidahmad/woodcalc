@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Joyride, STATUS } from 'react-joyride'
 import { fetchOnboardingProgress, markOnboardingComplete } from '../api/auth'
+import { useTranslation } from '../i18n/LanguageContext'
 
 export default function OnboardingTour({ moduleKey, steps }) {
+  const { t } = useTranslation()
   const [run, setRun] = useState(false)
 
   useEffect(() => {
@@ -41,6 +43,14 @@ export default function OnboardingTour({ moduleKey, steps }) {
       continuous
       onEvent={handleEvent}
       options={{ primaryColor: '#C8902A', showProgress: true, zIndex: 10000, closeButtonAction: 'skip' }}
+      locale={{
+        back: t('onboarding.navBack'),
+        close: t('onboarding.navClose'),
+        last: t('onboarding.navLast'),
+        next: t('onboarding.navNext'),
+        nextWithProgress: t('onboarding.navNextWithProgress'),
+        skip: t('onboarding.navSkip'),
+      }}
     />
   )
 }

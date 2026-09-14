@@ -745,6 +745,24 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [floorTile, setFloorTile]             = useState('white_large')
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
+
+  const ensureConfiguratorSetup = () => {
+    if (baseHeight && projectDefaults) return
+    setBaseHeight(800)
+    setProjectDefaults({
+      doorStyle: 'Push',
+      golaColor: 'black',
+      handlePos: 'bottom',
+      carcassColor: '#F5F0E8',
+      frontColor: '#FFFFFF',
+      frontFinish: 'matt',
+      frontMaterialCode: null,
+      frontMaterialThickness: 18,
+      drawerSystem: 'Local Bearing',
+      drawerBoxConstruction: 'wood_box',
+      skirtingMaterial: 'match_countertop',
+    })
+  }
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
@@ -1087,7 +1105,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {tab === 'room' && (
         <div style={s.workspace}>
           <div style={s.leftPanel}>
-<div style={s.panelSection}>
+<div id="onboarding-configurator-room-size" style={s.panelSection}>
   <div style={s.panelLabel}>{t('kitchenPlannerModule.roomSize')}</div>
   <label style={s.dimLabel}>{t('kitchenPlannerModule.widthMm')}<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
   <label style={s.dimLabel}>{t('kitchenPlannerModule.depthMm')}<input type="number" value={room.depth} onChange={e => setRoom(r => ({ ...r, depth: +e.target.value }))} style={s.dimInput} /></label>
@@ -1095,7 +1113,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   <label style={s.dimLabel}>{t('kitchenPlannerModule.backsplashHeightMm')}<input type="number" value={backsplashHeight} onChange={e => setBacksplashHeight(+e.target.value)} style={s.dimInput} /></label>
 </div>
 
-            <div style={s.panelSection}>
+            <div id="onboarding-configurator-room-elements" style={s.panelSection}>
               <div style={s.panelLabel}>{t('kitchenPlannerModule.roomElements')}</div>
               {ROOM_ELEMENTS.map(el => (
                 <div key={el.type} onClick={() => addElement(el)} style={s.elementItem}
@@ -1106,7 +1124,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 </div>
               ))}
             </div>
-            <div style={s.panelSection}>
+            <div id="onboarding-configurator-floor-tiles" style={s.panelSection}>
               <div style={s.panelLabel}>{t('kitchenPlannerModule.floorTiles')}</div>
               {[
                 { id: 'white_large',  labelKey: 'kitchenPlannerModule.tileWhiteLarge',  color: '#F5F5F5', grout: '#ddd' },
@@ -1123,7 +1141,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 </div>
               ))}
             </div>
-            <div style={s.panelSection}>
+            <div id="onboarding-configurator-countertop" style={s.panelSection}>
               <div style={s.panelLabel}>{t('kitchenPlannerModule.countertop')}</div>
               <CountertopPicker selected={countertopMat?.id} onSelect={mat => setCountertopMat(mat)} companySlug={publicCompanySlug} />
             </div>
@@ -1149,7 +1167,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />{t('kitchenPlannerModule.showDimensions')}</label>
             </div>
           </div>
-          <div style={s.canvasWrap}>
+          <div id="onboarding-configurator-room-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
@@ -1157,7 +1175,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               walls={walls} setWalls={setWalls}
               backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments} />
           </div>
-          <div style={s.rightPanel}>
+          <div id="onboarding-configurator-room-properties" style={s.rightPanel}>
         {selectedType === 'backsplash' ? (() => {
           const seg = backsplashSegments.find(s => s.id === selected)
           if (!seg) return null
@@ -1325,7 +1343,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
       {tab === 'planner' && (
         <div style={s.workspace}>
-          <div style={{ ...s.leftPanel, width: 220, padding: 0 }}>
+          <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0 }}>
             <CabinetCatalog
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
@@ -1369,7 +1387,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               onAddCabinet={addCabinet}
             />
           </div>
-          <div style={s.canvasWrap}>
+          <div id="onboarding-configurator-cabinets-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
@@ -1381,7 +1399,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               hideBacksplashTool={true}
               hideWallsElements={true} />
           </div>
-          <div style={{ ...s.rightPanel, width: 280 }}>
+          <div id="onboarding-configurator-cabinets-properties" style={{ ...s.rightPanel, width: 280 }}>
             {selCab ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -1719,7 +1737,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   />
 )}
 
-      <OnboardingTour moduleKey="configurator" steps={configuratorSteps(t)} />
+      <OnboardingTour moduleKey="configurator" steps={configuratorSteps(t, setTab, ensureConfiguratorSetup)} />
     </div>
   )
 }
