@@ -412,7 +412,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           ))}
         </group>
       )}
-      {isWallCabinet && (
+      {isWallCabinet && doorStyle === 'Handle' && !hideHandle && (
         <mesh position={[0, pullY, frontZ + DOOR_T / 2 - PULL_DEPTH / 2]}>
           <boxGeometry args={[panelW * 0.6, PULL_H, PULL_DEPTH]} />
           <meshStandardMaterial color="#111" roughness={1} />
@@ -629,7 +629,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
             x={0} y={p.yCenter} D={D}
             doorW={W} doorH={p.h}
             frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-            matProps={matProps} doorStyle={effectiveDoorStyle}
+            matProps={matProps} doorStyle={doorStyle}
             golaHex={golaHex} golaColor={golaColor}
             handlePosition="center"
             isWallCabinet={isWallCabinet}
@@ -645,7 +645,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
             x={0} y={-H / 2 + drawerH * d + drawerH / 2} D={D}
             doorW={W} doorH={drawerH}
             frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-            matProps={matProps} doorStyle={effectiveDoorStyle}
+            matProps={matProps} doorStyle={doorStyle}
             golaHex={golaHex} golaColor={golaColor}
             handlePosition="center"
             isWallCabinet={isWallCabinet}
@@ -670,7 +670,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         <DoorPanel key={`lo-${i}`} x={xOff} y={-H / 2 + lowerH / 2} D={D}
           doorW={doorW} doorH={lowerH}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-          matProps={matProps} doorStyle={effectiveDoorStyle}
+          matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition="top" isWallCabinet={isWallCabinet} />
       )
@@ -678,7 +678,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         <DoorPanel key={`up-${i}`} x={xOff} y={yChan + upperH / 2} D={D}
           doorW={doorW} doorH={upperH}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-          matProps={matProps} doorStyle={effectiveDoorStyle}
+          matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition="bottom" isWallCabinet={isWallCabinet} drawerIndex={i} />
       )
@@ -694,7 +694,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           x={xOff} y={yOff} D={D}
           doorW={doorW} doorH={doorH}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-          matProps={matProps} doorStyle={effectiveDoorStyle}
+          matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition={handlePosition || 'bottom'}
           isWallCabinet={isWallCabinet}
@@ -718,7 +718,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           x={blindXOff} y={effectiveDoorStyle === 'Gola' ? -GOLA_RECESS / 2 : 0} D={D}
           doorW={blindWidth} doorH={doorH}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-          matProps={matProps} doorStyle={effectiveDoorStyle}
+          matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition={handlePosition || 'bottom'}
           isWallCabinet={isWallCabinet}
