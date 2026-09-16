@@ -59,6 +59,10 @@ export default function ProjectDetail() {
   const [form, setForm] = useState({ name: '', room_type: 'kitchen', notes: '' })
   const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('rooms')
+  const [editingProjectName, setEditingProjectName] = useState(false)
+  const [projectNameDraft, setProjectNameDraft] = useState('')
+  const [editingRoomId, setEditingRoomId] = useState(null)
+  const [roomNameDraft, setRoomNameDraft] = useState('')
 
   const fetchData = async () => {
     setLoading(true)
@@ -100,6 +104,29 @@ export default function ProjectDetail() {
     try {
       await authFetch(API + `/api/crm/projects/${id}/`, { method: 'PATCH',
         body: JSON.stringify({ status }),
+      })
+      fetchData()
+    } catch {}
+  }
+
+  const saveProjectName = async () => {
+    setEditingProjectName(false)
+    if (!projectNameDraft.trim() || projectNameDraft === project.name) return
+    try {
+      await authFetch(API + `/api/crm/projects/${id}/`, { method: 'PATCH',
+        body: JSON.stringify({ name: projectNameDraft.trim() }),
+      })
+      fetchData()
+    } catch {}
+  }
+
+  const saveRoomName = async (roomId) => {
+    setEditingRoomId(null)
+    const room = rooms.find(r => r.id === roomId)
+    if (!roomNameDraft.trim() || !room || roomNameDraft === room.name) return
+    try {
+      await authFetch(API + `/api/crm/rooms/${roomId}/`, { method: 'PATCH',
+        body: JSON.stringify({ name: roomNameDraft.trim() }),
       })
       fetchData()
     } catch {}
@@ -166,7 +193,16 @@ export default function ProjectDetail() {
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>{project.name}</div>
+              {editingProjectName ? (
+                <input autoFocus value={projectNameDraft} onChange={e => setProjectNameDraft(e.target.value)}
+                  onBlur={saveProjectName} onKeyDown={e => e.key === 'Enter' && saveProjectName()}
+                  style={{ fontSize: 22, fontWeight: 800, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box' }} />
+              ) : (
+                <div onClick={() => { setProjectNameDraft(project.name); setEditingProjectName(true) }}
+                  style={{ fontSize: 22, fontWeight: 800, color: DARK, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {project.name} <span style={{ color: '#888', fontSize: 13 }}>✎</span>
+                </div>
+              )}
               <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>
                 {t('projectDetail.clientLabel')} <strong style={{ color: DARK }}>{project.client_name}</strong>
                 {project.address && <span> · {project.address}</span>}
@@ -218,7 +254,7 @@ export default function ProjectDetail() {
         {activeTab === 'rooms' && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length === 1 ? t('projectDetail.roomCount') : t('projectDetail.roomCountPlural', { count: rooms.length })}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length === 1 ? t('projectDetail.roomCount', { count: rooms.length }) : t('projectDetail.roomCountPlural', { count: rooms.length })}</div>
               <button onClick={() => setShowAddRoom(true)}
                 style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
                 {t('projectDetail.newRoom')}
@@ -237,9 +273,19 @@ export default function ProjectDetail() {
                     style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', cursor: 'pointer', border: '1.5px solid transparent', transition: 'all 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.background = '#FDFAF6' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = '#fff' }}
-                    onClick={() => navigate(`/rooms/${room.id}`)}>
+                    onClick={() => editingRoomId !== room.id && navigate(`/rooms/${room.id}`)}>
                     <div style={{ fontSize: 28, marginBottom: 8 }}>{ROOM_ICONS[room.room_type] || '📦'}</div>
-                    <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{room.name}</div>
+                    {editingRoomId === room.id ? (
+                      <input autoFocus value={roomNameDraft} onChange={e => setRoomNameDraft(e.target.value)}
+                        onClick={e => e.stopPropagation()}
+                        onBlur={() => saveRoomName(room.id)} onKeyDown={e => e.key === 'Enter' && saveRoomName(room.id)}
+                        style={{ fontWeight: 700, fontSize: 14, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box', width: '100%' }} />
+                    ) : (
+                      <div onClick={e => { e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
+                        style={{ fontWeight: 700, fontSize: 14, color: DARK, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        {room.name} <span style={{ color: '#888', fontSize: 11 }}>✎</span>
+                      </div>
+                    )}
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{parseFloat(room.grand_total).toFixed(2)} JD</span>

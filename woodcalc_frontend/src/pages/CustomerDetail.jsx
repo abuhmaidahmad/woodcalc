@@ -33,6 +33,9 @@ export default function CustomerDetail() {
   const [showAddProject, setShowAddProject] = useState(false)
   const [form, setForm] = useState({ name: '', address: '', notes: '', status: 'DRAFT' })
   const [saving, setSaving] = useState(false)
+  const [showEditCustomer, setShowEditCustomer] = useState(false)
+  const [customerForm, setCustomerForm] = useState({ name: '', phone: '', email: '', address: '', company: '' })
+  const [savingCustomer, setSavingCustomer] = useState(false)
 
   const fetchData = async () => {
     setLoading(true)
@@ -50,6 +53,29 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
   }
 
   useEffect(() => { fetchData() }, [id])
+
+  const openEditCustomer = () => {
+    setCustomerForm({
+      name: customer.name || '', phone: customer.phone || '', email: customer.email || '',
+      address: customer.address || '', company: customer.company || '',
+    })
+    setShowEditCustomer(true)
+  }
+
+  const saveCustomer = async () => {
+    if (!customerForm.name.trim()) return
+    setSavingCustomer(true)
+    try {
+      const res = await authFetch(API + `/api/crm/clients/${id}/`, { method: 'PATCH',
+        body: JSON.stringify(customerForm),
+      })
+      if (res.ok) {
+        setShowEditCustomer(false)
+        fetchData()
+      }
+    } catch {}
+    setSavingCustomer(false)
+  }
 
   const saveProject = async () => {
     if (!form.name.trim()) return
@@ -108,6 +134,10 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
             </div>
           </div>
           <div style={{ textAlign: 'end' }}>
+            <button onClick={openEditCustomer}
+              style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 10 }}>
+              ✎ {t('customerDetail.editCustomer')}
+            </button>
             <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{t('customerDetail.totalValue')}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{totalValue.toFixed(2)} JD</div>
             <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{projects.length} {projects.length !== 1 ? t('customerDetail.projects_plural') : t('customerDetail.project')}</div>
@@ -183,6 +213,32 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
               <button onClick={saveProject} disabled={saving || !form.name.trim()}
                 style={{ flex: 2, padding: '10px', background: form.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: form.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
                 {saving ? t('common.saving') : t('customerDetail.saveProject')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Customer Modal */}
+      {showEditCustomer && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 20 }}>{t('customerDetail.editCustomer')}</div>
+            {[['name', t('customerDetail.fieldName')], ['phone', t('customerDetail.fieldPhone')], ['email', t('customerDetail.fieldEmail')], ['company', t('customerDetail.fieldCompany')], ['address', t('customerDetail.fieldAddress')]].map(([key, label]) => (
+              <div key={key} style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>
+                <input value={customerForm[key]} onChange={e => setCustomerForm(f => ({ ...f, [key]: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+              </div>
+            ))}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
+              <button onClick={() => setShowEditCustomer(false)}
+                style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
+                {t('common.cancel')}
+              </button>
+              <button onClick={saveCustomer} disabled={savingCustomer || !customerForm.name.trim()}
+                style={{ flex: 2, padding: '10px', background: customerForm.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: customerForm.name.trim() ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+                {savingCustomer ? t('common.saving') : t('customerDetail.saveCustomer')}
               </button>
             </div>
           </div>

@@ -423,7 +423,14 @@
     "fieldStatus": "Status",
     "room": "room",
     "rooms_plural": "rooms",
-    "saveProject": "Save Project"
+    "saveProject": "Save Project",
+    "editCustomer": "Edit Customer",
+    "fieldName": "Name",
+    "fieldPhone": "Phone",
+    "fieldEmail": "Email",
+    "fieldCompany": "Company",
+    "fieldAddress": "Address",
+    "saveCustomer": "Save Changes"
   },
   "roomDetail": {
     "loading": "Loading room...",

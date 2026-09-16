@@ -423,7 +423,14 @@
     "fieldStatus": "الحالة",
     "room": "غرفة",
     "rooms_plural": "غرف",
-    "saveProject": "حفظ المشروع"
+    "saveProject": "حفظ المشروع",
+    "editCustomer": "تعديل العميل",
+    "fieldName": "الاسم",
+    "fieldPhone": "الهاتف",
+    "fieldEmail": "البريد الإلكتروني",
+    "fieldCompany": "الشركة",
+    "fieldAddress": "العنوان",
+    "saveCustomer": "حفظ التغييرات"
   },
   "roomDetail": {
     "loading": "جارٍ تحميل الغرفة...",

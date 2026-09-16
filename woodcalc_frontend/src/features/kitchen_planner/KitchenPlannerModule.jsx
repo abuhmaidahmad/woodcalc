@@ -718,12 +718,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const [roomId, setRoomId] = useState(initialRoomId)
-  const [roomName, setRoomName] = useState(initialRoomName)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
-  const [projectName, setProjectName]         = useState(t('kitchenPlannerModule.untitledKitchen'))
+  const [projectName, setProjectName]         = useState(initialRoomName || t('kitchenPlannerModule.untitledKitchen'))
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinets]               = useState([])
   const [elements, setElements]               = useState([])
@@ -787,7 +786,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       if (initialData.backsplashThickness) setBacksplashThickness(initialData.backsplashThickness)
       if (initialData.elements) setElements(initialData.elements)
       if (initialData.cabinets) setCabinets(initialData.cabinets)
-      if (initialData.projectName) setProjectName(initialData.projectName)
       if (initialData.baseHeight) setBaseHeight(initialData.baseHeight)
       if (initialData.projectDefaults) setProjectDefaults(initialData.projectDefaults)
       if (initialData.grandTotal) setGrandTotal(initialData.grandTotal)
@@ -872,7 +870,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       if (roomId) {
         const res = await authFetch(API + `/api/crm/rooms/${roomId}/`, {
           method: 'PATCH',
-          body: JSON.stringify({ planner_data: plannerData, ...(grandTotal > 0 ? { grand_total: Math.round(grandTotal * 100) / 100 } : {}) })
+          body: JSON.stringify({ name: projectName, planner_data: plannerData, ...(grandTotal > 0 ? { grand_total: Math.round(grandTotal * 100) / 100 } : {}) })
         })
         if (res.ok && projectId) {
           // fetch all rooms for this project and sum grand totals
@@ -956,7 +954,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         method: 'POST',
         body: JSON.stringify({
           order_number: orderNumber,
-          product_name: projectName + ' — ' + (roomName || 'Room') + (isBackOrder ? ' (Back Order)' : '') + ' (' + newCabinets.length + ' cabinets)',
+          product_name: projectName + (isBackOrder ? ' (Back Order)' : '') + ' (' + newCabinets.length + ' cabinets)',
           customer_name: customerName,
           quantity: newCabinets.length,
           status: 'NEW',
