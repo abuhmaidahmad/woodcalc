@@ -5,7 +5,7 @@ import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
-import RoomCanvas from './RoomCanvas'
+import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -1268,11 +1268,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const ex = selEl.x * SCALE - w.x1, ey = selEl.y * SCALE - w.y1
       const distPxCenter = ex * ux + ey * uy
       const distMmCenter = distPxCenter / SCALE
-      // Measured from the wall's visual start corner to the element's CENTER.
-      // The wall renders with strokeLinecap="square", which visually extends the wall
-      // by half ITS OWN thickness past the stored endpoint (w.x1) — so the true visual
-      // corner sits wallThickness/2 further back than w.x1.
-      const distMm = Math.round(distMmCenter + wallThickness / 2)
+      // Measured from the wall's true visual corner (where it actually meets its
+      // neighbor) to the element's CENTER. getEndpointOffset is the same miter
+      // correction RoomCanvas uses to draw the wall itself and to show its
+      // corrected length, so this lines up with what's on screen instead of
+      // assuming a flat wallThickness/2 and a square 90° corner. The wall's
+      // rendered stroke is pulled IN from the stored endpoint (w.x1) toward the
+      // wall's own interior by this offset — it's not an outward extension — so
+      // the true corner is reached by subtracting it, not adding it.
+      const wallMode = w.lengthMode || 'inner'
+      const startOffsetMm = getEndpointOffset(walls, selEl.wallIndex, 'start', wallThickness, SCALE, ENDPOINT_SNAP_DIST, wallMode) / SCALE
+      const distMm = Math.round(distMmCenter - startOffsetMm)
       return (
         <>
           <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
@@ -1282,7 +1288,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             <div style={s.propLabel}>{t('kitchenPlannerModule.distFromWallStart')}</div>
             <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThickness)}
               onChange={e => {
-                const newDistMmCenter = (+e.target.value) - wallThickness / 2
+                const newDistMmCenter = (+e.target.value) + startOffsetMm
                 const newDistPx = newDistMmCenter * SCALE
                 const newX = (w.x1 + ux * newDistPx) / SCALE
                 const newY = (w.y1 + uy * newDistPx) / SCALE
@@ -1587,20 +1593,24 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     <ZonePresetPicker height={selCab.height} width={selCab.width} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
                   </>
                 )}
-                <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
-                <MaterialLibrary
-                  target="front"
-                  companySlug={publicCompanySlug}
-                  selectedCode={selCab.frontMaterialCode}
-                  onSelect={mat => {
-                    updateCab('frontColor', mat.hex)
-                    updateCab('frontMaterial', mat.finish)
-                    updateCab('frontMaterialCode', mat.code)
-                    updateCab('frontMaterialName', mat.name); updateCab('frontMaterialThickness', mat.thickness || (mat.finish === 'wood' ? 22 : 18))
-                    updateCab('frontTextureUrl', mat.textureUrl || null)
-                  }}
-                />
-               {!['Shelf', 'Open Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && (
+                {selCab.subtype !== 'Open Shelf' && (
+                  <>
+                    <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
+                    <MaterialLibrary
+                      target="front"
+                      companySlug={publicCompanySlug}
+                      selectedCode={selCab.frontMaterialCode}
+                      onSelect={mat => {
+                        updateCab('frontColor', mat.hex)
+                        updateCab('frontMaterial', mat.finish)
+                        updateCab('frontMaterialCode', mat.code)
+                        updateCab('frontMaterialName', mat.name); updateCab('frontMaterialThickness', mat.thickness || (mat.finish === 'wood' ? 22 : 18))
+                        updateCab('frontTextureUrl', mat.textureUrl || null)
+                      }}
+                    />
+                  </>
+                )}
+               {!['Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && (
   <>
     <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
     <MaterialLibrary
