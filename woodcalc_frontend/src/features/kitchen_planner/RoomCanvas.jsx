@@ -5,6 +5,11 @@ import { useTranslation } from '../../i18n/LanguageContext'
 const ACCENT = '#C8902A'
 const GRID = 50
 const ENDPOINT_SNAP_DIST = 60
+// Element types that can snap onto a wall's centerline while dragging. Windows/doors
+// become wall cutouts (EmbeddedElement); the point types just get wall-relative
+// positioning while still rendering as icons — see the element drag handler and
+// the "in wall N" toolbar badge below.
+const WALL_SNAPPABLE_TYPES = new Set(['window', 'door', 'electric', 'water', 'drain', 'gas'])
 
 const snap = v => Math.round(v / GRID) * GRID
 const degToRad = d => d * Math.PI / 180
@@ -644,7 +649,7 @@ export default function RoomCanvas({
       const item = elements.find(el => el.id === dragging.id)
       if (!item) return
       const wallSnap = findWallSnap(rawX, rawY, walls, wallThickness, scale, 40 / zoom)
-      if (wallSnap && (item.type === 'window' || item.type === 'door')) {
+      if (wallSnap && WALL_SNAPPABLE_TYPES.has(item.type)) {
         setWallSnapPreview(wallSnap)
         setElements(p => p.map(el => el.id === dragging.id ? {
           ...el, x: wallSnap.centerX / scale, y: wallSnap.centerY / scale,
@@ -1068,7 +1073,7 @@ export default function RoomCanvas({
                     style={{ width: 52, padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none', textAlign: 'center' }} />
                   <span style={{ fontSize: 11, color: '#888' }}>°</span>
                 </>}
-                {isWallEl && el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>{t('roomCanvas.inWall', { n: (el.wallIndex || 0) + 1 })}</span>}
+                {el.embeddedInWall && <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>{t('roomCanvas.inWall', { n: (el.wallIndex || 0) + 1 })}</span>}
               </div>
             )
           })()}
