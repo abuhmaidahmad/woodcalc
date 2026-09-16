@@ -1377,7 +1377,10 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const legH = legHmm / 1000
   const legR = 0.008
 
-  const isBase    = cab.category === 'base' || cab.category === 'vanity' || cab.category === 'corner'
+  // A freestanding dishwasher sits under the countertop like any other base
+  // cabinet (unlike the freestanding oven/fridge, which are standalone units
+  // taller than counter height), so it gets legs + a countertop slab too.
+  const isBase    = cab.category === 'base' || cab.category === 'vanity' || cab.category === 'corner' || cab.subtype === 'Freestanding Dishwasher'
   const isWall    = cab.category === 'wall'
   const isTall    = cab.category === 'tall'
   const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'

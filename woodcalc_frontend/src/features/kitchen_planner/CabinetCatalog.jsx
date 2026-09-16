@@ -160,7 +160,11 @@ function buildLibrary(baseHeight) {
     { id: 'acc_free_oven',       label: 'Freestanding Oven',       subtype: 'Freestanding Oven',       width: 600, height: 850,  depth: 600, icon: 'accessory_gap_oven',   category: 'accessories' },
     { id: 'acc_free_fridge_700', label: 'Freestanding Fridge 700', subtype: 'Freestanding Fridge',     width: 700, height: 1800, depth: 700, icon: 'accessory_gap_fridge', category: 'accessories' },
     { id: 'acc_free_fridge_900', label: 'Freestanding Fridge 900', subtype: 'Freestanding Fridge',     width: 900, height: 1800, depth: 750, icon: 'accessory_gap_fridge', category: 'accessories' },
-    { id: 'acc_free_dish',       label: 'Freestanding Dishwasher', subtype: 'Freestanding Dishwasher', width: 600, height: 820,  depth: 600, icon: 'accessory_gap_dish',   category: 'accessories' },
+    // Unlike the oven/fridge above, a freestanding dishwasher sits under the countertop
+    // like a base cabinet, so its height tracks the project's baseHeight (matching the
+    // base run's carcass height) rather than a fixed appliance height — see isBase in
+    // KitchenPlanner3D, which now includes this subtype so it gets legs + a countertop.
+    { id: 'acc_free_dish',       label: 'Freestanding Dishwasher', subtype: 'Freestanding Dishwasher', width: 600, height: baseHeight, depth: 560, icon: 'accessory_gap_dish',   category: 'accessories' },
   ]
 
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }
