@@ -865,7 +865,11 @@
     "doubleBowl": "Double Bowl",
     "singleBowl": "Single Bowl",
     "stainlessSteel": "Stainless Steel",
-    "graniteComposite": "Granite Composite"
+    "graniteComposite": "Granite Composite",
+    "categoryMyLibrary": "My Library",
+    "myLibraryDesc": "Cabinets you designed with the AI Designer and saved for reuse.",
+    "myLibraryEmpty": "No saved cabinets yet. Use the AI Designer tab to create one.",
+    "pendingReview": "Pending review"
   },
   "proposalTab": {
     "pricingSettings": "Pricing Settings",
@@ -1619,5 +1623,32 @@
     "moduleDashboard": "Dashboard",
     "moduleConfigurator": "Kitchen Planner",
     "replayBtn": "Replay tour"
+  },
+  "designerAgent": {
+    "title": "AI Designer",
+    "subtitle": "Describe a cabinet that isn't in your catalog and I'll draft it for you.",
+    "catalogTab": "Catalog",
+    "aiTab": "AI Designer",
+    "emptyState": "Describe the cabinet you need, e.g. \"a 900mm corner TV unit, 600mm tall, with two open shelves\".",
+    "inputPlaceholder": "Describe the cabinet you need...",
+    "send": "Send",
+    "thinking": "Thinking...",
+    "addToCanvas": "Add to Canvas",
+    "saveToLibrary": "Save to My Library",
+    "saving": "Saving...",
+    "saved": "Saved ✓",
+    "saveError": "Couldn't save this cabinet. Please try again.",
+    "notConfigured": "The AI Designer isn't set up yet. Ask your administrator to configure it.",
+    "genericError": "Something went wrong. Please try again.",
+    "networkError": "Couldn't reach the AI Designer. Check your connection and try again."
+  },
+  "cabinetTemplateQueue": {
+    "title": "Cabinet Approval Queue",
+    "desc": "Review cabinets designers created with the AI Designer before they appear in everyone's catalog.",
+    "empty": "No cabinets waiting for review.",
+    "submittedBy": "Submitted by user #{{id}}",
+    "approve": "Approve",
+    "reject": "Reject",
+    "rejectPrompt": "Optional note for the designer (why this was rejected):"
   }
 }

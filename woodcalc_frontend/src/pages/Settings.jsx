@@ -6,6 +6,7 @@ import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 import TeamCard from '../components/TeamCard'
+import CabinetTemplateApprovalQueue from '../components/CabinetTemplateApprovalQueue'
 import { ONBOARDING_MODULES } from '../onboardingSteps'
 
 const ACCENT = '#C8902A'
@@ -329,6 +330,7 @@ export default function Settings() {
         <ShareCatalogCard />
         <BillingCard />
         <TeamCard />
+        <CabinetTemplateApprovalQueue />
         <TourCard />
         <FeedbackCard />
       </div>

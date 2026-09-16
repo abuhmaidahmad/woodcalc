@@ -17,3 +17,4 @@ cryptography
 resend
 reportlab
 requests==2.34.2
+anthropic

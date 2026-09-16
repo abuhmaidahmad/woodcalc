@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink
+from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -41,3 +41,16 @@ class SinkSerializer(serializers.ModelSerializer):
         model = Sink
         fields = '__all__'
         extra_kwargs = {'tenant': {'read_only': True}}
+
+
+class CabinetTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CabinetTemplate
+        fields = '__all__'
+        extra_kwargs = {
+            'tenant': {'read_only': True},
+            'created_by': {'read_only': True},
+            'status': {'read_only': True},
+            'reviewed_by': {'read_only': True},
+            'reviewed_at': {'read_only': True},
+        }

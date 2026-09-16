@@ -7,6 +7,7 @@ import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
+import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
 import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
@@ -744,6 +745,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [floorTile, setFloorTile]             = useState('white_large')
   const [baseHeight, setBaseHeight]           = useState(null)
   const [projectDefaults, setProjectDefaults] = useState(null)
+  const [leftPanelMode, setLeftPanelMode]     = useState('catalog') // 'catalog' | 'designerAgent'
 
   const ensureConfiguratorSetup = () => {
     if (baseHeight && projectDefaults) return
@@ -1028,7 +1030,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {projectName} <span style={{ color: '#888', fontSize: 12 }}>✎</span>
             </div>
           )}
-          <span style={s.cabCount}>{cabinets.length === 1 ? t('kitchenPlannerModule.cabinetCount') : t('kitchenPlannerModule.cabinetCountPlural', { count: cabinets.length })}</span>
+          <span style={s.cabCount}>{cabinets.length === 1 ? t('kitchenPlannerModule.cabinetCount', { count: cabinets.length }) : t('kitchenPlannerModule.cabinetCountPlural', { count: cabinets.length })}</span>
           {baseHeight && (
             <span style={{ fontSize: 10, color: '#888', background: 'rgba(255,255,255,0.08)', padding: '2px 7px', borderRadius: 4 }}>
               H{baseHeight}
@@ -1341,7 +1343,28 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
       {tab === 'planner' && (
         <div style={s.workspace}>
-          <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0 }}>
+          <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
+            {baseHeight && projectDefaults && (
+              <div style={{ display: 'flex', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
+                <button onClick={() => setLeftPanelMode('catalog')}
+                  style={{ flex: 1, padding: '8px 4px', border: 'none', borderBottom: `2px solid ${leftPanelMode === 'catalog' ? ACCENT : 'transparent'}`,
+                    background: leftPanelMode === 'catalog' ? ACCENT + '10' : 'transparent', color: leftPanelMode === 'catalog' ? ACCENT : '#888',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                  {t('designerAgent.catalogTab')}
+                </button>
+                <button onClick={() => setLeftPanelMode('designerAgent')}
+                  style={{ flex: 1, padding: '8px 4px', border: 'none', borderBottom: `2px solid ${leftPanelMode === 'designerAgent' ? ACCENT : 'transparent'}`,
+                    background: leftPanelMode === 'designerAgent' ? ACCENT + '10' : 'transparent', color: leftPanelMode === 'designerAgent' ? ACCENT : '#888',
+                    fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>
+                  {t('designerAgent.aiTab')}
+                </button>
+              </div>
+            )}
+            {leftPanelMode === 'designerAgent' && baseHeight && projectDefaults ? (
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <DesignerAgentChat onAddCabinet={addCabinet} companySlug={publicCompanySlug} />
+              </div>
+            ) : (
             <CabinetCatalog
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
@@ -1384,6 +1407,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               }}
               onAddCabinet={addCabinet}
             />
+            )}
           </div>
           <div id="onboarding-configurator-cabinets-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}

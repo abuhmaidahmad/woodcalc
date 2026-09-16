@@ -1,4 +1,5 @@
 import os
+from django.conf import settings
 from django.db import models
 from django.core.files.base import ContentFile
 from io import BytesIO
@@ -237,5 +238,36 @@ class Sink(models.Model):
 
     def __str__(self):
         return f"{self.brand} {self.model_name}".strip()
+
+
+class CabinetTemplate(models.Model):
+    """A cabinet definition proposed by the Designer Agent (AI chat) and saved by a
+    designer for reuse. Shows up in the Kitchen Planner catalog under 'My Library'
+    once approved by an OWNER/ADMIN — mirrors the ManufacturerProfile/SupplierProfile
+    verification_status pattern in accounts/models.py."""
+    STATUS_CHOICES = [('pending', 'Pending'), ('approved', 'Approved'), ('rejected', 'Rejected')]
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='cabinet_templates')
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='cabinet_templates')
+    name = models.CharField(max_length=200)                 # shown as the catalog label
+    category = models.CharField(max_length=20)               # base/wall/tall/vanity/corner/specialty/accessories
+    subtype = models.CharField(max_length=100, default='Custom')
+    width = models.PositiveIntegerField()                    # mm
+    height = models.PositiveIntegerField()                   # mm
+    depth = models.PositiveIntegerField()                    # mm
+    wall_height = models.PositiveIntegerField(null=True, blank=True)
+    elevation = models.PositiveIntegerField(null=True, blank=True)
+    door_count = models.PositiveIntegerField(null=True, blank=True)
+    shelves = models.PositiveIntegerField(null=True, blank=True)
+    drawer_system = models.CharField(max_length=100, blank=True, default='')
+    icon = models.CharField(max_length=50, default='specialty_custom')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pending')
+    admin_notes = models.TextField(blank=True, default='')
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='reviewed_cabinet_templates')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    source_conversation = models.JSONField(default=list, blank=True)  # the chat transcript that produced it, for admin context
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f'{self.name} ({self.tenant} · {self.status})'
 
 

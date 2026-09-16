@@ -538,7 +538,75 @@ const CATEGORIES = [
   { id: 'corner',      icon: '📐',  labelKey: 'cabinetCatalog.categoryCorner'  },
   { id: 'specialty',   icon: '✨',  labelKey: 'cabinetCatalog.categorySpecial' },
   { id: 'accessories', icon: '🔧',  labelKey: 'cabinetCatalog.categoryAcc'    },
+  { id: 'myLibrary',   icon: '⭐',  labelKey: 'cabinetCatalog.categoryMyLibrary' },
 ]
+
+// Cabinet templates saved via the Designer Agent (AI chat) come back from the API
+// in snake_case with a status field. Map them onto the same shape buildLibrary()
+// produces so CabinetCard/handleAdd/addCabinet all work unmodified.
+function templateToItem(tpl) {
+  return {
+    id: `tpl-${tpl.id}`,
+    label: tpl.name,
+    category: tpl.category,
+    subtype: tpl.subtype || 'Custom',
+    width: tpl.width,
+    height: tpl.height,
+    depth: tpl.depth,
+    wallHeight: tpl.wall_height || undefined,
+    elevation: tpl.elevation || 0,
+    doorCount: tpl.door_count ?? undefined,
+    shelves: tpl.shelves ?? undefined,
+    drawerSystem: tpl.drawer_system || undefined,
+    icon: tpl.icon || 'specialty_custom',
+    isCustom: true,
+    status: tpl.status,
+  }
+}
+
+function MyLibraryPanel({ companySlug, onAdd }) {
+  const { t } = useTranslation()
+  const [templates, setTemplates] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    authFetch(withCompanyParam(API_URL + '/api/inventory/cabinet-templates/', companySlug))
+      .then(r => r.json())
+      .then(data => {
+        const list = Array.isArray(data) ? data : (data.results || [])
+        setTemplates(list)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [companySlug])
+
+  const items = templates.map(templateToItem)
+
+  return (
+    <div style={{ flex: 1, overflowY: 'auto', padding: '10px 8px 12px' }}>
+      <div style={{ fontSize: 9, color: '#aaa', marginBottom: 6 }}>{t('cabinetCatalog.myLibraryDesc')}</div>
+      {loading ? (
+        <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>{t('common.loading')}</div>
+      ) : items.length === 0 ? (
+        <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>{t('cabinetCatalog.myLibraryEmpty')}</div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+          {items.map(item => (
+            <div key={item.id} style={{ position: 'relative' }}>
+              <CabinetCard item={item} onAdd={onAdd} />
+              {item.status === 'pending' && (
+                <div style={{ position: 'absolute', top: 4, insetInlineEnd: 4, fontSize: 7, fontWeight: 700, color: '#996600', background: '#FFF3CD', border: '1px solid #FFE3A3', borderRadius: 4, padding: '1px 4px' }}>
+                  {t('cabinetCatalog.pendingReview')}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet, companySlug }) {
   const { t } = useTranslation()
@@ -570,9 +638,11 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
     frontMaterial: projectDefaults.frontFinish || 'matt',
   })
 
+  const isMyLibrary = activeCategory === 'myLibrary'
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
         {CATEGORIES.map(cat => (
           <button key={cat.id} onClick={() => { setActiveCategory(cat.id); setSubtypeFilter(null); setWallHeightFilter(null); setSearch('') }}
             style={{ padding: '7px 2px', border: 'none', borderBottom: `2px solid ${activeCategory === cat.id ? ACCENT : 'transparent'}`, background: activeCategory === cat.id ? ACCENT+'10' : 'transparent', color: activeCategory === cat.id ? ACCENT : '#888', fontSize: 8, fontWeight: 700, cursor: 'pointer', textAlign: 'center', lineHeight: 1.4 }}>
@@ -580,6 +650,10 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
           </button>
         ))}
       </div>
+      {isMyLibrary ? (
+        <MyLibraryPanel companySlug={companySlug} onAdd={handleAdd} />
+      ) : (
+      <>
       <div style={{ padding: '8px 8px 4px' }}>
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={t('cabinetCatalog.searchEllipsis')} style={{ width: '100%', padding: '5px 8px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 11, outline: 'none', boxSizing: 'border-box', color: DARK }} />
       </div>
@@ -597,6 +671,8 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
           ? <div style={{ textAlign: 'center', color: '#ccc', fontSize: 11, paddingTop: 20 }}>{t('cabinetCatalog.noItemsFound')}</div>
           : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>{displayItems.map(item => <CabinetCard key={item.id} item={item} onAdd={handleAdd} />)}</div>}
       </div>
+      </>
+      )}
       <div style={{ padding: '8px', borderTop: '1px solid #E8E4DF', flexShrink: 0, background: '#FAFAFA' }}>
         <div style={{ fontSize: 9, color: '#999', marginBottom: 4, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{t('cabinetCatalog.projectDefaults')}</div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
