@@ -369,6 +369,31 @@ export default function RoomCanvas({
   const wallClickedRef = useRef(false)
   const svgRef = useRef(null)
 
+  // Dragging (wall/element/cabinet) recomputes a new position on every raw
+  // mousemove event, which can fire far more often than the screen repaints
+  // (high-poll-rate mice/trackpads). Committing setWalls/setElements/setCabinets
+  // on every single one of those events was forcing a full re-render of the
+  // whole planner — including the always-mounted 3D view — many times more
+  // often than the display can even show, which is what made dragging or
+  // selecting a different cabinet feel heavy with a larger cabinet count.
+  // Coalescing to one commit per animation frame keeps the same end result
+  // (the state setter still receives the freshest computed position) while
+  // capping the render rate to what the screen can actually display.
+  const dragRafRef = useRef(null)
+  const pendingDragCommitRef = useRef(null)
+  const commitDragThrottled = useCallback((updater) => {
+    pendingDragCommitRef.current = updater
+    if (dragRafRef.current == null) {
+      dragRafRef.current = requestAnimationFrame(() => {
+        dragRafRef.current = null
+        const fn = pendingDragCommitRef.current
+        pendingDragCommitRef.current = null
+        if (fn) fn()
+      })
+    }
+  }, [])
+  useEffect(() => () => { if (dragRafRef.current != null) cancelAnimationFrame(dragRafRef.current) }, [])
+
   useEffect(() => { if (hideToolbar) setMode('select') }, [hideToolbar])
 
   const W = room.width * scale
@@ -693,28 +718,28 @@ export default function RoomCanvas({
       let fx1 = nx1, fy1 = ny1, fx2 = nx2, fy2 = ny2
       if (s1) { fx2 += s1.x - nx1; fy2 += s1.y - ny1; fx1 = s1.x; fy1 = s1.y }
       else if (s2) { fx1 += s2.x - nx2; fy1 += s2.y - ny2; fx2 = s2.x; fy2 = s2.y }
-      setWalls(p => p.map((w, i) => i === dragging.index ? { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w))
+      commitDragThrottled(() => setWalls(p => p.map((w, i) => i === dragging.index ? { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w)))
     } else if (dragging.type === 'endpoint') {
       const snapPt = findNearestEndpoint(rawX, rawY, walls, dragging.wallIndex, snapThreshold)
       const fx = snapPt ? snapPt.x : rawX, fy = snapPt ? snapPt.y : rawY
-      setWalls(p => p.map((w, i) => i !== dragging.wallIndex ? w : dragging.ep === 0 ? { ...w, x1: fx, y1: fy } : { ...w, x2: fx, y2: fy }))
+      commitDragThrottled(() => setWalls(p => p.map((w, i) => i !== dragging.wallIndex ? w : dragging.ep === 0 ? { ...w, x1: fx, y1: fy } : { ...w, x2: fx, y2: fy })))
     } else if (dragging.type === 'element') {
       const item = elements.find(el => el.id === dragging.id)
       if (!item) return
       const wallSnap = findWallSnap(rawX, rawY, walls, wallThickness, scale, 40 / zoom)
       if (wallSnap && WALL_SNAPPABLE_TYPES.has(item.type)) {
         setWallSnapPreview(wallSnap)
-        setElements(p => p.map(el => el.id === dragging.id ? {
+        commitDragThrottled(() => setElements(p => p.map(el => el.id === dragging.id ? {
           ...el, x: wallSnap.centerX / scale, y: wallSnap.centerY / scale,
           wallAngle: wallSnap.wallAngle, wallThickness, embeddedInWall: true, wallIndex: wallSnap.wallIndex,
-        } : el))
+        } : el)))
       } else {
         setWallSnapPreview(null)
         const corner = dragCorner || { ox: 0.5, oy: 0.5 }
         const itemW = item.w * scale, itemH = item.h * scale
         const x = Math.max(0, snap((rawX - (corner.ox - 0.5) * itemW) / scale))
         const y = Math.max(0, snap((rawY - (corner.oy - 0.5) * itemH) / scale))
-        setElements(p => p.map(el => el.id === dragging.id ? { ...el, x, y, wallAngle: undefined, embeddedInWall: false } : el))
+        commitDragThrottled(() => setElements(p => p.map(el => el.id === dragging.id ? { ...el, x, y, wallAngle: undefined, embeddedInWall: false } : el)))
       }
     } else if (dragging.type === 'cabinet') {
       const cab = cabinets.find(c => c.id === dragging.id)
@@ -772,9 +797,9 @@ export default function RoomCanvas({
 
       if (!snappedX) finalX = Math.round(rawCabX / (GRID * scale)) * (GRID * scale)
       if (!snappedY) finalY = Math.round(rawCabY / (GRID * scale)) * (GRID * scale)
-      setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: finalX / scale, y: finalY / scale } : c))
+      commitDragThrottled(() => setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: finalX / scale, y: finalY / scale } : c)))
     }
-  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, getSVGPos, snapThreshold, zoom])
+  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, getSVGPos, snapThreshold, zoom, commitDragThrottled])
 
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false

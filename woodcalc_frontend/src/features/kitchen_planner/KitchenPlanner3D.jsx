@@ -1630,7 +1630,14 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-export default function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20 }) {
+// Rendering this scene reconciles geometry/materials for every cabinet, so it's
+// not cheap. The planner keeps this component permanently mounted (see the
+// comment on its wrapper in KitchenPlannerModule) so the 3D view stays in sync
+// while another tab is active — but that means it would otherwise re-render on
+// every unrelated state change in the parent (selecting a cabinet, switching
+// tool mode, etc.), not just when its own props actually change. Memoizing
+// keeps it inert unless cabinets/room/walls/elements/materials really changed.
+function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20 }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
@@ -1713,5 +1720,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
     </div>
   )
 }
+
+export default React.memo(KitchenPlanner3D)
 // bust Tue Jun 30 00:58:27 PDT 2026
 // bust Tue Jun 30 02:22:58 PDT 2026
