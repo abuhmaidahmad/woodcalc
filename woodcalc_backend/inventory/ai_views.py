@@ -1,3 +1,5 @@
+import logging
+
 import anthropic
 from django.conf import settings
 from rest_framework import status
@@ -5,6 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from tenants.permissions import HasActiveCompany
+
+logger = logging.getLogger(__name__)
 
 MODEL = 'claude-opus-5'
 
@@ -102,13 +106,17 @@ class DesignerAgentChatView(APIView):
                 tools=[PROPOSE_CABINET_TOOL],
                 messages=payload_messages,
             )
-        except anthropic.AuthenticationError:
+        except anthropic.AuthenticationError as e:
+            logger.error('Designer Agent: Anthropic auth error: %s', getattr(e, 'message', e))
             return Response({'error': 'AI Designer is not configured correctly.'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        except anthropic.RateLimitError:
+        except anthropic.RateLimitError as e:
+            logger.warning('Designer Agent: Anthropic rate limited: %s', getattr(e, 'message', e))
             return Response({'error': 'The AI Designer is busy right now. Please try again in a moment.'}, status=status.HTTP_429_TOO_MANY_REQUESTS)
-        except anthropic.APIConnectionError:
+        except anthropic.APIConnectionError as e:
+            logger.error('Designer Agent: could not reach Anthropic: %s', e)
             return Response({'error': 'Could not reach the AI Designer service. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
         except anthropic.APIStatusError as e:
+            logger.error('Designer Agent: Anthropic API error %s: %s | body=%s', e.status_code, getattr(e, 'message', e), getattr(e, 'body', None))
             if e.status_code >= 500:
                 return Response({'error': 'The AI Designer service is temporarily unavailable. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
             return Response({'error': 'The AI Designer could not process that request.'}, status=status.HTTP_400_BAD_REQUEST)
