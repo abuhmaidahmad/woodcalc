@@ -56,14 +56,14 @@ PROPOSE_CABINET_TOOL = {
             "name": {"type": "string", "description": "Short catalog label, e.g. 'Corner TV Unit 900'"},
             "category": {"type": "string", "enum": VALID_CATEGORIES},
             "subtype": {"type": "string", "description": "Short descriptive subtype, e.g. 'Custom', 'Open Shelf'. Default to 'Custom' unless it clearly matches a standard cabinetry term."},
-            "width": {"type": "integer", "minimum": 100, "maximum": 3000},
-            "height": {"type": "integer", "minimum": 100, "maximum": 2500},
-            "depth": {"type": "integer", "minimum": 100, "maximum": 800},
-            "door_count": {"type": "integer", "minimum": 0, "maximum": 4},
-            "shelves": {"type": "integer", "minimum": 0, "maximum": 10},
+            "width": {"type": "integer", "description": "Width in mm, roughly 100-3000."},
+            "height": {"type": "integer", "description": "Height in mm, roughly 100-2500."},
+            "depth": {"type": "integer", "description": "Depth in mm, roughly 100-800."},
+            "door_count": {"type": "integer", "description": "0-4."},
+            "shelves": {"type": "integer", "description": "0-10."},
             "drawer_system": {"type": "string"},
-            "wall_height": {"type": "integer", "minimum": 100, "maximum": 2500, "description": "Only meaningful when category is 'wall' — same as height."},
-            "elevation": {"type": "integer", "minimum": 0, "maximum": 2500, "description": "Only meaningful when category is 'wall' — height off the floor to the cabinet's bottom."},
+            "wall_height": {"type": "integer", "description": "Only meaningful when category is 'wall' — same as height, roughly 100-2500."},
+            "elevation": {"type": "integer", "description": "Only meaningful when category is 'wall' — height off the floor to the cabinet's bottom, roughly 0-2500."},
             "explanation": {"type": "string", "description": "One or two sentences explaining the design to show the user."},
         },
         "required": ["name", "category", "subtype", "width", "height", "depth", "explanation"],
@@ -121,6 +121,16 @@ class DesignerAgentChatView(APIView):
                 return Response({'error': 'The AI Designer service is temporarily unavailable. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
             return Response({'error': 'The AI Designer could not process that request.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Anthropic's strict tool-use schema rejects `minimum`/`maximum` on integer
+        # properties (400 invalid_request_error), so dimension ranges can't be
+        # enforced in the schema itself — clamping here is the only validation for
+        # these fields, not defensive insurance on top of the schema.
+        NUMERIC_RANGES = {
+            'width': (100, 3000), 'height': (100, 2500), 'depth': (100, 800),
+            'door_count': (0, 4), 'shelves': (0, 10),
+            'wall_height': (100, 2500), 'elevation': (0, 2500),
+        }
+
         proposal = None
         text_parts = []
         for block in response.content:
@@ -128,11 +138,14 @@ class DesignerAgentChatView(APIView):
                 text_parts.append(block.text)
             elif block.type == 'tool_use' and block.name == 'propose_cabinet':
                 data = dict(block.input)
-                # Defensive second layer beyond the strict schema: clamp category to
-                # the known set server-side too — cheap insurance, not the primary
-                # validation mechanism (strict:true already guarantees this in practice).
                 if data.get('category') not in VALID_CATEGORIES:
                     data['category'] = 'specialty'
+                for field, (lo, hi) in NUMERIC_RANGES.items():
+                    if field in data and data[field] is not None:
+                        try:
+                            data[field] = max(lo, min(hi, int(data[field])))
+                        except (TypeError, ValueError):
+                            del data[field]
                 proposal = data
 
         if proposal is not None:
