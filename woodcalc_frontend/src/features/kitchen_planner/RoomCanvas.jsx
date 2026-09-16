@@ -185,6 +185,43 @@ function findNearestCabinetEdge(px, py, cabinets, scale, threshold) {
   return best
 }
 
+// Corners of a cabinet's (possibly rotated) rectangular footprint, in scaled px —
+// the measure tool's snap targets, computed the same way getCabinetEdgePx derives
+// its edge endpoints.
+function findNearestCabinetCorner(px, py, cabinets, scale, threshold) {
+  let best = null, bestDist = threshold
+  cabinets.forEach(cab => {
+    const ccx = cab.x + cab.width / 2, ccy = cab.y + cab.depth / 2
+    const rad = ((cab.rotation || 0) * Math.PI) / 180
+    const cos = Math.cos(rad), sin = Math.sin(rad)
+    const rot = (x, y) => {
+      const dx = x - ccx, dy = y - ccy
+      return { x: (ccx + dx * cos - dy * sin) * scale, y: (ccy + dx * sin + dy * cos) * scale }
+    }
+    ;[
+      rot(cab.x, cab.y), rot(cab.x + cab.width, cab.y),
+      rot(cab.x, cab.y + cab.depth), rot(cab.x + cab.width, cab.y + cab.depth),
+    ].forEach(pt => {
+      const d = ptDist(px, py, pt.x, pt.y)
+      if (d < bestDist) { bestDist = d; best = pt }
+    })
+  })
+  return best
+}
+
+// Snap point for the measure tool's click points: cabinet corners first (the
+// most common thing you'd want to measure between), then wall endpoints, then
+// the nearest point on a wall's centerline — falling back to the raw click.
+function findMeasureSnapPoint(px, py, walls, cabinets, wallThickness, scale, threshold) {
+  const corner = findNearestCabinetCorner(px, py, cabinets, scale, threshold)
+  if (corner) return corner
+  const endpoint = findNearestEndpoint(px, py, walls, -1, threshold)
+  if (endpoint) return endpoint
+  const wallSnap = findWallSnap(px, py, walls, wallThickness, scale, threshold)
+  if (wallSnap) return { x: wallSnap.centerX, y: wallSnap.centerY }
+  return null
+}
+
 function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange, offsetStart = 0, offsetEnd = 0 }) {
   const { t } = useTranslation()
   const { x1, y1, x2, y2 } = wall
@@ -311,6 +348,9 @@ export default function RoomCanvas({
   const [dragCorner, setDragCorner] = useState(null)
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
   const [flipWinding, setFlipWinding] = useState(1)
+  const [measureStart, setMeasureStart] = useState(null)
+  const [measureEnd, setMeasureEnd] = useState(null)
+  const [measureSnap, setMeasureSnap] = useState(null)
 
   // Zoom & Pan
   const [vx, setVx] = useState(0)
@@ -441,7 +481,7 @@ export default function RoomCanvas({
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
 
   useEffect(() => {
-    if (mode !== 'draw' && mode !== 'backsplash') return
+    if (mode !== 'draw' && mode !== 'backsplash' && mode !== 'measure') return
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
       if (e.key === 'Escape') {
@@ -449,6 +489,7 @@ export default function RoomCanvas({
         // placed/committed wall or backsplash segments are untouched either way,
         // this only cancels whatever in-progress point hasn't been committed yet.
         setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+        setMeasureStart(null); setMeasureEnd(null)
         setMode('select')
         return
       }
@@ -539,9 +580,20 @@ export default function RoomCanvas({
   const handleCanvasClick = useCallback((e) => {
     if (isPanningRef.current) return
     if (wallClickedRef.current) { wallClickedRef.current = false; return }
-    if (mode !== 'backsplash' && e.target !== svgRef.current && e.target.tagName !== 'svg') return
+    if (mode !== 'backsplash' && mode !== 'measure' && e.target !== svgRef.current && e.target.tagName !== 'svg') return
     if (mode === 'select') {
       setSelectedWall(null); setSelected(null); setSelectedType(null); return
+    }
+    if (mode === 'measure') {
+      const pos = getSVGPos(e)
+      const snapped = findMeasureSnapPoint(pos.x, pos.y, walls, cabinets, wallThickness, scale, snapThreshold) || pos
+      if (!measureStart || measureEnd) {
+        // First click, or a third click after a completed measurement — start fresh.
+        setMeasureStart(snapped); setMeasureEnd(null)
+      } else {
+        setMeasureEnd(snapped)
+      }
+      return
     }
     if (mode === 'backsplash') {
       const pos = getSVGPos(e)
@@ -587,7 +639,7 @@ export default function RoomCanvas({
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
-  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness])
+  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness, measureStart, measureEnd])
 
   const handleMouseDown = useCallback((e) => {
     if (e.button === 2) {
@@ -629,6 +681,7 @@ export default function RoomCanvas({
     // once a startPoint already exists — so there's visual confirmation of where
     // a wall will connect before you commit to the click.
     if (mode === 'draw') setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
+    if (mode === 'measure') setMeasureSnap(findMeasureSnapPoint(rawX, rawY, walls, cabinets, wallThickness, scale, snapThreshold))
     if (!dragging) return
 
     if (dragging.type === 'wall') {
@@ -995,20 +1048,24 @@ export default function RoomCanvas({
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {!readOnly && !hideToolbar && (
         <div style={{ display: 'flex', gap: 6, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap', flexShrink: 0 }}>
-          <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null); setSelected(null); setSelectedType(null) }}
+          <button onClick={() => { setMode('select'); setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null); setSelected(null); setSelectedType(null); setMeasureStart(null); setMeasureEnd(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'select' ? ACCENT : '#E0DAD4', background: mode === 'select' ? ACCENT+'18' : '#fff', color: mode === 'select' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             {t('roomCanvas.select')}
           </button>
-          <button onClick={() => { setMode('draw'); setSelectedWall(null) }}
+          <button onClick={() => { setMode('draw'); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'draw' ? ACCENT : '#E0DAD4', background: mode === 'draw' ? ACCENT+'18' : '#fff', color: mode === 'draw' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             {t('roomCanvas.drawWalls')}
           </button>
           {!hideBacksplashTool && (
-            <button onClick={() => { setMode('backsplash'); setStartPoint(null); setSelectedWall(null) }}
+            <button onClick={() => { setMode('backsplash'); setStartPoint(null); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'backsplash' ? ACCENT : '#E0DAD4', background: mode === 'backsplash' ? ACCENT+'18' : '#fff', color: mode === 'backsplash' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               {t('roomCanvas.backsplashEdges')}
             </button>
           )}
+          <button onClick={() => { setMode('measure'); setStartPoint(null); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
+            style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'measure' ? ACCENT : '#E0DAD4', background: mode === 'measure' ? ACCENT+'18' : '#fff', color: mode === 'measure' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            {t('roomCanvas.measure')}
+          </button>
           <button onClick={undo} disabled={history.length <= 1}
             style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
             ↩
@@ -1031,6 +1088,13 @@ export default function RoomCanvas({
           )}
           {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.clickToPlaceHint')}</span>}
           {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.backsplashHint')}</span>}
+          {mode === 'measure' && !measureStart && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.measureHintStart')}</span>}
+          {mode === 'measure' && measureStart && !measureEnd && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.measureHintEnd')}</span>}
+          {mode === 'measure' && measureStart && measureEnd && (
+            <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
+              {Math.round(ptDist(measureStart.x, measureStart.y, measureEnd.x, measureEnd.y) / scale)}mm · {t('roomCanvas.measureHintNext')}
+            </span>
+          )}
           {mode === 'select' && selectedWall !== null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 10 }}>
               <span style={{ fontSize: 11, color: '#888', marginInlineEnd: 2 }}>{t('roomCanvas.length')}</span>
@@ -1143,7 +1207,7 @@ export default function RoomCanvas({
     offsetStart={getEndpointOffset(walls, i, 'start', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
     offsetEnd={getEndpointOffset(walls, i, 'end', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
 
-              onSelect={hideWallsElements ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
+              onSelect={hideWallsElements || mode === 'measure' ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
               onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
               onLabelClick={() => {
@@ -1276,6 +1340,39 @@ export default function RoomCanvas({
               </>
             )
           })()}
+          {mode === 'measure' && measureSnap && <circle cx={measureSnap.x} cy={measureSnap.y} r={10} fill="#3B82F633" stroke="#3B82F6" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'measure' && measureStart && !measureEnd && mousePos && (() => {
+            const end = measureSnap || mousePos
+            const distMm = Math.round(ptDist(measureStart.x, measureStart.y, end.x, end.y) / scale)
+            const mx = (measureStart.x + end.x) / 2, my = (measureStart.y + end.y) / 2
+            return (
+              <>
+                <line x1={measureStart.x} y1={measureStart.y} x2={end.x} y2={end.y}
+                  stroke="#3B82F6" strokeWidth={2} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
+                <g transform={`translate(${mx},${my})`} style={{ pointerEvents: 'none' }}>
+                  <rect x={-32} y={-13} width={64} height={20} rx={4} fill="#3B82F6" opacity={0.9} />
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{distMm}mm</text>
+                </g>
+                <circle cx={end.x} cy={end.y} r={5} fill="#3B82F6" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+              </>
+            )
+          })()}
+          {mode === 'measure' && measureStart && measureEnd && (() => {
+            const distMm = Math.round(ptDist(measureStart.x, measureStart.y, measureEnd.x, measureEnd.y) / scale)
+            const mx = (measureStart.x + measureEnd.x) / 2, my = (measureStart.y + measureEnd.y) / 2
+            return (
+              <>
+                <line x1={measureStart.x} y1={measureStart.y} x2={measureEnd.x} y2={measureEnd.y}
+                  stroke="#3B82F6" strokeWidth={2} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
+                <g transform={`translate(${mx},${my})`} style={{ pointerEvents: 'none' }}>
+                  <rect x={-32} y={-13} width={64} height={20} rx={4} fill="#3B82F6" />
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{distMm}mm</text>
+                </g>
+                <circle cx={measureEnd.x} cy={measureEnd.y} r={5} fill="#3B82F6" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+              </>
+            )
+          })()}
+          {mode === 'measure' && measureStart && <circle cx={measureStart.x} cy={measureStart.y} r={7} fill="#3B82F6" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
         </svg>
       </div>
     </div>
