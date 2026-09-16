@@ -1733,8 +1733,23 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       )}
 
       {/* Keep the 3D canvas always mounted so countertopMat / floorTile changes
-          propagate live without a remount. Only hide/show via CSS. */}
-      <div style={{ flex: 1, display: tab === '3d' ? 'flex' : 'none', flexDirection: 'column' }}>
+          propagate live without a remount. Only hide/show via CSS.
+          IMPORTANT: never collapse this to display:none — react-three-fiber's
+          <Canvas> measures its container (react-use-measure/ResizeObserver) and
+          skips pushing new children into the Three.js scene whenever that
+          measured size is 0x0 (see CanvasImpl's containerRect.width>0 gate in
+          @react-three/fiber). display:none forces width/height to 0, so any
+          cabinet prop change made while on another tab (e.g. toggling
+          blindSide from the 2D planner toolbar) was silently dropped — the 3D
+          view kept rendering the stale scene even after switching back. Using
+          position:absolute + visibility:hidden here removes it from the page's
+          flex flow (so it doesn't disturb other tabs' layout) while keeping a
+          real nonzero size, so the Canvas keeps reconciling prop updates even
+          while it's not the active tab. */}
+      <div style={tab === '3d'
+        ? { flex: 1, display: 'flex', flexDirection: 'column' }
+        : { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }
+      }>
         <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.view3dFailed')}</div><div style={{ fontSize: 12, marginTop: 4 }}>{t('kitchenPlannerModule.view3dFailedHint')}</div></div>}>
           <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
         </ErrorBoundary>
@@ -1765,7 +1780,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 }
 
 const s = {
-  page:        { height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif", background: LIGHT, overflow: 'hidden' },
+  page:        { height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif", background: LIGHT, overflow: 'hidden', position: 'relative' },
   topBar:      { height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, gap: 16 },
   topLeft:     { display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 },
   projectName: { color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },

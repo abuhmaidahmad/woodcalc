@@ -92,6 +92,15 @@ function buildLibrary(baseHeight) {
     ...[300, 400, 450, 500, 600].map(w => ({ id: `base_drw_${w}`, label: `Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 560, icon: 'base_drawers', category: 'base' })),
     ...[400, 500, 600, 700, 800].map(w => ({ id: `base_dd_${w}`, label: `2Drw+Door ${w}`, subtype: '2Drw+Door', width: w, height: baseHeight, depth: 560, icon: 'base_drawer_door', category: 'base' })),
     ...islandWidths.map(w => ({ id: `base_isl_${w}`, label: `Island ${w}`, subtype: 'Island', width: w, height: baseHeight, depth: 600, icon: 'base_island', category: 'base' })),
+    // Blind corner cabinets are floor-standing (base-height) units, so they're also listed
+    // here for discoverability under the Base tab. These duplicate the entries in `corner`
+    // below (same label/subtype/dimensions/icon) — only the `id` differs, to keep React keys
+    // unique across the catalog. `category` stays 'corner' intentionally: it's read elsewhere
+    // (formulaEngine.js, KitchenPlanner3D.jsx) to drive pricing/cut-list/3D behavior, and must
+    // behave identically to picking the same cabinet from the Corner tab.
+    { id: 'base_blind_1000', label: 'Blind 1000', subtype: 'Blind', width: 1000, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
+    { id: 'base_blind_1100', label: 'Blind 1100', subtype: 'Blind', width: 1100, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
+    { id: 'base_blind_1200', label: 'Blind 1200', subtype: 'Blind', width: 1200, height: baseHeight, depth: 560, icon: 'corner_blind', category: 'corner' },
   ]
 
   const wall = wallWidths.flatMap(w => wallHeights.flatMap(h => [

@@ -1646,6 +1646,7 @@ export default function KitchenPlanner3D({ cabinets, room, walls = [], elements 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
+        frameloop="demand"
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
         gl={{antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
         <color attach="background" args={['#ddd9d3']} />
