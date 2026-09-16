@@ -1533,6 +1533,24 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   </div>
                 )}
+                {selCab.subtype === 'Glass Door' && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.frameColor')}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[
+                        { id: 'black', color: '#1a1a1a', label: t('kitchenPlannerModule.frameColorBlack') },
+                        { id: 'silver', color: '#c0c0c0', label: t('kitchenPlannerModule.frameColorSilver') },
+                        { id: 'champagne', color: '#c8a96e', label: t('kitchenPlannerModule.frameColorChampagne') },
+                      ].map(opt => (
+                        <div key={opt.id} onClick={() => updateCab('frameColor', opt.id)}
+                          style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${(selCab.frameColor || 'black') === opt.id ? ACCENT : '#E0DAD4'}`, background: (selCab.frameColor || 'black') === opt.id ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
+                          <div style={{ width: 14, height: 14, borderRadius: '50%', background: opt.color, border: '1px solid rgba(0,0,0,0.15)', margin: '0 auto 4px' }} />
+                          <div style={{ fontSize: 10, fontWeight: 700, color: (selCab.frameColor || 'black') === opt.id ? ACCENT : '#666', textTransform: 'capitalize' }}>{opt.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {['base', 'vanity', 'corner', 'tall', 'wall'].includes(selCab.category) && (
                   <div style={{ marginBottom: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <div

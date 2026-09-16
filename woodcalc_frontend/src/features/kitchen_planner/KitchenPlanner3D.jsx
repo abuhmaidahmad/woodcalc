@@ -941,7 +941,7 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
   )
 }
 
-function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType = 'clear', doorStyle = 'Handle' }) {
+function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black' }) {
   const doorW = W / numDoors
   const GAP = 0.002
   const PROUD = 0.020
@@ -951,6 +951,15 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType
   const frontZ = D / 2 + PROUD
   const panelW = doorW - GAP * 2
   const isGola = doorStyle === 'Gola'
+  const frameHex = GOLA_COLORS[frameColor] || GOLA_COLORS.black
+  const isMetallic = frameColor === 'silver' || frameColor === 'champagne'
+  const frameMatProps = {
+    roughness: isMetallic ? 0.12 : 0.4,
+    metalness: isMetallic ? 0.92 : 0.15,
+    clearcoat: isMetallic ? 1.0 : 0.3,
+    clearcoatRoughness: isMetallic ? 0.04 : 0.2,
+    envMapIntensity: isMetallic ? 3.0 : 1.0,
+  }
   // Gola glass doors extend 25mm below the carcass bottom (matching the same finger-pull
   // convention used for opaque Gola doors), achieved by growing the panel by 25mm and
   // shifting the whole door down by half that so the TOP stays aligned, only the bottom extends.
@@ -966,19 +975,19 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType
           <group key={i} position={[xOff, doorGroupY, 0]}>
             <mesh position={[0, panelH / 2 - FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
-              <meshPhysicalMaterial color="#e8e4de" roughness={0.3} metalness={0.1} />
+              <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
             </mesh>
             <mesh position={[0, -panelH / 2 + FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
-              <meshPhysicalMaterial color="#e8e4de" roughness={0.3} metalness={0.1} />
+              <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
             </mesh>
             <mesh position={[-panelW / 2 + FRAME_W / 2, 0, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[FRAME_W, panelH, FRAME_T]} />
-              <meshPhysicalMaterial color="#e8e4de" roughness={0.3} metalness={0.1} />
+              <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
             </mesh>
             <mesh position={[panelW / 2 - FRAME_W / 2, 0, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[FRAME_W, panelH, FRAME_T]} />
-              <meshPhysicalMaterial color="#e8e4de" roughness={0.3} metalness={0.1} />
+              <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
             </mesh>
             <mesh position={[0, 0, frontZ - DOOR_T / 2]}>
               <boxGeometry args={[panelW - FRAME_W * 2, panelH - FRAME_W * 2, 0.005]} />
@@ -1484,6 +1493,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
               isWallCabinet={isWall}
               glassType={cab.glassType || 'clear'}
               doorStyle={doorStyle}
+              frameColor={cab.frameColor || 'black'}
             />
           ) : (
             <CabinetDoors W={W} H={H} D={D}
