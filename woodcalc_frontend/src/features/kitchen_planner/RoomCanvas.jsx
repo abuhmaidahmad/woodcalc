@@ -4,7 +4,7 @@ import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const GRID = 50
-const ENDPOINT_SNAP_DIST = 60
+export const ENDPOINT_SNAP_DIST = 60
 // Element types that can snap onto a wall's centerline while dragging. Windows/doors
 // become wall cutouts (EmbeddedElement); the point types just get wall-relative
 // positioning while still rendering as icons — see the element drag handler and
@@ -70,7 +70,7 @@ function getDrawStartOffset(px, py, dirAngleRad, walls, wallThickness, scale, th
 // connected at this endpoint. Reduces to a flat halfThickness only at 90 deg
 // (matching old behavior on rectangular rooms) and to ~0 for a near-straight
 // run. Returns 0 when the endpoint has no connected neighbor.
-function getEndpointOffset(walls, wallIndex, end, wallThickness, scale, threshold, mode) {
+export function getEndpointOffset(walls, wallIndex, end, wallThickness, scale, threshold, mode) {
   const wall = walls[wallIndex]
   if (!wall) return 0
   const vx = end === 'start' ? wall.x1 : wall.x2
