@@ -440,9 +440,7 @@
     "shareViewGenerating": "Generating link...",
     "shareViewCopied": "Link copied!",
     "shareViewRevoke": "Revoke link",
-    "shareViewRevokeConfirm": "Revoke this link? It will stop working immediately.",
-    "duplicateDraft": "Duplicate Draft",
-    "duplicating": "Duplicating..."
+    "shareViewRevokeConfirm": "Revoke this link? It will stop working immediately."
   },
   "kitchenShareView": {
     "loading": "Loading kitchen...",
