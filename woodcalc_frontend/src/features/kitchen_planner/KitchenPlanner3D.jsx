@@ -1606,7 +1606,7 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
 // every unrelated state change in the parent (selecting a cabinet, switching
 // tool mode, etc.), not just when its own props actually change. Memoizing
 // keeps it inert unless cabinets/room/walls/elements/materials really changed.
-function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20 }) {
+function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
@@ -1627,7 +1627,11 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
     [cx-span*0.2,cz+span*0.2],[cx+span*0.2,cz+span*0.2],
   ]
 
-  const textureMap = useMaterialTextureMap()
+  // Without a logged-in user, /api/inventory/materials/ needs ?company=<slug>
+  // to return anything (see PublicOrTenantScopedMixin) — callers with no
+  // session (the public share view, the public catalog browser) must pass
+  // their manufacturer's slug or every front falls back to a flat color.
+  const textureMap = useMaterialTextureMap(companySlug)
 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>

@@ -67,6 +67,7 @@ export default function KitchenShareView() {
             backsplashSegments={room.backsplashSegments}
             backsplashHeight={room.backsplashHeight}
             backsplashThickness={room.backsplashThickness}
+            companySlug={room.company_slug}
           />
         </ErrorBoundary>
         {!cabinets.length && (
