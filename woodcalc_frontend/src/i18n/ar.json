@@ -434,7 +434,20 @@
   },
   "roomDetail": {
     "loading": "جارٍ تحميل الغرفة...",
-    "notFound": "الغرفة غير موجودة"
+    "notFound": "الغرفة غير موجودة",
+    "shareView": "مشاركة العرض ثلاثي الأبعاد",
+    "shareViewCopyLink": "نسخ رابط العرض ثلاثي الأبعاد",
+    "shareViewGenerating": "جارٍ إنشاء الرابط...",
+    "shareViewCopied": "تم نسخ الرابط!",
+    "shareViewRevoke": "إلغاء الرابط",
+    "shareViewRevokeConfirm": "هل تريد إلغاء هذا الرابط؟ سيتوقف عن العمل فورًا."
+  },
+  "kitchenShareView": {
+    "loading": "جارٍ تحميل المطبخ...",
+    "notFound": "هذا الرابط لم يعد صالحًا.",
+    "notFoundHint": "اطلب رابطًا جديدًا من مصمم مطبخك.",
+    "badge": "معاينة ثلاثية الأبعاد",
+    "empty": "لا يحتوي هذا التصميم على أي خزائن بعد."
   },
   "collections": {
     "title": "التحصيلات",

@@ -1,3 +1,5 @@
+import uuid
+
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -39,6 +41,35 @@ def public_lead_capture(request):
         design_total=request.data.get('design_total') or None,
     )
     return Response({'id': lead.id}, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def public_room_share_view(request, token):
+    """Read-only, unauthenticated lookup for a room's "Share 3D View" link
+    (/view/:token). Keyed on the random share_token rather than the room's
+    sequential id so a customer link can't be used to guess at other rooms.
+    Returns only what the 3D viewer needs — never the full authenticated
+    Room payload (no notes, no project/client linkage)."""
+    room = Room.objects.select_related('project__client__tenant').filter(share_token=token).first()
+    if room is None:
+        return Response({'detail': 'Link not found or no longer shared.'}, status=status.HTTP_404_NOT_FOUND)
+
+    data = room.planner_data or {}
+    return Response({
+        'name': room.name,
+        'room_type': room.room_type,
+        'company_slug': room.project.client.tenant.slug,
+        'room': data.get('room'),
+        'walls': data.get('walls', []),
+        'elements': data.get('elements', []),
+        'cabinets': data.get('cabinets', []),
+        'countertopMat': data.get('countertopMat'),
+        'countertopThickness': data.get('countertopThickness'),
+        'backsplashSegments': data.get('backsplashSegments', []),
+        'backsplashHeight': data.get('backsplashHeight'),
+        'backsplashThickness': data.get('backsplashThickness'),
+    })
 
 
 class ClientViewSet(TenantScopedMixin, ModelViewSet):
@@ -131,6 +162,22 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         if project_id:
             qs = qs.filter(project_id=project_id)
         return qs
+
+    @action(detail=True, methods=['post'])
+    def share_link(self, request, pk=None):
+        """Generate (or rotate) this room's public "Share 3D View" token."""
+        room = self.get_object()
+        room.share_token = uuid.uuid4()
+        room.save(update_fields=['share_token'])
+        return Response({'share_token': str(room.share_token)})
+
+    @share_link.mapping.delete
+    def revoke_share_link(self, request, pk=None):
+        """Revoke this room's public link; the old URL stops working."""
+        room = self.get_object()
+        room.share_token = None
+        room.save(update_fields=['share_token'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class PaymentViewSet(TenantScopedMixin, ModelViewSet):

@@ -714,7 +714,7 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare } = {}) {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
@@ -1073,6 +1073,18 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_champagne">{t('kitchenPlannerModule.skirtingPvcChampagne')}</option>
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
+          )}
+          {onShare && (
+            <>
+              <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
+                {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
+              </button>
+              {shareToken && (
+                <button onClick={onRevokeShare} style={{ ...s.saveBtn, color: '#E74C3C' }}>
+                  {t('roomDetail.shareViewRevoke')}
+                </button>
+              )}
+            </>
           )}
           {publicCompanySlug ? (
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
@@ -1809,15 +1821,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
 const s = {
   page:        { height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif", background: LIGHT, overflow: 'hidden', position: 'relative' },
-  topBar:      { height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, gap: 16 },
+  // minHeight (not a fixed height) + flexWrap lets this row grow onto a second
+  // line instead of silently overflowing past the viewport edge — with
+  // baseHeight/skirting/share/save all showing at once this row can get wider
+  // than a laptop screen, and page's overflow:hidden would otherwise clip
+  // whatever doesn't fit with no visual sign anything is missing.
+  topBar:      { minHeight: 56, background: DARK, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', flexShrink: 0, gap: 16 },
   topLeft:     { display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 },
   projectName: { color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
   nameInput:   { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 14, fontWeight: 700, outline: 'none' },
   cabCount:    { color: '#666', fontSize: 12 },
-  tabs:        { display: 'flex', gap: 4 },
+  tabs:        { display: 'flex', flexWrap: 'wrap', gap: 4 },
   tab:         { padding: '7px 14px', background: 'transparent', border: 'none', color: '#888', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
   tabActive:   { background: ACCENT, color: '#fff', fontWeight: 700 },
-  topRight:    { display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' },
+  topRight:    { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' },
   saveBtn:     { padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
