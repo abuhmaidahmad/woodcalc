@@ -179,6 +179,24 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.save(update_fields=['share_token'])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+    @action(detail=True, methods=['post'])
+    def duplicate(self, request, pk=None):
+        """Clone this room's full design (walls, cabinets, materials, notes) into a
+        new room in the same project, so a manufacturer can keep the original
+        draft untouched while iterating on a variant — e.g. to give a customer
+        multiple design options to pick from for the same location."""
+        room = self.get_object()
+        name = (request.data.get('name') or '').strip() or f'{room.name} (Copy)'
+        copy = Room.objects.create(
+            project=room.project,
+            name=name,
+            room_type=room.room_type,
+            planner_data=room.planner_data,
+            grand_total=room.grand_total,
+            notes=room.notes,
+        )
+        return Response(RoomSerializer(copy).data, status=status.HTTP_201_CREATED)
+
 
 class PaymentViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'project__client__tenant'

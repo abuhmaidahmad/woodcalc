@@ -440,7 +440,9 @@
     "shareViewGenerating": "Generating link...",
     "shareViewCopied": "Link copied!",
     "shareViewRevoke": "Revoke link",
-    "shareViewRevokeConfirm": "Revoke this link? It will stop working immediately."
+    "shareViewRevokeConfirm": "Revoke this link? It will stop working immediately.",
+    "duplicateDraft": "Duplicate Draft",
+    "duplicating": "Duplicating..."
   },
   "kitchenShareView": {
     "loading": "Loading kitchen...",
@@ -1277,6 +1279,7 @@
     "roomCount": "{{count}} room",
     "roomCountPlural": "{{count}} rooms",
     "newRoom": "+ New Room",
+    "duplicateRoom": "Duplicate",
     "noRoomsYet": "No rooms yet",
     "addRoomHint": "Add a room to start designing",
     "noPaymentsYet": "No payments yet",
