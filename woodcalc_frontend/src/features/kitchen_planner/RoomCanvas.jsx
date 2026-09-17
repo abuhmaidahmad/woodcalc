@@ -16,6 +16,20 @@ const degToRad = d => d * Math.PI / 180
 const radToDeg = r => r * 180 / Math.PI
 const ptDist = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by)
 
+// Standard ray-casting point-in-polygon test, used to figure out which cabinets
+// a click actually falls inside of (see pickCabinetsAt / startElementDrag) —
+// cabinets that occupy the same plan footprint at different elevations (e.g. a
+// wall unit directly above a base unit) all report a hit here, since this only
+// looks at the 2D top-down outline.
+function pointInPolygon(px, py, poly) {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j]
+    if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside
+  }
+  return inside
+}
+
 function getWindingDirection(walls) {
   if (walls.length < 3) return 1
   let sum = 0
@@ -368,6 +382,10 @@ export default function RoomCanvas({
   const [zoomBox, setZoomBox] = useState(null)
   const wallClickedRef = useRef(false)
   const svgRef = useRef(null)
+
+  // Remembers where the last cabinet click landed, so a repeated click at (roughly)
+  // the same spot can be told apart from a fresh click elsewhere — see startElementDrag.
+  const cabClickRef = useRef({ pos: null })
 
   // Dragging (wall/element/cabinet) recomputes a new position on every raw
   // mousemove event, which can fire far more often than the screen repaints
@@ -844,14 +862,35 @@ export default function RoomCanvas({
     if (type === 'element' && hideWallsElements) return
     e.stopPropagation()
     const pos = getSVGPos(e)
-    const item = type === 'cabinet' ? cabinets.find(c => c.id === id) : elements.find(el => el.id === id)
+    let targetId = id
+    if (type === 'cabinet') {
+      // Cabinets at different elevations (e.g. a wall unit directly above a base
+      // unit) share the same plan footprint, so a plain click can only ever reach
+      // whichever one the browser happens to hit-test on top — usually whatever
+      // was drawn last. Compute our own deterministic stack of every cabinet under
+      // the click (highest-mounted first) and cycle through it on repeated clicks
+      // at (roughly) the same spot, so cabinets underneath stay reachable — the
+      // same "click again to reach the one below" idiom design tools use.
+      const mmX = pos.x / scale, mmY = pos.y / scale
+      const stack = cabinets
+        .filter(c => pointInPolygon(mmX, mmY, getCabCorners(c)))
+        .sort((a, b) => getCabElevRange(b)[0] - getCabElevRange(a)[0])
+      if (stack.length > 0) {
+        const last = cabClickRef.current
+        const samePlace = last.pos && Math.hypot(pos.x - last.pos.x, pos.y - last.pos.y) < 6
+        const prevIdx = samePlace ? stack.findIndex(c => c.id === selected) : -1
+        targetId = stack[(prevIdx + 1) % stack.length].id
+      }
+      cabClickRef.current = { pos }
+    }
+    const item = type === 'cabinet' ? cabinets.find(c => c.id === targetId) : elements.find(el => el.id === targetId)
     if (!item) return
-    setDragging({ type, id })
+    setDragging({ type, id: targetId })
     setDragStart(pos)
     setDragCorner({ ox: 0.5, oy: 0.5 })
-    setSelected(id)
+    setSelected(targetId)
     setSelectedType(type)
-  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType])
+  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale])
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
