@@ -714,7 +714,7 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare, onDuplicate, duplicateBusy } = {}) {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
@@ -1073,6 +1073,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_champagne">{t('kitchenPlannerModule.skirtingPvcChampagne')}</option>
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
+          )}
+          {onDuplicate && (
+            <button onClick={onDuplicate} disabled={duplicateBusy} style={s.saveBtn}>
+              {duplicateBusy ? t('roomDetail.duplicating') : t('roomDetail.duplicateDraft')}
+            </button>
           )}
           {onShare && (
             <>

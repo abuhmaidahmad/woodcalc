@@ -440,7 +440,9 @@
     "shareViewGenerating": "جارٍ إنشاء الرابط...",
     "shareViewCopied": "تم نسخ الرابط!",
     "shareViewRevoke": "إلغاء الرابط",
-    "shareViewRevokeConfirm": "هل تريد إلغاء هذا الرابط؟ سيتوقف عن العمل فورًا."
+    "shareViewRevokeConfirm": "هل تريد إلغاء هذا الرابط؟ سيتوقف عن العمل فورًا.",
+    "duplicateDraft": "نسخ التصميم",
+    "duplicating": "جارٍ النسخ..."
   },
   "kitchenShareView": {
     "loading": "جارٍ تحميل المطبخ...",
@@ -1277,6 +1279,7 @@
     "roomCount": "غرفة واحدة",
     "roomCountPlural": "{{count}} غرفة",
     "newRoom": "+ غرفة جديدة",
+    "duplicateRoom": "نسخ",
     "noRoomsYet": "لا توجد غرف بعد",
     "addRoomHint": "أضف غرفة لبدء التصميم",
     "noPaymentsYet": "لا توجد دفعات بعد",
