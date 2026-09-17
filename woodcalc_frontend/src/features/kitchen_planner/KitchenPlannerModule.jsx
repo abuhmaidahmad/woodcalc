@@ -1791,7 +1791,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         : { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }
       }>
         <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.view3dFailed')}</div><div style={{ fontSize: 12, marginTop: 4 }}>{t('kitchenPlannerModule.view3dFailedHint')}</div></div>}>
-          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
+          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} companySlug={publicCompanySlug} />
         </ErrorBoundary>
         {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.addCabinetsFirst')}</div></div>}
       </div>
