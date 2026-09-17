@@ -19,7 +19,6 @@ export default function RoomDetail() {
   const [loading, setLoading] = useState(true)
   const [shareBusy, setShareBusy] = useState(false)
   const [shareMsg, setShareMsg] = useState('')
-  const [duplicateBusy, setDuplicateBusy] = useState(false)
 
   useEffect(() => {
     const fetchRoom = async () => {
@@ -62,22 +61,6 @@ export default function RoomDetail() {
     setShareBusy(false)
   }
 
-  const duplicateDraft = async () => {
-    // Clones the current design into a new room so the manufacturer can keep
-    // iterating on a variant (e.g. different cabinets) while the original
-    // draft stays untouched — lets them offer a customer multiple options
-    // for the same location.
-    setDuplicateBusy(true)
-    try {
-      const res = await authFetch(API + `/api/crm/rooms/${id}/duplicate/`, { method: 'POST' })
-      if (res.ok) {
-        const copy = await res.json()
-        navigate(`/rooms/${copy.id}`)
-      }
-    } catch {}
-    setDuplicateBusy(false)
-  }
-
   const revokeShareView = async () => {
     if (!window.confirm(t('roomDetail.shareViewRevokeConfirm'))) return
     try {
@@ -112,8 +95,6 @@ export default function RoomDetail() {
       shareMsg={shareMsg}
       onShare={shareView}
       onRevokeShare={revokeShareView}
-      onDuplicate={duplicateDraft}
-      duplicateBusy={duplicateBusy}
     />
   )
 }
