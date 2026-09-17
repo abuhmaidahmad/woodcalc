@@ -714,7 +714,7 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare } = {}) {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
@@ -1073,6 +1073,18 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_champagne">{t('kitchenPlannerModule.skirtingPvcChampagne')}</option>
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
+          )}
+          {onShare && (
+            <>
+              <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
+                {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
+              </button>
+              {shareToken && (
+                <button onClick={onRevokeShare} style={{ ...s.saveBtn, color: '#E74C3C' }}>
+                  {t('roomDetail.shareViewRevoke')}
+                </button>
+              )}
+            </>
           )}
           {publicCompanySlug ? (
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>

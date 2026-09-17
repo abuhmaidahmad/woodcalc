@@ -434,7 +434,20 @@
   },
   "roomDetail": {
     "loading": "Loading room...",
-    "notFound": "Room not found"
+    "notFound": "Room not found",
+    "shareView": "Share 3D View",
+    "shareViewCopyLink": "Copy 3D View Link",
+    "shareViewGenerating": "Generating link...",
+    "shareViewCopied": "Link copied!",
+    "shareViewRevoke": "Revoke link",
+    "shareViewRevokeConfirm": "Revoke this link? It will stop working immediately."
+  },
+  "kitchenShareView": {
+    "loading": "Loading kitchen...",
+    "notFound": "This link is no longer valid.",
+    "notFoundHint": "Ask your kitchen designer for a new link.",
+    "badge": "3D Preview",
+    "empty": "This design doesn't have any cabinets yet."
   },
   "collections": {
     "title": "Collections",
