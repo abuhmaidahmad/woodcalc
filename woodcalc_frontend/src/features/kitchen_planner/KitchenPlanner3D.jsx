@@ -1017,39 +1017,6 @@ const SKIRTING_PVC_COLORS = {
   pvc_silver: '#c0c0c0',
 }
 
-function hasNeighbor(cab, side, allCabinets) {
-  // Only handle straight, unrotated rows for adjacency (covers the common kitchen-run case)
-  if ((cab.rotation || 0) !== 0) return false
-  const TOL = 15 // mm tolerance for "touching"
-  const myLeft = cab.x
-  const myRight = cab.x + cab.width
-  const myTop = cab.y
-  const myBottom = cab.y + cab.depth
-
-  return allCabinets.some(other => {
-    if (other.id === cab.id) return false
-    if ((other.rotation || 0) !== 0) return false
-    const floorCategories = ['base', 'vanity', 'corner', 'tall']
-    if (!floorCategories.includes(other.category) || !floorCategories.includes(cab.category)) return false
-    const oLeft = other.x
-    const oRight = other.x + other.width
-    const oTop = other.y
-    const oBottom = other.y + other.depth
-
-    if (side === 'right') {
-      return Math.abs(oLeft - myRight) <= TOL && oTop < myBottom && oBottom > myTop
-    }
-    if (side === 'left') {
-      return Math.abs(oRight - myLeft) <= TOL && oTop < myBottom && oBottom > myTop
-    }
-    if (side === 'front' || side === 'back') {
-      // front/back adjacency would mean two rows facing each other - rare, skip for now
-      return false
-    }
-    return false
-  })
-}
-
 function SkirtingCornerJoins({ cabinets, countertopMat }) {
   const skirtable = cabinets.filter(c => ['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
   const joins = detectCornerJoins(skirtable)
@@ -1078,7 +1045,7 @@ function SkirtingCornerJoins({ cabinets, countertopMat }) {
   )
 }
 
-function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab, allCabinets = [] }) {
+function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
   const T = 0.018
   let color = '#1a1a1a'
   let roughness = 0.4
@@ -1096,17 +1063,16 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
 
   // Skirting sits at the leg line (same 25mm inset from the cabinet edge used for leg placement),
   // not flush with the outer cabinet face — matching real toe-kick clip installation.
-  // When a neighboring cabinet sits flush against this side, extend the panel to the shared
-  // boundary instead of stopping short, so the seam reads as continuous.
+  // Detecting a touching neighbor to extend into proved unreliable across rotations/corner
+  // units/appliances, so instead the front/back board is simply always cut 20mm wider than
+  // the cabinet on each side, overlapping into whatever sits next to it so the seam reads as
+  // continuous regardless of exact adjacency. When this cabinet also has its own left/right
+  // end panel selected (it's the exposed end of a run, not butted against a neighbor), that
+  // side's overhang is cut back flush instead, since the end panel is what should terminate it.
   const legInset = 0.025
-  const hasLeftNeighbor = cab ? hasNeighbor(cab, 'left', allCabinets) : false
-  const hasRightNeighbor = cab ? hasNeighbor(cab, 'right', allCabinets) : false
-
-  // Slight negative inset (overlap) on joined sides prevents z-fighting between
-  // two flush coplanar faces, which otherwise renders as a flickering seam/gap line.
-  const joinOverlap = 0.003
-  const frontBackInsetL = hasLeftNeighbor ? -joinOverlap : legInset
-  const frontBackInsetR = hasRightNeighbor ? -joinOverlap : legInset
+  const overhang = 0.02
+  const frontBackInsetL = sides.includes('left') ? legInset : -overhang
+  const frontBackInsetR = sides.includes('right') ? legInset : -overhang
   const frontBackWidth = W - frontBackInsetL - frontBackInsetR
   const frontBackOffsetX = (frontBackInsetR - frontBackInsetL) / 2
 
@@ -1117,10 +1083,10 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat, cab
   if (sides.includes('back')) {
     panels.push({ pos: [frontBackOffsetX, -legH / 2, -D / 2 + legInset], size: [frontBackWidth, legH, T] })
   }
-  if (sides.includes('left') && !hasLeftNeighbor) {
+  if (sides.includes('left')) {
     panels.push({ pos: [-W / 2 + legInset, -legH / 2, 0], size: [T, legH, D - legInset * 2] })
   }
-  if (sides.includes('right') && !hasRightNeighbor) {
+  if (sides.includes('right')) {
     panels.push({ pos: [W / 2 - legInset, -legH / 2, 0], size: [T, legH, D - legInset * 2] })
   }
 
@@ -1461,7 +1427,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         )
       })()}
       {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
-        <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} cab={cab} allCabinets={allCabinets} />
+        <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
       )}
       {isBase && !isShelf && (
         <group position={[0, H, 0]}>
