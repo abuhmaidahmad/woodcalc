@@ -1329,7 +1329,14 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
   )
 }
 
-function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 30, textureMap = {} }) {
+// Memoized: with 50+ cabinets in a design, a single cabinet's drag/property
+// edit used to re-run every cabinet's (unmemoized) render function on every
+// commit -- rebuilding all 50 heavy mesh subtrees (doors, drawers, gola
+// profiles, notched panels) instead of just the one that actually changed.
+// `cab` keeps a stable object reference for every cabinet except the one
+// being edited (state updates use `cabinets.map(c => c.id === id ? {...} : c)`),
+// so memoizing here turns an O(N) rebuild into O(1) per edit.
+const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {} }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
   const D = cab.depth / 1000
@@ -1488,9 +1495,12 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       )}
     </group>
   )
-}
+})
 
-function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
+// Memoized for the same reason as Cabinet: `wall` keeps a stable reference
+// for every wall except the one being edited, and `elements` is stable
+// whenever cabinets (not doors/windows) are what changed.
+const Wall3D = React.memo(function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
   const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
   const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
   const len = Math.hypot(x2-x1, z2-z1)
@@ -1537,9 +1547,9 @@ function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wa
       <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
     </mesh>
   )
-}
+})
 
-function WindowElement({ el, wallThickness }) {
+const WindowElement = React.memo(function WindowElement({ el, wallThickness }) {
   const x = el.x/1000, z = el.y/1000
   const W = el.w/1000, T = (wallThickness||120)/1000
   const elev = (el.elevation||900)/1000, H = (el.h||1200)/1000
@@ -1556,9 +1566,9 @@ function WindowElement({ el, wallThickness }) {
       <rectAreaLight width={W*0.9} height={H*0.9} intensity={4} color="#fff8f0" position={[0,0,-T]} rotation={[0,Math.PI,0]} />
     </group>
   )
-}
+})
 
-function DoorElement({ el, wallThickness }) {
+const DoorElement = React.memo(function DoorElement({ el, wallThickness }) {
   const x = el.x/1000, z = el.y/1000
   const W = el.w/1000, T = (wallThickness||120)/1000
   const H = (el.h||2300)/1000
@@ -1578,9 +1588,9 @@ function DoorElement({ el, wallThickness }) {
       </mesh>
     </group>
   )
-}
+})
 
-function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
+const OtherElement = React.memo(function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   const x = el.x/1000, z = el.y/1000
   const elev = (el.elevation||1200)/1000
   const rot = (el.rotation||0)*Math.PI/180
@@ -1597,7 +1607,7 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
       <mesh><cylinderGeometry args={[0.04,0.04,0.04,16]} /><meshStandardMaterial color={color} roughness={0.4} metalness={0.3} /></mesh>
     </group>
   )
-}
+})
 
 // Rendering this scene reconciles geometry/materials for every cabinet, so it's
 // not cheap. The planner keeps this component permanently mounted (see the
@@ -1662,7 +1672,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
           ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
-        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} allCabinets={cabinets} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
+        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
         {backsplashSegments.map(seg => (
           <Backsplash3D key={seg.id} seg={seg} cabinets={cabinets} countertopMat={countertopMat}
             countertopThickness={countertopThickness} backsplashHeightDefault={backsplashHeight}
