@@ -844,9 +844,15 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const updateCabsBulk = (updates) => setCabinets(p => p.map(c => bulkIds.has(c.id) ? { ...c, ...updates } : c))
   const toggleBulk = useCallback((id) => setBulkIds(prev => {
     const next = new Set(prev)
+    // Starting a bulk selection from a modifier-click while a single cabinet
+    // is already selected should carry that cabinet into the group too,
+    // instead of silently dropping it the way a bare toggle would.
+    if (next.size === 0 && selectedType === 'cabinet' && selected != null && selected !== id) {
+      next.add(selected)
+    }
     next.has(id) ? next.delete(id) : next.add(id)
     return next
-  }), [])
+  }), [selected, selectedType])
   const clearBulk = () => setBulkIds(new Set())
   // Guards against a stale id (e.g. a cabinet deleted after being bulk-selected)
   // inflating the count shown in the panel.
