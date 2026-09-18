@@ -1282,6 +1282,8 @@
     "roomCountPlural": "{{count}} غرفة",
     "newRoom": "+ غرفة جديدة",
     "duplicateRoom": "نسخ",
+    "deleteRoom": "حذف",
+    "deleteRoomConfirm": "حذف \"{{name}}\"؟ لا يمكن التراجع عن هذا الإجراء.",
     "noRoomsYet": "لا توجد غرف بعد",
     "addRoomHint": "أضف غرفة لبدء التصميم",
     "noPaymentsYet": "لا توجد دفعات بعد",

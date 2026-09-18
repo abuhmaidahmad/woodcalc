@@ -129,6 +129,14 @@ export default function ProjectDetail() {
     } catch {}
   }
 
+  const deleteRoom = async (room) => {
+    if (!window.confirm(t('projectDetail.deleteRoomConfirm', { name: room.name }))) return
+    try {
+      const res = await authFetch(API + `/api/crm/rooms/${room.id}/`, { method: 'DELETE' })
+      if (res.ok) fetchData()
+    } catch {}
+  }
+
   const saveRoomName = async (roomId) => {
     setEditingRoomId(null)
     const room = rooms.find(r => r.id === roomId)
@@ -285,12 +293,20 @@ export default function ProjectDetail() {
                     onClick={() => editingRoomId !== room.id && navigate(`/rooms/${room.id}`)}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>{ROOM_ICONS[room.room_type] || '📦'}</div>
-                      <button
-                        onClick={e => { e.stopPropagation(); duplicateRoom(room) }}
-                        title={t('projectDetail.duplicateRoom')}
-                        style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#888', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
-                        {t('projectDetail.duplicateRoom')}
-                      </button>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); duplicateRoom(room) }}
+                          title={t('projectDetail.duplicateRoom')}
+                          style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#888', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
+                          {t('projectDetail.duplicateRoom')}
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); deleteRoom(room) }}
+                          title={t('projectDetail.deleteRoom')}
+                          style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#E74C3C', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
+                          {t('projectDetail.deleteRoom')}
+                        </button>
+                      </div>
                     </div>
                     {editingRoomId === room.id ? (
                       <input autoFocus value={roomNameDraft} onChange={e => setRoomNameDraft(e.target.value)}

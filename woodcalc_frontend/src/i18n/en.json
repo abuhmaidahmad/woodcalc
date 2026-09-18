@@ -1282,6 +1282,8 @@
     "roomCountPlural": "{{count}} rooms",
     "newRoom": "+ New Room",
     "duplicateRoom": "Duplicate",
+    "deleteRoom": "Delete",
+    "deleteRoomConfirm": "Delete \"{{name}}\"? This cannot be undone.",
     "noRoomsYet": "No rooms yet",
     "addRoomHint": "Add a room to start designing",
     "noPaymentsYet": "No payments yet",
