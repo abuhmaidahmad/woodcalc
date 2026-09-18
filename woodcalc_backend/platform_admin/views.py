@@ -8,13 +8,17 @@ from rest_framework.viewsets import ModelViewSet
 
 from tenants.models import Company
 from feedback.models import Feedback
-from .serializers import AdminCompanySerializer, AdminFeedbackSerializer
+from .serializers import AdminCompanySerializer, AdminCompanyDetailSerializer, AdminFeedbackSerializer
 
 
 class AdminCompanyViewSet(ModelViewSet):
     queryset = Company.objects.all().order_by('-created_at')
-    serializer_class = AdminCompanySerializer
     permission_classes = [IsAuthenticated, IsAdminUser]
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return AdminCompanyDetailSerializer
+        return AdminCompanySerializer
 
     @action(detail=True, methods=['post'])
     def extend_trial(self, request, pk=None):

@@ -751,6 +751,28 @@
     "statusCanceled": "CANCELED",
     "statusSuspended": "SUSPENDED"
   },
+  "adminCompanyDetail": {
+    "notFound": "Company not found",
+    "maxUsers": "max {{count}} users",
+    "createdAt": "created {{date}}",
+    "employees": "Employees",
+    "clients": "Clients",
+    "members": "Members",
+    "membersTitle": "Members",
+    "noMembers": "No members yet",
+    "roleOwner": "OWNER",
+    "roleAdmin": "ADMIN",
+    "roleStaff": "STAFF",
+    "invoicesTitle": "Invoices",
+    "noInvoices": "No invoices yet",
+    "invoicePending": "PENDING",
+    "invoicePaid": "PAID",
+    "invoiceFailed": "FAILED",
+    "paymentMethodsTitle": "Payment methods",
+    "noPaymentMethods": "No payment methods on file",
+    "paymentActive": "ACTIVE",
+    "paymentInactive": "INACTIVE"
+  },
   "adminFeedback": {
     "headerTitle": "Admin · Feedback",
     "companies": "Companies",

@@ -94,8 +94,10 @@ export default function AdminCompanies() {
         ) : (
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             {filtered.map((c, i) => (
-              <div key={c.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none', flexWrap: 'wrap', gap: 10 }}>
+              <div key={c.id} onClick={() => navigate(`/admin/companies/${c.id}`)}
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none', flexWrap: 'wrap', gap: 10, cursor: 'pointer' }}
+                onMouseEnter={e => e.currentTarget.style.background = '#FDFAF6'}
+                onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{c.name}</div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
@@ -106,7 +108,7 @@ export default function AdminCompanies() {
                     {' · '}{t('adminCompanies.subEnds', { date: fmtDate(c.subscription_ends_at, locale) })}
                   </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }} onClick={e => e.stopPropagation()}>
                   <button onClick={() => doExtendTrial(c)} disabled={extending === c.id}
                     style={{ padding: '6px 12px', background: '#F7F4F0', border: '1px solid #E0DAD4', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: DARK }}>
                     {extending === c.id ? t('adminCompanies.extending') : t('adminCompanies.extendTrial')}
@@ -115,6 +117,7 @@ export default function AdminCompanies() {
                     style={{ padding: '6px 10px', borderRadius: 6, border: `1.5px solid ${STATUS_COLORS[c.status]}`, color: STATUS_COLORS[c.status], fontSize: 11, fontWeight: 700, background: '#fff', cursor: 'pointer' }}>
                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
                   </select>
+                  <span style={{ color: '#ccc', fontSize: 18 }}>{language === 'ar' ? '‹' : '›'}</span>
                 </div>
               </div>
             ))}
