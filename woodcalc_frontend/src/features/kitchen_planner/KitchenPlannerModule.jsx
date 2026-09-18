@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
@@ -729,6 +729,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [elements, setElements]               = useState([])
   const [selected, setSelected]               = useState(null)
   const [selectedType, setSelectedType]       = useState(null)
+  const [bulkIds, setBulkIds]                 = useState(() => new Set())
   const [room, setRoom]                       = useState({ width: 4000, depth: 3000 })
   const [tab, setTab]                         = useState('room')
   const [showGrid, setShowGrid]               = useState(true)
@@ -837,6 +838,25 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const updateCab = (key, val) => setCabinets(p => p.map(c => c.id === selected ? { ...c, [key]: val } : c))
   const updateEl  = (key, val) => setElements(p => p.map(e => e.id === selected ? { ...e, [key]: val } : e))
+  // One-time bulk color edit: applies the given field updates to every cabinet
+  // currently shift/ctrl-selected into bulkIds, without changing the single
+  // `selected` cabinet or setting a lasting project default.
+  const updateCabsBulk = (updates) => setCabinets(p => p.map(c => bulkIds.has(c.id) ? { ...c, ...updates } : c))
+  const toggleBulk = useCallback((id) => setBulkIds(prev => {
+    const next = new Set(prev)
+    // Starting a bulk selection from a modifier-click while a single cabinet
+    // is already selected should carry that cabinet into the group too,
+    // instead of silently dropping it the way a bare toggle would.
+    if (next.size === 0 && selectedType === 'cabinet' && selected != null && selected !== id) {
+      next.add(selected)
+    }
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  }), [selected, selectedType])
+  const clearBulk = () => setBulkIds(new Set())
+  // Guards against a stale id (e.g. a cabinet deleted after being bulk-selected)
+  // inflating the count shown in the panel.
+  const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
   // Applies every field from a chosen catalog Sink onto the selected cabinet in
   // one update — drives the 3D render, BOM fabrication spec, and Proposal/Contract.
   const applySink = (sink) => setCabinets(p => p.map(c => c.id === selected ? {
@@ -1437,10 +1457,51 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               readOnly={false}
               hideToolbar={false}
               hideBacksplashTool={true}
-              hideWallsElements={true} />
+              hideWallsElements={true}
+              bulkIds={bulkIds} onToggleBulk={toggleBulk} />
           </div>
           <div id="onboarding-configurator-cabinets-properties" style={{ ...s.rightPanel, width: 280 }}>
-            {selCab ? (
+            {bulkCount > 0 ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div style={s.propTitle}>{t('kitchenPlannerModule.bulkColorTitle', { count: bulkCount })}</div>
+                  <button onClick={clearBulk}
+                    style={{ padding: '4px 8px', background: '#F5F0E8', color: '#8A6D3B', border: '1.5px solid #E0DAD4', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                    {t('kitchenPlannerModule.bulkColorClear')}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 14, lineHeight: 1.4 }}>
+                  {t('kitchenPlannerModule.bulkColorHint')}
+                </div>
+                <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
+                <MaterialLibrary
+                  target="front"
+                  companySlug={publicCompanySlug}
+                  selectedCode={null}
+                  onSelect={mat => updateCabsBulk({
+                    frontColor: mat.hex,
+                    frontMaterial: mat.finish,
+                    frontMaterialCode: mat.code,
+                    frontMaterialName: mat.name,
+                    frontMaterialThickness: mat.thickness || (mat.finish === 'wood' ? 22 : 18),
+                    frontTextureUrl: mat.textureUrl || null,
+                  })}
+                />
+                <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
+                <MaterialLibrary
+                  target="carcass"
+                  companySlug={publicCompanySlug}
+                  selectedCode={null}
+                  onSelect={mat => updateCabsBulk({
+                    carcassColor: mat.hex,
+                    carcassMaterial: mat.finish,
+                    carcassMaterialCode: mat.code,
+                    carcassMaterialName: mat.name,
+                    carcassTextureUrl: mat.textureUrl || null,
+                  })}
+                />
+              </div>
+            ) : selCab ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <div style={s.propTitle}>{selCab.label}</div>

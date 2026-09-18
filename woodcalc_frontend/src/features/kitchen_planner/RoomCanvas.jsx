@@ -3,6 +3,8 @@ import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
+const BULK_ACCENT = '#2AC87A'
+const EMPTY_BULK_IDS = new Set()
 const GRID = 50
 export const ENDPOINT_SNAP_DIST = 60
 // Element types that can snap onto a wall's centerline while dragging. Windows/doors
@@ -342,8 +344,12 @@ export default function RoomCanvas({
   hideToolbar,
   hideBacksplashTool,
   hideWallsElements,
+  bulkIds = EMPTY_BULK_IDS, onToggleBulk,
 }) {
   const { t } = useTranslation()
+  // Stale bulk-selected ids (e.g. a cabinet deleted after being shift-selected)
+  // must not inflate the displayed count.
+  const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -883,6 +889,12 @@ export default function RoomCanvas({
       }
       cabClickRef.current = { pos }
     }
+    // Shift/Ctrl/Cmd-click a cabinet to toggle it in/out of the bulk color-edit
+    // selection instead of the normal single-select-and-drag flow.
+    if (type === 'cabinet' && onToggleBulk && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      onToggleBulk(targetId)
+      return
+    }
     const item = type === 'cabinet' ? cabinets.find(c => c.id === targetId) : elements.find(el => el.id === targetId)
     if (!item) return
     setDragging({ type, id: targetId })
@@ -890,7 +902,7 @@ export default function RoomCanvas({
     setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(targetId)
     setSelectedType(type)
-  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale])
+  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale, onToggleBulk])
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
@@ -1183,6 +1195,13 @@ export default function RoomCanvas({
               {t('roomCanvas.clearAll')}
             </button>
           )}
+          {onToggleBulk && bulkCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+              <span style={{ fontSize: 11, color: BULK_ACCENT, fontWeight: 700, background: BULK_ACCENT + '18', padding: '4px 8px', borderRadius: 6 }}>
+                {t('roomCanvas.bulkSelectedCount', { count: bulkCount })}
+              </span>
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
             <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
             <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
@@ -1328,6 +1347,8 @@ export default function RoomCanvas({
             const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
             const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
             const isSelected = selected === cab.id && selectedType === 'cabinet'
+            const isBulkSelected = bulkIds.has(cab.id)
+            const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
             return (
               <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
                 onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
@@ -1351,7 +1372,7 @@ export default function RoomCanvas({
                   }
                   const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
                   const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
-                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
+                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
                 })()}
                 {cab.subtype === 'Blind' && (() => {
                   const blindWpx = BLIND_PANEL_WIDTH * scale
@@ -1368,7 +1389,7 @@ export default function RoomCanvas({
                 {collidingIds.has(cab.id) && (
                   <rect x={x} y={y} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
                 )}
-                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={0.75} />}
+                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
                 <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
                 {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
               </g>
