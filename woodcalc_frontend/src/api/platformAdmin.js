@@ -7,6 +7,11 @@ export async function listCompanies() {
   return res.json();
 }
 
+export async function getCompany(companyId) {
+  const res = await authFetch(`${BASE_URL}/api/platform-admin/companies/${companyId}/`);
+  return res.json();
+}
+
 export async function updateCompany(companyId, data) {
   const res = await authFetch(`${BASE_URL}/api/platform-admin/companies/${companyId}/`, {
     method: 'PATCH',

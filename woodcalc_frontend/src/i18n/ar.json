@@ -751,6 +751,28 @@
     "statusCanceled": "ملغى",
     "statusSuspended": "موقوف"
   },
+  "adminCompanyDetail": {
+    "notFound": "الشركة غير موجودة",
+    "maxUsers": "الحد الأقصى {{count}} مستخدم",
+    "createdAt": "أُنشئت في {{date}}",
+    "employees": "الموظفون",
+    "clients": "العملاء",
+    "members": "الأعضاء",
+    "membersTitle": "الأعضاء",
+    "noMembers": "لا يوجد أعضاء بعد",
+    "roleOwner": "مالك",
+    "roleAdmin": "مدير",
+    "roleStaff": "موظف",
+    "invoicesTitle": "الفواتير",
+    "noInvoices": "لا توجد فواتير بعد",
+    "invoicePending": "قيد الانتظار",
+    "invoicePaid": "مدفوعة",
+    "invoiceFailed": "فشلت",
+    "paymentMethodsTitle": "طرق الدفع",
+    "noPaymentMethods": "لا توجد طرق دفع مسجلة",
+    "paymentActive": "نشطة",
+    "paymentInactive": "غير نشطة"
+  },
   "adminFeedback": {
     "headerTitle": "الإدارة · الملاحظات",
     "companies": "الشركات",
