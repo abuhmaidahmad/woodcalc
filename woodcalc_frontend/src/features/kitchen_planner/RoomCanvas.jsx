@@ -350,43 +350,57 @@ const APPLIANCE_2D_COLORS = {
 // being changed, so memoizing here turns that into a per-cabinet no-op for
 // everything untouched. `onMouseDown` must be a referentially stable callback
 // (see handleCabinetMouseDown in RoomCanvas) or this memoization is defeated.
+// Position and rotation both live on this outer <g>'s `transform` -- every
+// child below is drawn in LOCAL coordinates (0,0 at the cabinet's own
+// top-left) that never change for a given width/height. That means a plain
+// drag, which only changes cab.x/cab.y, now touches exactly one attribute on
+// one element instead of x/y on several rects and two text nodes. SVG/browser
+// engines generally treat a group's `transform` as compositable (like a CSS
+// transform: no layout recalculation of the shapes inside it), whereas
+// changing x/y attributes on individual shapes is a layout-affecting change
+// -- so with 50 cabinets on screen, this is a materially cheaper repaint per
+// drag frame than the previous absolute-coordinate version, on top of being
+// cheaper for React to diff. (translate() then rotate() in the transform list
+// rotates around the LOCAL center (w/2,h/2) first, which lands on the same
+// absolute center point as the old rotate(rot, cx, cy) did -- purely a
+// coordinate-system change, not a behavior change.)
 const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
-  const rot = cab.rotation || 0, cx = x + w / 2, cy = y + h / 2
+  const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
   const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
   const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
   return (
-    <g transform={`rotate(${rot}, ${cx}, ${cy})`}
+    <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
       onMouseDown={e => onMouseDown(e, cab.id)}
       style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
       {(w < 8 || h < 8) && (
         // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
         // otherwise render no visible area, making the cabinet unclickable and
         // permanently stuck. This invisible rect guarantees a minimum hit area.
-        <rect x={x - Math.max(0, 8 - w) / 2} y={y - Math.max(0, 8 - h) / 2}
+        <rect x={-Math.max(0, 8 - w) / 2} y={-Math.max(0, 8 - h) / 2}
           width={Math.max(w, 8)} height={Math.max(h, 8)}
           fill="transparent" style={{ pointerEvents: 'all' }} />
       )}
-      <rect x={x} y={y} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
+      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
       {cab.subtype === 'Blind' && (() => {
         const blindWpx = BLIND_PANEL_WIDTH * scale
         const side = cab.blindSide || 'left'
-        const blindX = side === 'left' ? x : x + w - blindWpx
-        const lineX = side === 'left' ? x + blindWpx : x + w - blindWpx
+        const blindX = side === 'left' ? 0 : w - blindWpx
+        const lineX = side === 'left' ? blindWpx : w - blindWpx
         return (
           <>
-            <rect x={blindX} y={y} width={blindWpx} height={h} fill="rgba(0,0,0,0.08)" style={{ pointerEvents: 'none' }} />
-            <line x1={lineX} y1={y} x2={lineX} y2={y + h} stroke="#2c3e50" strokeWidth={1.25} style={{ pointerEvents: 'none' }} />
+            <rect x={blindX} y={0} width={blindWpx} height={h} fill="rgba(0,0,0,0.08)" style={{ pointerEvents: 'none' }} />
+            <line x1={lineX} y1={0} x2={lineX} y2={h} stroke="#2c3e50" strokeWidth={1.25} style={{ pointerEvents: 'none' }} />
           </>
         )
       })()}
       {isColliding && (
-        <rect x={x} y={y} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
+        <rect x={0} y={0} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
       )}
-      {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
-      <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
-      {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+      {cab.subtype !== 'Side Panel' && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
+      <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
+      {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
     </g>
   )
 })
@@ -1100,11 +1114,17 @@ export default function RoomCanvas({
 
   const collidingIds = useMemo(() => {
     const ids = new Set()
+    // Each cabinet's corners/elevation range only depend on its own fields, not
+    // on which pair is being tested -- precomputing them once here instead of
+    // inside the double loop below cuts what used to be ~n^2 recomputations
+    // (2 per pair) down to n, which matters once n (cabinet count) gets past
+    // a couple dozen.
+    const corners = cabinets.map(getCabCorners)
+    const elevRanges = cabinets.map(getCabElevRange)
     for (let i = 0; i < cabinets.length; i++) {
       for (let j = i + 1; j < cabinets.length; j++) {
-        const a = cabinets[i], b = cabinets[j]
-        if (!rangesOverlap(getCabElevRange(a), getCabElevRange(b))) continue
-        if (polysIntersect(getCabCorners(a), getCabCorners(b))) { ids.add(a.id); ids.add(b.id) }
+        if (!rangesOverlap(elevRanges[i], elevRanges[j])) continue
+        if (polysIntersect(corners[i], corners[j])) { ids.add(cabinets[i].id); ids.add(cabinets[j].id) }
       }
     }
     // Walls run full floor-to-ceiling, so any cabinet overlapping one in plan view is a real
@@ -1112,8 +1132,8 @@ export default function RoomCanvas({
     walls.forEach(wall => {
       const wallCorners = getWallCorners(wall)
       if (!wallCorners) return
-      cabinets.forEach(cab => {
-        if (polysIntersect(getCabCorners(cab), wallCorners)) ids.add(cab.id)
+      cabinets.forEach((cab, i) => {
+        if (polysIntersect(corners[i], wallCorners)) ids.add(cab.id)
       })
     })
     return ids
@@ -1208,20 +1228,26 @@ export default function RoomCanvas({
     applyViewBounds(minX, minY, maxX, maxY, 0.6)
   }
 
-  const gridLines = []
-  if (showGrid) {
+  // Depends only on the viewport (pan/zoom) and grid toggle, never on cabinets --
+  // but as a plain array built inline, all ~600 possible <line> elements were
+  // rebuilt and re-diffed on every render, including every cabinet drag frame.
+  // useMemo keeps this array's identity (and contents) stable while dragging.
+  const gridLines = useMemo(() => {
+    const lines = []
+    if (!showGrid) return lines
     const step = GRID * scale
     if (cvw / step <= 300 && cvh / step <= 300) {
       const gx0 = Math.floor(vx / step) * step
       const gy0 = Math.floor(vy / step) * step
       for (let x = gx0; x <= vx + cvw; x += step) {
-        gridLines.push(<line key={'gx'+x} x1={x} y1={vy} x2={x} y2={vy + cvh} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+        lines.push(<line key={'gx'+x} x1={x} y1={vy} x2={x} y2={vy + cvh} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
       }
       for (let y = gy0; y <= vy + cvh; y += step) {
-        gridLines.push(<line key={'gy'+y} x1={vx} y1={y} x2={vx + cvw} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+        lines.push(<line key={'gy'+y} x1={vx} y1={y} x2={vx + cvw} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
       }
     }
-  }
+    return lines
+  }, [showGrid, scale, vx, vy, cvw, cvh])
 
   const previewEnd = getPreviewEnd()
   const viewBox = `${vx} ${vy} ${cvw} ${cvh}`
