@@ -30,6 +30,20 @@ export function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
 }
 
+// Dimensions for a non-carcass flat piece (Filler/Panel/Toe Kick/Shelf/Open Shelf) —
+// one board cut at its own size, no box formula. Matches the master cut list's piece
+// entry exactly, so the cost proposal never charges for a size it wouldn't actually cut.
+// Side Panel is depth-oriented (a vertical infill against a wall); everything else in
+// this bucket is width-oriented (a horizontal strip/board).
+export function nonCarcassPieceDims(c) {
+  const isPanel = c.subtype === 'Side Panel';
+  return {
+    width: c.height,
+    depth: isPanel ? (c.depth || 581) : c.width,
+    thickness: isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18,
+  };
+}
+
 // Builds the calculateCabinet() input from a saved cabinet object — shared by the
 // cut list and the cost proposal so a subtype's door/drawer rules (Blind's narrow
 // door, Hob + Oven's no-wood-door front, drawer counts, etc.) price the same way

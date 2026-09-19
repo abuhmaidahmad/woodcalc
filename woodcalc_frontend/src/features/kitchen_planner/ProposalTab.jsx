@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -32,14 +32,35 @@ const USD_RATE = 0.71  // 1 JD = x USD (editable)
 
 const ZERO_COST = { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
 
+function boardMatKey(material) {
+  return material?.toLowerCase().includes('plywood') ? 'sheet18_ply_m2'
+    : material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
+}
+
+// Fillers/Panels/Toe Kicks/Shelves are real cut boards -- just a single flat piece
+// at its own size, not a full box -- so they're priced as board area only. No
+// hardware, no CNC/labor line (those price a full cabinet's box+door job, not a
+// one-piece cut), matching how the master cut list treats them too.
+function priceFlatPiece(cab, prices, t) {
+  const { width, depth } = nonCarcassPieceDims(cab)
+  const matKey = boardMatKey(cab.material)
+  const m2 = (width * depth) / 1e6
+  const boardCost = parseFloat((m2 * prices[matKey]).toFixed(3))
+  const breakdown = [
+    { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices[matKey], cost: boardCost },
+  ]
+  return { materialCost: boardCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(boardCost.toFixed(2)), breakdown }
+}
+
 // ─── Price a single cabinet ────────────────────────────────────────────────
 function priceCabinet(cab, prices, t) {
-  // Fillers/panels/toe kicks/shelves aren't a manufactured carcass, and appliances
-  // (Fridge, Oven Tower, Freestanding Oven/Fridge/Dishwasher, wall Appliance) aren't
-  // sold through WoodCalc today -- they're design/space-planning placeholders only.
-  // Matches isCarcassCabinet(), the same gate the real cut list uses, so the quote
-  // never charges for board/hardware that isn't actually cut.
-  if (!isCarcassCabinet(cab)) return ZERO_COST
+  if (!isCarcassCabinet(cab)) {
+    // Purchased appliances (Fridge, Oven Tower, Freestanding Oven/Fridge/Dishwasher,
+    // wall Appliance) aren't sold through WoodCalc today -- design/space-planning
+    // placeholders only, no cost.
+    if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return ZERO_COST
+    return priceFlatPiece(cab, prices, t)
+  }
 
   let result
   try {
@@ -55,8 +76,7 @@ function priceCabinet(cab, prices, t) {
   const breakdown = []
 
   // Material cost
-  const matKey = cab.material?.toLowerCase().includes('plywood') ? 'sheet18_ply_m2'
-    : cab.material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
+  const matKey = boardMatKey(cab.material)
   const panels18 = result.panels.filter(p => p.thickness === 18)
   const panels8  = result.panels.filter(p => p.thickness === 8)
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, APPLIANCE_SUBTYPES } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
@@ -226,11 +226,9 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
       // Filler/Panel/etc: one piece at its actual dimensions, no formula run
-      const isPanel = c.subtype === 'Side Panel'
-      const pieceDepth = isPanel ? (c.depth || 581) : c.width
-      const pieceTh = isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18
-      const key = `${c.height}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
-      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: c.height, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
+      const { width: pieceWidth, depth: pieceDepth, thickness: pieceTh } = nonCarcassPieceDims(c)
+      const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
+      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: pieceWidth, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
       masterMap[key].qty += 1
       return
     }
