@@ -35,7 +35,10 @@ function ProposalCard({ proposal, onAdd, onSave, saveState }) {
   )
 }
 
-export default function DesignerAgentChat({ onAddCabinet, companySlug }) {
+// Memoized so this doesn't re-render on every cabinet drag frame elsewhere in
+// the planner (its props are stable across those); see the equivalent note on
+// CabinetCatalog.
+function DesignerAgentChat({ onAddCabinet, companySlug }) {
   const { t } = useTranslation()
   const [entries, setEntries] = useState([])       // [{role, content, proposal?, saveState?}]
   const [input, setInput] = useState('')
@@ -188,3 +191,5 @@ export default function DesignerAgentChat({ onAddCabinet, companySlug }) {
     </div>
   )
 }
+
+export default React.memo(DesignerAgentChat)

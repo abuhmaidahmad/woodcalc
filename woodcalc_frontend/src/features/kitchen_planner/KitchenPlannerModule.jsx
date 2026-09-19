@@ -829,6 +829,48 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setSelectedType('cabinet')
   }, [projectDefaults, baseHeight])
 
+  // Stable identity (only closes over state setters, which React guarantees are
+  // stable) so CabinetCatalog can be memoized -- an inline arrow function here
+  // would get a new reference on every render and defeat that memoization,
+  // forcing the whole catalog panel to re-render on every cabinet drag frame
+  // even though nothing in it actually changes while dragging.
+  const handleSetupComplete = useCallback((setup) => {
+    setBaseHeight(setup.baseHeight)
+    setProjectDefaults({
+      doorStyle:         setup.doorStyle,
+      golaColor:         setup.golaColor,
+      handlePos:         setup.handlePos,
+      carcassColor:      setup.carcassColor,
+      frontColor:        setup.frontColor,
+      frontFinish:       setup.frontFinish,
+      frontMaterialCode: setup.frontMaterialCode || null,
+      frontMaterialThickness: setup.frontMaterialThickness || 18,
+      drawerSystem: setup.drawerSystem || 'Local Bearing',
+      drawerBoxConstruction: setup.drawerBoxConstruction || 'wood_box',
+      skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
+    })
+    // Retroactively resize all existing base cabinets to the new height,
+    // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
+    // can derive correct leg height (720->150mm legs, 800->80mm legs)
+    // regardless of the cabinet's own box height.
+    setCabinets(prev => prev.map(c => ({
+      ...c,
+      ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
+      baseHeight: setup.baseHeight,
+      doorStyle: setup.doorStyle,
+      golaColor: setup.golaColor,
+      handlePos: setup.handlePos,
+      carcassColor: setup.carcassColor,
+      frontColor: setup.frontColor,
+      frontMaterial: setup.frontFinish,
+      frontMaterialCode: setup.frontMaterialCode || null,
+      frontMaterialThickness: setup.frontMaterialThickness || 18,
+      drawerSystem: c.drawerSystemOverridden ? c.drawerSystem : (setup.drawerSystem || c.drawerSystem),
+      drawerBoxConstruction: c.drawerSystemOverridden ? c.drawerBoxConstruction : (setup.drawerBoxConstruction || c.drawerBoxConstruction),
+      skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
+    })))
+  }, [])
+
   const addElement = (t) => {
     const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
     setElements(p => [...p, el])
@@ -1407,42 +1449,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
               companySlug={publicCompanySlug}
-              onSetupComplete={(setup) => {
-                setBaseHeight(setup.baseHeight)
-                setProjectDefaults({
-                  doorStyle:         setup.doorStyle,
-                  golaColor:         setup.golaColor,
-                  handlePos:         setup.handlePos,
-                  carcassColor:      setup.carcassColor,
-                  frontColor:        setup.frontColor,
-                  frontFinish:       setup.frontFinish,
-                  frontMaterialCode: setup.frontMaterialCode || null,
-                  frontMaterialThickness: setup.frontMaterialThickness || 18,
-                  drawerSystem: setup.drawerSystem || 'Local Bearing',
-                  drawerBoxConstruction: setup.drawerBoxConstruction || 'wood_box',
-                  skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
-                })
-                // Retroactively resize all existing base cabinets to the new height,
-                // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
-                // can derive correct leg height (720->150mm legs, 800->80mm legs)
-                // regardless of the cabinet's own box height.
-                setCabinets(prev => prev.map(c => ({
-                  ...c,
-                  ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
-                  baseHeight: setup.baseHeight,
-                  doorStyle: setup.doorStyle,
-                  golaColor: setup.golaColor,
-                  handlePos: setup.handlePos,
-                  carcassColor: setup.carcassColor,
-                  frontColor: setup.frontColor,
-                  frontMaterial: setup.frontFinish,
-                  frontMaterialCode: setup.frontMaterialCode || null,
-                  frontMaterialThickness: setup.frontMaterialThickness || 18,
-                  drawerSystem: c.drawerSystemOverridden ? c.drawerSystem : (setup.drawerSystem || c.drawerSystem),
-                  drawerBoxConstruction: c.drawerSystemOverridden ? c.drawerBoxConstruction : (setup.drawerBoxConstruction || c.drawerBoxConstruction),
-                  skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
-                })))
-              }}
+              onSetupComplete={handleSetupComplete}
               onAddCabinet={addCabinet}
             />
             )}
@@ -1852,7 +1859,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         : { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }
       }>
         <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.view3dFailed')}</div><div style={{ fontSize: 12, marginTop: 4 }}>{t('kitchenPlannerModule.view3dFailedHint')}</div></div>}>
-          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} companySlug={publicCompanySlug} />
+          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} companySlug={publicCompanySlug} active={tab === '3d'} />
         </ErrorBoundary>
         {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.addCabinetsFirst')}</div></div>}
       </div>

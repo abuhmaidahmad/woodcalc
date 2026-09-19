@@ -25,7 +25,10 @@ const FINISH_BADGE = {
   other: { labelKey: 'materialLibrary.finishOther', bg: '#F0E8F5', color: '#7A4A8A' },
 }
 
-export default function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
+// Memoized for the same reason as CabinetCatalog/DesignerAgentChat -- note
+// this only helps at call sites that also pass a referentially stable
+// `onSelect`; an inline arrow function there still defeats it.
+function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
   const { t } = useTranslation()
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
@@ -193,3 +196,5 @@ export default function MaterialLibrary({ onSelect, selectedCode, target, compan
     </div>
   )
 }
+
+export default React.memo(MaterialLibrary)

@@ -1,4 +1,4 @@
-import { Canvas, useLoader } from '@react-three/fiber'
+import { Canvas, useLoader, useThree } from '@react-three/fiber'
 import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
@@ -1609,6 +1609,26 @@ const OtherElement = React.memo(function OtherElement({ el, roomH = DEFAULT_ROOM
   )
 })
 
+// With frameloop="demand", R3F draws a new WebGL frame (full postprocessing
+// pass: SSAO, tone mapping, MSAA) any time a prop change touches the scene
+// graph -- including a dragged cabinet's position updating every rAF tick.
+// Since this component stays mounted even when its tab isn't visible (see the
+// comment on its wrapper in KitchenPlannerModule), that meant every cabinet
+// drag was paying for a full GPU-heavy 3D render on a canvas nobody could see,
+// on top of the 2D canvas doing its own work -- a second, invisible, likely
+// bigger cost competing for the same frame budget and producing exactly the
+// "lags then catches up" stutter frame drops look like. `active` switches the
+// hidden canvas's frameloop to 'never' so prop updates still keep the Three.js
+// scene graph correct (the reconciler applies them regardless of frameloop),
+// but no actual frame gets drawn until the tab is visible again.
+function RedrawOnActivate({ active }) {
+  const invalidate = useThree(state => state.invalidate)
+  useEffect(() => {
+    if (active) invalidate()
+  }, [active, invalidate])
+  return null
+}
+
 // Rendering this scene reconciles geometry/materials for every cabinet, so it's
 // not cheap. The planner keeps this component permanently mounted (see the
 // comment on its wrapper in KitchenPlannerModule) so the 3D view stays in sync
@@ -1616,7 +1636,7 @@ const OtherElement = React.memo(function OtherElement({ el, roomH = DEFAULT_ROOM
 // every unrelated state change in the parent (selecting a cabinet, switching
 // tool mode, etc.), not just when its own props actually change. Memoizing
 // keeps it inert unless cabinets/room/walls/elements/materials really changed.
-function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null }) {
+function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null, active = true }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
@@ -1646,9 +1666,10 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
-        frameloop="demand"
+        frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
         gl={{antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
+        <RedrawOnActivate active={active} />
         <color attach="background" args={['#ddd9d3']} />
         <fog attach="fog" args={['#ddd9d3',14,30]} />
 

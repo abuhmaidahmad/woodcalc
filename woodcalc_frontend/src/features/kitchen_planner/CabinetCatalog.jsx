@@ -621,7 +621,15 @@ function MyLibraryPanel({ companySlug, onAdd }) {
   )
 }
 
-export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet, companySlug }) {
+// Memoized: this panel sits beside the 2D canvas and doesn't depend on
+// cabinet positions, but with no memo it re-rendered on every rAF-throttled
+// drag commit anyway (its parent's `cabinets` state changing forces the
+// whole tree to re-render). At ~60 commits/sec while dragging, that added a
+// fixed per-frame cost on top of the per-cabinet one, contributing to
+// stutter. Requires baseHeight/projectDefaults/companySlug/onAddCabinet/
+// onSetupComplete to all stay referentially stable across drag frames (see
+// handleSetupComplete in KitchenPlannerModule).
+function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCabinet, companySlug }) {
   const { t } = useTranslation()
   const [activeCategory, setActiveCategory] = useState('base')
   const [wallHeightFilter, setWallHeightFilter] = useState(null)
@@ -698,6 +706,8 @@ export default function CabinetCatalog({ baseHeight, projectDefaults, onSetupCom
     </div>
   )
 }
+
+export default React.memo(CabinetCatalog)
 
 export function SinkPicker({ selected, onSelect, companySlug }) {
   const { t } = useTranslation()
