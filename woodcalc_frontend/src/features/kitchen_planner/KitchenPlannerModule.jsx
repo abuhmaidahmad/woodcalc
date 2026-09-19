@@ -68,6 +68,22 @@ const ROOM_ELEMENTS = [
 
 const snap = v => Math.round(v / GRID) * GRID
 
+// Where a newly added cabinet/element should land: the center of the drawn
+// walls' bounding box. Cabinets/elements used to always drop at a fixed
+// (200,200)-ish point regardless of the walls -- fine for a room drawn near
+// the canvas origin, but if the walls were drawn far from it, every new item
+// landed nowhere near the room, forcing a zoom-out-and-drag-back each time.
+// Falls back to that same original point when there are no walls yet.
+function getRoomDropPoint(walls) {
+  if (!walls || walls.length === 0) return { x: 200, y: 200 }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  walls.forEach(w => {
+    minX = Math.min(minX, w.x1, w.x2); maxX = Math.max(maxX, w.x1, w.x2)
+    minY = Math.min(minY, w.y1, w.y2); maxY = Math.max(maxY, w.y1, w.y2)
+  })
+  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+}
+
 
 // ─── Edge banding helper ────────────────────────────────────────────
 function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat) {
@@ -771,10 +787,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   }, [initialData])
 
   const addCabinet = useCallback((t) => {
+    const drop = getRoomDropPoint(walls)
     const cab = {
       ...t,
       id: Date.now(),
-      x: snap(200), y: snap(200),
+      x: snap(drop.x), y: snap(drop.y),
       material: 'Particleboard',
       doorStyle:         t.doorStyle         || projectDefaults?.doorStyle         || 'Handle',
       carcassColor:      t.carcassColor      || projectDefaults?.carcassColor      || '#F5F0E8',
@@ -800,7 +817,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
-  }, [projectDefaults, baseHeight])
+  }, [projectDefaults, baseHeight, walls])
 
   // Stable identity (only closes over state setters, which React guarantees are
   // stable) so CabinetCatalog can be memoized -- an inline arrow function here
@@ -845,7 +862,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   }, [])
 
   const addElement = (t) => {
-    const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
+    const drop = getRoomDropPoint(walls)
+    const el = { ...t, id: Date.now() + 1, x: snap(drop.x + 100), y: snap(drop.y - 100) }
     setElements(p => [...p, el])
     setSelected(el.id)
     setSelectedType('element')
