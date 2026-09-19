@@ -492,6 +492,32 @@ export default function RoomCanvas({
   vwRef.current = cvw
   vhRef.current = cvh
 
+  // getScreenCTM() (like getBoundingClientRect()) forces the browser to
+  // synchronously flush any pending layout before it can answer -- and since
+  // every drag frame writes a cabinet's new position into this same SVG,
+  // calling it fresh on every mousemove created a read-after-write layout-
+  // thrashing loop: mousemove events fire far more often than the rAF-throttled
+  // position commits, so most of them were forcing a full layout flush of the
+  // whole SVG (walls, elements, all cabinets) for no reason. That's what kept
+  // drags feeling like "lag then catch up" even after the render-side fixes.
+  // The CTM only actually changes when the SVG's viewBox or on-screen size
+  // changes, so it's computed once and cached instead (see the effects below).
+  const ctmRef = useRef(null)
+  const rectRef = useRef(null)
+  const refreshCTM = useCallback(() => {
+    const svg = svgRef.current
+    ctmRef.current = svg ? (svg.getScreenCTM()?.inverse() || null) : null
+    rectRef.current = svg ? svg.getBoundingClientRect() : null
+  }, [])
+  useEffect(() => { refreshCTM() }, [refreshCTM, vx, vy, cvw, cvh])
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(refreshCTM)
+    ro.observe(svg)
+    return () => ro.disconnect()
+  }, [refreshCTM])
+
   // THE KEY FIX: use browser-native SVG matrix to convert screen → SVG coords
   // This automatically handles preserveAspectRatio letterboxing, zoom, pan, CSS transforms
   const getSVGPos = useCallback((e) => {
@@ -500,7 +526,9 @@ export default function RoomCanvas({
     const pt = svg.createSVGPoint()
     pt.x = e.clientX
     pt.y = e.clientY
-    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+    const inverse = ctmRef.current || svg.getScreenCTM()?.inverse()
+    if (!inverse) return { x: 0, y: 0 }
+    const svgP = pt.matrixTransform(inverse)
     return { x: svgP.x, y: svgP.y }
   }, [])
 
@@ -512,7 +540,9 @@ export default function RoomCanvas({
     const pt = svg.createSVGPoint()
     pt.x = screenX
     pt.y = screenY
-    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+    const inverse = ctmRef.current || svg.getScreenCTM()?.inverse()
+    if (!inverse) return
+    const svgP = pt.matrixTransform(inverse)
     const _cvw = vwRef.current
     // Clamp the factor ONCE so vw/vh scale uniformly (aspect change = drift)
     let f = factor
@@ -768,7 +798,7 @@ export default function RoomCanvas({
     if (isPanningRef.current && panLastRef.current) {
       const _cvw = vwRef.current
       const _cvh = vhRef.current
-      const rect = svgRef.current?.getBoundingClientRect()
+      const rect = rectRef.current || svgRef.current?.getBoundingClientRect()
       if (!rect) return
       const scaleX = _cvw / rect.width
       const scaleY = _cvh / rect.height
