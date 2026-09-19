@@ -81,7 +81,11 @@ function getRoomDropPoint(walls) {
     minX = Math.min(minX, w.x1, w.x2); maxX = Math.max(maxX, w.x1, w.x2)
     minY = Math.min(minY, w.y1, w.y2); maxY = Math.max(maxY, w.y1, w.y2)
   })
-  return { x: (minX + maxX) / 2, y: (minY + maxY) / 2 }
+  // Walls store x1/y1/x2/y2 in on-canvas px (world units); cabinet/element x/y
+  // are stored in real-world mm. SCALE (mm -> px, defined above) converts
+  // between them, so the px-space center has to be divided back down to mm
+  // here -- without this the result lands nowhere near the actual walls.
+  return { x: (minX + maxX) / 2 / SCALE, y: (minY + maxY) / 2 / SCALE }
 }
 
 
