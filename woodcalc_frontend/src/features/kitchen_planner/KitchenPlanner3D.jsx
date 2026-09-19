@@ -1629,6 +1629,27 @@ function RedrawOnActivate({ active }) {
   return null
 }
 
+// This scene has 4 point-light ceiling lamps plus the main directional key
+// light all casting shadows -- a point light's shadow map means rendering
+// the whole scene 6 times (once per cube face), so that's ~25 full shadow
+// render passes in total. Three.js's default (shadowMap.autoUpdate = true)
+// redoes every one of those passes on every single frame, including frames
+// where the camera is the only thing that moved and nothing shadow-relevant
+// (cabinet/wall positions, room size) actually changed -- which is exactly
+// what happens while orbiting/zooming. Disabling autoUpdate and only
+// flagging needsUpdate when the shadow-casting geometry itself changes cuts
+// that from "every frame" down to "once, when it actually needs to."
+function ShadowMapOnDemand({ cabinets, walls, room }) {
+  const gl = useThree(state => state.gl)
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+  }, [gl])
+  useEffect(() => {
+    gl.shadowMap.needsUpdate = true
+  }, [gl, cabinets, walls, room])
+  return null
+}
+
 // Rendering this scene reconciles geometry/materials for every cabinet, so it's
 // not cheap. The planner keeps this component permanently mounted (see the
 // comment on its wrapper in KitchenPlannerModule) so the 3D view stays in sync
@@ -1663,6 +1684,19 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
   // their manufacturer's slug or every front falls back to a flat color.
   const textureMap = useMaterialTextureMap(companySlug)
 
+  // drei's <ContactShadows> defaults to re-rendering its own blurred shadow
+  // pass every single frame forever (frames=Infinity), even though the
+  // cabinets casting it aren't moving while you just orbit the camera. This
+  // fingerprint changes only when something that actually affects the
+  // ground shadow's shape changes (a cabinet's position/size/rotation, or
+  // one being added/removed) -- used as the component's `key` below so it
+  // renders once to pick up the change (frames=1) and otherwise stays a
+  // static, cached texture while the camera moves.
+  const shadowFingerprint = useMemo(
+    () => cabinets.map(c => `${c.id}:${c.x}:${c.y}:${c.width}:${c.depth}:${c.height}:${c.rotation||0}:${c.elevation||0}`).join('|'),
+    [cabinets]
+  )
+
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
@@ -1685,6 +1719,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
         // one-off hack.
         performance={{ min: 0.5 }}>
         <RedrawOnActivate active={active} />
+        <ShadowMapOnDemand cabinets={cabinets} walls={walls} room={room} />
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
         <color attach="background" args={['#ddd9d3']} />
@@ -1718,8 +1753,11 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
         ))}
         <SkirtingCornerJoins cabinets={cabinets} countertopMat={countertopMat} />
 
-        {/* --- Contact shadows: soft ground shadow under all cabinets --- */}
+        {/* --- Contact shadows: soft ground shadow under all cabinets ---
+            key+frames={1}: render once per actual layout change, not every frame. */}
         <ContactShadows
+          key={shadowFingerprint}
+          frames={1}
           position={[cx, 0.004, cz]}
           width={span + 4} height={span + 4}
           far={2.5} blur={6} opacity={0.5}
