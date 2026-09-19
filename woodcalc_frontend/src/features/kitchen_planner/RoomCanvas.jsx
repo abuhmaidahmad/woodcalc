@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { BLIND_PANEL_WIDTH } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -364,7 +364,7 @@ const APPLIANCE_2D_COLORS = {
 // rotates around the LOCAL center (w/2,h/2) first, which lands on the same
 // absolute center point as the old rotate(rot, cx, cy) did -- purely a
 // coordinate-system change, not a behavior change.)
-const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
+const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown, posNum }) {
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
   const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
@@ -401,6 +401,16 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
       {cab.subtype !== 'Side Panel' && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
       <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
       {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+      {posNum != null && (
+        // Fixed pixel size regardless of the cabinet's own scale, so the badge stays
+        // legible on narrow fillers/panels too. This is the same position number shown
+        // in the Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal
+        // tabs, so a number seen in any of those lists can be matched back to this cabinet.
+        <g style={{ pointerEvents: 'none' }} transform={`rotate(${-rot}, 7, 7)`}>
+          <circle cx={7} cy={7} r={7} fill={isCarcassCabinet(cab) ? ACCENT : '#888'} stroke="#fff" strokeWidth={1} />
+          <text x={7} y={9.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{posNum}</text>
+        </g>
+      )}
     </g>
   )
 })
@@ -422,6 +432,14 @@ export default function RoomCanvas({
   // Stale bulk-selected ids (e.g. a cabinet deleted after being shift-selected)
   // must not inflate the displayed count.
   const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
+  // Position number shown as a badge on each cabinet — must stay in the same order as the
+  // `cabinets` array so it lines up with the "#" column in the Cabinet List / Fillers & Panels
+  // BOM tables and the Contract/Proposal tabs, all of which number off that same array.
+  const posNumById = useMemo(() => {
+    const m = new Map()
+    cabinets.forEach((c, i) => m.set(c.id, i + 1))
+    return m
+  }, [cabinets])
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -1482,6 +1500,7 @@ export default function RoomCanvas({
               isSelected={selected === cab.id && selectedType === 'cabinet'}
               isBulkSelected={bulkIds.has(cab.id)}
               isColliding={collidingIds.has(cab.id)}
+              posNum={posNumById.get(cab.id)}
               scale={scale}
               showDimensions={showDimensions}
               onMouseDown={handleCabinetMouseDown}

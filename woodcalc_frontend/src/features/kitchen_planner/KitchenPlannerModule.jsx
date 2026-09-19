@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
@@ -16,11 +16,7 @@ import { useTranslation } from '../../i18n/LanguageContext'
 import OnboardingTour from '../../components/OnboardingTour'
 import configuratorSteps from '../../onboardingSteps/configurator'
 
-const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
-export function isCarcassCabinet(c) {
-  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
-}
 
 
 // Numeric dimension input that keeps its own local text while typing.
@@ -1802,9 +1798,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     ))}
                   </tr></thead>
                   <tbody>
-                    {cabinets.filter(c => isCarcassCabinet(c)).map((c, i) => (
+                    {cabinets.map((c, i) => ({ c, num: i + 1 })).filter(({ c }) => isCarcassCabinet(c)).map(({ c, num }) => (
                       <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(i+1).padStart(2,'0')}</td>
+                        <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(num).padStart(2,'0')}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
                         <td style={{ padding: '10px 14px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>{c.width}×{c.height}×{c.depth}</td>
                         <td style={{ padding: '10px 14px', fontSize: 12 }}>{c.material}</td>
@@ -1826,6 +1822,37 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </tbody>
                 </table>
               </div>
+
+              {cabinets.some(c => !isCarcassCabinet(c)) && (
+                <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>
+                    {t('kitchenPlannerModule.fillersAndPanels')}
+                    <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginInlineStart: 8 }}>{t('kitchenPlannerModule.fillersAndPanelsHint')}</span>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead><tr style={{ background: '#FAFAFA' }}>
+                      {[t('kitchenPlannerModule.colNum'),t('kitchenPlannerModule.colType'),t('kitchenPlannerModule.colWHD'),t('kitchenPlannerModule.colFront')].map((h, hi) => (
+                        <th key={hi} style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 600, color: '#888' }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {cabinets.map((c, i) => ({ c, num: i + 1 })).filter(({ c }) => !isCarcassCabinet(c)).map(({ c, num }) => (
+                        <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                          <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(num).padStart(2,'0')}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
+                          <td style={{ padding: '10px 14px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>{c.width}×{c.height}×{c.depth}</td>
+                          <td style={{ padding: '10px 14px' }}>
+                            <div title={c.frontMaterialName || c.frontColor} style={{ width: 20, height: 20, borderRadius: 4, background: c.frontColor, border: '1.5px solid #ddd', overflow: 'hidden' }}>
+                              {(c.frontTextureUrl || textureMap[c.frontMaterialCode]?.texture_image) && <img src={c.frontTextureUrl || textureMap[c.frontMaterialCode]?.texture_image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none' }} />}
+                            </div>
+                            {c.frontMaterialCode && <div style={{ fontSize: 9, color: '#aaa', marginTop: 2 }}>{c.frontMaterialCode}</div>}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
 
               {/* Hardware summary (skirting, shelf pins, drawer runners, etc.) up top,
                   before the detailed cut lists below */}

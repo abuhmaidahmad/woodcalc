@@ -1153,6 +1153,8 @@
     "colDoorStyle": "Door Style",
     "colCarcass": "Carcass",
     "colFront": "Front",
+    "fillersAndPanels": "Fillers & Panels",
+    "fillersAndPanelsHint": "Numbered to match their position badge on the canvas",
     "view3dFailed": "3D view failed to load",
     "view3dFailedHint": "Try switching tabs and back, or refresh the page",
     "addCabinetsFirst": "Add cabinets first",
