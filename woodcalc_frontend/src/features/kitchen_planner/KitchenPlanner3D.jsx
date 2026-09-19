@@ -1255,6 +1255,110 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
   )
 }
 
+// Base-height cooker cabinet: a control fascia band (hob knobs) at the top of
+// the front, with the built-in single oven door below it — the hob itself
+// sits on the countertop above (see HobPlate), not on this carcass front.
+function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
+  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+  const matProps = getMaterialProps(frontMaterial)
+  const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
+  const edgeGap = 0.003
+  const frontW = W - edgeGap * 2
+  const stripT = 0.018
+  const stripZ = D / 2 + stripT / 2
+  const doorZ0 = D / 2 + stripT + 0.002
+  const doorZ1 = D / 2 + stripT + 0.0335
+  const doorZ2 = D / 2 + stripT + 0.037
+
+  // Control fascia band up top (holds the hob's knobs), then the oven cavity
+  // door below it, then whatever's left down to the toe kick as a plain filler.
+  const fasciaH = Math.min(H * 0.14, 0.09)
+  const ovenH = Math.min(0.595, Math.max(0.3, H - fasciaH - 0.05))
+  const fasciaBottom = H - fasciaH
+  const fasciaCenter = (H + fasciaBottom) / 2
+  const doorBottom = fasciaBottom - ovenH
+  const doorCenter = (fasciaBottom + doorBottom) / 2
+
+  const frontPiece = (key, w, h, cy) => texEntry ? (() => {
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    return (
+      <PhotoTexturedBox key={key} args={[w, h, stripT]} position={[0, cy, stripZ]} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
+        envMapIntensity={1.2} repeatU={w / physW} repeatV={h / physH} radius={0.001} />
+    )
+  })() : (
+    <SmartBox key={key} args={[w, h, stripT]} position={[0, cy, stripZ]} castShadow receiveShadow
+      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+  )
+
+  const knobY = fasciaCenter
+  const knobXs = [-0.16, -0.06, 0.06, 0.16].filter(kx => Math.abs(kx) < frontW / 2 - 0.03)
+
+  return (
+    <group>
+      <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+        color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      {frontPiece('fascia', frontW, fasciaH, fasciaCenter)}
+      {knobXs.map((kx, i) => (
+        <mesh key={i} position={[frontW * kx, knobY, D / 2 + stripT + 0.008]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[0.012, 0.012, 0.01, 12]} />
+          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
+        </mesh>
+      ))}
+      {doorBottom > 0 && frontPiece('fill', frontW, doorBottom, doorBottom / 2)}
+      <mesh position={[0, doorCenter, doorZ0]} castShadow>
+        <boxGeometry args={[frontW, ovenH, 0.03]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[0, doorCenter, doorZ1]}>
+        <boxGeometry args={[frontW - 0.06, ovenH - 0.06, 0.002]} />
+        <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, doorCenter, doorZ2]}>
+        <boxGeometry args={[frontW * 0.75, 0.02, 0.025]} />
+        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+// Generic 4-plate solid-hotplate electric hob, sitting on top of the
+// countertop surface (no cutout) — front-left plate shown lit like a real
+// indicator light, matching how these hobs read in showroom renders.
+function HobPlate({ W, D }) {
+  const hobW = Math.min(W - 0.06, 0.56)
+  const hobD = Math.min(D - 0.06, 0.50)
+  const plateR = Math.min(hobW, hobD) * 0.11
+  const positions = [
+    [-hobW * 0.26, -hobD * 0.24],
+    [ hobW * 0.26, -hobD * 0.24],
+    [-hobW * 0.26,  hobD * 0.24],
+    [ hobW * 0.26,  hobD * 0.24],
+  ]
+  return (
+    <group>
+      <RoundedBox args={[hobW, 0.006, hobD]} radius={0.002} smoothness={2} position={[0, 0.003, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial color="#15161a" metalness={0.7} roughness={0.35} envMapIntensity={1.2} />
+      </RoundedBox>
+      {positions.map(([px, pz], i) => (
+        <group key={i} position={[px, 0.006, pz]}>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
+            <cylinderGeometry args={[plateR, plateR, 0.006, 24]} />
+            <meshPhysicalMaterial color="#1c1c1c" metalness={0.6} roughness={0.5} />
+          </mesh>
+          {i === 0 && (
+            <mesh position={[0, 0.0035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[plateR * 0.16, 16]} />
+              <meshStandardMaterial color="#ff2200" emissive="#ff2200" emissiveIntensity={2} toneMapped={false} />
+            </mesh>
+          )}
+        </group>
+      ))}
+    </group>
+  )
+}
+
 function DishwasherAppliance({ W, H, D }) {
   return (
     <group>
@@ -1363,6 +1467,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
     (cab.subtype === 'Oven Tower' || cab.subtype === 'Double Oven') ? 'ovenTower' :
+    cab.subtype === 'Hob + Oven' ? 'hobOven' :
     (cab.category === 'wall' && cab.subtype === 'Appliance') ? 'hood' :
     cab.subtype === 'Freestanding Oven' ? 'freestandingOven' :
     cab.subtype === 'Freestanding Fridge' ? 'freestandingFridge' :
@@ -1393,6 +1498,10 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'ovenTower' ? (
         <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
+      ) : applianceKind === 'hobOven' ? (
+        <HobOvenAppliance W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
       ) : applianceKind === 'hood' ? (
@@ -1442,6 +1551,11 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
             sinkColorHex={cab.sinkColorHex} sinkRoughness={cab.sinkRoughness} sinkMetalness={cab.sinkMetalness}
             textureMap={textureMap} />
+          {cab.subtype === 'Hob + Oven' && (
+            <group position={[0, countertopThickness / 1000, 0]}>
+              <HobPlate W={W} D={D} />
+            </group>
+          )}
         </group>
       )}
       {cab.ledStripInterior && !isShelf && (() => {

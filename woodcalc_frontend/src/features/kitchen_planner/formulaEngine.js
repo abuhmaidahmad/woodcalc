@@ -12,7 +12,7 @@ export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjo
 // sink cabinets, and anything in vanity/specialty/accessories (those aren't real shelf-and-door boxes).
 export function isShelfEligible(cab) {
   if (['vanity', 'specialty', 'accessories'].includes(cab.category)) return false;
-  if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink'].includes(cab.subtype)) return false;
+  if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink', 'Hob + Oven'].includes(cab.subtype)) return false;
   if (['Filler', 'Panel', 'Toe Kick', 'Side Panel'].includes(cab.subtype)) return false;
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
 }
@@ -235,11 +235,14 @@ export function calculateCabinet(config) {
   const golaDoorHeight = round2(H - 25 - 3);
   const handlePushDoorHeight = round2(opening - 3 - 3);
   const isBlind = config.subtype === 'Blind';
+  // The built-in oven's own fascia/door covers this cabinet's whole front —
+  // there's no room left for a manufactured wood door.
+  const isHobOven = config.subtype === 'Hob + Oven';
   const oneDoorWidth = isBlind ? round2(W - BLIND_PANEL_WIDTH - 3) : round2(W - 3);
   const twoDoorWidthEach = round2((W - 3) / 2);
 
   const defaultDoorCount = getDefaultDoorCount(W);
-  const doorCount = isBlind ? 1 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
+  const doorCount = isBlind ? 1 : isHobOven ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
   const isTallSplit = config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;

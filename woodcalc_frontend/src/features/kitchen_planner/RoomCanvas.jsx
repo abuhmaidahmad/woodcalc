@@ -340,6 +340,7 @@ const APPLIANCE_2D_COLORS = {
   'Fridge': '#d7dadd',
   'Oven Tower': '#2b2b2b',
   'Double Oven': '#2b2b2b',
+  'Hob + Oven': '#2b2b2b',
 }
 
 // Memoized: with 50+ cabinets on the plan, this whole SVG list used to get
