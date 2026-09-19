@@ -1,6 +1,6 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
 import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
-import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
+import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -1668,8 +1668,25 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
       <Canvas shadows
         frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
-        gl={{antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
+        // The postprocessing pipeline below (EffectComposer with
+        // multisampling={4}) renders to its own off-screen target and does
+        // its own antialiasing there -- the WebGL context's native
+        // antialias only affects a direct-to-canvas draw, so with
+        // postprocessing active it was pure wasted GPU work on every frame.
+        gl={{antialias:false,outputColorSpace:THREE.SRGBColorSpace}}
+        // Lets AdaptiveDpr/AdaptiveEvents below automatically render at a
+        // lower resolution while orbiting/zooming (when sustained frame
+        // time drops below this threshold) and snap back to full
+        // resolution once the camera settles -- this scene's ambient
+        // occlusion + shadows + contact shadows are GPU-heavy enough that
+        // rendering them at full res on every single frame of a drag-to-
+        // orbit gesture was the "lags then catches up" stutter here; this
+        // is the standard react-three-fiber pattern for that, not a
+        // one-off hack.
+        performance={{ min: 0.5 }}>
         <RedrawOnActivate active={active} />
+        <AdaptiveDpr pixelated />
+        <AdaptiveEvents />
         <color attach="background" args={['#ddd9d3']} />
         <fog attach="fog" args={['#ddd9d3',14,30]} />
 
