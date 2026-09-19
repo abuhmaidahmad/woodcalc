@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, APPLIANCE_SUBTYPES } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
@@ -15,13 +15,6 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 import { useTranslation } from '../../i18n/LanguageContext'
 import OnboardingTour from '../../components/OnboardingTour'
 import configuratorSteps from '../../onboardingSteps/configurator'
-
-const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
-const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
-export function isCarcassCabinet(c) {
-  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
-}
-
 
 // Numeric dimension input that keeps its own local text while typing.
 // A plain controlled <input value={number}> fights the user: clearing the
@@ -53,24 +46,6 @@ function DimInput({ value, onCommit, style }) {
     />
   )
 }
-
-export function cabinetConfig(c) {
-  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door'
-  return {
-    width: c.width, height: c.height, depth: c.depth,
-    material: c.material, doorStyle: c.doorStyle, shelves: 0,
-    cabinetType: c.category,
-    doorCount: c.doorCount,
-    subtype: c.subtype,
-    drawers: isDrawerCab ? 4 : 0,
-    drawerType: c.drawerType,
-    drawerSystem: c.drawerSystem,
-    drawerBoxConstruction: c.drawerBoxConstruction,
-    baseHeight: c.baseHeight,
-    subtype: c.subtype,
-  }
-}
-
 
 const SCALE = 0.16
 const GRID = 50

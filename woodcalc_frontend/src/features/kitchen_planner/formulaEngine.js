@@ -17,6 +17,39 @@ export function isShelfEligible(cab) {
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
 }
 
+// Subtypes with no manufactured carcass at all: simple flat pieces (Filler/Panel/Toe
+// Kick/Shelf/Open Shelf, one board cut at its own dimensions) or purchased appliances
+// (Fridge/Oven Tower/.../Freestanding *) that WoodCalc doesn't manufacture or sell —
+// they're placed for design/space-planning only. `isCarcassCabinet()` is the single
+// gate for "does this cabinet get panels/doors run through calculateCabinet()", used
+// by both the cut list and the cost proposal so they never disagree on what's real.
+export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance'];
+export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher'];
+
+export function isCarcassCabinet(c) {
+  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
+}
+
+// Builds the calculateCabinet() input from a saved cabinet object — shared by the
+// cut list and the cost proposal so a subtype's door/drawer rules (Blind's narrow
+// door, Hob + Oven's no-wood-door front, drawer counts, etc.) price the same way
+// they get cut.
+export function cabinetConfig(c) {
+  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door';
+  return {
+    width: c.width, height: c.height, depth: c.depth,
+    material: c.material, doorStyle: c.doorStyle, shelves: 0,
+    cabinetType: c.category,
+    doorCount: c.doorCount,
+    subtype: c.subtype,
+    drawers: isDrawerCab ? 4 : 0,
+    drawerType: c.drawerType,
+    drawerSystem: c.drawerSystem,
+    drawerBoxConstruction: c.drawerBoxConstruction,
+    baseHeight: c.baseHeight,
+  };
+}
+
 // Detects where two floor-standing cabinets meet at a 90°/270° outer corner (e.g. an L-shaped
 // run turning after a blind corner cabinet). hasNeighbor()-style same-row checks in the 3D
 // renderer only cover straight runs (same rotation); this covers the perpendicular case so both

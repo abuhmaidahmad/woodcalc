@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig } from './formulaEngine'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -30,15 +30,27 @@ const DEFAULT_PRICES = {
 
 const USD_RATE = 0.71  // 1 JD = x USD (editable)
 
+const ZERO_COST = { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+
 // ─── Price a single cabinet ────────────────────────────────────────────────
 function priceCabinet(cab, prices, t) {
+  // Fillers/panels/toe kicks/shelves aren't a manufactured carcass, and appliances
+  // (Fridge, Oven Tower, Freestanding Oven/Fridge/Dishwasher, wall Appliance) aren't
+  // sold through WoodCalc today -- they're design/space-planning placeholders only.
+  // Matches isCarcassCabinet(), the same gate the real cut list uses, so the quote
+  // never charges for board/hardware that isn't actually cut.
+  if (!isCarcassCabinet(cab)) return ZERO_COST
+
   let result
   try {
-    result = calculateCabinet({
-      width: cab.width, height: cab.height, depth: cab.depth,
-      material: cab.material, doorStyle: cab.doorStyle, shelves: 0, cabinetType: cab.category,
-    })
-  } catch { return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] } }
+    // cabinetConfig() carries doorStyle/doorCount/subtype through so subtype-specific
+    // door rules (Blind's narrower door, Hob + Oven's no-wood-door front, etc.) price
+    // the same way they're cut. Drawer box hardware has no per-system unit cost in
+    // the price list below yet, so drawers is pinned to 0 here regardless of
+    // subtype -- unrelated to this fix, kept as-is to avoid changing existing
+    // drawer-cabinet quotes.
+    result = calculateCabinet({ ...cabinetConfig(cab), drawers: 0 })
+  } catch { return ZERO_COST }
 
   const breakdown = []
 
@@ -88,7 +100,7 @@ function priceCabinet(cab, prices, t) {
 
   let total = parseFloat((materialCost + hardwareCost + machiningCost + laborCost).toFixed(2))
   if (!Number.isFinite(total)) {
-    return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+    return ZERO_COST
   }
   return { materialCost: parseFloat(materialCost.toFixed(2)), hardwareCost: parseFloat(hardwareCost.toFixed(2)), machiningCost, laborCost, total, breakdown }
 }
