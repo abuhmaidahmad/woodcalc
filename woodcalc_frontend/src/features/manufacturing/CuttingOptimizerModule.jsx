@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { calculateCabinet } from '../kitchen_planner/formulaEngine'
-import { cabinetConfig, isCarcassCabinet } from '../kitchen_planner/KitchenPlannerModule'
+import { cabinetConfig } from '../kitchen_planner/KitchenPlannerModule'
+import { isCarcassCabinet } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const API = import.meta.env.VITE_API_URL

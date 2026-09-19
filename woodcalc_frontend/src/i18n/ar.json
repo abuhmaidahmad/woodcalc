@@ -1153,6 +1153,8 @@
     "colDoorStyle": "نمط الباب",
     "colCarcass": "الهيكل",
     "colFront": "الواجهة",
+    "fillersAndPanels": "الحشوات والألواح الجانبية",
+    "fillersAndPanelsHint": "مرقّمة لتطابق رقمها على المخطط",
     "view3dFailed": "فشل تحميل العرض ثلاثي الأبعاد",
     "view3dFailedHint": "جرّب التبديل بين التبويبات والعودة، أو أعد تحميل الصفحة",
     "addCabinetsFirst": "أضف خزائن أولاً",

@@ -8,6 +8,15 @@ const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
+// Subtypes that are fillers/panels/appliances rather than a priced carcass box — excluded from
+// the carcass-focused Cabinet List table, but still real elements placed on the canvas. Shared
+// between the canvas (position badges) and the BOM/Contract/Proposal tables so a cabinet's
+// on-canvas position number always matches the number shown next to it everywhere else.
+export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance'];
+export function isCarcassCabinet(c) {
+  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
+}
+
 // Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
 // sink cabinets, and anything in vanity/specialty/accessories (those aren't real shelf-and-door boxes).
 export function isShelfEligible(cab) {
