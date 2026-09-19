@@ -1270,8 +1270,9 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
   const doorZ1 = D / 2 + stripT + 0.0335
   const doorZ2 = D / 2 + stripT + 0.037
 
-  // Control fascia band up top (holds the hob's knobs), then the oven cavity
-  // door below it, then whatever's left down to the toe kick as a plain filler.
+  // Plain control fascia band up top (the hob's own knobs sit on the hob itself,
+  // see HobPlate), then the oven cavity door below it, then whatever's left down
+  // to the toe kick as a plain filler.
   const fasciaH = Math.min(H * 0.14, 0.09)
   const ovenH = Math.min(0.595, Math.max(0.3, H - fasciaH - 0.05))
   const fasciaBottom = H - fasciaH
@@ -1292,20 +1293,11 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
       color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
   )
 
-  const knobY = fasciaCenter
-  const knobXs = [-0.16, -0.06, 0.06, 0.16].filter(kx => Math.abs(kx) < frontW / 2 - 0.03)
-
   return (
     <group>
       <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
         color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
       {frontPiece('fascia', frontW, fasciaH, fasciaCenter)}
-      {knobXs.map((kx, i) => (
-        <mesh key={i} position={[frontW * kx, knobY, D / 2 + stripT + 0.008]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.012, 0.012, 0.01, 12]} />
-          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
-        </mesh>
-      ))}
       {doorBottom > 0 && frontPiece('fill', frontW, doorBottom, doorBottom / 2)}
       <mesh position={[0, doorCenter, doorZ0]} castShadow>
         <boxGeometry args={[frontW, ovenH, 0.03]} />
@@ -1324,36 +1316,55 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
 }
 
 // Generic 4-plate solid-hotplate electric hob, sitting on top of the
-// countertop surface (no cutout) — front-left plate shown lit like a real
-// indicator light, matching how these hobs read in showroom renders.
+// countertop surface (no cutout). Control knobs sit on the hob itself, in a
+// row near the front edge (in front of the burners), not on the cabinet
+// front below. Front-left plate shown lit like a real indicator light,
+// matching how these hobs read in showroom renders.
+//
+// A CylinderGeometry's flat caps already face up/down by default (its axis
+// runs along Y) -- unlike a CircleGeometry, which needs the -90°-about-X
+// rotation to lie flat. The burner discs below deliberately carry NO
+// rotation for that reason; only the red indicator circle needs one.
 function HobPlate({ W, D }) {
-  const hobW = Math.min(W - 0.06, 0.56)
-  const hobD = Math.min(D - 0.06, 0.50)
+  const hobW = Math.min(W - 0.04, 0.86)
+  const hobD = Math.min(D - 0.05, 0.51)
+  const plateT = 0.006
   const plateR = Math.min(hobW, hobD) * 0.11
+  // +Z is the cabinet's front. Front-left burner (index 0) is the lit one.
   const positions = [
-    [-hobW * 0.26, -hobD * 0.24],
-    [ hobW * 0.26, -hobD * 0.24],
-    [-hobW * 0.26,  hobD * 0.24],
-    [ hobW * 0.26,  hobD * 0.24],
+    [-hobW * 0.26,  hobD * 0.22],
+    [ hobW * 0.26,  hobD * 0.22],
+    [-hobW * 0.26, -hobD * 0.22],
+    [ hobW * 0.26, -hobD * 0.22],
   ]
+  const knobXs = [-0.30, -0.10, 0.10, 0.30].map(f => f * hobW)
+  const knobH = 0.014
+  const knobZ = hobD / 2 - 0.035
+
   return (
     <group>
-      <RoundedBox args={[hobW, 0.006, hobD]} radius={0.002} smoothness={2} position={[0, 0.003, 0]} castShadow receiveShadow>
+      <RoundedBox args={[hobW, plateT, hobD]} radius={0.002} smoothness={2} position={[0, plateT / 2, 0]} castShadow receiveShadow>
         <meshPhysicalMaterial color="#15161a" metalness={0.7} roughness={0.35} envMapIntensity={1.2} />
       </RoundedBox>
       {positions.map(([px, pz], i) => (
-        <group key={i} position={[px, 0.006, pz]}>
-          <mesh rotation={[-Math.PI / 2, 0, 0]} castShadow>
+        <group key={i} position={[px, plateT + 0.003, pz]}>
+          <mesh castShadow>
             <cylinderGeometry args={[plateR, plateR, 0.006, 24]} />
             <meshPhysicalMaterial color="#1c1c1c" metalness={0.6} roughness={0.5} />
           </mesh>
           {i === 0 && (
-            <mesh position={[0, 0.0035, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[0, 0.0032, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <circleGeometry args={[plateR * 0.16, 16]} />
               <meshStandardMaterial color="#ff2200" emissive="#ff2200" emissiveIntensity={2} toneMapped={false} />
             </mesh>
           )}
         </group>
+      ))}
+      {knobXs.map((kx, i) => (
+        <mesh key={i} position={[kx, plateT + knobH / 2, knobZ]} castShadow>
+          <cylinderGeometry args={[0.010, 0.010, knobH, 16]} />
+          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
+        </mesh>
       ))}
     </group>
   )
