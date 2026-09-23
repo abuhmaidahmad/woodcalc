@@ -18,6 +18,8 @@ class Command(BaseCommand):
         parser.add_argument('--room', type=int)
         parser.add_argument('--client', type=int)
         parser.add_argument('--project', type=int)
+        parser.add_argument('--client-name', help='Use this customer, creating it if the tenant has none by that name')
+        parser.add_argument('--project-name', help='Use this project under the customer, creating it if missing')
         parser.add_argument('--name')
         parser.add_argument('--sink-id', type=int)
         parser.add_argument('--dry-run', action='store_true')
@@ -27,20 +29,38 @@ class Command(BaseCommand):
         if company is None:
             raise CommandError(f'No company with slug "{opts["tenant"]}"')
 
-        room = project = None
+        room = client = project = None
+        new_client = new_project = None
         if opts['room']:
             room = Room.objects.select_related('project__client').filter(pk=opts['room'], project__client__tenant=company).first()
             if room is None:
                 raise CommandError(f'Room {opts["room"]} not found for tenant {company.slug}')
         else:
-            if not (opts['client'] and opts['project'] and opts['name']):
-                raise CommandError('Pass --room, or --client, --project and --name to create a new room')
-            client = Client.objects.filter(pk=opts['client'], tenant=company).first()
-            if client is None:
-                raise CommandError(f'Client {opts["client"]} not found for tenant {company.slug}')
-            project = Project.objects.filter(pk=opts['project'], client=client).first()
-            if project is None:
-                raise CommandError(f'Project {opts["project"]} does not belong to client {client.pk}')
+            if not opts['name']:
+                raise CommandError('Pass --room, or --name with a customer (--client/--client-name) and project (--project/--project-name)')
+            if opts['client']:
+                client = Client.objects.filter(pk=opts['client'], tenant=company).first()
+                if client is None:
+                    raise CommandError(f'Client {opts["client"]} not found for tenant {company.slug}')
+            elif opts['client_name']:
+                client = Client.objects.filter(tenant=company, name=opts['client_name']).order_by('pk').first()
+                if client is None:
+                    new_client = opts['client_name']
+            else:
+                raise CommandError('Pass --client <id> or --client-name "..."')
+            if opts['project']:
+                if client is None:
+                    raise CommandError('--project <id> needs an existing customer')
+                project = Project.objects.filter(pk=opts['project'], client=client).first()
+                if project is None:
+                    raise CommandError(f'Project {opts["project"]} does not belong to client {client.pk}')
+            elif opts['project_name']:
+                if client is not None:
+                    project = Project.objects.filter(client=client, name=opts['project_name']).order_by('pk').first()
+                if project is None:
+                    new_project = opts['project_name']
+            else:
+                raise CommandError('Pass --project <id> or --project-name "..."')
 
         sink = None
         if opts['sink_id']:
@@ -73,10 +93,20 @@ class Command(BaseCommand):
         if opts['dry_run']:
             self.stdout.write(json.dumps(data, indent=2, ensure_ascii=False))
             self.print_report(report)
+            if new_client:
+                self.stderr.write(f'Would create customer "{new_client}"')
+            if new_project:
+                self.stderr.write(f'Would create project "{new_project}"')
             self.stdout.write(self.style.WARNING('Dry run: nothing saved.'))
             return
 
         with transaction.atomic():
+            if new_client:
+                client = Client.objects.create(tenant=company, name=new_client)
+                self.stderr.write(f'Created customer {client.pk} "{client.name}"')
+            if new_project:
+                project = Project.objects.create(client=client, name=new_project)
+                self.stderr.write(f'Created project {project.pk} "{project.name}"')
             if room is None:
                 room = Room.objects.create(project=project, name=name, room_type='kitchen', planner_data=data)
             else:

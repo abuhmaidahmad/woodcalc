@@ -101,3 +101,25 @@ class ImportLayoutCommandTests(TestCase):
             self.run_cmd('--tenant', 'b', '--room', str(self.room.pk))
         with self.assertRaises(CommandError):
             self.run_cmd('--tenant', 'b', '--client', str(self.client_a.pk), '--project', str(self.project.pk), '--name', 'X')
+
+    def test_create_customer_and_project_by_name(self):
+        self.run_cmd('--tenant', 'a', '--client-name', 'New Co', '--project-name', 'New Kitchen', '--name', 'K')
+        client = Client.objects.get(tenant=self.company, name='New Co')
+        project = Project.objects.get(client=client, name='New Kitchen')
+        self.assertTrue(Room.objects.filter(project=project, name='K').exists())
+
+    def test_names_reuse_existing(self):
+        self.run_cmd('--tenant', 'a', '--client-name', 'C', '--project-name', 'P', '--name', 'K2')
+        self.assertEqual(Client.objects.filter(tenant=self.company, name='C').count(), 1)
+        self.assertEqual(Project.objects.filter(client=self.client_a, name='P').count(), 1)
+        self.assertTrue(Room.objects.filter(project=self.project, name='K2').exists())
+
+    def test_names_dry_run_creates_nothing(self):
+        self.run_cmd('--tenant', 'a', '--client-name', 'Ghost', '--project-name', 'Ghost P', '--name', 'K', '--dry-run')
+        self.assertFalse(Client.objects.filter(name='Ghost').exists())
+        self.assertFalse(Project.objects.filter(name='Ghost P').exists())
+
+    def test_names_never_cross_tenants(self):
+        self.run_cmd('--tenant', 'b', '--client-name', 'C', '--project-name', 'P', '--name', 'K')
+        self.assertEqual(Client.objects.filter(name='C').count(), 2)
+        self.assertFalse(Room.objects.filter(project=self.project, name='K').exists())
