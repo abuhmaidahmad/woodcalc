@@ -1054,7 +1054,7 @@ export default function RoomCanvas({
     ])
   }
   const getCabElevRange = (cab) => {
-    if (cab.category === 'wall') {
+    if (cab.category === 'wall' || (cab.elevation || 0) > 0) {
       const bottom = cab.elevation ?? 1450
       return [bottom, bottom + (cab.height || 0)]
     }
