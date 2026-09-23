@@ -109,11 +109,11 @@ class Converter:
         self.report['warnings'].append(msg)
 
     def to_planner(self, p):
-        return (self.ox + p[0], self.oy + (self.ymax - p[1]))
+        return (self.ox + p[0], self.oy + p[1])
 
     def rotation_for(self, facing):
         fx, fy = facing
-        return round(math.degrees(math.atan2(-fx, -fy))) % 360
+        return round(math.degrees(math.atan2(-fx, fy))) % 360
 
     def _build_walls(self):
         raw = self.layout.get('walls') or []
@@ -158,9 +158,8 @@ class Converter:
             w['center'] = ends
 
         allc = [p for wid in self.wall_order for p in self.walls[wid]['center']]
-        self.ymax = max(p[1] for p in allc)
         self.ox = MARGIN - min(p[0] for p in allc)
-        self.oy = MARGIN
+        self.oy = MARGIN - min(p[1] for p in allc)
 
         self.planner_walls = []
         for wid in self.wall_order:
@@ -329,7 +328,7 @@ class Converter:
     def cab_center_design(self, cab):
         px = cab['x'] + cab['width'] / 2
         py = cab['y'] + cab['depth'] / 2
-        return (px - self.ox, self.ymax - (py - self.oy))
+        return (px - self.ox, py - self.oy)
 
     def check_blind(self, code, u):
         blind = None

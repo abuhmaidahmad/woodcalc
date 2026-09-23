@@ -45,11 +45,11 @@ class LayoutConversionTests(SimpleTestCase):
 
     def test_rotations_and_blind_sides(self):
         self.assertEqual(self.by_code['SK']['rotation'], 270)
-        self.assertEqual(self.by_code['C1']['rotation'], 0)
+        self.assertEqual(self.by_code['C1']['rotation'], 180)
         self.assertEqual(self.by_code['C2']['rotation'], 90)
-        self.assertEqual(self.by_code['FH-FR']['rotation'], 180)
-        self.assertEqual(self.by_code['C1']['blindSide'], 'left')
-        self.assertEqual(self.by_code['C2']['blindSide'], 'left')
+        self.assertEqual(self.by_code['FH-FR']['rotation'], 0)
+        self.assertEqual(self.by_code['C1']['blindSide'], 'right')
+        self.assertEqual(self.by_code['C2']['blindSide'], 'right')
 
     def test_catalog_subtypes(self):
         self.assertEqual(self.by_code['C1']['subtype'], 'Blind')
@@ -57,6 +57,12 @@ class LayoutConversionTests(SimpleTestCase):
         self.assertEqual(self.by_code['HD']['subtype'], 'Appliance')
         self.assertEqual(self.by_code['peninsula-OH']['subtype'], 'Shelf')
         self.assertEqual(self.by_code['peninsula-OH']['elevation'], 870)
+
+    def test_plan_orientation_matches_drawing(self):
+        sink, fridge, hob = self.by_code['SK'], self.by_code['FH-FR'], self.by_code['H90']
+        self.assertLess(sink['x'], hob['x'])
+        self.assertLess(fridge['y'], hob['y'])
+        self.assertGreater(fridge['x'], sink['x'])
 
     def test_stools_skipped(self):
         self.assertEqual(len(self.report['skipped']), 2)
