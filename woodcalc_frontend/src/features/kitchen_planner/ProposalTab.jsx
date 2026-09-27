@@ -1,6 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
-import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -8,10 +7,13 @@ const DARK = '#1A1A1A'
 
 // ─── Default price list (JD) ───────────────────────────────────────────────
 const DEFAULT_PRICES = {
-  sheet18_m2:       12.00,  // 18mm particleboard per m²
-  sheet18_ply_m2:   18.00,  // 18mm plywood per m²
-  sheet18_mdf_m2:   14.00,  // 18mm MDF per m²
-  hdf8_m2:           4.50,  // 8mm HDF back panel per m²
+  sheet18_m2:       12.00,  // 18mm particleboard per m² -- fallback when a piece has no specific catalog material priced
+  sheet18_ply_m2:   18.00,  // 18mm plywood per m² -- fallback
+  sheet18_mdf_m2:   14.00,  // 18mm MDF per m² -- fallback
+  hdf8_m2:           4.50,  // 8mm HDF back panel per m² (generic -- no per-material picker for this piece)
+  board12_m2:       13.00,  // 12mm drawer box board (sides/back) per m² -- fallback
+  worktop_m2:       45.00,  // worktop/backsplash slab per m² -- fallback when no specific countertop material is priced
+  drawer_runner_pc: 8.00,   // fallback per drawer-set when the selected drawer system has no catalog price
   edge_banding_m:    0.25,  // per meter
   hinge_pc:          1.20,  // Blum hinge per piece
   leg_pc:            0.80,  // adjustable leg per piece
@@ -37,23 +39,65 @@ function boardMatKey(material) {
     : material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
 }
 
+// Resolves a real per-m² price for a specific catalog material (front/carcass/
+// worktop, looked up by its code/sku in materialsMap -- the same map KitchenPlanner3D
+// already builds via useMaterialTextureMap, so this needs no extra fetch). Falls
+// back to the generic board-type rate (by the material's own core_material, or the
+// cabinet's plain `material` string) when the code isn't set or has no catalog price.
+function materialPricePerM2(code, materialsMap, prices, fallbackType, fallbackKey = null) {
+  const mat = code ? materialsMap[code] : null
+  if (mat && mat.price_per_board != null && mat.board_width && mat.board_height) {
+    const boardM2 = (mat.board_width * mat.board_height) / 1e6
+    if (boardM2 > 0) return Number(mat.price_per_board) / boardM2
+  }
+  return prices[fallbackKey || boardMatKey(mat?.core_material || fallbackType)]
+}
+
 // Fillers/Panels/Toe Kicks/Shelves are real cut boards -- just a single flat piece
 // at its own size, not a full box -- so they're priced as board area only. No
 // hardware, no CNC/labor line (those price a full cabinet's box+door job, not a
-// one-piece cut), matching how the master cut list treats them too.
-function priceFlatPiece(cab, prices, t) {
+// one-piece cut), matching how the master cut list treats them too. They're a
+// single visible piece with no separate carcass/back -- priced by front material.
+function priceFlatPiece(cab, prices, materialsMap, t) {
   const { width, depth } = nonCarcassPieceDims(cab)
-  const matKey = boardMatKey(cab.material)
+  const pricePerM2 = materialPricePerM2(cab.frontMaterialCode, materialsMap, prices, cab.material)
   const m2 = (width * depth) / 1e6
-  const boardCost = parseFloat((m2 * prices[matKey]).toFixed(3))
+  const boardCost = parseFloat((m2 * pricePerM2).toFixed(3))
   const breakdown = [
-    { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices[matKey], cost: boardCost },
+    { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: pricePerM2, cost: boardCost },
   ]
   return { materialCost: boardCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(boardCost.toFixed(2)), breakdown }
 }
 
+// A wood-box drawer system needs manufactured board (sides/back at 12mm, base at
+// 8mm HDF) priced like any other cut part; an integrated metal-sided system (LEGRABOX/
+// TANDEMBOX) has no wood parts at all -- either way, the runner hardware itself is
+// priced per the specific drawer system's own catalog rate (falling back to a generic
+// rate when that system has no price set yet).
+function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
+  if (!result.drawerBox || result.drawerFronts.length === 0) return { cost: 0, rows: [] }
+  const rows = []
+  const box = result.drawerBox
+  const sysEntry = drawerSystemsCatalog.find(s => s.name === box.system)
+  const perSet = sysEntry?.price_per_set != null ? Number(sysEntry.price_per_set) : prices.drawer_runner_pc
+  const runnerCost = parseFloat((perSet * box.count).toFixed(3))
+  rows.push({ label: t('proposalTab.breakdownDrawerRunners', { system: box.system }), qty: box.count + ' ' + t('proposalTab.unitPcs'), unit: perSet, cost: runnerCost })
+  let cost = runnerCost
+
+  if (box.parts_per_drawer) {
+    const m2_12 = box.parts_per_drawer.filter(p => !p.name.includes('HDF')).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
+    const m2_8  = box.parts_per_drawer.filter(p => p.name.includes('HDF')).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
+    const boardCost = parseFloat((m2_12 * prices.board12_m2).toFixed(3))
+    const hdfCost    = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
+    rows.push({ label: t('proposalTab.breakdownDrawerBoxBoard'), qty: m2_12.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices.board12_m2, cost: boardCost })
+    rows.push({ label: t('proposalTab.breakdownDrawerBoxHdf'),   qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: prices.hdf8_m2, cost: hdfCost })
+    cost += boardCost + hdfCost
+  }
+  return { cost, rows }
+}
+
 // ─── Price a single cabinet ────────────────────────────────────────────────
-function priceCabinet(cab, prices, t) {
+function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   if (!isCarcassCabinet(cab)) {
     // Purchased appliances (Fridge, Freestanding Oven/Fridge/Dishwasher, wall
     // Appliance) aren't sold through WoodCalc today -- design/space-planning
@@ -61,7 +105,7 @@ function priceCabinet(cab, prices, t) {
     // (isCarcassCabinet is true for them) -- their carcass is fabricated and
     // priced like any tall cabinet below; only the oven unit itself is unpriced.
     if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return ZERO_COST
-    return priceFlatPiece(cab, prices, t)
+    return priceFlatPiece(cab, prices, materialsMap, t)
   }
 
   let result
@@ -75,29 +119,39 @@ function priceCabinet(cab, prices, t) {
 
   const breakdown = []
 
-  // Material cost
-  const matKey = boardMatKey(cab.material)
-  const panels18 = result.panels.filter(p => p.thickness === 18)
+  // Material cost -- split three ways: carcass panels price by the selected carcass
+  // material, front-facing panels (doors, drawer fronts, and an Oven Tower's fixed
+  // "Front panel" pieces -- visible, not structural) price by the selected front
+  // material, and the 8mm HDF back stays its own generic category (no per-cabinet
+  // material picker for it).
+  const carcassPricePerM2 = materialPricePerM2(cab.carcassMaterialCode, materialsMap, prices, cab.material)
+  const frontPricePerM2   = materialPricePerM2(cab.frontMaterialCode, materialsMap, prices, cab.material)
+  const panels18 = result.panels.filter(p => p.thickness === 18 && !p.name.includes('Front panel'))
+  const frontPanels18 = result.panels.filter(p => p.thickness === 18 && p.name.includes('Front panel'))
   const panels8  = result.panels.filter(p => p.thickness === 8)
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const m2_8  = panels8.reduce((s,  p) => s + (p.width * p.depth * p.qty / 1e6), 0)
+  const frontPanelM2 = frontPanels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const doorM2 = result.doors.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
   const drawerFrontM2 = result.drawerFronts.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
 
-  const boardCost   = parseFloat((m2_18 * prices[matKey]).toFixed(3))
+  const boardCost   = parseFloat((m2_18 * carcassPricePerM2).toFixed(3))
   const hdfCost     = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
-  const doorMatCost = parseFloat(((doorM2 + drawerFrontM2) * prices[matKey]).toFixed(3))
+  const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
   const edgeM = (2 * cab.height + (cab.width - 36)
     + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
     + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
 
-  const materialCost = boardCost + hdfCost + doorMatCost + edgeCost
-  breakdown.push({ label: t('proposalTab.breakdownBoard18'), qty: m2_18.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices[matKey], cost: boardCost })
+  const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)
+
+  const materialCost = boardCost + hdfCost + doorMatCost + edgeCost + drawerBoxCost
+  breakdown.push({ label: t('proposalTab.breakdownCarcassBoard'), qty: m2_18.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: carcassPricePerM2, cost: boardCost })
   breakdown.push({ label: t('proposalTab.breakdownHdf8'),    qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: prices.hdf8_m2, cost: hdfCost })
-  breakdown.push({ label: t('proposalTab.breakdownDoorPanel'), qty: doorM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices[matKey], cost: doorMatCost })
+  breakdown.push({ label: t('proposalTab.breakdownDoorPanel'), qty: (doorM2 + drawerFrontM2 + frontPanelM2).toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: frontPricePerM2, cost: doorMatCost })
   breakdown.push({ label: t('proposalTab.breakdownEdgeBand'),  qty: edgeM.toFixed(2)  + ' ' + t('proposalTab.unitM'),  unit: prices.edge_banding_m, cost: edgeCost })
+  drawerBoxRows.forEach(r => breakdown.push(r))
 
   // Hardware cost
   const h = result.hardware
@@ -182,7 +236,7 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopId, projectName, onGrandTotalChange }) {
+export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, onGrandTotalChange }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
@@ -206,13 +260,20 @@ export default function ProposalTab({ cabinets, countertopId, projectName, onGra
 
   // Price each cabinet
   const pricedCabinets = useMemo(() =>
-    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, t) })),
-    [cabinets, prices, t]
+    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) })),
+    [cabinets, prices, materialsMap, drawerSystemsCatalog, t]
   )
+
+  // Backsplash: real board area (linear meters drawn × chosen height) priced by
+  // the countertop's own material (same slab it's cut from), falling back to a
+  // generic worktop rate when that material has no specific catalog price.
+  const backsplashPricePerM2 = materialPricePerM2(countertopMat?.code, materialsMap, prices, null, 'worktop_m2')
+  const backsplashM2   = backsplashLm * (backsplashHeight / 1000)
+  const backsplashCost = parseFloat((backsplashM2 * backsplashPricePerM2).toFixed(2))
 
   const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
   const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
-  const costSubtotal     = cabinetsSubtotal + extrasSubtotal
+  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost
   const marginAmount     = costSubtotal * (margin / 100)
   const afterMargin      = costSubtotal + marginAmount
   const vatAmount        = afterMargin * 0.16
@@ -225,8 +286,6 @@ export default function ProposalTab({ cabinets, countertopId, projectName, onGra
 
   const fmt = (n) => n.toFixed(2)
   const fmtC = (n) => currency === 'JD' ? `${fmt(n)} JD` : `$${fmt(n / usdRate)}`
-
-  const countertopMat = COUNTERTOP_MATERIALS.find(m => m.id === countertopId)
 
   return (
     <div dir={dir} style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#F7F4F0' }}>
@@ -251,6 +310,8 @@ export default function ProposalTab({ cabinets, countertopId, projectName, onGra
           <PriceRow label={t('proposalTab.plywood18')}        value={prices.sheet18_ply_m2} onChange={v => updatePrice('sheet18_ply_m2', v)} />
           <PriceRow label={t('proposalTab.mdf18')}            value={prices.sheet18_mdf_m2} onChange={v => updatePrice('sheet18_mdf_m2', v)} />
           <PriceRow label={t('proposalTab.hdf8')}             value={prices.hdf8_m2}        onChange={v => updatePrice('hdf8_m2', v)} />
+          <PriceRow label={t('proposalTab.board12')}          value={prices.board12_m2}     onChange={v => updatePrice('board12_m2', v)} />
+          <PriceRow label={t('proposalTab.worktopFallback')}  value={prices.worktop_m2}     onChange={v => updatePrice('worktop_m2', v)} />
           <SectionTitle>{t('proposalTab.finishingPerM')}</SectionTitle>
           <PriceRow label={t('proposalTab.edgeBanding')}        value={prices.edge_banding_m} onChange={v => updatePrice('edge_banding_m', v)} />
           <SectionTitle>{t('proposalTab.hardwarePerPc')}</SectionTitle>
@@ -260,6 +321,7 @@ export default function ProposalTab({ cabinets, countertopId, projectName, onGra
           <PriceRow label={t('proposalTab.dowel')}              value={prices.dowel_pc}       onChange={v => updatePrice('dowel_pc', v)} />
           <PriceRow label={t('proposalTab.handle')}             value={prices.handle_pc}      onChange={v => updatePrice('handle_pc', v)} />
           <PriceRow label={t('proposalTab.softCloseTipOn')}     value={prices.soft_close_pc}  onChange={v => updatePrice('soft_close_pc', v)} />
+          <PriceRow label={t('proposalTab.drawerRunnerFallback')} value={prices.drawer_runner_pc} onChange={v => updatePrice('drawer_runner_pc', v)} />
           <SectionTitle>{t('proposalTab.servicesPerCabinet')}</SectionTitle>
           <PriceRow label={t('proposalTab.cncMachining')}       value={prices.machining_cab}  onChange={v => updatePrice('machining_cab', v)} />
           <PriceRow label={t('proposalTab.labor')}              value={prices.labor_cab}      onChange={v => updatePrice('labor_cab', v)} />
@@ -463,6 +525,7 @@ export default function ProposalTab({ cabinets, countertopId, projectName, onGra
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 14 }}>{t('proposalTab.summary')}</div>
             {[
               [t('proposalTab.cabinetsSubtotal'),  cabinetsSubtotal],
+              ...(backsplashCost > 0 ? [[t('proposalTab.backsplashRow', { m: backsplashLm.toFixed(2) }), backsplashCost]] : []),
               [t('proposalTab.additionalItemsRow'),   extrasSubtotal],
               [t('proposalTab.costSubtotal'),      costSubtotal],
               [t('proposalTab.marginPercent', { margin }), marginAmount],
