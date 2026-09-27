@@ -5,6 +5,10 @@ import {
   DEFAULT_JOIN_THRESHOLD, computeWallBodies, getWallThickness, getWallLength, makeWallId,
   chooseDefaultThicknessSide, getWallMidlinePoint,
 } from './wallGeometry'
+import {
+  computeStairDerived, computeStairSteps, goingFromRunLength, makeStairId,
+  DEFAULT_STAIR_WIDTH, DEFAULT_GOING, DEFAULT_MAX_RISER, DEFAULT_NOSING, DEFAULT_TOTAL_RISE,
+} from './stairGeometry'
 
 const ACCENT = '#C8902A'
 const BULK_ACCENT = '#2AC87A'
@@ -63,6 +67,44 @@ function findWallSnap(px, py, walls, wallThickness, scale, threshold) {
     }
   })
   return best
+}
+
+function findNearestWallAngle(px, py, walls, threshold) {
+  let best = null, bestDist = threshold
+  walls.forEach(w => {
+    const d = distToSegment(px, py, w.x1, w.y1, w.x2, w.y2)
+    if (d < bestDist) { bestDist = d; best = radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1)) }
+  })
+  return best
+}
+
+// Snaps a raw direction angle onto the nearest of a candidate set (0/90/180/270
+// plus, when a wall is nearby, the four directions parallel/perpendicular to
+// it) as long as it's within thresholdDeg -- otherwise returns null so the
+// caller falls back to the unsnapped angle.
+function snapAngleToCandidates(angleDeg, candidates, thresholdDeg) {
+  let best = null, bestDiff = thresholdDeg
+  const norm = ((angleDeg % 360) + 360) % 360
+  candidates.forEach(c => {
+    const cn = ((c % 360) + 360) % 360
+    let diff = Math.abs(norm - cn)
+    if (diff > 180) diff = 360 - diff
+    if (diff < bestDiff) { bestDiff = diff; best = cn }
+  })
+  return best
+}
+
+// A stair dropped with no other cues should sit on the side of its walking
+// path that faces into the room, not out through the nearest wall -- using
+// the room's own center as a stand-in for "the interior" is far simpler than
+// tracing wall polygons and is right in every normal rectangular-room case.
+function chooseDefaultStairSide(xMm, yMm, angleDeg, room) {
+  const cx = (room?.width || 0) / 2, cy = (room?.depth || 0) / 2
+  const rad = degToRad(angleDeg)
+  const dirX = Math.cos(rad), dirY = Math.sin(rad)
+  const perpX = -dirY, perpY = dirX
+  const dot = (cx - xMm) * perpX + (cy - yMm) * perpY
+  return dot < 0
 }
 
 // Returns the world-space px endpoints of one edge ('top'|'bottom'|'left'|'right')
@@ -309,12 +351,44 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
   )
 })
 
+// Stage 1 placeholder symbol: tread rectangles plus a start marker. The final
+// drafting-convention symbol (stringers, UP arrow, break line above 1200mm)
+// lands in stage 2 -- both read from the same computeStairSteps output, so
+// swapping the rendering here won't touch the underlying model.
+const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, onMouseDown }) {
+  const data = useMemo(() => computeStairSteps(stair), [stair])
+  const x = stair.x * scale, y = stair.y * scale
+  const rot = stair.rotation || 0
+  const side = stair.flip ? -1 : 1
+  const wpx = stair.width * scale * side
+  const color = selected ? ACCENT : '#555'
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rot})`}
+      onMouseDown={onMouseDown} style={{ cursor: 'move' }}>
+      {data.steps.map((step, i) => {
+        const d0 = i * data.going * scale, d1 = (i + 1) * data.going * scale
+        return (
+          <g key={i}>
+            <rect x={d0} y={Math.min(0, wpx)} width={d1 - d0} height={Math.abs(wpx)}
+              fill={selected ? ACCENT + '18' : '#f7f7f7'} stroke={color} strokeWidth={1} />
+            <line x1={d1} y1={0} x2={d1} y2={wpx} stroke={color} strokeWidth={1} />
+          </g>
+        )
+      })}
+      <circle cx={0} cy={0} r={5} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+      <text x={data.runLength * scale / 2} y={wpx / 2 + 4} textAnchor="middle" fontSize={9} fontWeight={700}
+        fill={color} style={{ pointerEvents: 'none', userSelect: 'none' }}>STAIR</text>
+    </g>
+  )
+})
+
 export default function RoomCanvas({
   room, scale, showGrid, showDimensions,
   elements, setElements, cabinets, setCabinets,
   selected, setSelected, selectedType, setSelectedType,
   wallThickness, setWallThickness,
   walls, setWalls,
+  stairs = [], setStairs = () => {},
   backsplashSegments = [], setBacksplashSegments = () => {},
   readOnly,
   hideToolbar,
@@ -338,7 +412,7 @@ export default function RoomCanvas({
   const [inputMode, setInputMode] = useState(null)
   const [lockedLength, setLockedLength] = useState(null)
   const [lockedAngle, setLockedAngle] = useState(null)
-  const [history, setHistory] = useState([[]])
+  const [history, setHistory] = useState([{ walls: [], stairs: [] }])
   const [dragging, setDragging] = useState(null)
   const [dragStart, setDragStart] = useState(null)
   const [dragCorner, setDragCorner] = useState(null)
@@ -487,19 +561,27 @@ export default function RoomCanvas({
     return () => el.removeEventListener('wheel', handleWheel)
   }, [handleWheel])
 
-  const pushHistory = useCallback((newWalls) => {
-    setHistory(h => [...h.slice(-20), newWalls])
+  // Undoable actions on the Room tab all funnel through one combined
+  // walls+stairs snapshot -- stair placement/deletion/drag needs Ctrl+Z to
+  // work exactly like it does for walls, and a single history stack (rather
+  // than two independent ones) keeps interleaved wall/stair edits undoing in
+  // the actual order they happened.
+  const pushHistory = useCallback((newWalls, newStairsArg) => {
+    const newStairs = newStairsArg !== undefined ? newStairsArg : stairs
+    setHistory(h => [...h.slice(-20), { walls: newWalls, stairs: newStairs }])
     setWalls(newWalls)
-  }, [setWalls])
+    if (newStairsArg !== undefined) setStairs(newStairs)
+  }, [setWalls, setStairs, stairs])
 
   const undo = useCallback(() => {
     setHistory(h => {
       if (h.length <= 1) return h
       const prev = h[h.length - 2]
-      setWalls(prev)
+      setWalls(prev.walls)
+      setStairs(prev.stairs)
       return h.slice(0, -1)
     })
-  }, [setWalls])
+  }, [setWalls, setStairs])
 
   // Keeping a constant on-screen snap radius by dividing by zoom is right most
   // of the time, but zoomed far out that turns into a huge world-space radius
@@ -532,8 +614,46 @@ export default function RoomCanvas({
     return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), lengthMm: displayLenMm, angleDeg: Math.round(radToDeg(angle)), snapped: false }
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, scale, snapThreshold])
 
+  // Unlike a wall (dragged freely to any length), a stair's run length is a
+  // derived quantity -- so the mouse only ever supplies the direction here.
+  // With no typed length, the preview always shows the default going's run;
+  // typing a length back-solves going for the fixed riser count instead.
+  const getStairPreviewEnd = useCallback(() => {
+    if (!startPoint || !mousePos) return null
+    const rawAngle = radToDeg(Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x))
+    const wallAngle = findNearestWallAngle(startPoint.x, startPoint.y, walls, Infinity)
+    const candidates = [0, 90, 180, 270]
+    if (wallAngle != null) candidates.push(wallAngle, wallAngle + 90, wallAngle + 180, wallAngle + 270)
+    const snappedCandidate = snapAngleToCandidates(rawAngle, candidates, 6)
+    const angleDeg = lockedAngle !== null ? lockedAngle : (snappedCandidate ?? rawAngle)
+
+    const totalRise = room?.ceilingHeight || DEFAULT_TOTAL_RISE
+    const maxRiser = DEFAULT_MAX_RISER
+    const draftStair = { totalRise, maxRiser, going: lockedLength !== null ? goingFromRunLength({ totalRise, maxRiser }, lockedLength) : DEFAULT_GOING }
+    const derived = computeStairDerived(draftStair)
+    const lenPx = derived.runLength * scale
+    const rad = degToRad(angleDeg)
+
+    return {
+      x: startPoint.x + lenPx * Math.cos(rad), y: startPoint.y + lenPx * Math.sin(rad),
+      angleDeg: Math.round(angleDeg), lengthMm: Math.round(derived.runLength),
+      totalRise, maxRiser, going: derived.going,
+      snapped: lockedAngle === null && snappedCandidate != null,
+    }
+  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, scale, room])
+
+  const buildStairFromDraft = useCallback((start, end) => {
+    const xMm = start.x / scale, yMm = start.y / scale
+    return {
+      id: makeStairId(), shape: 'straight',
+      x: xMm, y: yMm, rotation: end.angleDeg,
+      width: DEFAULT_STAIR_WIDTH, flip: chooseDefaultStairSide(xMm, yMm, end.angleDeg, room),
+      totalRise: end.totalRise, maxRiser: end.maxRiser, going: end.going, nosing: DEFAULT_NOSING,
+    }
+  }, [scale, room])
+
   useEffect(() => {
-    if (mode !== 'draw' && mode !== 'backsplash' && mode !== 'measure') return
+    if (mode !== 'draw' && mode !== 'backsplash' && mode !== 'measure' && mode !== 'stair') return
     const handler = (e) => {
       if (e.target.tagName === 'INPUT') return
       if (e.key === 'Escape') {
@@ -545,8 +665,19 @@ export default function RoomCanvas({
         setMode('select')
         return
       }
-      if (mode !== 'draw') return
-      if (e.key === 'Enter') {
+      if (mode !== 'draw' && mode !== 'stair') return
+      if (e.key === 'Enter' && mode === 'stair') {
+        const end = getStairPreviewEnd()
+        if (end && startPoint && end.lengthMm > 0) {
+          const newStair = buildStairFromDraft(startPoint, end)
+          pushHistory(walls, [...stairs, newStair])
+          setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+          setSelected(newStair.id); setSelectedType('stair')
+          setMode('select')
+        }
+        return
+      }
+      if (e.key === 'Enter' && mode === 'draw') {
         const end = getPreviewEnd()
         if (end && startPoint && end.lengthMm > 0) {
           pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: chooseDefaultThicknessSide(startPoint.x, startPoint.y, end.x, end.y, walls) }])
@@ -570,7 +701,7 @@ export default function RoomCanvas({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [mode, startPoint, inputMode, inputVal, getPreviewEnd, walls, pushHistory])
+  }, [mode, startPoint, inputMode, inputVal, getPreviewEnd, getStairPreviewEnd, buildStairFromDraft, walls, stairs, pushHistory, setSelected, setSelectedType])
 
   useEffect(() => {
     if (inputMode === 'length') { const l = parseFloat(inputVal); setLockedLength(!isNaN(l) && l > 0 ? l : null) }
@@ -588,6 +719,7 @@ export default function RoomCanvas({
         if (selectedType === 'cabinet') setCabinets(p => p.filter(c => c.id !== selected))
         else if (selectedType === 'element') setElements(p => p.filter(el => el.id !== selected))
         else if (selectedType === 'backsplash') setBacksplashSegments(p => p.filter(s => s.id !== selected))
+        else if (selectedType === 'stair') pushHistory(walls, stairs.filter(s => s.id !== selected))
         setSelected(null); setSelectedType(null)
         return
       }
@@ -615,6 +747,7 @@ export default function RoomCanvas({
       if (e.key === 'r' || e.key === 'R') {
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: ((c.rotation || 0) + 90) % 360 } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, rotation: ((el.rotation || 0) + 90) % 360 } : el))
+        else if (selectedType === 'stair') setStairs(p => p.map(s => s.id === selected ? { ...s, rotation: ((s.rotation || 0) + 90) % 360 } : s))
       }
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && selected != null) {
         e.preventDefault()
@@ -623,11 +756,12 @@ export default function RoomCanvas({
         const dy = e.key === 'ArrowUp' ? -step : e.key === 'ArrowDown' ? step : 0
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, x: c.x + dx, y: c.y + dy } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, x: el.x + dx, y: el.y + dy } : el))
+        else if (selectedType === 'stair') setStairs(p => p.map(s => s.id === selected ? { ...s, x: s.x + dx, y: s.y + dy } : s))
       }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [mode, selected, selectedType, selectedWall, walls, pushHistory, undo, setCabinets, setElements, setBacksplashSegments])
+  }, [mode, selected, selectedType, selectedWall, walls, stairs, pushHistory, undo, setCabinets, setElements, setBacksplashSegments, setStairs])
 
   const handleCanvasClick = useCallback((e) => {
     if (isPanningRef.current) return
@@ -669,6 +803,29 @@ export default function RoomCanvas({
       }
       return
     }
+    if (mode === 'stair') {
+      const pos = getSVGPos(e)
+      if (!startPoint) {
+        // The bottom step's start point snaps to a wall corner first, then to
+        // a wall face (T-junction style), exactly like starting a new wall.
+        let finalPos = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThreshold)
+        if (!finalPos) {
+          const wallSnap = findWallSnap(pos.x, pos.y, walls, wallThickness, scale, snapThreshold)
+          if (wallSnap) finalPos = { x: wallSnap.centerX, y: wallSnap.centerY }
+        }
+        setStartPoint(finalPos || pos)
+        return
+      }
+      const end = getStairPreviewEnd()
+      if (end && end.lengthMm > 0) {
+        const newStair = buildStairFromDraft(startPoint, end)
+        pushHistory(walls, [...stairs, newStair])
+        setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
+        setSelected(newStair.id); setSelectedType('stair')
+        setMode('select')
+      }
+      return
+    }
     const pos = getSVGPos(e)
     const snapPt = findNearestEndpoint(pos.x, pos.y, walls, -1, snapThreshold)
     if (!startPoint) {
@@ -691,7 +848,7 @@ export default function RoomCanvas({
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
-  }, [mode, startPoint, getPreviewEnd, getSVGPos, walls, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness, measureStart, measureEnd])
+  }, [mode, startPoint, getPreviewEnd, getStairPreviewEnd, buildStairFromDraft, getSVGPos, walls, stairs, pushHistory, setSelected, setSelectedType, snapThreshold, cabinets, scale, zoom, setBacksplashSegments, wallThickness, measureStart, measureEnd])
 
   const handleMouseDown = useCallback((e) => {
     if (e.button === 2) {
@@ -734,14 +891,14 @@ export default function RoomCanvas({
     // list) to re-render on every pixel of mouse movement even while just
     // dragging a cabinet around in 'select' mode. Only track it in the modes
     // that actually use it.
-    if (mode === 'draw' || mode === 'measure' || mode === 'backsplash') {
+    if (mode === 'draw' || mode === 'measure' || mode === 'backsplash' || mode === 'stair') {
       setMousePos({ x: rawX, y: rawY })
     }
     if (zoomBoxActiveRef.current) { setZoomBox(z => (z ? { ...z, x2: rawX, y2: rawY } : z)); return }
     // Show the snap preview even before the first click of a new wall — not just
     // once a startPoint already exists — so there's visual confirmation of where
     // a wall will connect before you commit to the click.
-    if (mode === 'draw') setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
+    if (mode === 'draw' || mode === 'stair') setEndpointSnap(findNearestEndpoint(rawX, rawY, walls, -1, snapThreshold))
     if (mode === 'measure') setMeasureSnap(findMeasureSnapPoint(rawX, rawY, walls, cabinets, wallThickness, scale, snapThreshold))
     if (!dragging) return
 
@@ -835,8 +992,14 @@ export default function RoomCanvas({
       if (!snappedX) finalX = Math.round(rawCabX / (GRID * scale)) * (GRID * scale)
       if (!snappedY) finalY = Math.round(rawCabY / (GRID * scale)) * (GRID * scale)
       commitDragThrottled(() => setCabinets(p => p.map(c => c.id === dragging.id ? { ...c, x: finalX / scale, y: finalY / scale } : c)))
+    } else if (dragging.type === 'stair') {
+      const dx2 = rawX - dragStart.x, dy2 = rawY - dragStart.y
+      const nx = dragging.orig.x * scale + dx2, ny = dragging.orig.y * scale + dy2
+      const snapPt = findNearestEndpoint(nx, ny, walls, -1, snapThreshold)
+      const fx = snapPt ? snapPt.x : nx, fy = snapPt ? snapPt.y : ny
+      commitDragThrottled(() => setStairs(p => p.map(s => s.id === dragging.id ? { ...s, x: fx / scale, y: fy / scale } : s)))
     }
-  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, getSVGPos, snapThreshold, zoom, commitDragThrottled])
+  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, setStairs, getSVGPos, snapThreshold, zoom, commitDragThrottled])
 
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false
@@ -853,9 +1016,11 @@ export default function RoomCanvas({
       })
       return
     }
-    if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint')) setHistory(h => [...h.slice(-20), walls])
+    if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint' || dragging.type === 'stair')) {
+      setHistory(h => [...h.slice(-20), { walls, stairs }])
+    }
     setDragging(null); setDragStart(null); setDragCorner(null); setWallSnapPreview(null)
-  }, [dragging, walls])
+  }, [dragging, walls, stairs])
 
   const startWallDrag = useCallback((e, index) => {
     if (mode !== 'select' || hideWallsElements) return
@@ -876,9 +1041,10 @@ export default function RoomCanvas({
     // Draw tools (walls/backsplash) place points on click — don't let clicking
     // an existing cabinet/element hijack that into a drag-and-select instead.
     if (mode !== 'select') return
-    // Room elements (windows/doors/etc.) are fully non-interactive on tabs that
-    // pass hideWallsElements (e.g. the Cabinets tab) — cabinets are unaffected.
-    if (type === 'element' && hideWallsElements) return
+    // Room elements (windows/doors/etc.) and stairs are fully non-interactive
+    // on tabs that pass hideWallsElements (e.g. the Cabinets tab) — cabinets
+    // are unaffected.
+    if ((type === 'element' || type === 'stair') && hideWallsElements) return
     e.stopPropagation()
     const pos = getSVGPos(e)
     let targetId = id
@@ -908,14 +1074,16 @@ export default function RoomCanvas({
       onToggleBulk(targetId)
       return
     }
-    const item = type === 'cabinet' ? cabinets.find(c => c.id === targetId) : elements.find(el => el.id === targetId)
+    const item = type === 'cabinet' ? cabinets.find(c => c.id === targetId)
+      : type === 'stair' ? stairs.find(s => s.id === targetId)
+      : elements.find(el => el.id === targetId)
     if (!item) return
-    setDragging({ type, id: targetId })
+    setDragging(type === 'stair' ? { type, id: targetId, orig: { x: item.x, y: item.y } } : { type, id: targetId })
     setDragStart(pos)
     setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(targetId)
     setSelectedType(type)
-  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale, onToggleBulk])
+  }, [mode, hideWallsElements, cabinets, elements, stairs, getSVGPos, setSelected, setSelectedType, selected, scale, onToggleBulk])
 
   // startElementDrag's identity changes on every cabinet edit (it closes over
   // `cabinets`/`selected`), which would defeat CabinetShape2D's memoization if
@@ -1135,6 +1303,7 @@ export default function RoomCanvas({
   }, [showGrid, scale, vx, vy, cvw, cvh])
 
   const previewEnd = getPreviewEnd()
+  const stairPreviewEnd = getStairPreviewEnd()
   const viewBox = `${vx} ${vy} ${cvw} ${cvh}`
 
   return (
@@ -1155,6 +1324,12 @@ export default function RoomCanvas({
               {t('roomCanvas.backsplashEdges')}
             </button>
           )}
+          {!hideWallsElements && (
+            <button onClick={() => { setMode('stair'); setStartPoint(null); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
+              style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'stair' ? ACCENT : '#E0DAD4', background: mode === 'stair' ? ACCENT+'18' : '#fff', color: mode === 'stair' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              {t('roomCanvas.drawStair')}
+            </button>
+          )}
           <button onClick={() => { setMode('measure'); setStartPoint(null); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'measure' ? ACCENT : '#E0DAD4', background: mode === 'measure' ? ACCENT+'18' : '#fff', color: mode === 'measure' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             {t('roomCanvas.measure')}
@@ -1172,7 +1347,7 @@ export default function RoomCanvas({
               <button onClick={zoomToSelection} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 10, fontWeight: 600 }}>{t('roomCanvas.zoomSelection')}</button>
             )}
           </div>
-          {mode === 'draw' && startPoint && (
+          {(mode === 'draw' || mode === 'stair') && startPoint && (
             <span style={{ fontSize: 11, color: '#555', background: '#f8f8f8', padding: '4px 10px', borderRadius: 6, border: '1px solid #eee' }}>
               {inputMode === 'length' ? t('roomCanvas.innerTabEnter', { val: inputVal })
                : inputMode === 'angle' ? t('roomCanvas.atEnter', { len: lockedLength, angle: inputVal })
@@ -1180,6 +1355,7 @@ export default function RoomCanvas({
             </span>
           )}
           {mode === 'draw' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.clickToPlaceHint')}</span>}
+          {mode === 'stair' && !startPoint && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.stairClickHint')}</span>}
           {mode === 'backsplash' && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.backsplashHint')}</span>}
           {mode === 'measure' && !measureStart && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.measureHintStart')}</span>}
           {mode === 'measure' && measureStart && !measureEnd && <span style={{ fontSize: 11, color: '#888' }}>{t('roomCanvas.measureHintEnd')}</span>}
@@ -1297,7 +1473,7 @@ export default function RoomCanvas({
           height="100%"
           viewBox={viewBox}
           preserveAspectRatio="xMinYMin meet"
-          style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: isPanningRef.current ? 'grabbing' : mode === 'draw' ? 'crosshair' : 'default', display: 'block' }}
+          style={{ background: '#fff', border: '2px solid #2c3e50', borderRadius: 4, cursor: isPanningRef.current ? 'grabbing' : (mode === 'draw' || mode === 'stair') ? 'crosshair' : 'default', display: 'block' }}
           onClick={handleCanvasClick}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
@@ -1338,7 +1514,7 @@ export default function RoomCanvas({
             />
           ))}
           {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
-          {mode === 'draw' && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {(mode === 'draw' || mode === 'stair') && endpointSnap && <circle cx={endpointSnap.x} cy={endpointSnap.y} r={10} fill="#2AC87A33" stroke="#2AC87A" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
           {zoomBox && (() => {
             const bx = Math.min(zoomBox.x1, zoomBox.x2), by = Math.min(zoomBox.y1, zoomBox.y2)
             const bw = Math.abs(zoomBox.x2 - zoomBox.x1), bh = Math.abs(zoomBox.y2 - zoomBox.y1)
@@ -1355,7 +1531,29 @@ export default function RoomCanvas({
               <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
             </>
           )}
+          {mode === 'stair' && startPoint && stairPreviewEnd && stairPreviewEnd.lengthMm > 0 && (() => {
+            const draft = buildStairFromDraft(startPoint, stairPreviewEnd)
+            const mx = (startPoint.x + stairPreviewEnd.x) / 2, my = (startPoint.y + stairPreviewEnd.y) / 2
+            return (
+              <>
+                <g opacity={0.6}><StairShape2D stair={draft} scale={scale} selected onMouseDown={() => {}} /></g>
+                <line x1={startPoint.x} y1={startPoint.y} x2={stairPreviewEnd.x} y2={stairPreviewEnd.y}
+                  stroke={ACCENT} strokeWidth={1.5} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
+                <g transform={`translate(${mx},${my})`}>
+                  <rect x={-40} y={-13} width={80} height={20} rx={4} fill={ACCENT} opacity={0.9} />
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{stairPreviewEnd.lengthMm}mm · {stairPreviewEnd.angleDeg}°</text>
+                </g>
+                <circle cx={stairPreviewEnd.x} cy={stairPreviewEnd.y} r={5} fill={stairPreviewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
+              </>
+            )
+          })()}
           {mode === 'draw' && startPoint && <circle cx={startPoint.x} cy={startPoint.y} r={7} fill="#2AC87A" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {mode === 'stair' && startPoint && <circle cx={startPoint.x} cy={startPoint.y} r={7} fill="#2AC87A" stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
+          {stairs.map(st => (
+            <StairShape2D key={st.id} stair={st} scale={scale}
+              selected={selected === st.id && selectedType === 'stair'}
+              onMouseDown={e => startElementDrag(e, st.id, 'stair')} />
+          ))}
           {elements.filter(el => el.type !== 'window' && el.type !== 'door').map(el => {
             const x = el.x * scale, y = el.y * scale, w = el.w * scale, h = el.h * scale
             const rot = el.rotation || 0, isSelected = selected === el.id && selectedType === 'element'

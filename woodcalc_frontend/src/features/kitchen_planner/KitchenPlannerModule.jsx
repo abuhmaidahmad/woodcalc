@@ -7,6 +7,7 @@ import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
+import { computeStairDerived } from './stairGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -748,6 +749,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [savedMsg, setSavedMsg]               = useState('')
   const [wallThickness, setWallThickness]     = useState(120)
   const [walls, setWalls]                     = useState([])
+  const [stairs, setStairs]                   = useState([])
   const [backsplashSegments, setBacksplashSegments] = useState([])
   const [backsplashHeight, setBacksplashHeight] = useState(50)
   const [backsplashThickness, setBacksplashThickness] = useState(20)
@@ -791,6 +793,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
       if (initialData.walls) setWalls(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120, SCALE))
+      if (initialData.stairs) setStairs(initialData.stairs)
       if (initialData.wallThickness) setWallThickness(initialData.wallThickness)
       if (initialData.room) setRoom(r => ({ ...r, ...initialData.room }))
       if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
@@ -935,7 +938,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
   const bom    = aggregateBOM(cabinets)
 
-  const buildPlannerData = () => ({ room, walls, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
+  const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
 
   const saveProject = async () => {
     setSaving(true); setSavedMsg('')
@@ -1272,6 +1275,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
+              stairs={stairs} setStairs={setStairs}
               backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments} />
           </div>
           <div id="onboarding-configurator-room-properties" style={s.rightPanel}>
@@ -1329,6 +1333,71 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <button onClick={() => { setBacksplashSegments(p => p.filter(s => s.id !== seg.id)); setSelected(null); setSelectedType(null) }}
                 style={{ padding: '6px 12px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                 {t('kitchenPlannerModule.delete')}
+              </button>
+            </div>
+          )
+        })() : selectedType === 'stair' ? (() => {
+          const st = stairs.find(s2 => s2.id === selected)
+          if (!st) return null
+          const derived = computeStairDerived(st)
+          const updateStair = (key, val) => setStairs(p => p.map(s2 => s2.id === selected ? { ...s2, [key]: val } : s2))
+          const warningText = { comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing' }
+          return (
+            <div>
+              <div style={s.propTitle}>{t('kitchenPlannerModule.stairTitle')}</div>
+
+              <div style={s.propSection}>{t('kitchenPlannerModule.dimensions')}</div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.widthLabel')}</div>
+                <input type="number" value={st.width} onChange={e => updateStair('width', +e.target.value)} style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.rotationDeg')}</div>
+                <input type="number" min={0} max={359} value={st.rotation || 0}
+                  onChange={e => updateStair('rotation', (+e.target.value + 360) % 360)} style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.stairFlipSide')}</div>
+                <button onClick={() => updateStair('flip', !st.flip)}
+                  style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {st.flip ? t('kitchenPlannerModule.stairFlipped') : t('kitchenPlannerModule.stairDefaultSide')}
+                </button>
+              </div>
+
+              <div style={s.propSection}>{t('kitchenPlannerModule.stairGeometry')}</div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.stairTotalRise')}</div>
+                <input type="number" value={st.totalRise} onChange={e => updateStair('totalRise', +e.target.value)} style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.stairGoing')}</div>
+                <input type="number" value={Math.round(st.going)} onChange={e => updateStair('going', +e.target.value)} style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.stairMaxRiser')}</div>
+                <input type="number" value={st.maxRiser} onChange={e => updateStair('maxRiser', +e.target.value)} style={s.propInput} />
+              </div>
+              <div style={{ marginBottom: 10 }}>
+                <div style={s.propLabel}>{t('kitchenPlannerModule.stairNosing')}</div>
+                <input type="number" value={st.nosing || 0} onChange={e => updateStair('nosing', +e.target.value)} style={s.propInput} />
+              </div>
+
+              <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6, fontSize: 11, color: '#8A6D3B', lineHeight: 1.5 }}>
+                {t('kitchenPlannerModule.stairSummary', { risers: derived.riserCount, riserHeight: Math.round(derived.riserHeight), run: Math.round(derived.runLength) })}
+              </div>
+
+              {derived.warnings.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {derived.warnings.map((w, i) => (
+                    <div key={i} style={{ padding: '6px 8px', background: '#FEF9E7', border: '1px solid #F5D57A', borderRadius: 6, fontSize: 11, color: '#8A6D00', marginBottom: 4 }}>
+                      ⚠ {t(`kitchenPlannerModule.${warningText[w.code]}`, { val: w.value })}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <button onClick={() => { setStairs(p => p.filter(s2 => s2.id !== selected)); setSelected(null); setSelectedType(null) }} style={s.deleteBtn}>
+                {t('kitchenPlannerModule.deleteBtn')}
               </button>
             </div>
           )
@@ -1475,6 +1544,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
+              stairs={stairs} setStairs={setStairs}
               backsplashSegments={backsplashSegments}
               readOnly={false}
               hideToolbar={false}
