@@ -3,6 +3,8 @@ import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
+const BULK_ACCENT = '#2AC87A'
+const EMPTY_BULK_IDS = new Set()
 const GRID = 50
 export const ENDPOINT_SNAP_DIST = 60
 // Element types that can snap onto a wall's centerline while dragging. Windows/doors
@@ -331,6 +333,79 @@ function EmbeddedElement({ el, scale, selected, onMouseDown }) {
   )
 }
 
+const APPLIANCE_2D_COLORS = {
+  'Freestanding Oven': '#2b2b2b',
+  'Freestanding Fridge': '#d7dadd',
+  'Freestanding Dishwasher': '#d7dadd',
+  'Fridge': '#d7dadd',
+  'Oven Tower': '#2b2b2b',
+  'Double Oven': '#2b2b2b',
+  'Hob + Oven': '#2b2b2b',
+}
+
+// Memoized: with 50+ cabinets on the plan, this whole SVG list used to get
+// rebuilt from scratch on every drag-position commit and every property-panel
+// edit, since it all lived inline in RoomCanvas's own render — moving or
+// editing one cabinet meant re-diffing all 50 <g> subtrees every time. `cab`
+// keeps a stable object reference for every cabinet except the one actually
+// being changed, so memoizing here turns that into a per-cabinet no-op for
+// everything untouched. `onMouseDown` must be a referentially stable callback
+// (see handleCabinetMouseDown in RoomCanvas) or this memoization is defeated.
+// Position and rotation both live on this outer <g>'s `transform` -- every
+// child below is drawn in LOCAL coordinates (0,0 at the cabinet's own
+// top-left) that never change for a given width/height. That means a plain
+// drag, which only changes cab.x/cab.y, now touches exactly one attribute on
+// one element instead of x/y on several rects and two text nodes. SVG/browser
+// engines generally treat a group's `transform` as compositable (like a CSS
+// transform: no layout recalculation of the shapes inside it), whereas
+// changing x/y attributes on individual shapes is a layout-affecting change
+// -- so with 50 cabinets on screen, this is a materially cheaper repaint per
+// drag frame than the previous absolute-coordinate version, on top of being
+// cheaper for React to diff. (translate() then rotate() in the transform list
+// rotates around the LOCAL center (w/2,h/2) first, which lands on the same
+// absolute center point as the old rotate(rot, cx, cy) did -- purely a
+// coordinate-system change, not a behavior change.)
+const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
+  const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
+  const rot = cab.rotation || 0
+  const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
+  const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
+  const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
+  return (
+    <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
+      onMouseDown={e => onMouseDown(e, cab.id)}
+      style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
+      {(w < 8 || h < 8) && (
+        // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
+        // otherwise render no visible area, making the cabinet unclickable and
+        // permanently stuck. This invisible rect guarantees a minimum hit area.
+        <rect x={-Math.max(0, 8 - w) / 2} y={-Math.max(0, 8 - h) / 2}
+          width={Math.max(w, 8)} height={Math.max(h, 8)}
+          fill="transparent" style={{ pointerEvents: 'all' }} />
+      )}
+      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
+      {cab.subtype === 'Blind' && (() => {
+        const blindWpx = BLIND_PANEL_WIDTH * scale
+        const side = cab.blindSide || 'left'
+        const blindX = side === 'left' ? 0 : w - blindWpx
+        const lineX = side === 'left' ? blindWpx : w - blindWpx
+        return (
+          <>
+            <rect x={blindX} y={0} width={blindWpx} height={h} fill="rgba(0,0,0,0.08)" style={{ pointerEvents: 'none' }} />
+            <line x1={lineX} y1={0} x2={lineX} y2={h} stroke="#2c3e50" strokeWidth={1.25} style={{ pointerEvents: 'none' }} />
+          </>
+        )
+      })()}
+      {isColliding && (
+        <rect x={0} y={0} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
+      )}
+      {cab.subtype !== 'Side Panel' && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
+      <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
+      {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+    </g>
+  )
+})
+
 export default function RoomCanvas({
   room, scale, showGrid, showDimensions,
   elements, setElements, cabinets, setCabinets,
@@ -342,8 +417,12 @@ export default function RoomCanvas({
   hideToolbar,
   hideBacksplashTool,
   hideWallsElements,
+  bulkIds = EMPTY_BULK_IDS, onToggleBulk,
 }) {
   const { t } = useTranslation()
+  // Stale bulk-selected ids (e.g. a cabinet deleted after being shift-selected)
+  // must not inflate the displayed count.
+  const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -428,6 +507,32 @@ export default function RoomCanvas({
   vwRef.current = cvw
   vhRef.current = cvh
 
+  // getScreenCTM() (like getBoundingClientRect()) forces the browser to
+  // synchronously flush any pending layout before it can answer -- and since
+  // every drag frame writes a cabinet's new position into this same SVG,
+  // calling it fresh on every mousemove created a read-after-write layout-
+  // thrashing loop: mousemove events fire far more often than the rAF-throttled
+  // position commits, so most of them were forcing a full layout flush of the
+  // whole SVG (walls, elements, all cabinets) for no reason. That's what kept
+  // drags feeling like "lag then catch up" even after the render-side fixes.
+  // The CTM only actually changes when the SVG's viewBox or on-screen size
+  // changes, so it's computed once and cached instead (see the effects below).
+  const ctmRef = useRef(null)
+  const rectRef = useRef(null)
+  const refreshCTM = useCallback(() => {
+    const svg = svgRef.current
+    ctmRef.current = svg ? (svg.getScreenCTM()?.inverse() || null) : null
+    rectRef.current = svg ? svg.getBoundingClientRect() : null
+  }, [])
+  useEffect(() => { refreshCTM() }, [refreshCTM, vx, vy, cvw, cvh])
+  useEffect(() => {
+    const svg = svgRef.current
+    if (!svg || typeof ResizeObserver === 'undefined') return
+    const ro = new ResizeObserver(refreshCTM)
+    ro.observe(svg)
+    return () => ro.disconnect()
+  }, [refreshCTM])
+
   // THE KEY FIX: use browser-native SVG matrix to convert screen → SVG coords
   // This automatically handles preserveAspectRatio letterboxing, zoom, pan, CSS transforms
   const getSVGPos = useCallback((e) => {
@@ -436,7 +541,9 @@ export default function RoomCanvas({
     const pt = svg.createSVGPoint()
     pt.x = e.clientX
     pt.y = e.clientY
-    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+    const inverse = ctmRef.current || svg.getScreenCTM()?.inverse()
+    if (!inverse) return { x: 0, y: 0 }
+    const svgP = pt.matrixTransform(inverse)
     return { x: svgP.x, y: svgP.y }
   }, [])
 
@@ -448,7 +555,9 @@ export default function RoomCanvas({
     const pt = svg.createSVGPoint()
     pt.x = screenX
     pt.y = screenY
-    const svgP = pt.matrixTransform(svg.getScreenCTM().inverse())
+    const inverse = ctmRef.current || svg.getScreenCTM()?.inverse()
+    if (!inverse) return
+    const svgP = pt.matrixTransform(inverse)
     const _cvw = vwRef.current
     // Clamp the factor ONCE so vw/vh scale uniformly (aspect change = drift)
     let f = factor
@@ -704,7 +813,7 @@ export default function RoomCanvas({
     if (isPanningRef.current && panLastRef.current) {
       const _cvw = vwRef.current
       const _cvh = vhRef.current
-      const rect = svgRef.current?.getBoundingClientRect()
+      const rect = rectRef.current || svgRef.current?.getBoundingClientRect()
       if (!rect) return
       const scaleX = _cvw / rect.width
       const scaleY = _cvh / rect.height
@@ -718,7 +827,16 @@ export default function RoomCanvas({
 
     const pos = getSVGPos(e)
     const rawX = pos.x, rawY = pos.y
-    setMousePos({ x: rawX, y: rawY })
+    // mousePos is only ever read by the draw/measure/backsplash hover previews
+    // (see getPreviewEnd and the render-time mode checks below) -- but as plain
+    // state it used to get set on every raw mousemove event regardless of mode,
+    // which forces this whole component (including the full 50-cabinet SVG
+    // list) to re-render on every pixel of mouse movement even while just
+    // dragging a cabinet around in 'select' mode. Only track it in the modes
+    // that actually use it.
+    if (mode === 'draw' || mode === 'measure' || mode === 'backsplash') {
+      setMousePos({ x: rawX, y: rawY })
+    }
     if (zoomBoxActiveRef.current) { setZoomBox(z => (z ? { ...z, x2: rawX, y2: rawY } : z)); return }
     // Show the snap preview even before the first click of a new wall — not just
     // once a startPoint already exists — so there's visual confirmation of where
@@ -883,6 +1001,12 @@ export default function RoomCanvas({
       }
       cabClickRef.current = { pos }
     }
+    // Shift/Ctrl/Cmd-click a cabinet to toggle it in/out of the bulk color-edit
+    // selection instead of the normal single-select-and-drag flow.
+    if (type === 'cabinet' && onToggleBulk && (e.shiftKey || e.ctrlKey || e.metaKey)) {
+      onToggleBulk(targetId)
+      return
+    }
     const item = type === 'cabinet' ? cabinets.find(c => c.id === targetId) : elements.find(el => el.id === targetId)
     if (!item) return
     setDragging({ type, id: targetId })
@@ -890,7 +1014,16 @@ export default function RoomCanvas({
     setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(targetId)
     setSelectedType(type)
-  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale])
+  }, [mode, hideWallsElements, cabinets, elements, getSVGPos, setSelected, setSelectedType, selected, scale, onToggleBulk])
+
+  // startElementDrag's identity changes on every cabinet edit (it closes over
+  // `cabinets`/`selected`), which would defeat CabinetShape2D's memoization if
+  // handed to it directly -- every one of the 50 cabinets would see a "new"
+  // onMouseDown prop on every render. Routing through a ref keeps the callback
+  // identity permanently stable while always invoking the latest closure.
+  const startElementDragRef = useRef(startElementDrag)
+  useEffect(() => { startElementDragRef.current = startElementDrag }, [startElementDrag])
+  const handleCabinetMouseDown = useCallback((e, id) => startElementDragRef.current(e, id, 'cabinet'), [])
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
@@ -921,7 +1054,7 @@ export default function RoomCanvas({
     ])
   }
   const getCabElevRange = (cab) => {
-    if (cab.category === 'wall') {
+    if (cab.category === 'wall' || (cab.elevation || 0) > 0) {
       const bottom = cab.elevation ?? 1450
       return [bottom, bottom + (cab.height || 0)]
     }
@@ -982,11 +1115,17 @@ export default function RoomCanvas({
 
   const collidingIds = useMemo(() => {
     const ids = new Set()
+    // Each cabinet's corners/elevation range only depend on its own fields, not
+    // on which pair is being tested -- precomputing them once here instead of
+    // inside the double loop below cuts what used to be ~n^2 recomputations
+    // (2 per pair) down to n, which matters once n (cabinet count) gets past
+    // a couple dozen.
+    const corners = cabinets.map(getCabCorners)
+    const elevRanges = cabinets.map(getCabElevRange)
     for (let i = 0; i < cabinets.length; i++) {
       for (let j = i + 1; j < cabinets.length; j++) {
-        const a = cabinets[i], b = cabinets[j]
-        if (!rangesOverlap(getCabElevRange(a), getCabElevRange(b))) continue
-        if (polysIntersect(getCabCorners(a), getCabCorners(b))) { ids.add(a.id); ids.add(b.id) }
+        if (!rangesOverlap(elevRanges[i], elevRanges[j])) continue
+        if (polysIntersect(corners[i], corners[j])) { ids.add(cabinets[i].id); ids.add(cabinets[j].id) }
       }
     }
     // Walls run full floor-to-ceiling, so any cabinet overlapping one in plan view is a real
@@ -994,8 +1133,8 @@ export default function RoomCanvas({
     walls.forEach(wall => {
       const wallCorners = getWallCorners(wall)
       if (!wallCorners) return
-      cabinets.forEach(cab => {
-        if (polysIntersect(getCabCorners(cab), wallCorners)) ids.add(cab.id)
+      cabinets.forEach((cab, i) => {
+        if (polysIntersect(corners[i], wallCorners)) ids.add(cab.id)
       })
     })
     return ids
@@ -1090,20 +1229,26 @@ export default function RoomCanvas({
     applyViewBounds(minX, minY, maxX, maxY, 0.6)
   }
 
-  const gridLines = []
-  if (showGrid) {
+  // Depends only on the viewport (pan/zoom) and grid toggle, never on cabinets --
+  // but as a plain array built inline, all ~600 possible <line> elements were
+  // rebuilt and re-diffed on every render, including every cabinet drag frame.
+  // useMemo keeps this array's identity (and contents) stable while dragging.
+  const gridLines = useMemo(() => {
+    const lines = []
+    if (!showGrid) return lines
     const step = GRID * scale
     if (cvw / step <= 300 && cvh / step <= 300) {
       const gx0 = Math.floor(vx / step) * step
       const gy0 = Math.floor(vy / step) * step
       for (let x = gx0; x <= vx + cvw; x += step) {
-        gridLines.push(<line key={'gx'+x} x1={x} y1={vy} x2={x} y2={vy + cvh} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+        lines.push(<line key={'gx'+x} x1={x} y1={vy} x2={x} y2={vy + cvh} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
       }
       for (let y = gy0; y <= vy + cvh; y += step) {
-        gridLines.push(<line key={'gy'+y} x1={vx} y1={y} x2={vx + cvw} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
+        lines.push(<line key={'gy'+y} x1={vx} y1={y} x2={vx + cvw} y2={y} stroke="rgba(200,144,42,0.08)" strokeWidth={0.5} />)
       }
     }
-  }
+    return lines
+  }, [showGrid, scale, vx, vy, cvw, cvh])
 
   const previewEnd = getPreviewEnd()
   const viewBox = `${vx} ${vy} ${cvw} ${cvh}`
@@ -1182,6 +1327,13 @@ export default function RoomCanvas({
               style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #FECACA', background: '#FEF2F2', color: '#E74C3C', fontSize: 12, cursor: 'pointer' }}>
               {t('roomCanvas.clearAll')}
             </button>
+          )}
+          {onToggleBulk && bulkCount > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+              <span style={{ fontSize: 11, color: BULK_ACCENT, fontWeight: 700, background: BULK_ACCENT + '18', padding: '4px 8px', borderRadius: 6 }}>
+                {t('roomCanvas.bulkSelectedCount', { count: bulkCount })}
+              </span>
+            </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
             <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
@@ -1324,56 +1476,18 @@ export default function RoomCanvas({
               selected={selected === el.id && selectedType === 'element'}
               onMouseDown={e => startElementDrag(e, el.id, 'element')} />
           ))}
-          {[...cabinets.filter(c => c.category !== 'wall'), ...cabinets.filter(c => c.category === 'wall')].map(cab => {
-            const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
-            const rot = cab.rotation || 0, cx = x + w/2, cy = y + h/2
-            const isSelected = selected === cab.id && selectedType === 'cabinet'
-            return (
-              <g key={cab.id} transform={`rotate(${rot}, ${cx}, ${cy})`}
-                onMouseDown={e => startElementDrag(e, cab.id, 'cabinet')}
-                style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
-                {(w < 8 || h < 8) && (
-                  // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
-                  // otherwise render no visible area, making the cabinet unclickable and
-                  // permanently stuck. This invisible rect guarantees a minimum hit area.
-                  <rect x={x - Math.max(0, 8 - w) / 2} y={y - Math.max(0, 8 - h) / 2}
-                    width={Math.max(w, 8)} height={Math.max(h, 8)}
-                    fill="transparent" style={{ pointerEvents: 'all' }} />
-                )}
-                {(() => {
-                  const APPLIANCE_2D_COLORS = {
-                    'Freestanding Oven': '#2b2b2b',
-                    'Freestanding Fridge': '#d7dadd',
-                    'Freestanding Dishwasher': '#d7dadd',
-                    'Fridge': '#d7dadd',
-                    'Oven Tower': '#2b2b2b',
-                    'Double Oven': '#2b2b2b',
-                  }
-                  const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
-                  const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
-                  return <rect x={x} y={y} width={w} height={h} fill={fill} stroke={isSelected ? ACCENT : '#888'} strokeWidth={isSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
-                })()}
-                {cab.subtype === 'Blind' && (() => {
-                  const blindWpx = BLIND_PANEL_WIDTH * scale
-                  const side = cab.blindSide || 'left'
-                  const blindX = side === 'left' ? x : x + w - blindWpx
-                  const lineX = side === 'left' ? x + blindWpx : x + w - blindWpx
-                  return (
-                    <>
-                      <rect x={blindX} y={y} width={blindWpx} height={h} fill="rgba(0,0,0,0.08)" style={{ pointerEvents: 'none' }} />
-                      <line x1={lineX} y1={y} x2={lineX} y2={y + h} stroke="#2c3e50" strokeWidth={1.25} style={{ pointerEvents: 'none' }} />
-                    </>
-                  )
-                })()}
-                {collidingIds.has(cab.id) && (
-                  <rect x={x} y={y} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
-                )}
-                {cab.subtype !== 'Side Panel' && <rect x={x} y={y+h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={isSelected ? ACCENT : '#888'} strokeWidth={0.75} />}
-                <text x={cx} y={cy} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
-                {showDimensions && <text x={cx} y={cy+10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
-              </g>
-            )
-          })}
+          {[...cabinets.filter(c => c.category !== 'wall'), ...cabinets.filter(c => c.category === 'wall')].map(cab => (
+            <CabinetShape2D
+              key={cab.id}
+              cab={cab}
+              isSelected={selected === cab.id && selectedType === 'cabinet'}
+              isBulkSelected={bulkIds.has(cab.id)}
+              isColliding={collidingIds.has(cab.id)}
+              scale={scale}
+              showDimensions={showDimensions}
+              onMouseDown={handleCabinetMouseDown}
+            />
+          ))}
           {backsplashSegments.map(seg => {
             const isSelBs = selected === seg.id && selectedType === 'backsplash'
             return (

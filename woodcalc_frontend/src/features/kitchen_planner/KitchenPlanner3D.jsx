@@ -1,6 +1,6 @@
-import { Canvas, useLoader } from '@react-three/fiber'
+import { Canvas, useLoader, useThree } from '@react-three/fiber'
 import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
-import { OrbitControls, ContactShadows, Environment, RoundedBox } from '@react-three/drei'
+import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
@@ -1259,6 +1259,121 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMa
   )
 }
 
+// Base-height cooker cabinet: a control fascia band (hob knobs) at the top of
+// the front, with the built-in single oven door below it — the hob itself
+// sits on the countertop above (see HobPlate), not on this carcass front.
+function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
+  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+  const matProps = getMaterialProps(frontMaterial)
+  const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
+  const edgeGap = 0.003
+  const frontW = W - edgeGap * 2
+  const stripT = 0.018
+  const stripZ = D / 2 + stripT / 2
+  const doorZ0 = D / 2 + stripT + 0.002
+  const doorZ1 = D / 2 + stripT + 0.0335
+  const doorZ2 = D / 2 + stripT + 0.037
+
+  // Plain control fascia band up top (the hob's own knobs sit on the hob itself,
+  // see HobPlate), then the oven cavity door below it, then whatever's left down
+  // to the toe kick as a plain filler.
+  const fasciaH = Math.min(H * 0.14, 0.09)
+  const ovenH = Math.min(0.595, Math.max(0.3, H - fasciaH - 0.05))
+  const fasciaBottom = H - fasciaH
+  const fasciaCenter = (H + fasciaBottom) / 2
+  const doorBottom = fasciaBottom - ovenH
+  const doorCenter = (fasciaBottom + doorBottom) / 2
+
+  const frontPiece = (key, w, h, cy) => texEntry ? (() => {
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    return (
+      <PhotoTexturedBox key={key} args={[w, h, stripT]} position={[0, cy, stripZ]} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
+        envMapIntensity={1.2} repeatU={w / physW} repeatV={h / physH} radius={0.001} />
+    )
+  })() : (
+    <SmartBox key={key} args={[w, h, stripT]} position={[0, cy, stripZ]} castShadow receiveShadow
+      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+  )
+
+  return (
+    <group>
+      <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+        color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      {frontPiece('fascia', frontW, fasciaH, fasciaCenter)}
+      {doorBottom > 0 && frontPiece('fill', frontW, doorBottom, doorBottom / 2)}
+      <mesh position={[0, doorCenter, doorZ0]} castShadow>
+        <boxGeometry args={[frontW, ovenH, 0.03]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[0, doorCenter, doorZ1]}>
+        <boxGeometry args={[frontW - 0.06, ovenH - 0.06, 0.002]} />
+        <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, doorCenter, doorZ2]}>
+        <boxGeometry args={[frontW * 0.75, 0.02, 0.025]} />
+        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+      </mesh>
+    </group>
+  )
+}
+
+// Generic 4-plate solid-hotplate electric hob, sitting on top of the
+// countertop surface (no cutout). Control knobs sit on the hob itself, in a
+// row near the front edge (in front of the burners), not on the cabinet
+// front below. Front-left plate shown lit like a real indicator light,
+// matching how these hobs read in showroom renders.
+//
+// A CylinderGeometry's flat caps already face up/down by default (its axis
+// runs along Y) -- unlike a CircleGeometry, which needs the -90°-about-X
+// rotation to lie flat. The burner discs below deliberately carry NO
+// rotation for that reason; only the red indicator circle needs one.
+function HobPlate({ W, D }) {
+  const hobW = Math.min(W - 0.04, 0.86)
+  const hobD = Math.min(D - 0.05, 0.51)
+  const plateT = 0.006
+  const plateR = Math.min(hobW, hobD) * 0.11
+  // +Z is the cabinet's front. Front-left burner (index 0) is the lit one.
+  const positions = [
+    [-hobW * 0.26,  hobD * 0.22],
+    [ hobW * 0.26,  hobD * 0.22],
+    [-hobW * 0.26, -hobD * 0.22],
+    [ hobW * 0.26, -hobD * 0.22],
+  ]
+  const knobXs = [-0.30, -0.10, 0.10, 0.30].map(f => f * hobW)
+  const knobH = 0.014
+  const knobZ = hobD / 2 - 0.035
+
+  return (
+    <group>
+      <RoundedBox args={[hobW, plateT, hobD]} radius={0.002} smoothness={2} position={[0, plateT / 2, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial color="#15161a" metalness={0.7} roughness={0.35} envMapIntensity={1.2} />
+      </RoundedBox>
+      {positions.map(([px, pz], i) => (
+        <group key={i} position={[px, plateT + 0.003, pz]}>
+          <mesh castShadow>
+            <cylinderGeometry args={[plateR, plateR, 0.006, 24]} />
+            <meshPhysicalMaterial color="#1c1c1c" metalness={0.6} roughness={0.5} />
+          </mesh>
+          {i === 0 && (
+            <mesh position={[0, 0.0032, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <circleGeometry args={[plateR * 0.16, 16]} />
+              <meshStandardMaterial color="#ff2200" emissive="#ff2200" emissiveIntensity={2} toneMapped={false} />
+            </mesh>
+          )}
+        </group>
+      ))}
+      {knobXs.map((kx, i) => (
+        <mesh key={i} position={[kx, plateT + knobH / 2, knobZ]} castShadow>
+          <cylinderGeometry args={[0.010, 0.010, knobH, 16]} />
+          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
+        </mesh>
+      ))}
+    </group>
+  )
+}
+
 function DishwasherAppliance({ W, H, D }) {
   return (
     <group>
@@ -1333,7 +1448,14 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
   )
 }
 
-function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 30, textureMap = {} }) {
+// Memoized: with 50+ cabinets in a design, a single cabinet's drag/property
+// edit used to re-run every cabinet's (unmemoized) render function on every
+// commit -- rebuilding all 50 heavy mesh subtrees (doors, drawers, gola
+// profiles, notched panels) instead of just the one that actually changed.
+// `cab` keeps a stable object reference for every cabinet except the one
+// being edited (state updates use `cabinets.map(c => c.id === id ? {...} : c)`),
+// so memoizing here turns an O(N) rebuild into O(1) per edit.
+const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {} }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
   const D = cab.depth / 1000
@@ -1360,6 +1482,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
     (cab.subtype === 'Oven Tower' || cab.subtype === 'Double Oven') ? 'ovenTower' :
+    cab.subtype === 'Hob + Oven' ? 'hobOven' :
     (cab.category === 'wall' && cab.subtype === 'Appliance') ? 'hood' :
     cab.subtype === 'Freestanding Oven' ? 'freestandingOven' :
     cab.subtype === 'Freestanding Fridge' ? 'freestandingFridge' :
@@ -1390,6 +1513,10 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'ovenTower' ? (
         <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
+      ) : applianceKind === 'hobOven' ? (
+        <HobOvenAppliance W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
       ) : applianceKind === 'hood' ? (
@@ -1439,6 +1566,11 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
             sinkColorHex={cab.sinkColorHex} sinkRoughness={cab.sinkRoughness} sinkMetalness={cab.sinkMetalness}
             textureMap={textureMap} />
+          {cab.subtype === 'Hob + Oven' && (
+            <group position={[0, countertopThickness / 1000, 0]}>
+              <HobPlate W={W} D={D} />
+            </group>
+          )}
         </group>
       )}
       {cab.ledStripInterior && !isShelf && (() => {
@@ -1492,9 +1624,12 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       )}
     </group>
   )
-}
+})
 
-function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
+// Memoized for the same reason as Cabinet: `wall` keeps a stable reference
+// for every wall except the one being edited, and `elements` is stable
+// whenever cabinets (not doors/windows) are what changed.
+const Wall3D = React.memo(function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
   const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
   const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
   const len = Math.hypot(x2-x1, z2-z1)
@@ -1541,9 +1676,9 @@ function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wa
       <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
     </mesh>
   )
-}
+})
 
-function WindowElement({ el, wallThickness }) {
+const WindowElement = React.memo(function WindowElement({ el, wallThickness }) {
   const x = el.x/1000, z = el.y/1000
   const W = el.w/1000, T = (wallThickness||120)/1000
   const elev = (el.elevation||900)/1000, H = (el.h||1200)/1000
@@ -1560,9 +1695,9 @@ function WindowElement({ el, wallThickness }) {
       <rectAreaLight width={W*0.9} height={H*0.9} intensity={4} color="#fff8f0" position={[0,0,-T]} rotation={[0,Math.PI,0]} />
     </group>
   )
-}
+})
 
-function DoorElement({ el, wallThickness }) {
+const DoorElement = React.memo(function DoorElement({ el, wallThickness }) {
   const x = el.x/1000, z = el.y/1000
   const W = el.w/1000, T = (wallThickness||120)/1000
   const H = (el.h||2300)/1000
@@ -1582,9 +1717,9 @@ function DoorElement({ el, wallThickness }) {
       </mesh>
     </group>
   )
-}
+})
 
-function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
+const OtherElement = React.memo(function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
   const x = el.x/1000, z = el.y/1000
   const elev = (el.elevation||1200)/1000
   const rot = (el.rotation||0)*Math.PI/180
@@ -1601,6 +1736,47 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
       <mesh><cylinderGeometry args={[0.04,0.04,0.04,16]} /><meshStandardMaterial color={color} roughness={0.4} metalness={0.3} /></mesh>
     </group>
   )
+})
+
+// With frameloop="demand", R3F draws a new WebGL frame (full postprocessing
+// pass: SSAO, tone mapping, MSAA) any time a prop change touches the scene
+// graph -- including a dragged cabinet's position updating every rAF tick.
+// Since this component stays mounted even when its tab isn't visible (see the
+// comment on its wrapper in KitchenPlannerModule), that meant every cabinet
+// drag was paying for a full GPU-heavy 3D render on a canvas nobody could see,
+// on top of the 2D canvas doing its own work -- a second, invisible, likely
+// bigger cost competing for the same frame budget and producing exactly the
+// "lags then catches up" stutter frame drops look like. `active` switches the
+// hidden canvas's frameloop to 'never' so prop updates still keep the Three.js
+// scene graph correct (the reconciler applies them regardless of frameloop),
+// but no actual frame gets drawn until the tab is visible again.
+function RedrawOnActivate({ active }) {
+  const invalidate = useThree(state => state.invalidate)
+  useEffect(() => {
+    if (active) invalidate()
+  }, [active, invalidate])
+  return null
+}
+
+// This scene has 4 point-light ceiling lamps plus the main directional key
+// light all casting shadows -- a point light's shadow map means rendering
+// the whole scene 6 times (once per cube face), so that's ~25 full shadow
+// render passes in total. Three.js's default (shadowMap.autoUpdate = true)
+// redoes every one of those passes on every single frame, including frames
+// where the camera is the only thing that moved and nothing shadow-relevant
+// (cabinet/wall positions, room size) actually changed -- which is exactly
+// what happens while orbiting/zooming. Disabling autoUpdate and only
+// flagging needsUpdate when the shadow-casting geometry itself changes cuts
+// that from "every frame" down to "once, when it actually needs to."
+function ShadowMapOnDemand({ cabinets, walls, room }) {
+  const gl = useThree(state => state.gl)
+  useEffect(() => {
+    gl.shadowMap.autoUpdate = false
+  }, [gl])
+  useEffect(() => {
+    gl.shadowMap.needsUpdate = true
+  }, [gl, cabinets, walls, room])
+  return null
 }
 
 // Rendering this scene reconciles geometry/materials for every cabinet, so it's
@@ -1610,7 +1786,7 @@ function OtherElement({ el, roomH = DEFAULT_ROOM_H }) {
 // every unrelated state change in the parent (selecting a cabinet, switching
 // tool mode, etc.), not just when its own props actually change. Memoizing
 // keeps it inert unless cabinets/room/walls/elements/materials really changed.
-function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20 }) {
+function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null, active = true }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallThickness = 120
@@ -1631,14 +1807,50 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
     [cx-span*0.2,cz+span*0.2],[cx+span*0.2,cz+span*0.2],
   ]
 
-  const textureMap = useMaterialTextureMap()
+  // Without a logged-in user, /api/inventory/materials/ needs ?company=<slug>
+  // to return anything (see PublicOrTenantScopedMixin) — callers with no
+  // session (the public share view, the public catalog browser) must pass
+  // their manufacturer's slug or every front falls back to a flat color.
+  const textureMap = useMaterialTextureMap(companySlug)
+
+  // drei's <ContactShadows> defaults to re-rendering its own blurred shadow
+  // pass every single frame forever (frames=Infinity), even though the
+  // cabinets casting it aren't moving while you just orbit the camera. This
+  // fingerprint changes only when something that actually affects the
+  // ground shadow's shape changes (a cabinet's position/size/rotation, or
+  // one being added/removed) -- used as the component's `key` below so it
+  // renders once to pick up the change (frames=1) and otherwise stays a
+  // static, cached texture while the camera moves.
+  const shadowFingerprint = useMemo(
+    () => cabinets.map(c => `${c.id}:${c.x}:${c.y}:${c.width}:${c.depth}:${c.height}:${c.rotation||0}:${c.elevation||0}`).join('|'),
+    [cabinets]
+  )
 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
-        frameloop="demand"
+        frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
-        gl={{antialias:true,outputColorSpace:THREE.SRGBColorSpace}}>
+        // The postprocessing pipeline below (EffectComposer with
+        // multisampling={4}) renders to its own off-screen target and does
+        // its own antialiasing there -- the WebGL context's native
+        // antialias only affects a direct-to-canvas draw, so with
+        // postprocessing active it was pure wasted GPU work on every frame.
+        gl={{antialias:false,outputColorSpace:THREE.SRGBColorSpace}}
+        // Lets AdaptiveDpr/AdaptiveEvents below automatically render at a
+        // lower resolution while orbiting/zooming (when sustained frame
+        // time drops below this threshold) and snap back to full
+        // resolution once the camera settles -- this scene's ambient
+        // occlusion + shadows + contact shadows are GPU-heavy enough that
+        // rendering them at full res on every single frame of a drag-to-
+        // orbit gesture was the "lags then catches up" stutter here; this
+        // is the standard react-three-fiber pattern for that, not a
+        // one-off hack.
+        performance={{ min: 0.5 }}>
+        <RedrawOnActivate active={active} />
+        <ShadowMapOnDemand cabinets={cabinets} walls={walls} room={room} />
+        <AdaptiveDpr pixelated />
+        <AdaptiveEvents />
         <color attach="background" args={['#ddd9d3']} />
         <fog attach="fog" args={['#ddd9d3',14,30]} />
 
@@ -1662,7 +1874,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
           ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
           :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
-        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} allCabinets={cabinets} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
+        {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
         {backsplashSegments.map(seg => (
           <Backsplash3D key={seg.id} seg={seg} cabinets={cabinets} countertopMat={countertopMat}
             countertopThickness={countertopThickness} backsplashHeightDefault={backsplashHeight}
@@ -1670,8 +1882,11 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
         ))}
         <SkirtingCornerJoins cabinets={cabinets} countertopMat={countertopMat} />
 
-        {/* --- Contact shadows: soft ground shadow under all cabinets --- */}
+        {/* --- Contact shadows: soft ground shadow under all cabinets ---
+            key+frames={1}: render once per actual layout change, not every frame. */}
         <ContactShadows
+          key={shadowFingerprint}
+          frames={1}
           position={[cx, 0.004, cz]}
           width={span + 4} height={span + 4}
           far={2.5} blur={6} opacity={0.5}

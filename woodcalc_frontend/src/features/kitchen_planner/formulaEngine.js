@@ -12,11 +12,62 @@ export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjo
 // sink cabinets, and anything in vanity/specialty/accessories (those aren't real shelf-and-door boxes).
 export function isShelfEligible(cab) {
   if (['vanity', 'specialty', 'accessories'].includes(cab.category)) return false;
-  if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink'].includes(cab.subtype)) return false;
+  if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink', 'Hob + Oven'].includes(cab.subtype)) return false;
   if (['Filler', 'Panel', 'Toe Kick', 'Side Panel'].includes(cab.subtype)) return false;
   // The oven(s) occupy the cavity — no room for adjustable shelves.
   if (['Oven Tower', 'Double Oven'].includes(cab.subtype)) return false;
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
+}
+
+// Subtypes with no manufactured carcass at all: simple flat pieces (Filler/Panel/Toe
+// Kick/Shelf/Open Shelf, one board cut at its own dimensions) or purchased appliances
+// (Fridge/.../Freestanding *) that WoodCalc doesn't manufacture or sell — they're
+// placed for design/space-planning only. `isCarcassCabinet()` is the single gate for
+// "does this cabinet get panels/doors run through calculateCabinet()", used by both
+// the cut list and the cost proposal so they never disagree on what's real.
+// Oven Tower / Double Oven are NOT purchased whole units — they're a fabricated
+// carcass (sides/bottom/top/back, priced and cut like any tall cabinet) that just
+// houses a purchased oven, so they're excluded from this list but stay in
+// APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
+export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance'];
+export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher'];
+
+export function isCarcassCabinet(c) {
+  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
+}
+
+// Dimensions for a non-carcass flat piece (Filler/Panel/Toe Kick/Shelf/Open Shelf) —
+// one board cut at its own size, no box formula. Matches the master cut list's piece
+// entry exactly, so the cost proposal never charges for a size it wouldn't actually cut.
+// Side Panel is depth-oriented (a vertical infill against a wall); everything else in
+// this bucket is width-oriented (a horizontal strip/board).
+export function nonCarcassPieceDims(c) {
+  const isPanel = c.subtype === 'Side Panel';
+  return {
+    width: c.height,
+    depth: isPanel ? (c.depth || 581) : c.width,
+    thickness: isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18,
+  };
+}
+
+// Builds the calculateCabinet() input from a saved cabinet object — shared by the
+// cut list and the cost proposal so a subtype's door/drawer rules (Blind's narrow
+// door, Hob + Oven's no-wood-door front, drawer counts, etc.) price the same way
+// they get cut.
+export function cabinetConfig(c) {
+  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door';
+  return {
+    width: c.width, height: c.height, depth: c.depth,
+    material: c.material, doorStyle: c.doorStyle, shelves: 0,
+    cabinetType: c.category,
+    doorCount: c.doorCount,
+    subtype: c.subtype,
+    drawers: isDrawerCab ? 4 : 0,
+    drawerType: c.drawerType,
+    drawerSystem: c.drawerSystem,
+    drawerBoxConstruction: c.drawerBoxConstruction,
+    baseHeight: c.baseHeight,
+  };
 }
 
 // Detects where two floor-standing cabinets meet at a 90°/270° outer corner (e.g. an L-shaped
@@ -239,11 +290,14 @@ export function calculateCabinet(config) {
   const golaDoorHeight = round2(H - 25 - 3);
   const handlePushDoorHeight = round2(opening - 3 - 3);
   const isBlind = config.subtype === 'Blind';
+  // The built-in oven's own fascia/door covers this cabinet's whole front —
+  // there's no room left for a manufactured wood door.
+  const isHobOven = config.subtype === 'Hob + Oven';
   const oneDoorWidth = isBlind ? round2(W - BLIND_PANEL_WIDTH - 3) : round2(W - 3);
   const twoDoorWidthEach = round2((W - 3) / 2);
 
   const defaultDoorCount = getDefaultDoorCount(W);
-  const doorCount = isBlind ? 1 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
+  const doorCount = isBlind ? 1 : isHobOven ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
   const isTallSplit = !isOvenTower && config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;

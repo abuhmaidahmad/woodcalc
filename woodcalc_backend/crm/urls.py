@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     PaymentTransactionViewSet,
     ClientViewSet, LeadViewSet, QuotationViewSet, QuotationItemViewSet,
-    ProjectViewSet, RoomViewSet, PaymentViewSet, public_lead_capture
+    ProjectViewSet, RoomViewSet, PaymentViewSet, public_lead_capture,
+    public_room_share_view,
 )
 
 router = DefaultRouter()
@@ -18,4 +19,5 @@ router.register(r'transactions', PaymentTransactionViewSet, basename='transactio
 
 urlpatterns = [
     path('leads/public-capture/', public_lead_capture, name='public_lead_capture'),
+    path('rooms/shared/<uuid:token>/', public_room_share_view, name='public_room_share_view'),
 ] + router.urls

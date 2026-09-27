@@ -94,6 +94,10 @@ class Room(models.Model):
     planner_data = models.JSONField(default=dict, blank=True)
     grand_total = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     notes = models.TextField(blank=True)
+    # Set only when a "Share 3D View" link has been generated for this room;
+    # null means no public link exists. Used to look the room up anonymously
+    # at /view/:token without exposing the sequential primary key.
+    share_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

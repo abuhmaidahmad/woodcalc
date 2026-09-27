@@ -1,0 +1,65 @@
+{
+  "name": "Arabian Build – L + Peninsula Bar",
+  "units_mm": true,
+  "origin": "inner corner sink-wall x door-wall; x along door wall, y along sink wall",
+  "room": { "ceiling": 2910, "open_side": "east (x=3675)" },
+  "walls": [
+    { "id": "sink_wall",    "from": [0, 0],    "to": [0, 3070],    "inner_length": 3070 },
+    { "id": "door_wall",    "from": [0, 0],    "to": [3675, 0],    "inner_length": 3675 },
+    { "id": "cooking_wall", "from": [0, 3070], "to": [3600, 3070], "inner_length": 3600, "continues_beyond": true }
+  ],
+  "openings": [
+    { "type": "window", "wall": "sink_wall", "offset": 340, "width": 1800, "sill": 1050, "height": 1400, "verify": ["sill", "height"] },
+    { "type": "door",   "wall": "door_wall", "offset": 715, "width": 1960, "height": 2100, "verify": ["height", "swing"] }
+  ],
+  "services": [
+    { "type": "water", "wall": "sink_wall",    "offset": 1240, "elevation": 500, "verify": ["elevation"] },
+    { "type": "drain", "wall": "sink_wall",    "offset": 1240, "elevation": 350, "verify": ["elevation"] },
+    { "type": "gas",   "wall": "cooking_wall", "offset": 1650, "elevation": 600, "verify": ["elevation"] }
+  ],
+  "base_units": [
+    { "code": "F0",  "type": "filler",               "wall": "sink_wall", "from": 0,    "width": 40,  "facing": "+x" },
+    { "code": "D1",  "type": "base_drawers_3",       "wall": "sink_wall", "from": 40,   "width": 750, "facing": "+x", "drawer_fronts": [200, 280, 280] },
+    { "code": "SK",  "type": "sink_base_2door",      "wall": "sink_wall", "from": 790,  "width": 900, "facing": "+x", "sink": { "bowl": [800, 450], "centre_y": 1240, "single_bowl": true } },
+    { "code": "DW",  "type": "dishwasher_integrated","wall": "sink_wall", "from": 1690, "width": 600, "facing": "+x" },
+    { "code": "P15", "type": "base_pullout",         "wall": "sink_wall", "from": 2290, "width": 150, "facing": "+x" },
+    { "code": "F1",  "type": "filler",               "wall": "sink_wall", "from": 2440, "width": 30,  "facing": "+x" },
+
+    { "code": "C1",  "type": "base_blind_corner",    "wall": "cooking_wall", "from": 0,    "width": 1200, "facing": "-y", "blind_side": "left(x=0..600)", "filler": 50, "door": 550, "fitting": "LeMans" },
+    { "code": "H90", "type": "base_hob_oven",        "wall": "cooking_wall", "from": 1200, "width": 900,  "facing": "-y", "hob": "gas 900", "oven": "built-under 900", "centre_x": 1650 },
+    { "code": "SP",  "type": "base_pullout",         "wall": "cooking_wall", "from": 2100, "width": 250,  "facing": "-y" },
+    { "code": "F2",  "type": "filler",               "wall": "cooking_wall", "from": 2350, "width": 50,   "facing": "-y" },
+
+    { "code": "C2",  "type": "base_blind_corner",    "peninsula": true, "x": [2400, 3000], "y": [1870, 3070], "facing": "-x", "door_y": [1870, 2420], "filler_y": [2420, 2470], "blind_y": [2470, 3070] },
+    { "code": "EP",  "type": "end_panel",            "peninsula": true, "x": [2400, 3000], "y": [1840, 1870], "full_height_to_floor": true },
+    { "code": "BP",  "type": "finished_back_panel",  "peninsula": true, "at_x": 3000, "y": [1840, 3070], "face": "+x" }
+  ],
+  "worktops": [
+    { "id": "sink_run",    "polygon": [[0,0],[620,0],[620,2450],[0,2450]] },
+    { "id": "cooking_run", "polygon": [[0,2450],[2380,2450],[2380,3070],[0,3070]] },
+    { "id": "peninsula",   "polygon": [[2380,1840],[3350,1840],[3350,3070],[2380,3070]], "overhang": { "side": "+x", "depth": 350 } }
+  ],
+  "wall_units": [
+    { "code": "UA1", "type": "wall_unit",          "wall": "sink_wall",    "from": 2170, "width": 550,  "facing": "+x", "note": "30 clear to window reveal" },
+    { "code": "UB1", "type": "wall_blind_corner",  "wall": "cooking_wall", "from": 0,    "width": 1200, "facing": "-y", "blind": 350, "filler": 50, "doors": [400, 400] },
+    { "code": "HD",  "type": "hood_housing",       "wall": "cooking_wall", "from": 1200, "width": 900,  "facing": "-y", "underside": 1600, "hood": 900 },
+    { "code": "UB2", "type": "wall_unit",          "wall": "cooking_wall", "from": 2100, "width": 300,  "facing": "-y" },
+    { "code": "UB3", "type": "wall_unit",          "wall": "cooking_wall", "from": 2400, "width": 600,  "facing": "-y", "end_panel": { "at_x": 3000, "thickness": 20 } }
+  ],
+  "wall_unit_defaults": { "bottom": 1500, "body": 900, "top_box": 450, "depth": 350, "cornice": 60 },
+  "tall_units": [
+    { "code": "FH", "type": "fridge_housing_tall", "wall": "door_wall", "from": 2755, "width": 920, "depth": 750, "facing": "+y", "height_to": 2850,
+      "niche": [880, 2000], "top_box_height": 850, "exposed_end": "+x",
+      "appliance": { "type": "fridge_freestanding", "max": [840, 700, 1850] } }
+  ],
+  "loose_items": [
+    { "type": "bar_stool", "centre": [3470, 2150], "diameter": 400, "seat_height": 650, "skip_if_not_in_catalog": true },
+    { "type": "bar_stool", "centre": [3470, 2750], "diameter": 400, "seat_height": 650, "skip_if_not_in_catalog": true }
+  ],
+  "checks": {
+    "aisle_sinkrun_to_peninsula": 1760,
+    "fridge_front_to_peninsula_end": 1090,
+    "sink_centre_equals_window_centre": 1240,
+    "hob_centre_on_gas": 1650
+  }
+}

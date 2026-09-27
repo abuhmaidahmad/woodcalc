@@ -30,9 +30,11 @@ import MaterialList from './pages/MaterialList';
 import Settings from './pages/Settings';
 import BillingReturn from './pages/BillingReturn';
 import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
+import KitchenShareView from './pages/KitchenShareView';
 import LeadList from './pages/LeadList';
 import LeadDesignView from './pages/LeadDesignView';
 import AdminCompanies from './pages/AdminCompanies';
+import AdminCompanyDetail from './pages/AdminCompanyDetail';
 import AdminFeedback from './pages/AdminFeedback';
 import TrialBanner from './components/TrialBanner';
 import FeedbackWidget from './components/FeedbackWidget';
@@ -84,6 +86,7 @@ export default function App() {
           <PrivateRoute><KitchenPlannerModule /></PrivateRoute>
         } />
         <Route path="/browse/:companySlug" element={<PublicCatalogBrowse />} />
+        <Route path="/view/:token" element={<KitchenShareView />} />
 
         {/* Leads */}
         <Route path="/leads" element={
@@ -96,6 +99,9 @@ export default function App() {
         {/* Platform admin */}
         <Route path="/admin/companies" element={
           <AdminRoute><AdminCompanies /></AdminRoute>
+        } />
+        <Route path="/admin/companies/:id" element={
+          <AdminRoute><AdminCompanyDetail /></AdminRoute>
         } />
         <Route path="/admin/feedback" element={
           <AdminRoute><AdminFeedback /></AdminRoute>

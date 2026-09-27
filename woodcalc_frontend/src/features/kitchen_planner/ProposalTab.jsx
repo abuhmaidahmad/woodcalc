@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -30,21 +30,55 @@ const DEFAULT_PRICES = {
 
 const USD_RATE = 0.71  // 1 JD = x USD (editable)
 
+const ZERO_COST = { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+
+function boardMatKey(material) {
+  return material?.toLowerCase().includes('plywood') ? 'sheet18_ply_m2'
+    : material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
+}
+
+// Fillers/Panels/Toe Kicks/Shelves are real cut boards -- just a single flat piece
+// at its own size, not a full box -- so they're priced as board area only. No
+// hardware, no CNC/labor line (those price a full cabinet's box+door job, not a
+// one-piece cut), matching how the master cut list treats them too.
+function priceFlatPiece(cab, prices, t) {
+  const { width, depth } = nonCarcassPieceDims(cab)
+  const matKey = boardMatKey(cab.material)
+  const m2 = (width * depth) / 1e6
+  const boardCost = parseFloat((m2 * prices[matKey]).toFixed(3))
+  const breakdown = [
+    { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices[matKey], cost: boardCost },
+  ]
+  return { materialCost: boardCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(boardCost.toFixed(2)), breakdown }
+}
+
 // ─── Price a single cabinet ────────────────────────────────────────────────
 function priceCabinet(cab, prices, t) {
+  if (!isCarcassCabinet(cab)) {
+    // Purchased appliances (Fridge, Freestanding Oven/Fridge/Dishwasher, wall
+    // Appliance) aren't sold through WoodCalc today -- design/space-planning
+    // placeholders only, no cost. Oven Tower/Double Oven are NOT in this branch
+    // (isCarcassCabinet is true for them) -- their carcass is fabricated and
+    // priced like any tall cabinet below; only the oven unit itself is unpriced.
+    if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return ZERO_COST
+    return priceFlatPiece(cab, prices, t)
+  }
+
   let result
   try {
-    result = calculateCabinet({
-      width: cab.width, height: cab.height, depth: cab.depth,
-      material: cab.material, doorStyle: cab.doorStyle, shelves: 0, cabinetType: cab.category,
-    })
-  } catch { return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] } }
+    // cabinetConfig() carries doorStyle/doorCount/subtype through so subtype-specific
+    // door rules (Blind's narrower door, Hob + Oven's no-wood-door front, etc.) price
+    // the same way they're cut. Drawer box hardware has no per-system unit cost in
+    // the price list below yet, so drawers is pinned to 0 here regardless of
+    // subtype -- unrelated to this fix, kept as-is to avoid changing existing
+    // drawer-cabinet quotes.
+    result = calculateCabinet({ ...cabinetConfig(cab), drawers: 0 })
+  } catch { return ZERO_COST }
 
   const breakdown = []
 
   // Material cost
-  const matKey = cab.material?.toLowerCase().includes('plywood') ? 'sheet18_ply_m2'
-    : cab.material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
+  const matKey = boardMatKey(cab.material)
   const panels18 = result.panels.filter(p => p.thickness === 18)
   const panels8  = result.panels.filter(p => p.thickness === 8)
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
@@ -88,7 +122,7 @@ function priceCabinet(cab, prices, t) {
 
   let total = parseFloat((materialCost + hardwareCost + machiningCost + laborCost).toFixed(2))
   if (!Number.isFinite(total)) {
-    return { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+    return ZERO_COST
   }
   return { materialCost: parseFloat(materialCost.toFixed(2)), hardwareCost: parseFloat(hardwareCost.toFixed(2)), machiningCost, laborCost, total, breakdown }
 }

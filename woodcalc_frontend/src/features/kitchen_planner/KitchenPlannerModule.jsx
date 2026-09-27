@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
@@ -15,16 +15,6 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 import { useTranslation } from '../../i18n/LanguageContext'
 import OnboardingTour from '../../components/OnboardingTour'
 import configuratorSteps from '../../onboardingSteps/configurator'
-
-// Oven Tower / Double Oven are fabricated carcasses that house a purchased oven —
-// they need cut-list parts like any other tall cabinet, so they're excluded here
-// but kept in APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
-const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance']
-const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
-export function isCarcassCabinet(c) {
-  return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
-}
-
 
 // Numeric dimension input that keeps its own local text while typing.
 // A plain controlled <input value={number}> fights the user: clearing the
@@ -57,24 +47,6 @@ function DimInput({ value, onCommit, style }) {
   )
 }
 
-export function cabinetConfig(c) {
-  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door'
-  return {
-    width: c.width, height: c.height, depth: c.depth,
-    material: c.material, doorStyle: c.doorStyle, shelves: 0,
-    cabinetType: c.category,
-    doorCount: c.doorCount,
-    subtype: c.subtype,
-    drawers: isDrawerCab ? 4 : 0,
-    drawerType: c.drawerType,
-    drawerSystem: c.drawerSystem,
-    drawerBoxConstruction: c.drawerBoxConstruction,
-    baseHeight: c.baseHeight,
-    subtype: c.subtype,
-  }
-}
-
-
 const SCALE = 0.16
 const GRID = 50
 const ACCENT = '#C8902A'
@@ -95,6 +67,26 @@ const ROOM_ELEMENTS = [
 ]
 
 const snap = v => Math.round(v / GRID) * GRID
+
+// Where a newly added cabinet/element should land: the center of the drawn
+// walls' bounding box. Cabinets/elements used to always drop at a fixed
+// (200,200)-ish point regardless of the walls -- fine for a room drawn near
+// the canvas origin, but if the walls were drawn far from it, every new item
+// landed nowhere near the room, forcing a zoom-out-and-drag-back each time.
+// Falls back to that same original point when there are no walls yet.
+function getRoomDropPoint(walls) {
+  if (!walls || walls.length === 0) return { x: 200, y: 200 }
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  walls.forEach(w => {
+    minX = Math.min(minX, w.x1, w.x2); maxX = Math.max(maxX, w.x1, w.x2)
+    minY = Math.min(minY, w.y1, w.y2); maxY = Math.max(maxY, w.y1, w.y2)
+  })
+  // Walls store x1/y1/x2/y2 in on-canvas px (world units); cabinet/element x/y
+  // are stored in real-world mm. SCALE (mm -> px, defined above) converts
+  // between them, so the px-space center has to be divided back down to mm
+  // here -- without this the result lands nowhere near the actual walls.
+  return { x: (minX + maxX) / 2 / SCALE, y: (minY + maxY) / 2 / SCALE }
+}
 
 
 // ─── Edge banding helper ────────────────────────────────────────────
@@ -254,11 +246,9 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
       // Filler/Panel/etc: one piece at its actual dimensions, no formula run
-      const isPanel = c.subtype === 'Side Panel'
-      const pieceDepth = isPanel ? (c.depth || 581) : c.width
-      const pieceTh = isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18
-      const key = `${c.height}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
-      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: c.height, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
+      const { width: pieceWidth, depth: pieceDepth, thickness: pieceTh } = nonCarcassPieceDims(c)
+      const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
+      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: pieceWidth, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
       masterMap[key].qty += 1
       return
     }
@@ -717,7 +707,7 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare } = {}) {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
@@ -732,6 +722,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [elements, setElements]               = useState([])
   const [selected, setSelected]               = useState(null)
   const [selectedType, setSelectedType]       = useState(null)
+  const [bulkIds, setBulkIds]                 = useState(() => new Set())
   const [room, setRoom]                       = useState({ width: 4000, depth: 3000 })
   const [tab, setTab]                         = useState('room')
   const [showGrid, setShowGrid]               = useState(true)
@@ -800,10 +791,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   }, [initialData])
 
   const addCabinet = useCallback((t) => {
+    const drop = getRoomDropPoint(walls)
     const cab = {
       ...t,
       id: Date.now(),
-      x: snap(200), y: snap(200),
+      x: snap(drop.x), y: snap(drop.y),
       material: 'Particleboard',
       doorStyle:         t.doorStyle         || projectDefaults?.doorStyle         || 'Handle',
       carcassColor:      t.carcassColor      || projectDefaults?.carcassColor      || '#F5F0E8',
@@ -829,10 +821,53 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
-  }, [projectDefaults, baseHeight])
+  }, [projectDefaults, baseHeight, walls])
+
+  // Stable identity (only closes over state setters, which React guarantees are
+  // stable) so CabinetCatalog can be memoized -- an inline arrow function here
+  // would get a new reference on every render and defeat that memoization,
+  // forcing the whole catalog panel to re-render on every cabinet drag frame
+  // even though nothing in it actually changes while dragging.
+  const handleSetupComplete = useCallback((setup) => {
+    setBaseHeight(setup.baseHeight)
+    setProjectDefaults({
+      doorStyle:         setup.doorStyle,
+      golaColor:         setup.golaColor,
+      handlePos:         setup.handlePos,
+      carcassColor:      setup.carcassColor,
+      frontColor:        setup.frontColor,
+      frontFinish:       setup.frontFinish,
+      frontMaterialCode: setup.frontMaterialCode || null,
+      frontMaterialThickness: setup.frontMaterialThickness || 18,
+      drawerSystem: setup.drawerSystem || 'Local Bearing',
+      drawerBoxConstruction: setup.drawerBoxConstruction || 'wood_box',
+      skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
+    })
+    // Retroactively resize all existing base cabinets to the new height,
+    // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
+    // can derive correct leg height (720->150mm legs, 800->80mm legs)
+    // regardless of the cabinet's own box height.
+    setCabinets(prev => prev.map(c => ({
+      ...c,
+      ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
+      baseHeight: setup.baseHeight,
+      doorStyle: setup.doorStyle,
+      golaColor: setup.golaColor,
+      handlePos: setup.handlePos,
+      carcassColor: setup.carcassColor,
+      frontColor: setup.frontColor,
+      frontMaterial: setup.frontFinish,
+      frontMaterialCode: setup.frontMaterialCode || null,
+      frontMaterialThickness: setup.frontMaterialThickness || 18,
+      drawerSystem: c.drawerSystemOverridden ? c.drawerSystem : (setup.drawerSystem || c.drawerSystem),
+      drawerBoxConstruction: c.drawerSystemOverridden ? c.drawerBoxConstruction : (setup.drawerBoxConstruction || c.drawerBoxConstruction),
+      skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
+    })))
+  }, [])
 
   const addElement = (t) => {
-    const el = { ...t, id: Date.now() + 1, x: snap(300), y: snap(100) }
+    const drop = getRoomDropPoint(walls)
+    const el = { ...t, id: Date.now() + 1, x: snap(drop.x + 100), y: snap(drop.y - 100) }
     setElements(p => [...p, el])
     setSelected(el.id)
     setSelectedType('element')
@@ -840,6 +875,25 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const updateCab = (key, val) => setCabinets(p => p.map(c => c.id === selected ? { ...c, [key]: val } : c))
   const updateEl  = (key, val) => setElements(p => p.map(e => e.id === selected ? { ...e, [key]: val } : e))
+  // One-time bulk color edit: applies the given field updates to every cabinet
+  // currently shift/ctrl-selected into bulkIds, without changing the single
+  // `selected` cabinet or setting a lasting project default.
+  const updateCabsBulk = (updates) => setCabinets(p => p.map(c => bulkIds.has(c.id) ? { ...c, ...updates } : c))
+  const toggleBulk = useCallback((id) => setBulkIds(prev => {
+    const next = new Set(prev)
+    // Starting a bulk selection from a modifier-click while a single cabinet
+    // is already selected should carry that cabinet into the group too,
+    // instead of silently dropping it the way a bare toggle would.
+    if (next.size === 0 && selectedType === 'cabinet' && selected != null && selected !== id) {
+      next.add(selected)
+    }
+    next.has(id) ? next.delete(id) : next.add(id)
+    return next
+  }), [selected, selectedType])
+  const clearBulk = () => setBulkIds(new Set())
+  // Guards against a stale id (e.g. a cabinet deleted after being bulk-selected)
+  // inflating the count shown in the panel.
+  const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
   // Applies every field from a chosen catalog Sink onto the selected cabinet in
   // one update — drives the 3D render, BOM fabrication spec, and Proposal/Contract.
   const applySink = (sink) => setCabinets(p => p.map(c => c.id === selected ? {
@@ -1076,6 +1130,18 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_champagne">{t('kitchenPlannerModule.skirtingPvcChampagne')}</option>
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
+          )}
+          {onShare && (
+            <>
+              <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
+                {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
+              </button>
+              {shareToken && (
+                <button onClick={onRevokeShare} style={{ ...s.saveBtn, color: '#E74C3C' }}>
+                  {t('roomDetail.shareViewRevoke')}
+                </button>
+              )}
+            </>
           )}
           {publicCompanySlug ? (
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
@@ -1378,42 +1444,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               baseHeight={baseHeight}
               projectDefaults={projectDefaults}
               companySlug={publicCompanySlug}
-              onSetupComplete={(setup) => {
-                setBaseHeight(setup.baseHeight)
-                setProjectDefaults({
-                  doorStyle:         setup.doorStyle,
-                  golaColor:         setup.golaColor,
-                  handlePos:         setup.handlePos,
-                  carcassColor:      setup.carcassColor,
-                  frontColor:        setup.frontColor,
-                  frontFinish:       setup.frontFinish,
-                  frontMaterialCode: setup.frontMaterialCode || null,
-                  frontMaterialThickness: setup.frontMaterialThickness || 18,
-                  drawerSystem: setup.drawerSystem || 'Local Bearing',
-                  drawerBoxConstruction: setup.drawerBoxConstruction || 'wood_box',
-                  skirtingMaterial:  setup.skirtingMaterial  || 'match_countertop',
-                })
-                // Retroactively resize all existing base cabinets to the new height,
-                // and stamp baseHeight onto ALL cabinets (base + tall) so the 3D view
-                // can derive correct leg height (720->150mm legs, 800->80mm legs)
-                // regardless of the cabinet's own box height.
-                setCabinets(prev => prev.map(c => ({
-                  ...c,
-                  ...(c.category === 'base' ? { height: setup.baseHeight } : {}),
-                  baseHeight: setup.baseHeight,
-                  doorStyle: setup.doorStyle,
-                  golaColor: setup.golaColor,
-                  handlePos: setup.handlePos,
-                  carcassColor: setup.carcassColor,
-                  frontColor: setup.frontColor,
-                  frontMaterial: setup.frontFinish,
-                  frontMaterialCode: setup.frontMaterialCode || null,
-                  frontMaterialThickness: setup.frontMaterialThickness || 18,
-                  drawerSystem: c.drawerSystemOverridden ? c.drawerSystem : (setup.drawerSystem || c.drawerSystem),
-                  drawerBoxConstruction: c.drawerSystemOverridden ? c.drawerBoxConstruction : (setup.drawerBoxConstruction || c.drawerBoxConstruction),
-                  skirtingMaterial: setup.skirtingMaterial || c.skirtingMaterial,
-                })))
-              }}
+              onSetupComplete={handleSetupComplete}
               onAddCabinet={addCabinet}
             />
             )}
@@ -1428,10 +1459,51 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               readOnly={false}
               hideToolbar={false}
               hideBacksplashTool={true}
-              hideWallsElements={true} />
+              hideWallsElements={true}
+              bulkIds={bulkIds} onToggleBulk={toggleBulk} />
           </div>
           <div id="onboarding-configurator-cabinets-properties" style={{ ...s.rightPanel, width: 280 }}>
-            {selCab ? (
+            {bulkCount > 0 ? (
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <div style={s.propTitle}>{t('kitchenPlannerModule.bulkColorTitle', { count: bulkCount })}</div>
+                  <button onClick={clearBulk}
+                    style={{ padding: '4px 8px', background: '#F5F0E8', color: '#8A6D3B', border: '1.5px solid #E0DAD4', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                    {t('kitchenPlannerModule.bulkColorClear')}
+                  </button>
+                </div>
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 14, lineHeight: 1.4 }}>
+                  {t('kitchenPlannerModule.bulkColorHint')}
+                </div>
+                <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
+                <MaterialLibrary
+                  target="front"
+                  companySlug={publicCompanySlug}
+                  selectedCode={null}
+                  onSelect={mat => updateCabsBulk({
+                    frontColor: mat.hex,
+                    frontMaterial: mat.finish,
+                    frontMaterialCode: mat.code,
+                    frontMaterialName: mat.name,
+                    frontMaterialThickness: mat.thickness || (mat.finish === 'wood' ? 22 : 18),
+                    frontTextureUrl: mat.textureUrl || null,
+                  })}
+                />
+                <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
+                <MaterialLibrary
+                  target="carcass"
+                  companySlug={publicCompanySlug}
+                  selectedCode={null}
+                  onSelect={mat => updateCabsBulk({
+                    carcassColor: mat.hex,
+                    carcassMaterial: mat.finish,
+                    carcassMaterialCode: mat.code,
+                    carcassMaterialName: mat.name,
+                    carcassTextureUrl: mat.textureUrl || null,
+                  })}
+                />
+              </div>
+            ) : selCab ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
                   <div style={s.propTitle}>{selCab.label}</div>
@@ -1782,7 +1854,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         : { position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }
       }>
         <ErrorBoundary fallback={<div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.view3dFailed')}</div><div style={{ fontSize: 12, marginTop: 4 }}>{t('kitchenPlannerModule.view3dFailedHint')}</div></div>}>
-          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} />
+          <KitchenPlanner3D cabinets={cabinets} room={room} walls={walls} elements={elements} floorTile={floorTile} countertopId={countertopMat?.id} countertopMat={countertopMat} countertopThickness={countertopThickness} backsplashSegments={backsplashSegments} backsplashHeight={backsplashHeight} backsplashThickness={backsplashThickness} companySlug={publicCompanySlug} active={tab === '3d'} />
         </ErrorBoundary>
         {!cabinets.length && tab === '3d' && <div style={s.emptyState}><div style={{ fontSize: 48, marginBottom: 12 }}>🎮</div><div style={{ fontWeight: 600, color: DARK }}>{t('kitchenPlannerModule.addCabinetsFirst')}</div></div>}
       </div>
@@ -1812,15 +1884,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
 const s = {
   page:        { height: '100vh', display: 'flex', flexDirection: 'column', fontFamily: "'Inter', sans-serif", background: LIGHT, overflow: 'hidden', position: 'relative' },
-  topBar:      { height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', flexShrink: 0, gap: 16 },
+  // minHeight (not a fixed height) + flexWrap lets this row grow onto a second
+  // line instead of silently overflowing past the viewport edge — with
+  // baseHeight/skirting/share/save all showing at once this row can get wider
+  // than a laptop screen, and page's overflow:hidden would otherwise clip
+  // whatever doesn't fit with no visual sign anything is missing.
+  topBar:      { minHeight: 56, background: DARK, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', flexShrink: 0, gap: 16 },
   topLeft:     { display: 'flex', alignItems: 'center', gap: 10, minWidth: 200 },
   projectName: { color: '#fff', fontWeight: 700, fontSize: 15, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 },
   nameInput:   { background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.3)', borderRadius: 6, color: '#fff', padding: '4px 8px', fontSize: 14, fontWeight: 700, outline: 'none' },
   cabCount:    { color: '#666', fontSize: 12 },
-  tabs:        { display: 'flex', gap: 4 },
+  tabs:        { display: 'flex', flexWrap: 'wrap', gap: 4 },
   tab:         { padding: '7px 14px', background: 'transparent', border: 'none', color: '#888', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
   tabActive:   { background: ACCENT, color: '#fff', fontWeight: 700 },
-  topRight:    { display: 'flex', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' },
+  topRight:    { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' },
   saveBtn:     { padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
