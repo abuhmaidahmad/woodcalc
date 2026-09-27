@@ -5,7 +5,8 @@ import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
-import RoomCanvas, { getEndpointOffset, ENDPOINT_SNAP_DIST } from './RoomCanvas'
+import RoomCanvas from './RoomCanvas'
+import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -789,7 +790,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // Restore saved data on mount
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
-      if (initialData.walls) setWalls(initialData.walls)
+      if (initialData.walls) setWalls(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120))
+      if (initialData.wallThickness) setWallThickness(initialData.wallThickness)
       if (initialData.room) setRoom(r => ({ ...r, ...initialData.room }))
       if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
       if (initialData.backsplashHeight) setBacksplashHeight(initialData.backsplashHeight)
@@ -933,7 +935,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
   const bom    = aggregateBOM(cabinets)
 
-  const buildPlannerData = () => ({ room, walls, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
+  const buildPlannerData = () => ({ room, walls, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
 
   const saveProject = async () => {
     setSaving(true); setSavedMsg('')
@@ -1363,19 +1365,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const wallLenMm = Math.round(wallLenPx / SCALE)
       const ux = dx / wallLenPx, uy = dy / wallLenPx
       const ex = selEl.x * SCALE - w.x1, ey = selEl.y * SCALE - w.y1
-      const distPxCenter = ex * ux + ey * uy
-      const distMmCenter = distPxCenter / SCALE
-      // Measured from the wall's true visual corner (where it actually meets its
-      // neighbor) to the element's CENTER. getEndpointOffset is the same miter
-      // correction RoomCanvas uses to draw the wall itself and to show its
-      // corrected length, so this lines up with what's on screen instead of
-      // assuming a flat wallThickness/2 and a square 90° corner. The wall's
-      // rendered stroke is pulled IN from the stored endpoint (w.x1) toward the
-      // wall's own interior by this offset — it's not an outward extension — so
-      // the true corner is reached by subtracting it, not adding it.
-      const wallMode = w.lengthMode || 'inner'
-      const startOffsetMm = getEndpointOffset(walls, selEl.wallIndex, 'start', wallThickness, SCALE, ENDPOINT_SNAP_DIST, wallMode) / SCALE
-      const distMm = Math.round(distMmCenter - startOffsetMm)
+      const distMm = Math.round((ex * ux + ey * uy) / SCALE)
+      const wallThicknessLocal = getWallThickness(w)
       return (
         <>
           <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
@@ -1383,10 +1374,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           </div>
           <div style={{ marginBottom: 10 }}>
             <div style={s.propLabel}>{t('kitchenPlannerModule.distFromWallStart')}</div>
-            <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThickness)}
+            <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThicknessLocal)}
               onChange={e => {
-                const newDistMmCenter = (+e.target.value) + startOffsetMm
-                const newDistPx = newDistMmCenter * SCALE
+                const newDistPx = (+e.target.value) * SCALE
                 const newX = (w.x1 + ux * newDistPx) / SCALE
                 const newY = (w.y1 + uy * newDistPx) / SCALE
                 updateEl('x', newX)

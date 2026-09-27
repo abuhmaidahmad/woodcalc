@@ -1,12 +1,15 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
+import {
+  DEFAULT_JOIN_THRESHOLD, computeWallBodies, getWallThickness, getWallLength, makeWallId,
+} from './wallGeometry'
 
 const ACCENT = '#C8902A'
 const BULK_ACCENT = '#2AC87A'
 const EMPTY_BULK_IDS = new Set()
 const GRID = 50
-export const ENDPOINT_SNAP_DIST = 60
+export const ENDPOINT_SNAP_DIST = DEFAULT_JOIN_THRESHOLD
 // Element types that can snap onto a wall's centerline while dragging. Windows/doors
 // become wall cutouts (EmbeddedElement); the point types just get wall-relative
 // positioning while still rendering as icons — see the element drag handler and
@@ -30,100 +33,6 @@ function pointInPolygon(px, py, poly) {
     if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside
   }
   return inside
-}
-
-function getWindingDirection(walls) {
-  if (walls.length < 3) return 1
-  let sum = 0
-  walls.forEach(w => { sum += (w.x2 - w.x1) * (w.y2 + w.y1) })
-  return sum > 0 ? 1 : -1
-}
-
-function getInnerNormal(wall, winding) {
-  const dx = wall.x2 - wall.x1, dy = wall.y2 - wall.y1
-  const len = Math.hypot(dx, dy)
-  if (len === 0) return { nx: 0, ny: 0 }
-  return { nx: (dy / len) * winding, ny: (-dx / len) * winding }
-}
-
-function getInnerLength(wall, wallThickness, scale) {
-  const len = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
-  const halfT = (wallThickness * scale) / 2
-  return Math.max(0, Math.round((len - halfT * 2) / scale))
-}
-
-function getWallFarPoint(wall, sharedX, sharedY) {
-  const d1 = ptDist(wall.x1, wall.y1, sharedX, sharedY)
-  const d2 = ptDist(wall.x2, wall.y2, sharedX, sharedY)
-  return d1 <= d2 ? { x: wall.x2, y: wall.y2 } : { x: wall.x1, y: wall.y1 }
-}
-
-function getDrawStartOffset(px, py, dirAngleRad, walls, wallThickness, scale, threshold) {
-  let neighbor = null, bestDist = threshold
-  walls.forEach(w => {
-    ;[{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(pt => {
-      const d = ptDist(px, py, pt.x, pt.y)
-      if (d < bestDist) { bestDist = d; neighbor = w }
-    })
-  })
-  if (!neighbor) return 0
-  const neighborFar = getWallFarPoint(neighbor, px, py)
-  const v1x = Math.cos(dirAngleRad), v1y = Math.sin(dirAngleRad)
-  const v2x = neighborFar.x - px, v2y = neighborFar.y - py
-  const len2 = Math.hypot(v2x, v2y)
-  if (len2 === 0) return 0
-  let cos = (v1x * v2x + v1y * v2y) / len2
-  cos = Math.max(-1, Math.min(1, cos))
-  const angle = Math.acos(cos)
-  const halfT = (wallThickness * scale) / 2
-  const tanHalf = Math.tan(angle / 2)
-  if (tanHalf < 0.01) return Math.min(halfT * 20, len2 * 0.9)
-  return Math.min(halfT / tanHalf, len2 * 0.9)
-}
-
-// Miter-style per-corner correction: halfThickness / tan(angle/2), where angle
-// is the interior angle between this wall and whatever wall is actually
-// connected at this endpoint. Reduces to a flat halfThickness only at 90 deg
-// (matching old behavior on rectangular rooms) and to ~0 for a near-straight
-// run. Returns 0 when the endpoint has no connected neighbor.
-export function getEndpointOffset(walls, wallIndex, end, wallThickness, scale, threshold, mode) {
-  const wall = walls[wallIndex]
-  if (!wall) return 0
-  const vx = end === 'start' ? wall.x1 : wall.x2
-  const vy = end === 'start' ? wall.y1 : wall.y2
-  const ownFar = end === 'start' ? { x: wall.x2, y: wall.y2 } : { x: wall.x1, y: wall.y1 }
-  let neighbor = null, bestDist = threshold
-  walls.forEach((w, i) => {
-    if (i === wallIndex) return
-    ;[{ x: w.x1, y: w.y1 }, { x: w.x2, y: w.y2 }].forEach(pt => {
-      const d = ptDist(vx, vy, pt.x, pt.y)
-      if (d < bestDist) { bestDist = d; neighbor = w }
-    })
-  })
-  if (!neighbor) return 0
-  const neighborFar = getWallFarPoint(neighbor, vx, vy)
-  const v1x = ownFar.x - vx, v1y = ownFar.y - vy
-  const v2x = neighborFar.x - vx, v2y = neighborFar.y - vy
-  const len1 = Math.hypot(v1x, v1y), len2 = Math.hypot(v2x, v2y)
-  if (len1 === 0 || len2 === 0) return 0
-  let cos = (v1x * v2x + v1y * v2y) / (len1 * len2)
-  cos = Math.max(-1, Math.min(1, cos))
-  const angle = Math.acos(cos)
-  const halfT = (wallThickness * scale) / 2
-  const tanHalf = Math.tan(angle / 2)
-  const magnitude = tanHalf < 0.01 ? Math.min(halfT * 20, len1 * 0.9) : Math.min(halfT / tanHalf, len1 * 0.9)
-  if (mode === 'center') return 0
-  if (mode === 'outer') return -magnitude
-  return magnitude
-}
-
-function getCorrectedLength(walls, wallIndex, wallThickness, scale, threshold) {
-  const wall = walls[wallIndex]
-  const mode = wall.lengthMode || 'inner'
-  const rawLen = Math.hypot(wall.x2 - wall.x1, wall.y2 - wall.y1)
-  const offStart = getEndpointOffset(walls, wallIndex, 'start', wallThickness, scale, threshold, mode)
-  const offEnd = getEndpointOffset(walls, wallIndex, 'end', wallThickness, scale, threshold, mode)
-  return Math.max(0, Math.round((rawLen - offStart - offEnd) / scale))
 }
 
 function findNearestEndpoint(px, py, walls, skipIndex, threshold) {
@@ -238,34 +147,27 @@ function findMeasureSnapPoint(px, py, walls, cabinets, wallThickness, scale, thr
   return null
 }
 
-function WallSegment({ wall, index, selected, thickness, scale, winding, isClosedLoop, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, innerLenMm, outerLenMm, editingAngleVal, onAngleChange, offsetStart = 0, offsetEnd = 0 }) {
+function WallSegment({ body, index, selected, lengthMm, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, editingAngleVal, onAngleChange }) {
   const { t } = useTranslation()
-  const { x1, y1, x2, y2 } = wall
-  const rawLen = Math.hypot(x2 - x1, y2 - y1) || 1
-  const uxDir = (x2 - x1) / rawLen, uyDir = (y2 - y1) / rawLen
-  const lx1 = x1 + uxDir * offsetStart, ly1 = y1 + uyDir * offsetStart
-  const lx2 = x2 - uxDir * offsetEnd, ly2 = y2 - uyDir * offsetEnd
-  const angle = radToDeg(Math.atan2(y2 - y1, x2 - x1))
-  const cx = (x1 + x2) / 2, cy = (y1 + y2) / 2
-  const { nx, ny } = getInnerNormal(wall, winding)
-  const labelX = cx + nx * thickness * 0.7
-  const labelY = cy + ny * thickness * 0.7
+  const { faceStart: p1, faceEnd: p2, outerStart: o1, outerEnd: o2, thickness } = body
+  const angle = radToDeg(Math.atan2(p2.y - p1.y, p2.x - p1.x))
+  const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2
+  const ocx = (o1.x + o2.x) / 2, ocy = (o1.y + o2.y) / 2
+  const labelX = cx + (ocx - cx) * 0.5
+  const labelY = cy + (ocy - cy) * 0.5
+  const bodyPoints = `${p1.x},${p1.y} ${p2.x},${p2.y} ${o2.x},${o2.y} ${o1.x},${o1.y}`
   return (
     <g>
-      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="transparent"
+      <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent"
         strokeWidth={Math.max(thickness + 12, 20)} strokeLinecap="square"
         onMouseDown={e => { e.stopPropagation(); onSelect(); onDragStart(e, index) }}
         style={{ cursor: 'move' }} />
-      <line x1={lx1} y1={ly1} x2={lx2} y2={ly2}
-        stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={thickness}
-        strokeLinecap="butt" style={{ pointerEvents: 'none' }} />
-      {winding !== 0 && (() => {
-        const halfT = thickness / 2
-        return <line x1={x1 + nx * halfT} y1={y1 + ny * halfT}
-          x2={x2 + nx * halfT} y2={y2 + ny * halfT}
-          stroke={selected ? ACCENT + '88' : '#88888855'} strokeWidth={1}
-          strokeDasharray="4,3" style={{ pointerEvents: 'none' }} />
-      })()}
+      <polygon points={bodyPoints}
+        fill={selected ? ACCENT : '#2c3e50'} stroke={selected ? ACCENT : '#2c3e50'} strokeWidth={1}
+        style={{ pointerEvents: 'none' }} />
+      <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
+        stroke={selected ? '#fff' : '#88888855'} strokeWidth={1}
+        strokeDasharray="4,3" style={{ pointerEvents: 'none' }} />
       <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
         onClick={e => { e.stopPropagation(); onLabelClick() }}
         style={{ cursor: 'text' }}>
@@ -274,7 +176,7 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         {editingLength ? (
           <foreignObject x={-44} y={-10} width={88} height={16}>
             <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              <input autoFocus type="number" defaultValue={innerLenMm}
+              <input autoFocus type="number" defaultValue={lengthMm}
                 onChange={e => onLengthChange(+e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
                 title={t('roomCanvas.lengthAngleTitle')}
@@ -289,12 +191,12 @@ function WallSegment({ wall, index, selected, thickness, scale, winding, isClose
         ) : (
    <text x={0} y={3} textAnchor="middle" fontSize={9}
   fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
-  {innerLenMm}mm
+  {lengthMm}mm
 </text>
 
         )}
       </g>
-      {selected && [{ x: x1, y: y1, ep: 0 }, { x: x2, y: y2, ep: 1 }].map(({ x, y, ep }) => (
+      {selected && [{ x: p1.x, y: p1.y, ep: 0 }, { x: p2.x, y: p2.y, ep: 1 }].map(({ x, y, ep }) => (
         <g key={ep} onMouseDown={e => { e.stopPropagation(); onEndpointDragStart(e, index, ep) }} style={{ cursor: 'crosshair' }}>
           <circle cx={x} cy={y} r={10} fill="transparent" />
           <circle cx={x} cy={y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={2.5} />
@@ -440,7 +342,6 @@ export default function RoomCanvas({
   const [dragStart, setDragStart] = useState(null)
   const [dragCorner, setDragCorner] = useState(null)
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
-  const [flipWinding, setFlipWinding] = useState(1)
   const [measureStart, setMeasureStart] = useState(null)
   const [measureEnd, setMeasureEnd] = useState(null)
   const [measureSnap, setMeasureSnap] = useState(null)
@@ -495,9 +396,7 @@ export default function RoomCanvas({
 
   const W = room.width * scale
   const H = room.depth * scale
-  const wallPx = wallThickness * scale
-  const winding = getWindingDirection(walls) * flipWinding
-  const isClosedLoop = walls.length >= 3
+  const wallBodies = useMemo(() => computeWallBodies(walls), [walls])
 
   const cvw = vw ?? W
   const cvh = vh ?? H
@@ -609,18 +508,14 @@ export default function RoomCanvas({
     if (snapPt && !lockedLength && !lockedAngle) {
       const len = ptDist(startPoint.x, startPoint.y, snapPt.x, snapPt.y)
       const angleToSnap = Math.atan2(snapPt.y - startPoint.y, snapPt.x - startPoint.x)
-      const drawOffset = getDrawStartOffset(startPoint.x, startPoint.y, angleToSnap, walls, wallThickness, scale, snapThreshold)
-      return { x: snapPt.x, y: snapPt.y, innerLenMm: Math.max(0, Math.round((len - drawOffset) / scale)), angleDeg: Math.round(radToDeg(angleToSnap)), snapped: true }
+      return { x: snapPt.x, y: snapPt.y, lengthMm: Math.max(0, Math.round(len / scale)), angleDeg: Math.round(radToDeg(angleToSnap)), snapped: true }
     }
     let angle, length
-    const previewAngle = lockedAngle !== null ? degToRad(lockedAngle) : Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
-    const drawOffset = getDrawStartOffset(startPoint.x, startPoint.y, previewAngle, walls, wallThickness, scale, snapThreshold)
-    const lockedOuter = lockedLength !== null ? lockedLength + drawOffset / scale : lockedLength
     if (lockedLength !== null && lockedAngle !== null) {
-      angle = degToRad(lockedAngle); length = lockedOuter * scale
+      angle = degToRad(lockedAngle); length = lockedLength * scale
     } else if (lockedLength !== null) {
       angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
-      length = lockedOuter * scale
+      length = lockedLength * scale
     } else if (lockedAngle !== null) {
       angle = degToRad(lockedAngle)
       length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
@@ -628,9 +523,9 @@ export default function RoomCanvas({
       angle = Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x)
       length = ptDist(startPoint.x, startPoint.y, mousePos.x, mousePos.y)
     }
-    const displayLenMm = Math.max(0, Math.round((length - drawOffset) / scale))
-    return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), innerLenMm: displayLenMm, angleDeg: Math.round(radToDeg(angle)), snapped: false }
-  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, wallThickness, scale, snapThreshold])
+    const displayLenMm = Math.max(0, Math.round(length / scale))
+    return { x: startPoint.x + length * Math.cos(angle), y: startPoint.y + length * Math.sin(angle), lengthMm: displayLenMm, angleDeg: Math.round(radToDeg(angle)), snapped: false }
+  }, [startPoint, mousePos, walls, lockedLength, lockedAngle, scale, snapThreshold])
 
   useEffect(() => {
     if (mode !== 'draw' && mode !== 'backsplash' && mode !== 'measure') return
@@ -648,8 +543,8 @@ export default function RoomCanvas({
       if (mode !== 'draw') return
       if (e.key === 'Enter') {
         const end = getPreviewEnd()
-        if (end && startPoint && end.innerLenMm > 0) {
-          pushHistory([...walls, { x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y }])
+        if (end && startPoint && end.lengthMm > 0) {
+          pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: 'right' }])
           setStartPoint({ x: end.x, y: end.y })
           setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
         }
@@ -786,8 +681,8 @@ export default function RoomCanvas({
     }
     const finalPos = snapPt || pos
     const end = getPreviewEnd()
-    if (end && end.innerLenMm > 0) {
-      pushHistory([...walls, { x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y }])
+    if (end && end.lengthMm > 0) {
+      pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: 'right' }])
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
@@ -865,9 +760,10 @@ export default function RoomCanvas({
       const wallSnap = findWallSnap(rawX, rawY, walls, wallThickness, scale, 40 / zoom)
       if (wallSnap && WALL_SNAPPABLE_TYPES.has(item.type)) {
         setWallSnapPreview(wallSnap)
+        const snappedThickness = getWallThickness(walls[wallSnap.wallIndex])
         commitDragThrottled(() => setElements(p => p.map(el => el.id === dragging.id ? {
           ...el, x: wallSnap.centerX / scale, y: wallSnap.centerY / scale,
-          wallAngle: wallSnap.wallAngle, wallThickness, embeddedInWall: true, wallIndex: wallSnap.wallIndex,
+          wallAngle: wallSnap.wallAngle, wallThickness: snappedThickness, embeddedInWall: true, wallIndex: wallSnap.wallIndex,
         } : el)))
       } else {
         setWallSnapPreview(null)
@@ -915,17 +811,16 @@ export default function RoomCanvas({
         if (len === 0) return
         const ux = dx / len, uy = dy / len
         const nx = uy, ny = -ux
-        const halfT = wallThickness * scale / 2
         const ccx = rawCabX + cabWpx / 2
         const ccy = rawCabY + cabDpx / 2
         const t = Math.max(0, Math.min(1, ((ccx - w.x1) * ux + (ccy - w.y1) * uy) / len))
         const projX = w.x1 + t * dx, projY = w.y1 + t * dy
         const distToWall = (ccx - projX) * nx + (ccy - projY) * ny
-        const backFaceDist = Math.abs(Math.abs(distToWall) - (halfT + cabDpx / 2))
+        const backFaceDist = Math.abs(Math.abs(distToWall) - cabDpx / 2)
         if (backFaceDist < SNAP_PX) {
           const sign = distToWall >= 0 ? 1 : -1
-          const snapCCX = projX + nx * sign * (halfT + cabDpx / 2)
-          const snapCCY = projY + ny * sign * (halfT + cabDpx / 2)
+          const snapCCX = projX + nx * sign * (cabDpx / 2)
+          const snapCCY = projY + ny * sign * (cabDpx / 2)
           if (!snappedX) { finalX = snapCCX - cabWpx / 2; snappedX = true }
           if (!snappedY) { finalY = snapCCY - cabDpx / 2; snappedY = true }
         }
@@ -1027,20 +922,17 @@ export default function RoomCanvas({
 
   const confirmWallEdit = useCallback(() => {
     if (editingWall === null || !editingLenVal || editingLenVal <= 0) { setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null); return }
-    const editMode = walls[editingWall]?.lengthMode || 'inner'
-    const offStart = getEndpointOffset(walls, editingWall, 'start', wallThickness, scale, ENDPOINT_SNAP_DIST, editMode)
-    const offEnd = getEndpointOffset(walls, editingWall, 'end', wallThickness, scale, ENDPOINT_SNAP_DIST, editMode)
     pushHistory(walls.map((w, i) => {
       if (i !== editingWall) return w
       // Use the typed angle if the user changed it; otherwise keep the wall's
       // current angle so editing only the length doesn't rotate it.
       const angleDeg = editingAngleVal ?? radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))
       const angleRad = degToRad(angleDeg)
-      const outerLen = editingLenVal * scale + offStart + offEnd
-      return { ...w, x2: w.x1 + outerLen * Math.cos(angleRad), y2: w.y1 + outerLen * Math.sin(angleRad) }
+      const lenPx = editingLenVal * scale
+      return { ...w, x2: w.x1 + lenPx * Math.cos(angleRad), y2: w.y1 + lenPx * Math.sin(angleRad) }
     }))
     setEditingWall(null); setEditingLenVal(null); setEditingAngleVal(null)
-  }, [editingWall, editingLenVal, editingAngleVal, walls, wallThickness, scale, pushHistory])
+  }, [editingWall, editingLenVal, editingAngleVal, walls, scale, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
   const getCabCorners = (cab) => {
@@ -1090,27 +982,13 @@ export default function RoomCanvas({
       return aMin < bMax - eps && bMin < aMax - eps
     })
   }
-  // A wall's true rendered rectangle, including the strokeLinecap="square" extension at each
-  // end (matches how WallSegment actually draws it) — so cabinets overlapping a wall get flagged
-  // the same way cabinets overlapping each other do.
-  const getWallCorners = (wall) => {
-    // Cabinet corners (getCabCorners) work in raw mm (cab.x/width), but wall.x1/y1/x2/y2 are
-    // stored in PX (raw SVG coords) — convert to mm here so both sides of the SAT check agree.
-    const x1 = wall.x1 / scale, y1 = wall.y1 / scale, x2 = wall.x2 / scale, y2 = wall.y2 / scale
-    const dx = x2 - x1, dy = y2 - y1
-    const len = Math.hypot(dx, dy)
-    if (len === 0) return null
-    const ux = dx / len, uy = dy / len
-    const nx = -uy, ny = ux
-    const halfT = wallThickness / 2
-    const ex1 = x1 - ux * halfT, ey1 = y1 - uy * halfT
-    const ex2 = x2 + ux * halfT, ey2 = y2 + uy * halfT
-    return [
-      [ex1 + nx * halfT, ey1 + ny * halfT],
-      [ex2 + nx * halfT, ey2 + ny * halfT],
-      [ex2 - nx * halfT, ey2 - ny * halfT],
-      [ex1 - nx * halfT, ey1 - ny * halfT],
-    ]
+  // A wall's true rendered footprint -- the mitered body polygon from
+  // computeWallBodies, converted to mm -- so cabinets overlapping a wall get
+  // flagged the same way cabinets overlapping each other do.
+  const getWallCorners = (body) => {
+    if (!body) return null
+    const toMm = (p) => [p.x / scale, p.y / scale]
+    return [toMm(body.faceStart), toMm(body.faceEnd), toMm(body.outerEnd), toMm(body.outerStart)]
   }
 
   const collidingIds = useMemo(() => {
@@ -1130,15 +1008,15 @@ export default function RoomCanvas({
     }
     // Walls run full floor-to-ceiling, so any cabinet overlapping one in plan view is a real
     // collision regardless of the cabinet's own elevation (base, wall, or tall).
-    walls.forEach(wall => {
-      const wallCorners = getWallCorners(wall)
+    wallBodies.forEach(body => {
+      const wallCorners = getWallCorners(body)
       if (!wallCorners) return
       cabinets.forEach((cab, i) => {
         if (polysIntersect(corners[i], wallCorners)) ids.add(cab.id)
       })
     })
     return ids
-  }, [cabinets, walls, wallThickness, scale])
+  }, [cabinets, wallBodies, scale])
 
   const centerCabinetOnNearestOpening = (cabId) => {
     const cab = cabinets.find(c => c.id === cabId)
@@ -1305,15 +1183,25 @@ export default function RoomCanvas({
             </span>
           )}
           {mode === 'select' && selectedWall !== null && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 2, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 10 }}>
-              <span style={{ fontSize: 11, color: '#888', marginInlineEnd: 2 }}>{t('roomCanvas.length')}</span>
-              {[['center', t('roomCanvas.lengthModeCenter')], ['inner', t('roomCanvas.lengthModeInner')], ['outer', t('roomCanvas.lengthModeOuter')]].map(([m, label]) => (
-                <button key={m}
-                  onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, lengthMode: m } : w))}
-                  style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.lengthMode || 'inner') === m ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                  {label}
-                </button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 10 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wallThicknessLabel')}</span>
+              <input type="range" min={50} max={300} step={10}
+                value={getWallThickness(walls[selectedWall])}
+                onChange={e => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thickness: +e.target.value } : w))}
+                style={{ width: 70, accentColor: ACCENT }} />
+              <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{getWallThickness(walls[selectedWall])}mm</span>
+              {!wallBodies[selectedWall]?.closed && (
+                <>
+                  <span style={{ fontSize: 11, color: '#888', marginInlineStart: 6 }}>{t('roomCanvas.thicknessSide')}</span>
+                  {[['right', t('roomCanvas.thicknessSideRight')], ['left', t('roomCanvas.thicknessSideLeft')]].map(([side, label]) => (
+                    <button key={side}
+                      onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thicknessSide: side } : w))}
+                      style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                      {label}
+                    </button>
+                  ))}
+                </>
+              )}
             </div>
           )}
           {mode === 'select' && selectedWall !== null && (
@@ -1335,11 +1223,13 @@ export default function RoomCanvas({
               </span>
             </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
-            <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
-            <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
-            <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
-          </div>
+          {selectedWall === null && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+              <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
+              <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
+              <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
+            </div>
+          )}
           {mode === 'select' && selected && selectedType === 'element' && (() => {
             const el = elements.find(e => e.id === selected)
             if (!el) return null
@@ -1416,12 +1306,8 @@ export default function RoomCanvas({
             <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
           </>}
     {walls.map((w, i) => (
-  <WallSegment key={i} wall={w} index={i} selected={selectedWall === i}
-    thickness={wallPx} scale={scale} winding={winding} isClosedLoop={isClosedLoop}
-    innerLenMm={getCorrectedLength(walls, i, wallThickness, scale, ENDPOINT_SNAP_DIST)}
-    outerLenMm={Math.round(Math.hypot(w.x2-w.x1, w.y2-w.y1) / scale)}
-    offsetStart={getEndpointOffset(walls, i, 'start', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
-    offsetEnd={getEndpointOffset(walls, i, 'end', wallThickness, scale, ENDPOINT_SNAP_DIST, w.lengthMode || 'inner')}
+  <WallSegment key={w.id || i} body={wallBodies[i]} index={i} selected={selectedWall === i}
+    lengthMm={Math.round(getWallLength(w) / scale)}
 
               onSelect={hideWallsElements || mode === 'measure' ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
@@ -1429,7 +1315,7 @@ export default function RoomCanvas({
               onLabelClick={() => {
                 if (hideToolbar) return
                 setSelectedWall(i); setEditingWall(i)
-                setEditingLenVal(getCorrectedLength(walls, i, wallThickness, scale, ENDPOINT_SNAP_DIST))
+                setEditingLenVal(Math.round(getWallLength(w) / scale))
                 setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
               }}
               editingLength={!hideToolbar && editingWall === i}
@@ -1446,13 +1332,13 @@ export default function RoomCanvas({
             const bw = Math.abs(zoomBox.x2 - zoomBox.x1), bh = Math.abs(zoomBox.y2 - zoomBox.y1)
             return <rect x={bx} y={by} width={bw} height={bh} fill={ACCENT + '18'} stroke={ACCENT} strokeWidth={1.5} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
           })()}
-          {mode === 'draw' && startPoint && previewEnd && previewEnd.innerLenMm > 0 && (
+          {mode === 'draw' && startPoint && previewEnd && previewEnd.lengthMm > 0 && (
             <>
               <line x1={startPoint.x} y1={startPoint.y} x2={previewEnd.x} y2={previewEnd.y}
-                stroke={ACCENT} strokeWidth={wallPx} strokeLinecap="square" opacity={0.3} style={{ pointerEvents: 'none' }} />
+                stroke={ACCENT} strokeWidth={wallThickness * scale} strokeLinecap="square" opacity={0.3} style={{ pointerEvents: 'none' }} />
               <g transform={`translate(${(startPoint.x+previewEnd.x)/2},${(startPoint.y+previewEnd.y)/2})`}>
                 <rect x={-36} y={-13} width={72} height={20} rx={4} fill={ACCENT} opacity={0.9} />
-                <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{previewEnd.innerLenMm}mm · {previewEnd.angleDeg}°</text>
+                <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{previewEnd.lengthMm}mm · {previewEnd.angleDeg}°</text>
               </g>
               <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
             </>
