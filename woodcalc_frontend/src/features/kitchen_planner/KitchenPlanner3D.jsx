@@ -1175,7 +1175,7 @@ function FreestandingOvenAppliance({ W, H, D }) {
   )
 }
 
-function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
+function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
   const bodyColor = '#2b2b2b', doorGlass = '#111418'
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
@@ -1184,6 +1184,11 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
   const edgeGap = 0.003
   const ovenW = W - edgeGap * 2
   const ovenH = 0.595
+  // Oven sits right on top of where the adjoining base cabinets' countertop
+  // lands (baseHeight, in the tower's own local frame — its box origin is
+  // already lifted by the leg height), so the oven "starts" at counter level
+  // instead of floating at an arbitrary fraction of the tower's height.
+  const baseH = (baseHeight || 800) / 1000
   const stripT = 0.018
   const stripZ = D / 2 + stripT / 2
   const doorZ0 = D / 2 + stripT + 0.002
@@ -1220,12 +1225,11 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
 
   let bands
   if (isDouble) {
-    // Two 595mm-tall ovens stacked with no gap between them, centered as a
-    // pair within the cabinet column (same vertical center as the single-
-    // oven case for consistency).
-    const colCenter = H * 0.55
-    const b1Top = colCenter + ovenH, b1Bottom = colCenter, b1Center = (b1Top + b1Bottom) / 2, b1H = ovenH
-    const b2Top = colCenter, b2Bottom = colCenter - ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
+    // Two 595mm-tall ovens stacked with no gap between them; the lower oven's
+    // bottom starts right at countertop height (baseH), same as the single-
+    // oven case, with the second oven stacked directly above it.
+    const b2Bottom = baseH, b2Top = b2Bottom + ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
+    const b1Bottom = b2Top, b1Top = b1Bottom + ovenH, b1Center = (b1Top + b1Bottom) / 2, b1H = ovenH
     bands = (
       <>
         {frontPiece('top', ovenW, H - b1Top, 0, (b1Top + H) / 2)}
@@ -1235,8 +1239,8 @@ function OvenTowerAppliance({ W, H, D, isDouble, frontColor, frontMaterial, fron
       </>
     )
   } else {
-    const bandCenter = H * 0.55, bandH = ovenH
-    const bandTop = bandCenter + bandH / 2, bandBottom = bandCenter - bandH / 2
+    const bandBottom = baseH, bandH = ovenH
+    const bandTop = bandBottom + bandH, bandCenter = (bandTop + bandBottom) / 2
     bands = (
       <>
         {frontPiece('top', ovenW, H - bandTop, 0, (bandTop + H) / 2)}
@@ -1385,7 +1389,7 @@ function Cabinet({ cab, allCabinets = [], countertopMat, countertopThickness = 3
       {applianceKind === 'fridge' ? (
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'ovenTower' ? (
-        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'}
+        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
       ) : applianceKind === 'hood' ? (

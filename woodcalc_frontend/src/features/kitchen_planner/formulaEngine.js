@@ -14,6 +14,8 @@ export function isShelfEligible(cab) {
   if (['vanity', 'specialty', 'accessories'].includes(cab.category)) return false;
   if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink'].includes(cab.subtype)) return false;
   if (['Filler', 'Panel', 'Toe Kick', 'Side Panel'].includes(cab.subtype)) return false;
+  // The oven(s) occupy the cavity — no room for adjustable shelves.
+  if (['Oven Tower', 'Double Oven'].includes(cab.subtype)) return false;
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
 }
 
@@ -135,7 +137,9 @@ export function calculateCabinet(config) {
   const material = (config.material || 'particleboard').toLowerCase();
   const doorStyle = (config.doorStyle || 'Handle');
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
-  const shelves = Number(config.shelves || (config.cabinetType === 'tall' ? 4 : 0));
+  const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
+  // The oven(s) occupy the cavity — no adjustable shelves default for these.
+  const shelves = Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -241,7 +245,7 @@ export function calculateCabinet(config) {
   const defaultDoorCount = getDefaultDoorCount(W);
   const doorCount = isBlind ? 1 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
-  const isTallSplit = config.cabinetType === 'tall' && doorCount > 1;
+  const isTallSplit = !isOvenTower && config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;
 
   const doors = [];
@@ -255,7 +259,28 @@ export function calculateCabinet(config) {
     for (let i = 0; i < columnCount; i++) doorWidths.push(each);
   }
 
-  if (isTallSplit) {
+  if (isOvenTower) {
+    // No opening doors here — the oven(s) are a purchased appliance sitting in a cutout,
+    // flanked by fixed front panels above/below. The cavity's bottom is anchored to the
+    // project's countertop height (baseHeight) so it lines up with the worktop on
+    // neighboring base cabinets, matching OvenTowerAppliance in KitchenPlanner3D.jsx.
+    const isDouble = config.subtype === 'Double Oven';
+    const ovenCavityH = 595;
+    const baseH = Number(config.baseHeight) || 800;
+    const panelW = round2(W - 3);
+    if (isDouble) {
+      const bottomOvenBottom = baseH;
+      const bottomOvenTop = bottomOvenBottom + ovenCavityH;
+      const topOvenTop = bottomOvenTop + ovenCavityH;
+      panels.push({ name: 'Front panel (below ovens)', qty: 1, width: panelW, depth: round2(bottomOvenBottom), thickness: T, notes: 'Fixed panel, below the two ovens' });
+      panels.push({ name: 'Front panel (above ovens)', qty: 1, width: panelW, depth: round2(H - topOvenTop), thickness: T, notes: 'Fixed panel, above the two ovens' });
+    } else {
+      const ovenBottom = baseH;
+      const ovenTop = ovenBottom + ovenCavityH;
+      panels.push({ name: 'Front panel (below oven)', qty: 1, width: panelW, depth: round2(ovenBottom), thickness: T, notes: 'Fixed panel, below the oven' });
+      panels.push({ name: 'Front panel (above oven)', qty: 1, width: panelW, depth: round2(H - ovenTop), thickness: T, notes: 'Fixed panel, above the oven' });
+    }
+  } else if (isTallSplit) {
     // Tall Gola: C-channel at base-cabinet-top level splits into lower + upper door.
     // Lower door is cut-identical to a base cabinet Gola door so fronts align.
     const bh = config.baseHeight || 800;
@@ -327,7 +352,8 @@ export function calculateCabinet(config) {
   }
 
   // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
-  const golaProfiles = doorStyle === 'Gola' ? {
+  // Oven towers have no doors/drawers to channel — their fronts are fixed panels.
+  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower) ? {
     // Tall units have no top L-profile; their base-level channel is a C.
     L_meters: config.cabinetType === 'tall' ? 0 : round2(W / 1000 * 100) / 100,
     C_meters: (config.cabinetType === 'tall' || drawerCount > 0) ? round2(W / 1000 * 100) / 100 : 0,

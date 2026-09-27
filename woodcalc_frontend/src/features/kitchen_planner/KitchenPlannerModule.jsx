@@ -16,7 +16,10 @@ import { useTranslation } from '../../i18n/LanguageContext'
 import OnboardingTour from '../../components/OnboardingTour'
 import configuratorSteps from '../../onboardingSteps/configurator'
 
-const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Oven Tower', 'Double Oven', 'Appliance']
+// Oven Tower / Double Oven are fabricated carcasses that house a purchased oven —
+// they need cut-list parts like any other tall cabinet, so they're excluded here
+// but kept in APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
+const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance']
 const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher']
 export function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories'
