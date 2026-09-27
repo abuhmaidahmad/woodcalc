@@ -1560,7 +1560,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
         <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
       )}
-      {isBase && !isShelf && (
+      {((isBase && !isShelf) || cab.subtype === 'Filler') && (
         <group position={[0, H, 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
