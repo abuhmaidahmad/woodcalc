@@ -1226,7 +1226,13 @@ export default function RoomCanvas({
           {selectedWall === null && (
             <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginInlineStart: 4, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
               <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.wall')}</span>
-              <input type="range" min={50} max={300} step={10} value={wallThickness} onChange={e => setWallThickness(+e.target.value)} style={{ width: 70, accentColor: ACCENT }} />
+              <input type="range" min={50} max={300} step={10} value={wallThickness}
+                onChange={e => {
+                  const v = +e.target.value
+                  setWallThickness(v)
+                  if (walls.length > 0) pushHistory(walls.map(w => ({ ...w, thickness: v })))
+                }}
+                style={{ width: 70, accentColor: ACCENT }} />
               <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{wallThickness}mm</span>
             </div>
           )}

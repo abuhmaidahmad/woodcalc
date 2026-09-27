@@ -8,6 +8,7 @@ import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
+import { computeWallBodies, getWallThickness } from './wallGeometry'
 
 const ALL_CT_MATS = [
   ...COUNTERTOP_MATERIALS,
@@ -1652,14 +1653,32 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
 // Memoized for the same reason as Cabinet: `wall` keeps a stable reference
 // for every wall except the one being edited, and `elements` is stable
 // whenever cabinets (not doors/windows) are what changed.
-const Wall3D = React.memo(function Wall3D({ wall, wallThickness, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
+//
+// The wall's own x1/y1-x2/y2 is its room-face line (unmitered, exactly what's
+// typed as length) -- the outer face is mitered per neighbor and can extend
+// or trim past a flat parallel offset at either end, so it isn't a simple
+// extrude depth. The shape/holes are built exactly as before (extrude depth
+// is just scaffolding), then every vertex on the outer cap is remapped from
+// its position along the flat scaffold to the true mitered outer point --
+// interpolated between the wall's own outerStart/outerEnd (from
+// computeWallBodies, the same corner math the 2D view uses) so both ends
+// land exactly on the shared corner point neighboring walls also use.
+const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_ROOM_H, elements = [], wallIndex }) {
   const x1 = px2m(wall.x1), z1 = px2m(wall.y1)
   const x2 = px2m(wall.x2), z2 = px2m(wall.y2)
   const len = Math.hypot(x2-x1, z2-z1)
   const angle = Math.atan2(z2-z1, x2-x1)
   const cx = (x1+x2)/2, cz = (z1+z2)/2
-  const T = (wallThickness || 120) / 1000
+  const T = getWallThickness(wall) / 1000
   const dirX = (x2-x1)/len, dirZ = (z2-z1)/len
+  const localZAxisX = -dirZ, localZAxisZ = dirX
+
+  const toLocal = (worldX, worldZ) => {
+    const relX = worldX - cx, relZ = worldZ - cz
+    return { x: relX * dirX + relZ * dirZ, z: relX * localZAxisX + relZ * localZAxisZ }
+  }
+  const outerStartLocal = body?.outerStart ? toLocal(px2m(body.outerStart.x), px2m(body.outerStart.y)) : { x: -len / 2, z: T }
+  const outerEndLocal = body?.outerEnd ? toLocal(px2m(body.outerEnd.x), px2m(body.outerEnd.y)) : { x: len / 2, z: T }
 
   const geometry = useMemo(() => {
     const shape = new THREE.Shape()
@@ -1689,21 +1708,33 @@ const Wall3D = React.memo(function Wall3D({ wall, wallThickness, roomH = DEFAULT
         shape.holes.push(hole)
       })
 
-    const geom = new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: false, steps: 1 })
-    geom.translate(0, 0, -T/2)
+    const geom = new THREE.ExtrudeGeometry(shape, { depth: Math.max(T, 0.02), bevelEnabled: false, steps: 1 })
+    const depth = Math.max(T, 0.02)
+    const eps = depth * 0.01
+    const pos = geom.attributes.position
+    for (let i = 0; i < pos.count; i++) {
+      const vx = pos.getX(i), vy = pos.getY(i), vz = pos.getZ(i)
+      if (Math.abs(vz - depth) > eps) continue
+      const frac = Math.min(1, Math.max(0, (vx - (-len / 2)) / len))
+      const newX = outerStartLocal.x + frac * (outerEndLocal.x - outerStartLocal.x)
+      const newZ = outerStartLocal.z + frac * (outerEndLocal.z - outerStartLocal.z)
+      pos.setXYZ(i, newX, vy, newZ)
+    }
+    pos.needsUpdate = true
+    geom.computeVertexNormals()
     return geom
-  }, [len, roomH, T, elements, wallIndex, x1, z1, dirX, dirZ])
+  }, [len, roomH, T, elements, wallIndex, x1, z1, dirX, dirZ, outerStartLocal.x, outerStartLocal.z, outerEndLocal.x, outerEndLocal.z])
 
   return (
     <mesh position={[cx, 0, cz]} rotation={[0, -angle, 0]} geometry={geometry} castShadow receiveShadow>
-      <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} />
+      <meshPhysicalMaterial color="#f0ece6" roughness={0.92} metalness={0} envMapIntensity={0.2} side={THREE.DoubleSide} />
     </mesh>
   )
 })
 
-const WindowElement = React.memo(function WindowElement({ el, wallThickness }) {
+const WindowElement = React.memo(function WindowElement({ el }) {
   const x = el.x/1000, z = el.y/1000
-  const W = el.w/1000, T = (wallThickness||120)/1000
+  const W = el.w/1000, T = (el.wallThickness||120)/1000
   const elev = (el.elevation||900)/1000, H = (el.h||1200)/1000
   const angle = (el.wallAngle||0)*Math.PI/180
   return (
@@ -1720,9 +1751,9 @@ const WindowElement = React.memo(function WindowElement({ el, wallThickness }) {
   )
 })
 
-const DoorElement = React.memo(function DoorElement({ el, wallThickness }) {
+const DoorElement = React.memo(function DoorElement({ el }) {
   const x = el.x/1000, z = el.y/1000
-  const W = el.w/1000, T = (wallThickness||120)/1000
+  const W = el.w/1000, T = (el.wallThickness||120)/1000
   const H = (el.h||2300)/1000
   const angle = (el.wallAngle||0)*Math.PI/180
   return (
@@ -1812,7 +1843,7 @@ function ShadowMapOnDemand({ cabinets, walls, room }) {
 function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null, active = true }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
-  const wallThickness = 120
+  const wallBodies = useMemo(() => computeWallBodies(walls, SCALE), [walls])
   const wallEls  = elements.filter(e => e.type==='window'||e.type==='door')
   const otherEls = elements.filter(e => e.type!=='window'&&e.type!=='door')
 
@@ -1892,10 +1923,10 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
 
         {/* --- Scene geometry --- */}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
-        {walls.map((w,i)=><Wall3D key={i} wall={w} wallThickness={wallThickness} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
+        {walls.map((w,i)=><Wall3D key={w.id || i} wall={w} body={wallBodies[i]} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
         {wallEls.map(el=>el.type==='window'
-          ?<WindowElement key={el.id} el={el} wallThickness={wallThickness}/>
-          :<DoorElement key={el.id} el={el} wallThickness={wallThickness}/>)}
+          ?<WindowElement key={el.id} el={el}/>
+          :<DoorElement key={el.id} el={el}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
         {cabinets.map(cab=><Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>)}
         {backsplashSegments.map(seg => (
