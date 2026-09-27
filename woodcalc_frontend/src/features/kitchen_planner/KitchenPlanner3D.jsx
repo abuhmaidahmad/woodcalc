@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -431,29 +431,43 @@ const GOLA_C_NOTCH_H   = 0.073   // mid notch for C profile (73mm)
 const GOLA_C_RECESS    = 0.026   // C profile recess from front plane (26mm)
 const GOLA_CH          = 0.025   // channel opening / door height reduction (25mm)
 
-// Shared drawer-stack layout so door fronts, C channels and side panel
-// notches always agree (single source of truth).
-function computeGolaDrawerLayout(H, baseHeight) {
-  // Standard Gola stack: L channel (25) -> 2 small fronts (LEGRABOX M)
-  // -> C channel (25) -> 1 big front at 2*unit - 3 (LEGRABOX C, TIP-ON).
-  const unit = baseHeight === 800 ? 0.200 : 0.180
+// Shared drawer-stack layout so door fronts, C channels and side panel notches
+// always agree (single source of truth) — driven by the cabinet's own interior-
+// layout zones (see formulaEngine.js's buildZonePresets/resolveZonePreset),
+// listed top-to-bottom, instead of a fixed 2-small-1-big shape. Each zone is a
+// "slot" whose nominal height already includes its own pull channel (matching
+// formulaEngine.js, which shrinks a Gola front's cut height by the same GOLA_CH
+// amount) — so slots stack edge-to-edge and sum to exactly H, no overflow. Every
+// front gets a channel directly above it; the topmost one is the carcass's own
+// shared L-channel notch (not re-rendered here to avoid a duplicate mesh).
+function computeGolaDrawerLayout(H, zones) {
   const CH = GOLA_CH
-  const hBig = 2 * unit - 0.003
-  const hSmall = (H - 2 * CH - hBig) / 2
-  const heights = [hSmall, hSmall, hBig]
-  let yTop = H / 2 - CH
+  let yTop = H / 2
   const positions = []
   const channels = []
-  for (let d = 0; d < heights.length; d++) {
-    const h = heights[d]
-    positions.push({ h, yCenter: yTop - h / 2 })
+  zones.forEach((zone, i) => {
+    const slot = zone.h / 1000
+    const frontH = slot - CH
+    const frontCenter = yTop - CH - frontH / 2
+    positions.push({ h: frontH, yCenter: frontCenter, type: zone.type })
+    if (i > 0) channels.push({ y: yTop - CH / 2, size: CH })
+    yTop -= slot
+  })
+  return { positions, channels }
+}
+
+// Non-Gola equivalent: fronts stack directly with no milled channel, relying on
+// DoorPanel's own small built-in reveal gap between adjacent fronts (matches the
+// old fixed-4-equal-drawers behavior, generalized to arbitrary zone heights).
+function computeSimpleZoneLayout(H, zones) {
+  let yTop = H / 2
+  const positions = []
+  zones.forEach((zone) => {
+    const h = zone.h / 1000
+    positions.push({ h, yCenter: yTop - h / 2, type: zone.type })
     yTop -= h
-    if (d === 1) {
-      channels.push({ y: yTop - CH / 2, size: CH })
-      yTop -= CH
-    }
-  }
-  return { heights, positions, channels }
+  })
+  return positions
 }
 
 // Side panel with milled notches on the front edge (Shape + Extrude).
@@ -487,7 +501,7 @@ function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = 
 
 // Panel-based carcass for Gola cabinets: notched sides + recessed inner body,
 // so the L/C profiles sit inside a real milled shadow gap.
-function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isTall, isSink }) {
+function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, zones, isTall, isSink }) {
   const T = 0.018
   const baseH = (baseHeight || 800) / 1000
   // Tall units: no top notch — a C-notch at base-cabinet-top level keeps the
@@ -496,7 +510,8 @@ function GolaCarcass({ W, H, D, color, matProps = {}, isDrawers, baseHeight, isT
     ? [{ yBottom: baseH - GOLA_C_NOTCH_H / 2, yTop: baseH + GOLA_C_NOTCH_H / 2 }]
     : [{ yBottom: H - GOLA_L_NOTCH_H, yTop: H }]
   if (isDrawers) {
-    const { channels } = computeGolaDrawerLayout(H, baseHeight)
+    const zoneList = (zones?.length > 0) ? zones : [{ type: 'drawer', h: Math.round(H * 1000) }]
+    const { channels } = computeGolaDrawerLayout(H, zoneList)
     channels.forEach((c) => {
       const yAbs = c.y + H / 2
       notches.push({ yBottom: yAbs - GOLA_C_NOTCH_H / 2, yTop: yAbs + GOLA_C_NOTCH_H / 2 })
@@ -604,7 +619,7 @@ function CDrawerChannel({ W, D, y, golaHex }) {
   )
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left' }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left' }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
@@ -616,16 +631,37 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
 
   const drawerChannels = []
   if (isDrawers) {
-    const drawerCount = 4
+    // Zones come from the cabinet's own Interior Layout choice (see
+    // formulaEngine.js's resolveZonePreset) -- falls back to a single full-
+    // height drawer if somehow unset, so this never renders empty.
+    const zoneList = (zonePreset?.zones?.length > 0) ? zonePreset.zones : [{ type: 'drawer', h: Math.round(H * 1000) }]
+    const zoneDoorCount = zonePreset?.doorCount === 2 ? 2 : 1
     const isGolaDrawers = effectiveDoorStyle === 'Gola' && !isWallCabinet
-    if (isGolaDrawers) {
-      // Layout shared with the side-panel notch milling via
-      // computeGolaDrawerLayout (single source of truth, Richelieu art.1004-1005).
-      const layout = computeGolaDrawerLayout(H, baseHeight)
-      layout.channels.forEach((c) => drawerChannels.push(c))
-      layout.positions.forEach((p, d) => {
+    // Layout shared with the side-panel notch milling via computeGolaDrawerLayout
+    // (single source of truth, Richelieu art.1004-1005).
+    const golaLayout = isGolaDrawers ? computeGolaDrawerLayout(H, zoneList) : null
+    const positions = isGolaDrawers ? golaLayout.positions : computeSimpleZoneLayout(H, zoneList)
+    if (isGolaDrawers) golaLayout.channels.forEach((c) => drawerChannels.push(c))
+    let drawerIdx = 0
+    positions.forEach((p, i) => {
+      if (p.type === 'door') {
+        const dw = W / zoneDoorCount
+        for (let k = 0; k < zoneDoorCount; k++) {
+          doors.push(
+            <DoorPanel key={`zd-${i}-${k}`}
+              x={-W / 2 + dw * k + dw / 2} y={p.yCenter} D={D}
+              doorW={dw} doorH={p.h}
+              frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+              matProps={matProps} doorStyle={doorStyle}
+              golaHex={golaHex} golaColor={golaColor}
+              handlePosition={handlePosition}
+              isWallCabinet={isWallCabinet}
+            />
+          )
+        }
+      } else {
         doors.push(
-          <DoorPanel key={`d-${d}`}
+          <DoorPanel key={`zd-${i}`}
             x={0} y={p.yCenter} D={D}
             doorW={W} doorH={p.h}
             frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
@@ -633,27 +669,12 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
             golaHex={golaHex} golaColor={golaColor}
             handlePosition="center"
             isWallCabinet={isWallCabinet}
-            drawerIndex={d}
+            drawerIndex={drawerIdx}
           />
         )
-      })
-    } else {
-      const drawerH = H / drawerCount
-      for (let d = 0; d < drawerCount; d++) {
-        doors.push(
-          <DoorPanel key={`d-${d}`}
-            x={0} y={-H / 2 + drawerH * d + drawerH / 2} D={D}
-            doorW={W} doorH={drawerH}
-            frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
-            matProps={matProps} doorStyle={doorStyle}
-            golaHex={golaHex} golaColor={golaColor}
-            handlePosition="center"
-            isWallCabinet={isWallCabinet}
-            drawerIndex={d}
-          />
-        )
+        drawerIdx++
       }
-    }
+    })
   } else if (isTall && splitEnabled) {
     // Tall units: lower + upper door split at base-cabinet-top level (all styles). Excludes broom/linen units, which use one continuous door.
     const isGolaTall = effectiveDoorStyle === 'Gola'
@@ -1477,6 +1498,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const isTall    = cab.category === 'tall'
   const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
+  const zonePreset = isDrawers ? resolveZonePreset(cab) : null
   const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel'
   const isGlass   = cab.subtype === 'Glass Door'
   const applianceKind =
@@ -1534,7 +1556,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
-        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} isTall={isTall}
+        <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} zones={zonePreset?.zones} isTall={isTall}
           isSink={cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'} />
       ) : (() => {
         // Sink cabinets have a hole cut in the countertop above them, exposing
@@ -1609,6 +1631,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               textureMap={textureMap}
               numDoors={numDoors}
               isDrawers={isDrawers}
+              zonePreset={zonePreset}
               baseHeight={cab.baseHeight}
               handlePosition={cab.handlePosition || 'bottom'}
               golaColor={cab.golaColor || 'black'}

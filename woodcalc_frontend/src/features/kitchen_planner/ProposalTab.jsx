@@ -66,13 +66,11 @@ function priceCabinet(cab, prices, t) {
 
   let result
   try {
-    // cabinetConfig() carries doorStyle/doorCount/subtype through so subtype-specific
-    // door rules (Blind's narrower door, Hob + Oven's no-wood-door front, etc.) price
-    // the same way they're cut. Drawer box hardware has no per-system unit cost in
-    // the price list below yet, so drawers is pinned to 0 here regardless of
-    // subtype -- unrelated to this fix, kept as-is to avoid changing existing
-    // drawer-cabinet quotes.
-    result = calculateCabinet({ ...cabinetConfig(cab), drawers: 0 })
+    // cabinetConfig() carries doorStyle/doorCount/subtype/zonePreset through so
+    // subtype-specific front rules (Blind's narrower door, Hob + Oven's no-wood-
+    // door front, a Drawers cabinet's chosen interior layout, etc.) price the
+    // same way they're cut.
+    result = calculateCabinet(cabinetConfig(cab))
   } catch { return ZERO_COST }
 
   const breakdown = []
@@ -84,12 +82,15 @@ function priceCabinet(cab, prices, t) {
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const m2_8  = panels8.reduce((s,  p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const doorM2 = result.doors.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
+  const drawerFrontM2 = result.drawerFronts.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
 
   const boardCost   = parseFloat((m2_18 * prices[matKey]).toFixed(3))
   const hdfCost     = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
-  const doorMatCost = parseFloat((doorM2 * prices[matKey]).toFixed(3))
+  const doorMatCost = parseFloat(((doorM2 + drawerFrontM2) * prices[matKey]).toFixed(3))
 
-  const edgeM = (2 * cab.height + (cab.width - 36) + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+  const edgeM = (2 * cab.height + (cab.width - 36)
+    + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
+    + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
 
   const materialCost = boardCost + hdfCost + doorMatCost + edgeCost

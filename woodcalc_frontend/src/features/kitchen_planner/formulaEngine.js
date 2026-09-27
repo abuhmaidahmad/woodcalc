@@ -6,6 +6,8 @@ const T = 18; // panel thickness mm
 const BACK_T = 8; // HDF back panel thickness mm
 const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
+// Gola milled channel/reveal height (mm) -- matches GOLA_CH in KitchenPlanner3D.jsx.
+const GOLA_CHANNEL_MM = 25;
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
 // Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
@@ -55,14 +57,13 @@ export function nonCarcassPieceDims(c) {
 // door, Hob + Oven's no-wood-door front, drawer counts, etc.) price the same way
 // they get cut.
 export function cabinetConfig(c) {
-  const isDrawerCab = c.subtype === 'Drawers' || c.subtype === '2Drw+Door';
   return {
     width: c.width, height: c.height, depth: c.depth,
     material: c.material, doorStyle: c.doorStyle, shelves: 0,
     cabinetType: c.category,
     doorCount: c.doorCount,
     subtype: c.subtype,
-    drawers: isDrawerCab ? 4 : 0,
+    zonePreset: resolveZonePreset(c),
     drawerType: c.drawerType,
     drawerSystem: c.drawerSystem,
     drawerBoxConstruction: c.drawerBoxConstruction,
@@ -122,47 +123,40 @@ export function getHingeCount(doorHeight) {
   return 4;
 }
 
-export function getZonePresets(height) {
-  const isH800 = height >= 800;
-  const zoneUnit = isH800 ? 200 : 180;
-  const cutSize = zoneUnit - 3;
-  const presets = [
-    {
-      id: '4_drawers',
-      name: '4 drawers',
-      zones: Array(4).fill(zoneUnit),
-      cutSize,
-    },
-    {
-      id: '2_drawers_1_door',
-      name: '2 drawers + 1 door',
-      zones: [zoneUnit, zoneUnit, height - (2 * zoneUnit)],
-      cutSize,
-    },
-    {
-      id: '2_drawers',
-      name: '2 drawers',
-      zones: [zoneUnit, zoneUnit],
-      cutSize,
-    },
-    {
-      id: '1_full_door',
-      name: '1 full door',
-      zones: [height],
-      cutSize,
-    },
+// Interior-layout presets for Drawers/2Drw+Door cabinets -- single source of truth
+// shared by the picker UI, the 3D render, and the BOM/cost engine so they never
+// disagree on what a given layout actually looks like. Zones are listed TOP-to-
+// BOTTOM (zones[0] is the topmost front) -- e.g. '2_small_1_door' puts 2 drawers
+// above 1 door, matching the "2Drw+Door" subtype's own name/real cabinet convention.
+export function buildZonePresets(height) {
+  const h = height >= 780 ? 800 : 720;
+  const small = h === 800 ? 200 : 180;
+  const big = h === 800 ? 400 : 360;
+  const huge = h;
+  const doorBig = h === 800 ? 600 : 540;
+  const doorSmall = big;
+
+  return [
+    { id: '1_big_drawer', labelKey: 'zonePresetPicker.preset1BigDrawer', zones: [{ type: 'drawer', h: huge }] },
+    { id: '2_drawers', labelKey: 'zonePresetPicker.preset2Drawers', zones: [{ type: 'drawer', h: big }, { type: 'drawer', h: big }] },
+    { id: '4_drawers', labelKey: 'zonePresetPicker.preset4Drawers', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: small }] },
+    { id: '2_small_1_big_drawer', labelKey: 'zonePresetPicker.preset2Small1BigDrawer', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: big }] },
+    { id: '1_small_drawer_1_door', labelKey: 'zonePresetPicker.preset1SmallDrawer1Door', zones: [{ type: 'drawer', h: small }, { type: 'door', h: doorBig }], doorCount: 1 },
+    { id: '1_small_drawer_2_doors', labelKey: 'zonePresetPicker.preset1SmallDrawer2Doors', zones: [{ type: 'drawer', h: small }, { type: 'door', h: doorBig }], doorCount: 2 },
+    { id: '2_small_1_door', labelKey: 'zonePresetPicker.preset2Small1Door', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'door', h: doorSmall }], doorCount: 1 },
   ];
+}
 
-  const valid = presets.filter(p => {
-    const drawerZones = p.zones.filter(z => z < 300);
-    const drawerOk = drawerZones.length === 0 || drawerZones.every(z => z >= 150);
-    const doorZones = p.zones.filter(z => z >= 300);
-    const doorOk = doorZones.length === 0 || doorZones.every(z => z >= 300);
-    const maxDrawersOk = p.zones.length <= 4;
-    return drawerOk && doorOk && maxDrawersOk;
-  });
+const DEFAULT_ZONE_PRESET_ID = { Drawers: '4_drawers', '2Drw+Door': '2_small_1_door' };
 
-  return valid;
+// Resolves a cabinet's actual interior layout: whatever the user picked, or a
+// sensible per-subtype default for cabinets placed before this feature existed
+// (or that were never touched in the picker). Returns null for non-drawer subtypes.
+export function resolveZonePreset(c) {
+  if (!['Drawers', '2Drw+Door'].includes(c.subtype)) return null;
+  if (c.zonePreset && Array.isArray(c.zonePreset.zones) && c.zonePreset.zones.length > 0) return c.zonePreset;
+  const presets = buildZonePresets(c.height);
+  return presets.find(p => p.id === DEFAULT_ZONE_PRESET_ID[c.subtype]) || presets[0];
 }
 
 function chooseToeKickAndLegs(height) {
@@ -199,7 +193,7 @@ export function calculateCabinet(config) {
   const systemHasIntegratedBox = config.drawerBoxConstruction
     ? config.drawerBoxConstruction === 'metal_sided'
     : /legrabox|tandembox|integrated/i.test(drawerSystem);
-  const zones = config.zones || [];
+  const isDrawerCab = config.subtype === 'Drawers' || config.subtype === '2Drw+Door';
   const cabinetType = config.cabinetType || config.category || 'base';
 
   // Wall and tall cabinets don't sit on the floor with a toe kick + legs
@@ -334,6 +328,9 @@ export function calculateCabinet(config) {
       panels.push({ name: 'Front panel (below oven)', qty: 1, width: panelW, depth: round2(ovenBottom), thickness: T, notes: 'Fixed panel, below the oven' });
       panels.push({ name: 'Front panel (above oven)', qty: 1, width: panelW, depth: round2(H - ovenTop), thickness: T, notes: 'Fixed panel, above the oven' });
     }
+  } else if (isDrawerCab) {
+    // Handled entirely below via the zone-driven layout — no generic full-height
+    // door here (a Drawers/2Drw+Door cabinet's fronts all come from its zones).
   } else if (isTallSplit) {
     // Tall Gola: C-channel at base-cabinet-top level splits into lower + upper door.
     // Lower door is cut-identical to a base cabinet Gola door so fronts align.
@@ -368,49 +365,64 @@ export function calculateCabinet(config) {
   });
   }
 
-  // ---- Drawer fronts (Richelieu Gola art.1004-1005 layout) ----
-  // Gola stack top-down: L channel (25) -> d1 -> d2 -> C channel (25) -> d3 -> d4(TIP-ON).
-  // First three fronts equal: unit - 47/3; fourth: unit - 3 tolerance.
+  // ---- Interior layout (Drawers/2Drw+Door): one front per zone, top-to-bottom ----
+  // Each zone becomes either a drawer front or a door, sized to the zone's own
+  // height (matches the picker's chosen layout exactly, and the 3D render's
+  // zone-driven CabinetDoors stacking). A door zone with doorCount:2 splits into
+  // 2 side-by-side doors instead of 1 full-width door.
   const drawerFronts = [];
-  const requestedDrawers = Number(config.drawers || 0);
-  const drawerCount = (doorStyle === 'Gola' && requestedDrawers > 0) ? 3 : requestedDrawers;
-  if (drawerCount > 0) {
-    const frontW = round2(W - 3);
-    if (doorStyle === 'Gola') {
-      // Standard Gola stack: L channel (25) -> 2 small fronts (LEGRABOX M)
-      // -> C channel (25) -> 1 big front at 2*unit - 3 (LEGRABOX C).
-      const unit = H >= 790 ? 200 : 180;
-      const hBig = round2(2 * unit - 3);
-      const hSmall = round2((H - 50 - hBig) / 2);
-      const fronts = [
-        { h: hSmall, runner: 'M', opening: 'L/C channel' },
-        { h: hSmall, runner: 'M', opening: 'C channel' },
-        { h: hBig, runner: 'C', opening: 'TIP-ON', tipOn: true },
-      ];
-      fronts.forEach((f, i) => {
-        drawerFronts.push({
-          width: frontW,
-          height: f.h,
-          style: 'Gola',
-          runnerSize: f.runner,
-          opening: f.opening,
-          notes: f.tipOn ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access',
+  if (isDrawerCab) {
+    const zonePreset = config.zonePreset && Array.isArray(config.zonePreset.zones) && config.zonePreset.zones.length > 0
+      ? config.zonePreset
+      : { zones: [{ type: 'drawer', h: H }] }; // defensive fallback: a raw config with no zonePreset
+    const zoneList = zonePreset.zones;
+    // Every front in a Gola stack sits behind a milled channel/reveal (25mm) —
+    // matching the 3D render's computeGolaDrawerLayout, which shrinks each front
+    // by the same amount to make its slot fit without overflowing the cabinet.
+    const zoneReduction = doorStyle === 'Gola' ? (GOLA_CHANNEL_MM + 3) : 3;
+    const maxDrawerH = Math.max(0, ...zoneList.filter(z => z.type === 'drawer').map(z => z.h));
+    let tipOnAssigned = false;
+    zoneList.forEach((zone) => {
+      if (zone.type === 'door') {
+        const widths = zonePreset.doorCount === 2 ? [twoDoorWidthEach, twoDoorWidthEach] : [oneDoorWidth];
+        const dh = round2(zone.h - zoneReduction);
+        widths.forEach((dw) => {
+          doors.push({
+            width: round2(dw), height: dh, style: doorStyle,
+            hinges: getHingeCount(dh), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+            notes: 'Interior layout door',
+          });
         });
-      });
-    } else {
-      const eq = round2((H - 3 * (drawerCount + 1)) / drawerCount);
-      for (let d = 0; d < drawerCount; d++) {
-        drawerFronts.push({ width: frontW, height: eq, style: doorStyle, opening: doorStyle, notes: '' });
+      } else {
+        // The biggest drawer in the stack gets the Gola TIP-ON (push-to-open,
+        // LEGRABOX C) treatment; smaller ones use a regular LEGRABOX M channel pull.
+        const isBig = zone.h === maxDrawerH && !tipOnAssigned;
+        if (isBig) tipOnAssigned = true;
+        drawerFronts.push({
+          width: round2(W - 3),
+          height: round2(zone.h - zoneReduction),
+          style: doorStyle,
+          runnerSize: doorStyle === 'Gola' ? (isBig ? 'C' : 'M') : undefined,
+          opening: doorStyle === 'Gola' ? (isBig ? 'TIP-ON' : 'channel') : doorStyle,
+          tipOn: doorStyle === 'Push' ? true : (doorStyle === 'Gola' && isBig),
+          notes: doorStyle === 'Gola' ? (isBig ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access') : '',
+        });
       }
-    }
+    });
   }
+  const drawerCount = drawerFronts.length;
 
   // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
   // Oven towers have no doors/drawers to channel — their fronts are fixed panels.
+  // A Drawers/2Drw+Door cabinet needs one C-channel between every adjacent pair
+  // of zones (N-1 for N zones) instead of the fixed single channel other subtypes use.
+  const numGolaChannels = isDrawerCab
+    ? Math.max(0, (config.zonePreset?.zones?.length || 1) - 1)
+    : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
   const golaProfiles = (doorStyle === 'Gola' && !isOvenTower) ? {
     // Tall units have no top L-profile; their base-level channel is a C.
     L_meters: config.cabinetType === 'tall' ? 0 : round2(W / 1000 * 100) / 100,
-    C_meters: (config.cabinetType === 'tall' || drawerCount > 0) ? round2(W / 1000 * 100) / 100 : 0,
+    C_meters: round2(numGolaChannels * W / 1000 * 100) / 100,
   } : null;
 
   const hardware = {};
@@ -423,13 +435,15 @@ export function calculateCabinet(config) {
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
-  const numTipOn = doors.filter(d => d.tipOn).length
-    + (doorStyle === 'Gola' && drawerCount > 0 ? 1 : (doorStyle === 'Push' ? drawerCount : 0));
+  const numTipOn = doors.filter(d => d.tipOn).length + drawerFronts.filter(d => d.tipOn).length;
   if (drawerCount > 0) {
     hardware.drawer_runner_sets = drawerCount;
     hardware.drawer_system = drawerSystem;
     if (doorStyle === 'Gola') {
-      hardware.runner_sizes = { M: 2, C: 1 };
+      hardware.runner_sizes = {
+        M: drawerFronts.filter(d => d.runnerSize === 'M').length,
+        C: drawerFronts.filter(d => d.runnerSize === 'C').length,
+      };
     }
   }
   hardware.tip_on = numTipOn;
@@ -437,7 +451,7 @@ export function calculateCabinet(config) {
   hardware.edge_banding_spec = EDGE_BANDING;
 
   let drawerBox = null;
-  if (config.drawers && config.drawers > 0) {
+  if (drawerCount > 0) {
     if (!systemHasIntegratedBox && drawerType.toLowerCase().includes('wood')) {
       // Wood box interior dims per drawer (runner clearance 2x12.5mm for side-mount)
       const boxW = round2(W - 2 * T - 25);

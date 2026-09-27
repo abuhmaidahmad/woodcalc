@@ -1,27 +1,11 @@
-import { useState } from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
-
-function buildPresets(h) {
-  const small = h === 800 ? 200 : 180
-  const big = h === 800 ? 400 : 360
-  const huge = h
-  const doorBig = h === 800 ? 600 : 540
-  const doorSmall = big
-
-  return [
-    { id: '1_big_drawer', labelKey: 'zonePresetPicker.preset1BigDrawer', zones: [{ type: 'drawer', h: huge }] },
-    { id: '2_drawers', labelKey: 'zonePresetPicker.preset2Drawers', zones: [{ type: 'drawer', h: big }, { type: 'drawer', h: big }] },
-    { id: '4_drawers', labelKey: 'zonePresetPicker.preset4Drawers', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: small }] },
-    { id: '2_small_1_big_drawer', labelKey: 'zonePresetPicker.preset2Small1BigDrawer', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'drawer', h: big }] },
-    { id: '1_small_drawer_1_door', labelKey: 'zonePresetPicker.preset1SmallDrawer1Door', zones: [{ type: 'drawer', h: small }, { type: 'door', h: doorBig }], doorCount: 1 },
-    { id: '1_small_drawer_2_doors', labelKey: 'zonePresetPicker.preset1SmallDrawer2Doors', zones: [{ type: 'drawer', h: small }, { type: 'door', h: doorBig }], doorCount: 2 },
-    { id: '2_small_1_door', labelKey: 'zonePresetPicker.preset2Small1Door', zones: [{ type: 'drawer', h: small }, { type: 'drawer', h: small }, { type: 'door', h: doorSmall }], doorCount: 1 },
-  ]
-}
+import { buildZonePresets } from './formulaEngine'
 
 function ZoneVisual({ zones, scale = 0.16 }) {
+  // zones is top-to-bottom (zones[0] = topmost front) -- plain 'column' stacks
+  // DOM order top-to-bottom too, so the preview matches what 3D/BOM build.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column-reverse', border: '1.5px solid #bdc3c7', borderRadius: 3, overflow: 'hidden', width: 34 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', border: '1.5px solid #bdc3c7', borderRadius: 3, overflow: 'hidden', width: 34 }}>
       {zones.map((z, i) => (
         <div key={i} style={{
           height: z.h * scale,
@@ -40,7 +24,7 @@ function ZoneVisual({ zones, scale = 0.16 }) {
 export default function ZonePresetPicker({ height = 720, width = 600, selected, onChange }) {
   const { t } = useTranslation()
   const h = height >= 780 ? 800 : 720
-  let presets = buildPresets(h)
+  let presets = buildZonePresets(h)
 
   // Only show 2-door variant for wide enough cabinets (>= 700mm), hide it otherwise
   presets = presets.filter(p => p.doorCount !== 2 || width >= 700)

@@ -151,7 +151,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 8 }}>{c.width}×{c.height}×{c.depth}mm · {c.doorStyle}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length} {t('kitchenPlannerModule.parts')}</span>
+                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length + result.drawerFronts.length} {t('kitchenPlannerModule.parts')}</span>
                 <span style={{ color: ACCENT, fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
             </div>
@@ -185,6 +185,20 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                       return (
                         <tr key={'d'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.door', { n: di+1 })}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>18mm</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{frontMat}</td>
+                          <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
+                        </tr>
+                      )
+                    })}
+                    {result.drawerFronts.map((d, di) => {
+                      const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      return (
+                        <tr key={'dr'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.drawerFront', { n: di+1 })}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
