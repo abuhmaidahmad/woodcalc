@@ -187,6 +187,35 @@ export function getWallBodyPolygon(body) {
   return [body.faceStart, body.faceEnd, body.outerEnd, body.outerStart]
 }
 
+// A brand-new wall isn't connected to anything yet, so there's no polygon
+// orientation to derive its outward side from -- guess by pointing thickness
+// away from the centroid of whatever's already drawn, which is right far
+// more often than a fixed default when a room is built as several
+// disconnected open runs (each wall's own draw direction can point either
+// way, unlike a fully closed loop where orientation is unambiguous).
+export function chooseDefaultThicknessSide(x1, y1, x2, y2, existingWalls) {
+  if (!existingWalls || existingWalls.length === 0) return 'right'
+  let cx = 0, cy = 0, n = 0
+  existingWalls.forEach(w => { cx += w.x1 + w.x2; cy += w.y1 + w.y2; n += 2 })
+  cx /= n; cy /= n
+  const mx = (x1 + x2) / 2, my = (y1 + y2) / 2
+  const dir = normalize(x2 - x1, y2 - y1)
+  const normalRight = outwardNormal(dir.dx, dir.dy, 1)
+  const dot = (mx - cx) * normalRight.nx + (my - cy) * normalRight.ny
+  return dot >= 0 ? 'right' : 'left'
+}
+
+// Element (window/door) wall-embed anchors sit on the wall's face line by
+// projection, but the element itself should be centered across the wall's
+// actual thickness, not sitting half in the room -- offset by half the
+// interpolated outward vector at that point along the wall.
+export function getWallMidlinePoint(body, faceX, faceY, t) {
+  const os = { x: body.outerStart.x - body.faceStart.x, y: body.outerStart.y - body.faceStart.y }
+  const oe = { x: body.outerEnd.x - body.faceEnd.x, y: body.outerEnd.y - body.faceEnd.y }
+  const ox = os.x + t * (oe.x - os.x), oy = os.y + t * (oe.y - os.y)
+  return { x: faceX + ox / 2, y: faceY + oy / 2 }
+}
+
 function legacyWindingSign(walls) {
   if (walls.length < 3) return 1
   let sum = 0

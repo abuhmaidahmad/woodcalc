@@ -3,6 +3,7 @@ import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
   DEFAULT_JOIN_THRESHOLD, computeWallBodies, getWallThickness, getWallLength, makeWallId,
+  chooseDefaultThicknessSide, getWallMidlinePoint,
 } from './wallGeometry'
 
 const ACCENT = '#C8902A'
@@ -500,7 +501,11 @@ export default function RoomCanvas({
     })
   }, [setWalls])
 
-  const snapThreshold = ENDPOINT_SNAP_DIST * 2 / zoom
+  // Keeping a constant on-screen snap radius by dividing by zoom is right most
+  // of the time, but zoomed far out that turns into a huge world-space radius
+  // that snaps to corners nowhere near the cursor -- cap it so zooming out
+  // never makes drawing feel like it's grabbing distant, unrelated corners.
+  const snapThreshold = Math.min(ENDPOINT_SNAP_DIST * 2 / zoom, ENDPOINT_SNAP_DIST * 5)
 
   const getPreviewEnd = useCallback(() => {
     if (!startPoint || !mousePos) return null
@@ -544,7 +549,7 @@ export default function RoomCanvas({
       if (e.key === 'Enter') {
         const end = getPreviewEnd()
         if (end && startPoint && end.lengthMm > 0) {
-          pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: 'right' }])
+          pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: chooseDefaultThicknessSide(startPoint.x, startPoint.y, end.x, end.y, walls) }])
           setStartPoint({ x: end.x, y: end.y })
           setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
         }
@@ -759,10 +764,11 @@ export default function RoomCanvas({
       if (!item) return
       const wallSnap = findWallSnap(rawX, rawY, walls, wallThickness, scale, 40 / zoom)
       if (wallSnap && WALL_SNAPPABLE_TYPES.has(item.type)) {
-        setWallSnapPreview(wallSnap)
         const snappedThickness = getWallThickness(walls[wallSnap.wallIndex])
+        const mid = getWallMidlinePoint(wallBodies[wallSnap.wallIndex], wallSnap.centerX, wallSnap.centerY, wallSnap.t)
+        setWallSnapPreview({ ...wallSnap, centerX: mid.x, centerY: mid.y })
         commitDragThrottled(() => setElements(p => p.map(el => el.id === dragging.id ? {
-          ...el, x: wallSnap.centerX / scale, y: wallSnap.centerY / scale,
+          ...el, x: mid.x / scale, y: mid.y / scale,
           wallAngle: wallSnap.wallAngle, wallThickness: snappedThickness, embeddedInWall: true, wallIndex: wallSnap.wallIndex,
         } : el)))
       } else {

@@ -1367,6 +1367,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const ex = selEl.x * SCALE - w.x1, ey = selEl.y * SCALE - w.y1
       const distMm = Math.round((ex * ux + ey * uy) / SCALE)
       const wallThicknessLocal = getWallThickness(w)
+      const perpX = -uy, perpY = ux
+      const perpDistPx = ex * perpX + ey * perpY
       return (
         <>
           <div style={{ marginBottom: 6, padding: '6px 8px', background: '#F0FFF4', borderRadius: 6, fontSize: 11, color: '#2AC87A', fontWeight: 600 }}>
@@ -1377,8 +1379,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             <input type="number" value={distMm} min={0} max={Math.max(0, wallLenMm + wallThicknessLocal)}
               onChange={e => {
                 const newDistPx = (+e.target.value) * SCALE
-                const newX = (w.x1 + ux * newDistPx) / SCALE
-                const newY = (w.y1 + uy * newDistPx) / SCALE
+                const newX = (w.x1 + ux * newDistPx + perpX * perpDistPx) / SCALE
+                const newY = (w.y1 + uy * newDistPx + perpY * perpDistPx) / SCALE
                 updateEl('x', newX)
                 updateEl('y', newY)
               }}
