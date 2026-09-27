@@ -396,7 +396,7 @@ export default function RoomCanvas({
 
   const W = room.width * scale
   const H = room.depth * scale
-  const wallBodies = useMemo(() => computeWallBodies(walls), [walls])
+  const wallBodies = useMemo(() => computeWallBodies(walls, scale), [walls, scale])
 
   const cvw = vw ?? W
   const cvh = vh ?? H

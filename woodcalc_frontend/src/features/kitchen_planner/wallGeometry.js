@@ -157,17 +157,20 @@ function offsetOpenChain(walls, thicknessOf, normalOf, threshold) {
   return results
 }
 
-export function computeWallBodies(walls, threshold = DEFAULT_JOIN_THRESHOLD) {
+// Walls store x1/y1/x2/y2 in scaled px (mm * scale) but thickness in raw mm --
+// every offset computed here has to happen in the same px space as the
+// coordinates, so thickness is converted with `scale` before use.
+export function computeWallBodies(walls, scale = 1, threshold = DEFAULT_JOIN_THRESHOLD) {
   const bodies = walls.map(w => ({
     faceStart: { x: w.x1, y: w.y1 },
     faceEnd: { x: w.x2, y: w.y2 },
     outerStart: null,
     outerEnd: null,
-    thickness: getWallThickness(w),
+    thickness: getWallThickness(w) * scale,
     closed: false,
   }))
   const loop = traceClosedPolygon(walls, threshold)
-  const thicknessOf = (w) => getWallThickness(w)
+  const thicknessOf = (w) => getWallThickness(w) * scale
   let results
   if (loop) {
     results = offsetClosedLoop(walls, loop, thicknessOf, 1)
@@ -197,11 +200,11 @@ function legacyWindingSign(walls) {
 // room face a legacy project's cabinets are actually snapped against is simply
 // the centerline moved halfThickness towards the room interior, independent of
 // whatever lengthMode was set -- migration ignores lengthMode entirely.
-export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNESS, threshold = DEFAULT_JOIN_THRESHOLD) {
+export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNESS, scale = 1, threshold = DEFAULT_JOIN_THRESHOLD) {
   if (!walls || walls.length === 0) return walls
   const alreadyMigrated = walls.every(w => w.thickness != null && w.lengthMode === undefined)
   if (alreadyMigrated) return walls
-  const halfT = legacyThickness / 2
+  const halfT = (legacyThickness * scale) / 2
   const thicknessOf = () => halfT
   const loop = traceClosedPolygon(walls, threshold)
   let results

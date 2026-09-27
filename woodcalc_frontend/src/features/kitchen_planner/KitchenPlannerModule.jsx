@@ -790,7 +790,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // Restore saved data on mount
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
-      if (initialData.walls) setWalls(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120))
+      if (initialData.walls) setWalls(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120, SCALE))
       if (initialData.wallThickness) setWallThickness(initialData.wallThickness)
       if (initialData.room) setRoom(r => ({ ...r, ...initialData.room }))
       if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
