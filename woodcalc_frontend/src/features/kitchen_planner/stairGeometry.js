@@ -152,6 +152,41 @@ function qRealFromCanon(qCanon, width, turnSign) {
   return turnSign > 0 ? width - qCanon : qCanon
 }
 
+// One 90 degree turn, as a reusable unit: takes an incoming reference frame
+// (a point plus its walking/width unit vectors -- the SAME dirX,dirY/perpX,
+// perpY convention straightFlightSteps already uses) and windersPerTurn/
+// pivotOffset/turnDirection, and returns the turn's own tread steps plus the
+// OUTGOING frame (origin, direction, width axis) so a straight flight or a
+// second turn can continue seamlessly from it -- this is what lets a
+// U-winder chain two turns around a middle flight using the exact same,
+// already-verified math as a single L-winder turn.
+function applyTurn(frame, params) {
+  const { originX, originY, dirX, dirY, perpX, perpY } = frame
+  const { width, windersPerTurn, pivotOffset, turnDirection, startIndex, riserHeight } = params
+  const turnSign = turnDirection === 'left' ? 1 : -1
+
+  const toWorld = (pCanon, qCanon) => {
+    const realQ = qRealFromCanon(qCanon, width, turnSign)
+    return [originX + pCanon * dirX + realQ * perpX, originY + pCanon * dirY + realQ * perpY]
+  }
+
+  const warnings = []
+  const winderPolys = winderTurnLocalPolygons(width, windersPerTurn, pivotOffset)
+  const steps = winderPolys.map((poly, w) => {
+    const footprint = poly.points.map(([p, q]) => toWorld(p, q))
+    const isEndWinder = w === 0 || w === winderPolys.length - 1
+    const narrowEndMm = isEndWinder ? pivotOffset : 0
+    if (narrowEndMm < MIN_WINDER_NARROW_MM) warnings.push({ code: 'winderNarrowEnd', value: Math.round(narrowEndMm), index: w, level: 'warning' })
+    return { index: startIndex + w, topHeight: (startIndex + w + 1) * riserHeight, footprint }
+  })
+
+  const [pivotX, pivotY] = toWorld(0, 0)
+  return {
+    steps, warnings,
+    outgoing: { originX: pivotX, originY: pivotY, dirX: turnSign * perpX, dirY: turnSign * perpY, perpX: dirX, perpY: dirY },
+  }
+}
+
 function computeWinderSteps(stair) {
   const derived = computeStairDerived(stair)
   const { treadCount, going, riserHeight } = derived
@@ -164,7 +199,6 @@ function computeWinderSteps(stair) {
   const windersPerTurn = stair.windersPerTurn || DEFAULT_WINDERS_PER_TURN
   const pivotOffset = stair.pivotOffset || DEFAULT_PIVOT_OFFSET
   const turnDirection = stair.turnDirection || DEFAULT_TURN_DIRECTION
-  const turnSign = turnDirection === 'left' ? 1 : -1
   const walklineOffset = getWalklineOffset(stair)
 
   const warnings = [...derived.warnings]
@@ -180,40 +214,103 @@ function computeWinderSteps(stair) {
   const winderComfort = 2 * riserHeight + walklineGoing
   if (winderComfort < 550 || winderComfort > 700) warnings.push({ code: 'winderComfort', value: Math.round(winderComfort), level: 'warning' })
 
-  const toWorld = (pCanon, qCanon) => {
-    const realP = stepsBeforeTurn * going + pCanon
-    const realQ = qRealFromCanon(qCanon, width, turnSign)
-    return [stair.x + realP * dirX + realQ * perpX, stair.y + realP * dirY + realQ * perpY]
-  }
-
   const steps = straightFlightSteps(0, stepsBeforeTurn, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width)
 
-  const winderPolys = winderTurnLocalPolygons(width, windersPerTurn, pivotOffset)
-  winderPolys.forEach((poly, w) => {
-    const footprint = poly.points.map(([p, q]) => toWorld(p, q))
-    const isEndWinder = w === 0 || w === winderPolys.length - 1
-    const narrowEndMm = isEndWinder ? pivotOffset : 0
-    if (narrowEndMm < MIN_WINDER_NARROW_MM) warnings.push({ code: 'winderNarrowEnd', value: Math.round(narrowEndMm), index: w, level: 'warning' })
-    steps.push({
-      index: stepsBeforeTurn + w,
-      topHeight: (stepsBeforeTurn + w + 1) * riserHeight,
-      footprint,
-    })
-  })
+  const turnOrigin = { originX: stair.x + dirX * stepsBeforeTurn * going, originY: stair.y + dirY * stepsBeforeTurn * going, dirX, dirY, perpX, perpY }
+  const turn = applyTurn(turnOrigin, { width, windersPerTurn, pivotOffset, turnDirection, startIndex: stepsBeforeTurn, riserHeight })
+  steps.push(...turn.steps)
+  warnings.push(...turn.warnings)
 
-  for (let j = 0; j < upperFlightTreads; j++) {
-    const q0 = -(j * going), q1 = -((j + 1) * going)
-    const a = toWorld(0, q0), b = toWorld(0, q1), c = toWorld(width, q1), d = toWorld(width, q0)
-    steps.push({
-      index: stepsBeforeTurn + windersPerTurn + j,
-      topHeight: (stepsBeforeTurn + windersPerTurn + j + 1) * riserHeight,
-      footprint: [a, b, c, d],
-    })
-  }
+  const upperStartIndex = stepsBeforeTurn + windersPerTurn
+  steps.push(...straightFlightSteps(upperStartIndex, upperFlightTreads, going, riserHeight, turn.outgoing.originX, turn.outgoing.originY, turn.outgoing.dirX, turn.outgoing.dirY, turn.outgoing.perpX, turn.outgoing.perpY, width))
 
   return {
     ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps: normalizeWinding(steps, side),
     turnDirection, windersPerTurn, stepsBeforeTurn, pivotOffset, walklineOffset,
+    upperFlightTreads, walklineGoing,
+    warnings,
+  }
+}
+
+function computeUWinderSteps(stair) {
+  const derived = computeStairDerived(stair)
+  const { treadCount, going, riserHeight } = derived
+  const width = stair.width || DEFAULT_STAIR_WIDTH
+  const side = stair.flip ? -1 : 1
+  const rad = ((stair.rotation || 0) * Math.PI) / 180
+  const dirX = Math.cos(rad), dirY = Math.sin(rad)
+  const perpX = -dirY * side, perpY = dirX * side
+
+  const windersPerTurn = stair.windersPerTurn || DEFAULT_WINDERS_PER_TURN
+  const pivotOffset = stair.pivotOffset || DEFAULT_PIVOT_OFFSET
+  const turnDirection = stair.turnDirection || DEFAULT_TURN_DIRECTION
+  const walklineOffset = getWalklineOffset(stair)
+  const wellGap = Math.max(0, stair.wellGap || 0)
+
+  const warnings = [...derived.warnings]
+  const maxStepsBeforeTurn = Math.max(0, treadCount - 2 * windersPerTurn)
+  const requestedStepsBeforeTurn = stair.stepsBeforeTurn ?? maxStepsBeforeTurn
+  const stepsBeforeTurn = Math.min(Math.max(0, requestedStepsBeforeTurn), maxStepsBeforeTurn)
+  if (requestedStepsBeforeTurn !== stepsBeforeTurn) warnings.push({ code: 'stepsBeforeTurnClamped', value: stepsBeforeTurn, level: 'warning' })
+  const maxMiddleFlightSteps = Math.max(0, treadCount - stepsBeforeTurn - 2 * windersPerTurn)
+  const requestedMiddleFlightSteps = stair.middleFlightSteps ?? 0
+  const middleFlightSteps = Math.min(Math.max(0, requestedMiddleFlightSteps), maxMiddleFlightSteps)
+  if (requestedMiddleFlightSteps !== middleFlightSteps) warnings.push({ code: 'middleFlightStepsClamped', value: middleFlightSteps, level: 'warning' })
+  const upperFlightTreads = Math.max(0, treadCount - stepsBeforeTurn - 2 * windersPerTurn - middleFlightSteps)
+
+  // applyTurn's outgoing width axis is the incoming direction, UNCHANGED --
+  // correct and tested for a single turn, but the SECOND turn's own incoming
+  // frame is DERIVED from the first turn's outgoing frame rather than being
+  // a fresh one -- so chaining two turns with the user's own turnDirection
+  // for both does not produce a 180-degree U (verified numerically across
+  // both turnDirection values and both flip states: the only internal
+  // turnDirection that completes a true 180 for turn 2, regardless of what
+  // turn 1 used, is 'right'). Turn 1 still uses the user's real
+  // turnDirection -- that alone governs which way the whole U opens.
+  const turn2Direction = 'right'
+
+  const angleStepRad = ((90 / windersPerTurn) * Math.PI) / 180
+  const walklineGoing = walklineOffset * angleStepRad
+  warnings.push({ code: 'walklineGoing', value: Math.round(walklineGoing), target: Math.round(going), level: 'info' })
+  const winderComfort = 2 * riserHeight + walklineGoing
+  if (winderComfort < 550 || winderComfort > 700) warnings.push({ code: 'winderComfort', value: Math.round(winderComfort), level: 'warning' })
+
+  const steps = straightFlightSteps(0, stepsBeforeTurn, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width)
+
+  const turn1Origin = { originX: stair.x + dirX * stepsBeforeTurn * going, originY: stair.y + dirY * stepsBeforeTurn * going, dirX, dirY, perpX, perpY }
+  const turn1 = applyTurn(turn1Origin, { width, windersPerTurn, pivotOffset, turnDirection, startIndex: stepsBeforeTurn, riserHeight })
+  steps.push(...turn1.steps)
+  warnings.push(...turn1.warnings.map(w => ({ ...w, turn: 1 })))
+
+  const middleStartIndex = stepsBeforeTurn + windersPerTurn
+  const middleSteps = straightFlightSteps(middleStartIndex, middleFlightSteps, going, riserHeight, turn1.outgoing.originX, turn1.outgoing.originY, turn1.outgoing.dirX, turn1.outgoing.dirY, turn1.outgoing.perpX, turn1.outgoing.perpY, width)
+  steps.push(...middleSteps)
+
+  const middleEndOriginX = turn1.outgoing.originX + turn1.outgoing.dirX * middleFlightSteps * going
+  const middleEndOriginY = turn1.outgoing.originY + turn1.outgoing.dirY * middleFlightSteps * going
+  // wellGap is empty (non-tread) distance along the middle flight's own
+  // walking direction, not a shift across its width -- it's what pushes the
+  // second turn's square (and everything after it) further along that same
+  // axis the middle flight already travels, landing the upper flight
+  // exactly width+wellGap+width from the lower flight along their shared
+  // width axis (with middleFlightSteps=0 and wellGap=0, turn 2 sits flush
+  // against turn 1, matching the confirmed no-gap case).
+  const turn2Origin = {
+    originX: middleEndOriginX + turn1.outgoing.dirX * wellGap,
+    originY: middleEndOriginY + turn1.outgoing.dirY * wellGap,
+    dirX: turn1.outgoing.dirX, dirY: turn1.outgoing.dirY, perpX: turn1.outgoing.perpX, perpY: turn1.outgoing.perpY,
+  }
+  const turn2StartIndex = middleStartIndex + middleFlightSteps
+  const turn2 = applyTurn(turn2Origin, { width, windersPerTurn, pivotOffset, turnDirection: turn2Direction, startIndex: turn2StartIndex, riserHeight })
+  steps.push(...turn2.steps)
+  warnings.push(...turn2.warnings.map(w => ({ ...w, turn: 2 })))
+
+  const upperStartIndex = turn2StartIndex + windersPerTurn
+  steps.push(...straightFlightSteps(upperStartIndex, upperFlightTreads, going, riserHeight, turn2.outgoing.originX, turn2.outgoing.originY, turn2.outgoing.dirX, turn2.outgoing.dirY, turn2.outgoing.perpX, turn2.outgoing.perpY, width))
+
+  return {
+    ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps: normalizeWinding(steps, side),
+    turnDirection, windersPerTurn, stepsBeforeTurn, middleFlightSteps, wellGap, pivotOffset, walklineOffset,
     upperFlightTreads, walklineGoing,
     warnings,
   }
@@ -226,15 +323,37 @@ function computeWinderSteps(stair) {
 // instead of deriving the geometry itself.
 export function computeStairSteps(stair) {
   if (stair.shape === 'L-winder') return computeWinderSteps(stair)
+  if (stair.shape === 'U-winder') return computeUWinderSteps(stair)
   return computeStraightSteps(stair)
 }
 
+// The walkline's path through one turn, offset walklineOffset from the
+// pivot -- an arc from where it meets the incoming flight's own offset line
+// (phi=0) to where it meets the outgoing flight's (phi=90), in the same
+// canonical frame applyTurn uses (so the visual walkline always matches the
+// tread geometry it's drawn over instead of being derived separately).
+function turnWalklineArc(frame, width, turnDirection, walklineOffset, arcSteps = 12) {
+  const { originX, originY, dirX, dirY, perpX, perpY } = frame
+  const turnSign = turnDirection === 'left' ? 1 : -1
+  const toWorld = (pCanon, qCanon) => {
+    const realQ = qRealFromCanon(qCanon, width, turnSign)
+    return [originX + pCanon * dirX + realQ * perpX, originY + pCanon * dirY + realQ * perpY]
+  }
+  const points = []
+  for (let i = 0; i <= arcSteps; i++) {
+    const phi = (i / arcSteps) * (Math.PI / 2)
+    points.push(toWorld(Math.sin(phi) * walklineOffset, Math.cos(phi) * walklineOffset))
+  }
+  return points
+}
+
 // A polyline through the middle of the walking surface, offset walklineOffset
-// from the inner side of the stair, following the path through any turn --
+// from the inner side of the stair, following the path through any turn(s) --
 // used for the 2D walkline overlay and its UP arrow/label. For a straight
-// stair this is just its centerline-ish offset line; for a winder it follows
-// the same canonical (p,q) turn frame computeWinderSteps uses, arcing around
-// the pivot at radius walklineOffset.
+// stair this is just its centerline-ish offset line; for a winder it arcs
+// through each turn at radius walklineOffset around that turn's own pivot,
+// reusing applyTurn's own frame math (not a separately derived one) so the
+// drawn line always matches the tread geometry.
 export function computeWalklinePath(stair) {
   const width = stair.width || DEFAULT_STAIR_WIDTH
   const side = stair.flip ? -1 : 1
@@ -242,36 +361,54 @@ export function computeWalklinePath(stair) {
   const dirX = Math.cos(rad), dirY = Math.sin(rad)
   const perpX = -dirY * side, perpY = dirX * side
   const walklineOffset = getWalklineOffset(stair)
+  const going = stair.going || DEFAULT_GOING
+  const derived = computeStairDerived(stair)
 
-  if (stair.shape !== 'L-winder') {
-    const derived = computeStairDerived(stair)
+  const isL = stair.shape === 'L-winder', isU = stair.shape === 'U-winder'
+  if (!isL && !isU) {
     const p0x = stair.x + perpX * walklineOffset, p0y = stair.y + perpY * walklineOffset
     const p1x = p0x + dirX * derived.runLength, p1y = p0y + dirY * derived.runLength
     return [[p0x, p0y], [p1x, p1y]]
   }
 
-  const derived = computeStairDerived(stair)
   const windersPerTurn = stair.windersPerTurn || DEFAULT_WINDERS_PER_TURN
-  const maxStepsBeforeTurn = Math.max(0, derived.treadCount - windersPerTurn)
+  const pivotOffset = stair.pivotOffset || DEFAULT_PIVOT_OFFSET
+  const turnDirection = stair.turnDirection || DEFAULT_TURN_DIRECTION
+  const turnsCount = isU ? 2 : 1
+  const maxStepsBeforeTurn = Math.max(0, derived.treadCount - windersPerTurn * turnsCount)
   const stepsBeforeTurn = Math.min(Math.max(0, stair.stepsBeforeTurn ?? maxStepsBeforeTurn), maxStepsBeforeTurn)
-  const upperFlightTreads = Math.max(0, derived.treadCount - stepsBeforeTurn - windersPerTurn)
-  const turnSign = (stair.turnDirection || DEFAULT_TURN_DIRECTION) === 'left' ? 1 : -1
-  const going = stair.going || DEFAULT_GOING
 
-  const toWorld = (pCanon, qCanon) => {
-    const realP = stepsBeforeTurn * going + pCanon
-    const realQ = qRealFromCanon(qCanon, width, turnSign)
-    return [stair.x + realP * dirX + realQ * perpX, stair.y + realP * dirY + realQ * perpY]
+  const turn1Frame = { originX: stair.x + dirX * stepsBeforeTurn * going, originY: stair.y + dirY * stepsBeforeTurn * going, dirX, dirY, perpX, perpY }
+  const points = [[stair.x + perpX * walklineOffset, stair.y + perpY * walklineOffset]]
+  points.push(...turnWalklineArc(turn1Frame, width, turnDirection, walklineOffset))
+  const turn1 = applyTurn(turn1Frame, { width, windersPerTurn, pivotOffset, turnDirection, startIndex: 0, riserHeight: 1 })
+
+  if (isL) {
+    const upperFlightTreads = Math.max(0, derived.treadCount - stepsBeforeTurn - windersPerTurn)
+    points.push([turn1.outgoing.originX + turn1.outgoing.perpX * walklineOffset + turn1.outgoing.dirX * upperFlightTreads * going,
+      turn1.outgoing.originY + turn1.outgoing.perpY * walklineOffset + turn1.outgoing.dirY * upperFlightTreads * going])
+    return points
   }
 
-  const points = []
-  points.push(toWorld(-stepsBeforeTurn * going, walklineOffset), toWorld(0, walklineOffset))
-  const ARC_STEPS = 12
-  for (let i = 1; i <= ARC_STEPS; i++) {
-    const phi = (i / ARC_STEPS) * (Math.PI / 2)
-    points.push(toWorld(Math.sin(phi) * walklineOffset, Math.cos(phi) * walklineOffset))
+  const maxMiddleFlightSteps = Math.max(0, derived.treadCount - stepsBeforeTurn - 2 * windersPerTurn)
+  const middleFlightSteps = Math.min(Math.max(0, stair.middleFlightSteps ?? 0), maxMiddleFlightSteps)
+  const wellGap = Math.max(0, stair.wellGap || 0)
+  const upperFlightTreads = Math.max(0, derived.treadCount - stepsBeforeTurn - 2 * windersPerTurn - middleFlightSteps)
+
+  const middleEndX = turn1.outgoing.originX + turn1.outgoing.dirX * middleFlightSteps * going
+  const middleEndY = turn1.outgoing.originY + turn1.outgoing.dirY * middleFlightSteps * going
+  points.push([middleEndX + turn1.outgoing.perpX * walklineOffset, middleEndY + turn1.outgoing.perpY * walklineOffset])
+
+  const turn2Frame = {
+    originX: middleEndX + turn1.outgoing.dirX * wellGap, originY: middleEndY + turn1.outgoing.dirY * wellGap,
+    dirX: turn1.outgoing.dirX, dirY: turn1.outgoing.dirY, perpX: turn1.outgoing.perpX, perpY: turn1.outgoing.perpY,
   }
-  points.push(toWorld(walklineOffset, -(upperFlightTreads * going)))
+  const turn2Direction = 'right'
+  points.push(...turnWalklineArc(turn2Frame, width, turn2Direction, walklineOffset))
+  const turn2 = applyTurn(turn2Frame, { width, windersPerTurn, pivotOffset, turnDirection: turn2Direction, startIndex: 0, riserHeight: 1 })
+
+  points.push([turn2.outgoing.originX + turn2.outgoing.perpX * walklineOffset + turn2.outgoing.dirX * upperFlightTreads * going,
+    turn2.outgoing.originY + turn2.outgoing.perpY * walklineOffset + turn2.outgoing.dirY * upperFlightTreads * going])
 
   return points
 }

@@ -169,3 +169,126 @@ describe.each([
     expect(signs.every(s => s === signs[0])).toBe(true)
   })
 })
+
+const MIDDLE_FLIGHT_STEPS = 1, WELL_GAP = 300, U_STEPS_BEFORE_TURN = 4
+
+function makeUStair(turnDirection, flip, overrides = {}) {
+  return {
+    x: 0, y: 0, rotation: 0, width: WIDTH, going: GOING, maxRiser: MAX_RISER, totalRise: TOTAL_RISE,
+    shape: 'U-winder', windersPerTurn: WINDERS, stepsBeforeTurn: U_STEPS_BEFORE_TURN,
+    middleFlightSteps: MIDDLE_FLIGHT_STEPS, wellGap: WELL_GAP,
+    turnDirection, flip, pivotOffset: 0, walklineOffset: 450,
+    ...overrides,
+  }
+}
+
+describe.each([
+  ['left', false], ['right', false], ['left', true], ['right', true],
+])('computeStairSteps U-winder (turn=%s, flip=%s)', (turnDirection, flip) => {
+  const stair = makeUStair(turnDirection, flip)
+  const data = computeStairSteps(stair)
+  const steps = data.steps
+  const turn1Start = U_STEPS_BEFORE_TURN
+  const turn2Start = U_STEPS_BEFORE_TURN + WINDERS + MIDDLE_FLIGHT_STEPS
+  const upperStart = turn2Start + WINDERS
+
+  it('has 16 risers and 15 treads, all accounted for (lower + turn1 + middle + turn2 + upper)', () => {
+    expect(data.riserCount).toBe(16)
+    expect(data.treadCount).toBe(15)
+    expect(steps.length).toBe(15)
+    expect(upperStart + data.upperFlightTreads).toBe(15)
+  })
+
+  it('returns steps in walking order with strictly increasing, evenly-spaced top heights', () => {
+    for (let i = 0; i < steps.length; i++) {
+      const expected = (i + 1) * EXPECTED_RISER_HEIGHT
+      expect(steps[i].topHeight).toBeCloseTo(expected, 6)
+      if (i > 0) expect(steps[i].topHeight - steps[i - 1].topHeight).toBeCloseTo(EXPECTED_RISER_HEIGHT, 6)
+    }
+  })
+
+  it('both turns tile their own width x width square with no overlap, and every winder is simple with positive area', () => {
+    for (const start of [turn1Start, turn2Start]) {
+      const polys = steps.slice(start, start + WINDERS).map(s => s.footprint)
+      polys.forEach(p => {
+        expect(polygonArea(p)).toBeGreaterThan(0)
+        expect(isSimplePolygon(p)).toBe(true)
+      })
+      const totalArea = polys.reduce((s, p) => s + polygonArea(p), 0)
+      expect(totalArea).toBeCloseTo(WIDTH * WIDTH, 0)
+      for (let i = 0; i < polys.length; i++) {
+        for (let j = i + 1; j < polys.length; j++) {
+          expect(polysOverlapArea(polys[i], polys[j])).toBe(false)
+        }
+      }
+    }
+  })
+
+  it('turn 1 shares a full width edge with the last lower-flight tread', () => {
+    expect(sharedEdgeLength(steps[turn1Start - 1].footprint, steps[turn1Start].footprint)).toBeCloseTo(WIDTH, 0)
+  })
+
+  it('turn 1 shares a full width edge with the first middle-flight tread', () => {
+    expect(sharedEdgeLength(steps[turn1Start + WINDERS - 1].footprint, steps[turn1Start + WINDERS].footprint)).toBeCloseTo(WIDTH, 0)
+  })
+
+  it('turn 2 shares a full width edge with the first upper-flight tread', () => {
+    expect(sharedEdgeLength(steps[turn2Start + WINDERS - 1].footprint, steps[upperStart].footprint)).toBeCloseTo(WIDTH, 0)
+  })
+
+  it('each turn radiates from its own inner-corner pivot and its kite contains the outer corner', () => {
+    for (const start of [turn1Start, turn2Start]) {
+      const winders = steps.slice(start, start + WINDERS).map(s => s.footprint)
+      const [first, mid, last] = winders
+      const pivotCandidates = first.filter(v => findVertex(mid, v) && findVertex(last, v))
+      expect(pivotCandidates.length).toBeGreaterThanOrEqual(1)
+      const pivot = pivotCandidates[0]
+      const kite = winders.reduce((a, b) => (b.length > a.length ? b : a))
+      expect(kite.length).toBe(4)
+      const outerCorner = kite.reduce((farthest, v) => {
+        const d = Math.hypot(v[0] - pivot[0], v[1] - pivot[1])
+        return d > farthest.d ? { v, d } : farthest
+      }, { v: null, d: -1 }).v
+      expect(Math.hypot(outerCorner[0] - pivot[0], outerCorner[1] - pivot[1])).toBeCloseTo(WIDTH * Math.SQRT2, 0)
+    }
+  })
+
+  it('the upper flight walks anti-parallel to the lower flight (a true 180 degree U, not a 360 loop)', () => {
+    const lower = steps[0].footprint
+    const upper = steps[upperStart].footprint
+    const lowerDir = [lower[1][0] - lower[0][0], lower[1][1] - lower[0][1]]
+    const upperDir = [upper[1][0] - upper[0][0], upper[1][1] - upper[0][1]]
+    const lowerLen = Math.hypot(...lowerDir), upperLen = Math.hypot(...upperDir)
+    const dot = (lowerDir[0] * upperDir[0] + lowerDir[1] * upperDir[1]) / (lowerLen * upperLen)
+    expect(dot).toBeCloseTo(-1, 6)
+  })
+
+  it('the lower and upper flights are separated by exactly middleFlightSteps*going + wellGap along their shared width axis', () => {
+    const lower = steps[0].footprint
+    const upper = steps[upperStart].footprint
+    const widthAxis = [lower[3][0] - lower[0][0], lower[3][1] - lower[0][1]]
+    const axisLen = Math.hypot(...widthAxis)
+    const unit = [widthAxis[0] / axisLen, widthAxis[1] / axisLen]
+    const project = (p) => p[0] * unit[0] + p[1] * unit[1]
+    const lowerProj = lower.map(project), upperProj = upper.map(project)
+    const lowerMin = Math.min(...lowerProj), lowerMax = Math.max(...lowerProj)
+    const upperMin = Math.min(...upperProj), upperMax = Math.max(...upperProj)
+    const gap = Math.max(upperMin - lowerMax, lowerMin - upperMax)
+    expect(gap).toBeCloseTo(MIDDLE_FLIGHT_STEPS * GOING + WELL_GAP, 0)
+  })
+
+  it('every footprint winds consistently (same sign of signed area throughout)', () => {
+    const signs = steps.map(s => signedArea(s.footprint) >= 0)
+    expect(signs.every(s => s === signs[0])).toBe(true)
+  })
+})
+
+describe('computeStairSteps U-winder with middleFlightSteps=0 and wellGap=0', () => {
+  it('turn 1 and turn 2 sit immediately adjacent, sharing a full width edge', () => {
+    const stair = makeUStair('left', false, { middleFlightSteps: 0, wellGap: 0 })
+    const data = computeStairSteps(stair)
+    const turn1Start = U_STEPS_BEFORE_TURN
+    const turn2Start = U_STEPS_BEFORE_TURN + WINDERS
+    expect(sharedEdgeLength(data.steps[turn1Start + WINDERS - 1].footprint, data.steps[turn2Start].footprint)).toBeCloseTo(WIDTH, 0)
+  })
+})
