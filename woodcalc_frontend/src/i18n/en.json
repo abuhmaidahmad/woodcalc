@@ -1224,7 +1224,20 @@
     "stairWarnRiser": "Riser height {{val}}mm (comfortable range 150–190mm)",
     "stairWarnGoing": "Going {{val}}mm (comfortable range 250–300mm)",
     "stairMaterial": "Material",
-    "steppedTopToggle": "Follow stair above (stepped top)"
+    "steppedTopToggle": "Follow stair above (stepped top)",
+    "stairTurn": "Turn",
+    "stairTurnDirection": "Direction",
+    "stairTurnLeft": "Left",
+    "stairTurnRight": "Right",
+    "stairWindersPerTurn": "Winders per Turn",
+    "stairStepsBeforeTurn": "Treads Before Turn",
+    "stairPivotOffset": "Pivot Offset (mm)",
+    "stairWalklineOffset": "Walkline Offset (mm)",
+    "stairShowWalkline": "Show Walkline (dashed)",
+    "stairUpperFlightSummary": "Upper flight: {{count}} treads",
+    "stairWarnStepsClamped": "Treads before turn clamped to {{val}} to fit",
+    "stairWarnWalklineGoing": "Going at the walkline is {{val}}mm, not {{target}}mm",
+    "stairWarnNarrowEnd": "Winder {{index}} narrow end is {{val}}mm (min 50mm)"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

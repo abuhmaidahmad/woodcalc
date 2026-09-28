@@ -34,11 +34,24 @@ export function goingFromRunLength(stair, runLength) {
   return runLength / treadCount
 }
 
-// Single source of truth for a stair's stepped shape: one solid box per tread,
-// stacked along the walking direction from the start point. Every consumer
-// (2D preview/symbol, 3D mesh, SAT collision, cabinet top_profile sampling)
-// reads this instead of deriving the geometry itself.
-export function computeStairSteps(stair) {
+function straightFlightSteps(startIndex, treadCount, going, riserHeight, originX, originY, dirX, dirY, perpX, perpY, width) {
+  const steps = []
+  for (let i = 0; i < treadCount; i++) {
+    const d0 = i * going, d1 = (i + 1) * going
+    const p0x = originX + dirX * d0, p0y = originY + dirY * d0
+    const p1x = originX + dirX * d1, p1y = originY + dirY * d1
+    const w0x = p0x + perpX * width, w0y = p0y + perpY * width
+    const w1x = p1x + perpX * width, w1y = p1y + perpY * width
+    steps.push({
+      index: startIndex + i,
+      topHeight: (startIndex + i + 1) * riserHeight,
+      footprint: [[p0x, p0y], [p1x, p1y], [w1x, w1y], [w0x, w0y]],
+    })
+  }
+  return steps
+}
+
+function computeStraightSteps(stair) {
   const derived = computeStairDerived(stair)
   const { treadCount, going, riserHeight } = derived
   const width = stair.width || DEFAULT_STAIR_WIDTH
@@ -47,39 +60,176 @@ export function computeStairSteps(stair) {
   const dirX = Math.cos(rad), dirY = Math.sin(rad)
   const perpX = -dirY * side, perpY = dirX * side
 
-  const steps = []
-  for (let i = 0; i < treadCount; i++) {
-    const d0 = i * going, d1 = (i + 1) * going
-    const p0x = stair.x + dirX * d0, p0y = stair.y + dirY * d0
-    const p1x = stair.x + dirX * d1, p1y = stair.y + dirY * d1
-    const w0x = p0x + perpX * width, w0y = p0y + perpY * width
-    const w1x = p1x + perpX * width, w1y = p1y + perpY * width
-    steps.push({
-      index: i,
-      topHeight: (i + 1) * riserHeight,
-      footprint: [[p0x, p0y], [p1x, p1y], [w1x, w1y], [w0x, w0y]],
-    })
-  }
+  const steps = straightFlightSteps(0, treadCount, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width)
 
   return { ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps }
 }
 
-// Overall plan-view bounding rectangle (start face, end face, both sides) --
-// used for the drawing preview and for click/drag hit targets, without
-// needing every individual step footprint.
-export function getStairOutline(stair) {
+export const DEFAULT_TURN_DIRECTION = 'left'
+export const DEFAULT_WINDERS_PER_TURN = 3
+export const DEFAULT_PIVOT_OFFSET = 0
+export const DEFAULT_WALKLINE_OFFSET = 450
+export const MIN_WINDER_NARROW_MM = 50
+
+export function getWalklineOffset(stair) {
+  const width = stair.width || DEFAULT_STAIR_WIDTH
+  return Math.min(stair.walklineOffset || DEFAULT_WALKLINE_OFFSET, width / 2)
+}
+
+// One 90 degree turn's tread footprints, in a canonical local (p,q) frame:
+// p runs along the incoming flight's own walking direction (and doubles as
+// the outgoing flight's own width axis), q runs along the incoming flight's
+// width axis (and doubles as the outgoing flight's walking direction).
+// windersPerTurn treads split the square into windersPerTurn EQUAL angles
+// around the pivot at (0,0) -- equal angles is what makes every winder's
+// walkline going equal (arc length is proportional to angle at the walkline's
+// constant radius from that same pivot), not an assumption made in place of
+// checking the walkline. pivotOffset only chamfers the two outermost
+// boundaries (the ones that coincide with the pre-existing wall lines) --
+// interior boundaries between winders always meet exactly at the pivot.
+function winderTurnLocalPolygons(width, windersPerTurn, pivotOffset) {
+  const rayHit = (phiDeg) => {
+    const phi = (phiDeg * Math.PI) / 180
+    const t = Math.tan(phi)
+    if (phiDeg <= 45) return [width, width * t]
+    return [width / t, width]
+  }
+  const angleStep = 90 / windersPerTurn
+  const polygons = []
+  for (let w = 0; w < windersPerTurn; w++) {
+    const phiA = w * angleStep, phiB = (w + 1) * angleStep
+    const innerA = w === 0 ? [pivotOffset, 0] : [0, 0]
+    const innerB = w === windersPerTurn - 1 ? [0, pivotOffset] : [0, 0]
+    const outerA = rayHit(phiA)
+    const outerB = rayHit(phiB)
+    const points = [innerA]
+    if (phiA < 45 && phiB > 45) points.push(outerA, [width, width], outerB)
+    else points.push(outerA, outerB)
+    if (innerB[0] !== innerA[0] || innerB[1] !== innerA[1]) points.push(innerB)
+    polygons.push({ points, phiA, phiB })
+  }
+  return polygons
+}
+
+function computeWinderSteps(stair) {
   const derived = computeStairDerived(stair)
+  const { treadCount, going, riserHeight } = derived
   const width = stair.width || DEFAULT_STAIR_WIDTH
   const side = stair.flip ? -1 : 1
   const rad = ((stair.rotation || 0) * Math.PI) / 180
   const dirX = Math.cos(rad), dirY = Math.sin(rad)
   const perpX = -dirY * side, perpY = dirX * side
-  const runLength = derived.runLength
-  const p0x = stair.x, p0y = stair.y
-  const p1x = stair.x + dirX * runLength, p1y = stair.y + dirY * runLength
-  const w0x = p0x + perpX * width, w0y = p0y + perpY * width
-  const w1x = p1x + perpX * width, w1y = p1y + perpY * width
-  return [[p0x, p0y], [p1x, p1y], [w1x, w1y], [w0x, w0y]]
+
+  const windersPerTurn = stair.windersPerTurn || DEFAULT_WINDERS_PER_TURN
+  const pivotOffset = stair.pivotOffset || DEFAULT_PIVOT_OFFSET
+  const turnDirection = stair.turnDirection || DEFAULT_TURN_DIRECTION
+  const turnSign = turnDirection === 'left' ? 1 : -1
+  const walklineOffset = getWalklineOffset(stair)
+
+  const warnings = [...derived.warnings]
+  const maxStepsBeforeTurn = Math.max(0, treadCount - windersPerTurn)
+  const requestedStepsBeforeTurn = stair.stepsBeforeTurn ?? maxStepsBeforeTurn
+  const stepsBeforeTurn = Math.min(Math.max(0, requestedStepsBeforeTurn), maxStepsBeforeTurn)
+  if (requestedStepsBeforeTurn !== stepsBeforeTurn) warnings.push({ code: 'stepsBeforeTurnClamped', value: stepsBeforeTurn })
+  const upperFlightTreads = Math.max(0, treadCount - stepsBeforeTurn - windersPerTurn)
+
+  const angleStepRad = ((90 / windersPerTurn) * Math.PI) / 180
+  const walklineGoing = walklineOffset * angleStepRad
+  if (Math.abs(walklineGoing - going) > 1) warnings.push({ code: 'walklineGoing', value: Math.round(walklineGoing), target: Math.round(going) })
+
+  const pivotX = stair.x + dirX * stepsBeforeTurn * going
+  const pivotY = stair.y + dirY * stepsBeforeTurn * going
+  const qDirX = perpX * turnSign, qDirY = perpY * turnSign
+  const toWorld = (p, q) => [pivotX + p * dirX + q * qDirX, pivotY + p * dirY + q * qDirY]
+
+  const steps = straightFlightSteps(0, stepsBeforeTurn, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width)
+
+  const winderPolys = winderTurnLocalPolygons(width, windersPerTurn, pivotOffset)
+  winderPolys.forEach((poly, w) => {
+    const footprint = poly.points.map(([p, q]) => toWorld(p, q))
+    const isEndWinder = w === 0 || w === winderPolys.length - 1
+    const narrowEndMm = isEndWinder ? pivotOffset : 0
+    if (narrowEndMm < MIN_WINDER_NARROW_MM) warnings.push({ code: 'winderNarrowEnd', value: Math.round(narrowEndMm), index: w })
+    steps.push({
+      index: stepsBeforeTurn + w,
+      topHeight: (stepsBeforeTurn + w + 1) * riserHeight,
+      footprint,
+    })
+  })
+
+  for (let j = 0; j < upperFlightTreads; j++) {
+    const q0 = width + j * going, q1 = width + (j + 1) * going
+    const a = toWorld(0, q0), b = toWorld(0, q1), c = toWorld(width, q1), d = toWorld(width, q0)
+    steps.push({
+      index: stepsBeforeTurn + windersPerTurn + j,
+      topHeight: (stepsBeforeTurn + windersPerTurn + j + 1) * riserHeight,
+      footprint: [a, b, c, d],
+    })
+  }
+
+  return {
+    ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps,
+    turnDirection, windersPerTurn, stepsBeforeTurn, pivotOffset, walklineOffset,
+    upperFlightTreads, walklineGoing,
+    warnings,
+  }
+}
+
+// Single source of truth for a stair's stepped shape: one solid volume per
+// tread, stacked along the walking path from the start point (straight,
+// L-winder, or -- once added -- U-winder). Every consumer (2D preview/
+// symbol, 3D mesh, SAT collision, cabinet top_profile sampling) reads this
+// instead of deriving the geometry itself.
+export function computeStairSteps(stair) {
+  if (stair.shape === 'L-winder') return computeWinderSteps(stair)
+  return computeStraightSteps(stair)
+}
+
+// A polyline through the middle of the walking surface, offset walklineOffset
+// from the inner side of the stair, following the path through any turn --
+// used for the 2D walkline overlay and its UP arrow/label. For a straight
+// stair this is just its centerline-ish offset line; for a winder it follows
+// the same canonical (p,q) turn frame computeWinderSteps uses, arcing around
+// the pivot at radius walklineOffset.
+export function computeWalklinePath(stair) {
+  const width = stair.width || DEFAULT_STAIR_WIDTH
+  const side = stair.flip ? -1 : 1
+  const rad = ((stair.rotation || 0) * Math.PI) / 180
+  const dirX = Math.cos(rad), dirY = Math.sin(rad)
+  const perpX = -dirY * side, perpY = dirX * side
+  const walklineOffset = getWalklineOffset(stair)
+
+  if (stair.shape !== 'L-winder') {
+    const derived = computeStairDerived(stair)
+    const p0x = stair.x + perpX * walklineOffset, p0y = stair.y + perpY * walklineOffset
+    const p1x = p0x + dirX * derived.runLength, p1y = p0y + dirY * derived.runLength
+    return [[p0x, p0y], [p1x, p1y]]
+  }
+
+  const derived = computeStairDerived(stair)
+  const windersPerTurn = stair.windersPerTurn || DEFAULT_WINDERS_PER_TURN
+  const maxStepsBeforeTurn = Math.max(0, derived.treadCount - windersPerTurn)
+  const stepsBeforeTurn = Math.min(Math.max(0, stair.stepsBeforeTurn ?? maxStepsBeforeTurn), maxStepsBeforeTurn)
+  const upperFlightTreads = Math.max(0, derived.treadCount - stepsBeforeTurn - windersPerTurn)
+  const turnSign = (stair.turnDirection || DEFAULT_TURN_DIRECTION) === 'left' ? 1 : -1
+  const going = stair.going || DEFAULT_GOING
+
+  const pivotX = stair.x + dirX * stepsBeforeTurn * going
+  const pivotY = stair.y + dirY * stepsBeforeTurn * going
+  const qDirX = perpX * turnSign, qDirY = perpY * turnSign
+  const toWorld = (p, q) => [pivotX + p * dirX + q * qDirX, pivotY + p * dirY + q * qDirY]
+
+  const points = []
+  const lowerStart = toWorld(-stepsBeforeTurn * going, walklineOffset)
+  points.push(lowerStart, toWorld(0, walklineOffset))
+  const ARC_STEPS = 12
+  for (let i = 1; i <= ARC_STEPS; i++) {
+    const phi = (i / ARC_STEPS) * (Math.PI / 2)
+    points.push(toWorld(Math.sin(phi) * walklineOffset, Math.cos(phi) * walklineOffset))
+  }
+  points.push(toWorld(walklineOffset, width + upperFlightTreads * going))
+
+  return points
 }
 
 function pointInPolygon(px, py, poly) {

@@ -7,7 +7,7 @@ import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
-import { computeStairDerived, findOverlappingStairProfile } from './stairGeometry'
+import { computeStairSteps, findOverlappingStairProfile } from './stairGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -1360,9 +1360,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         })() : selectedType === 'stair' ? (() => {
           const st = stairs.find(s2 => s2.id === selected)
           if (!st) return null
-          const derived = computeStairDerived(st)
+          const derived = computeStairSteps(st)
+          const isWinder = st.shape === 'L-winder'
           const updateStair = (key, val) => setStairs(p => p.map(s2 => s2.id === selected ? { ...s2, [key]: val } : s2))
-          const warningText = { comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing' }
+          const warningText = {
+            comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing',
+            stepsBeforeTurnClamped: 'stairWarnStepsClamped', walklineGoing: 'stairWarnWalklineGoing', winderNarrowEnd: 'stairWarnNarrowEnd',
+          }
           return (
             <div>
               <div style={s.propTitle}>{t('kitchenPlannerModule.stairTitle')}</div>
@@ -1403,6 +1407,57 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 <input type="number" value={st.nosing || 0} onChange={e => updateStair('nosing', +e.target.value)} style={s.propInput} />
               </div>
 
+              {isWinder && (
+                <>
+                  <div style={s.propSection}>{t('kitchenPlannerModule.stairTurn')}</div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.stairTurnDirection')}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {['left', 'right'].map(dir => (
+                        <button key={dir} onClick={() => updateStair('turnDirection', dir)}
+                          style={{ flex: 1, padding: '6px', border: `1.5px solid ${(st.turnDirection || 'left') === dir ? ACCENT : '#E0DAD4'}`, borderRadius: 6, background: (st.turnDirection || 'left') === dir ? ACCENT + '18' : '#fff', color: (st.turnDirection || 'left') === dir ? ACCENT : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          {dir === 'left' ? t('kitchenPlannerModule.stairTurnLeft') : t('kitchenPlannerModule.stairTurnRight')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.stairWindersPerTurn')}</div>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {[2, 3, 4].map(n => (
+                        <button key={n} onClick={() => updateStair('windersPerTurn', n)}
+                          style={{ flex: 1, padding: '6px', border: `1.5px solid ${(st.windersPerTurn || 3) === n ? ACCENT : '#E0DAD4'}`, borderRadius: 6, background: (st.windersPerTurn || 3) === n ? ACCENT + '18' : '#fff', color: (st.windersPerTurn || 3) === n ? ACCENT : '#666', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                          {n}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.stairStepsBeforeTurn')}</div>
+                    <input type="number" min={0} value={st.stepsBeforeTurn ?? 0} onChange={e => updateStair('stepsBeforeTurn', Math.max(0, +e.target.value))} style={s.propInput} />
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.stairPivotOffset')}</div>
+                    <input type="number" min={0} value={st.pivotOffset || 0} onChange={e => updateStair('pivotOffset', Math.max(0, +e.target.value))} style={s.propInput} />
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={s.propLabel}>{t('kitchenPlannerModule.stairWalklineOffset')}</div>
+                    <input type="number" min={0} value={Math.round(derived.walklineOffset)} onChange={e => updateStair('walklineOffset', Math.max(0, +e.target.value))} style={s.propInput} />
+                  </div>
+                  <div style={{ marginBottom: 10 }}>
+                    <div
+                      onClick={() => updateStair('showWalkline', !st.showWalkline)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${st.showWalkline ? ACCENT : '#E0DAD4'}`, background: st.showWalkline ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${st.showWalkline ? ACCENT : '#ccc'}`, background: st.showWalkline ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{st.showWalkline ? '✓' : ''}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: st.showWalkline ? ACCENT : '#666' }}>{t('kitchenPlannerModule.stairShowWalkline')}</span>
+                    </div>
+                  </div>
+                  <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6, fontSize: 11, color: '#8A6D3B', lineHeight: 1.5 }}>
+                    {t('kitchenPlannerModule.stairUpperFlightSummary', { count: derived.upperFlightTreads })}
+                  </div>
+                </>
+              )}
+
               <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6, fontSize: 11, color: '#8A6D3B', lineHeight: 1.5 }}>
                 {t('kitchenPlannerModule.stairSummary', { risers: derived.riserCount, riserHeight: Math.round(derived.riserHeight), run: Math.round(derived.runLength) })}
               </div>
@@ -1421,7 +1476,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 <div style={{ marginBottom: 10 }}>
                   {derived.warnings.map((w, i) => (
                     <div key={i} style={{ padding: '6px 8px', background: '#FEF9E7', border: '1px solid #F5D57A', borderRadius: 6, fontSize: 11, color: '#8A6D00', marginBottom: 4 }}>
-                      ⚠ {t(`kitchenPlannerModule.${warningText[w.code]}`, { val: w.value })}
+                      ⚠ {t(`kitchenPlannerModule.${warningText[w.code]}`, { val: w.value, target: w.target, index: (w.index ?? 0) + 1 })}
                     </div>
                   ))}
                 </div>

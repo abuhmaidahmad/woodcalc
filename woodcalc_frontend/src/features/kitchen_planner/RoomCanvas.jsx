@@ -6,8 +6,9 @@ import {
   chooseDefaultThicknessSide, getWallMidlinePoint,
 } from './wallGeometry'
 import {
-  computeStairDerived, computeStairSteps, goingFromRunLength, makeStairId,
+  computeStairDerived, computeStairSteps, computeWalklinePath, goingFromRunLength, makeStairId,
   DEFAULT_STAIR_WIDTH, DEFAULT_GOING, DEFAULT_MAX_RISER, DEFAULT_NOSING, DEFAULT_TOTAL_RISE,
+  DEFAULT_WINDERS_PER_TURN, DEFAULT_PIVOT_OFFSET, DEFAULT_WALKLINE_OFFSET,
 } from './stairGeometry'
 
 const ACCENT = '#C8902A'
@@ -362,14 +363,45 @@ const STAIR_BREAK_HEIGHT_MM = 1200
 const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, onMouseDown }) {
   const { t } = useTranslation()
   const data = useMemo(() => computeStairSteps(stair), [stair])
+  const isWinder = stair.shape === 'L-winder'
+  const walklinePts = useMemo(() => (isWinder ? computeWalklinePath(stair).map(([px, py]) => [px * scale, py * scale]) : null), [stair, isWinder, scale])
+  const color = selected ? ACCENT : '#333'
+  const breakIdx = data.steps.findIndex(s => s.topHeight >= STAIR_BREAK_HEIGHT_MM)
+
+  if (isWinder) {
+    const pts = walklinePts
+    const last = pts[pts.length - 1], prev = pts[pts.length - 2]
+    const arrowDir = Math.atan2(last[1] - prev[1], last[0] - prev[0])
+    return (
+      <g onMouseDown={onMouseDown} style={{ cursor: 'move' }}>
+        {data.steps.map((step, i) => {
+          const isAboveBreak = breakIdx >= 0 && i >= breakIdx
+          const poly = step.footprint.map(([px, py]) => `${px * scale},${py * scale}`).join(' ')
+          return (
+            <polygon key={i} points={poly}
+              fill={selected ? ACCENT + '14' : '#fafafa'} stroke={color} strokeWidth={1}
+              strokeDasharray={isAboveBreak ? '4,3' : undefined} />
+          )
+        })}
+        {stair.showWalkline && (
+          <polyline points={pts.map(p => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={1} strokeDasharray="4,3" />
+        )}
+        <polyline points={pts.map(p => p.join(',')).join(' ')} fill="none" stroke={color} strokeWidth={1.5} />
+        <path d={`M ${last[0]} ${last[1]} L ${last[0] - 10 * Math.cos(arrowDir - 0.4)} ${last[1] - 10 * Math.sin(arrowDir - 0.4)} L ${last[0] - 10 * Math.cos(arrowDir + 0.4)} ${last[1] - 10 * Math.sin(arrowDir + 0.4)} Z`}
+          fill={color} stroke={color} />
+        <text x={pts[0][0]} y={pts[0][1] - 8} textAnchor="middle" fontSize={10} fontWeight={700} fill={color}
+          style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
+        <circle cx={stair.x * scale} cy={stair.y * scale} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+      </g>
+    )
+  }
+
   const x = stair.x * scale, y = stair.y * scale
   const rot = stair.rotation || 0
   const wpx = data.width * scale * (data.flip ? -1 : 1)
   const runPx = data.runLength * scale
   const goingPx = data.going * scale
-  const color = selected ? ACCENT : '#333'
 
-  const breakIdx = data.steps.findIndex(s => s.topHeight >= STAIR_BREAK_HEIGHT_MM)
   const breakX = breakIdx > 0 ? breakIdx * goingPx : null
 
   const midY = wpx / 2
@@ -661,36 +693,87 @@ export default function RoomCanvas({
   // derived quantity -- so the mouse only ever supplies the direction here.
   // With no typed length, the preview always shows the default going's run;
   // typing a length back-solves going for the fixed riser count instead.
+  // A wide enough sideways swing of the mouse past the lower flight's own
+  // heading reads as "the user is choosing a turn" rather than just an
+  // imprecise straight click -- picked to be roughly one tread's worth of
+  // deviation, not a hair-trigger.
+  const STAIR_TURN_DETECT_MM = 250
+
   const getStairPreviewEnd = useCallback(() => {
     if (!startPoint || !mousePos) return null
-    const rawAngle = radToDeg(Math.atan2(mousePos.y - startPoint.y, mousePos.x - startPoint.x))
+    const dx = mousePos.x - startPoint.x, dy = mousePos.y - startPoint.y
     const wallAngle = findNearestWallAngle(startPoint.x, startPoint.y, walls, Infinity)
     const candidates = [0, 90, 180, 270]
     if (wallAngle != null) candidates.push(wallAngle, wallAngle + 90, wallAngle + 180, wallAngle + 270)
-    const snappedCandidate = snapAngleToCandidates(rawAngle, candidates, 6)
-    const angleDeg = lockedAngle !== null ? lockedAngle : (snappedCandidate ?? rawAngle)
 
     const totalRise = room?.ceilingHeight || DEFAULT_TOTAL_RISE
     const maxRiser = DEFAULT_MAX_RISER
-    const draftStair = { totalRise, maxRiser, going: lockedLength !== null ? goingFromRunLength({ totalRise, maxRiser }, lockedLength) : DEFAULT_GOING }
-    const derived = computeStairDerived(draftStair)
-    const lenPx = derived.runLength * scale
-    const rad = degToRad(angleDeg)
+
+    let dominantDeg = null, dominantProj = -Infinity
+    candidates.forEach(c => {
+      const rad = degToRad(c)
+      const proj = dx * Math.cos(rad) + dy * Math.sin(rad)
+      if (proj > dominantProj) { dominantProj = proj; dominantDeg = c }
+    })
+    const domRad = degToRad(dominantDeg)
+    const perpProjStd = -dx * Math.sin(domRad) + dy * Math.cos(domRad)
+    const isTurning = lockedAngle === null && Math.abs(perpProjStd) / scale > STAIR_TURN_DETECT_MM
+
+    if (!isTurning) {
+      const rawAngle = radToDeg(Math.atan2(dy, dx))
+      const snappedCandidate = snapAngleToCandidates(rawAngle, candidates, 6)
+      const angleDeg = lockedAngle !== null ? lockedAngle : (snappedCandidate ?? rawAngle)
+      const draftStair = { totalRise, maxRiser, going: lockedLength !== null ? goingFromRunLength({ totalRise, maxRiser }, lockedLength) : DEFAULT_GOING }
+      const derived = computeStairDerived(draftStair)
+      const lenPx = derived.runLength * scale
+      const rad = degToRad(angleDeg)
+      return {
+        isWinder: false,
+        x: startPoint.x + lenPx * Math.cos(rad), y: startPoint.y + lenPx * Math.sin(rad),
+        angleDeg: Math.round(angleDeg), lengthMm: Math.round(derived.runLength),
+        totalRise, maxRiser, going: derived.going,
+        snapped: lockedAngle === null && snappedCandidate != null,
+      }
+    }
+
+    const going = DEFAULT_GOING
+    const baseDerived = computeStairDerived({ totalRise, maxRiser, going })
+    const windersPerTurn = DEFAULT_WINDERS_PER_TURN
+    const maxStepsBeforeTurn = Math.max(0, baseDerived.treadCount - windersPerTurn)
+    const typedTreads = lockedLength !== null ? Math.round(lockedLength / going) : maxStepsBeforeTurn
+    const stepsBeforeTurn = Math.min(Math.max(0, typedTreads), maxStepsBeforeTurn)
 
     return {
-      x: startPoint.x + lenPx * Math.cos(rad), y: startPoint.y + lenPx * Math.sin(rad),
-      angleDeg: Math.round(angleDeg), lengthMm: Math.round(derived.runLength),
-      totalRise, maxRiser, going: derived.going,
-      snapped: lockedAngle === null && snappedCandidate != null,
+      isWinder: true,
+      x: mousePos.x, y: mousePos.y,
+      angleDeg: Math.round(dominantDeg),
+      lengthMm: Math.round(stepsBeforeTurn * going),
+      totalRise, maxRiser, going, stepsBeforeTurn,
+      turnDirection: perpProjStd > 0 ? 'left' : 'right',
+      snapped: true,
     }
   }, [startPoint, mousePos, walls, lockedLength, lockedAngle, scale, room])
 
   const buildStairFromDraft = useCallback((start, end) => {
     const xMm = start.x / scale, yMm = start.y / scale
+    const flip = chooseDefaultStairSide(xMm, yMm, end.angleDeg, room)
+    if (end.isWinder) {
+      const side = flip ? -1 : 1
+      const turnDirection = side === 1 ? end.turnDirection : (end.turnDirection === 'left' ? 'right' : 'left')
+      return {
+        id: makeStairId(), shape: 'L-winder',
+        x: xMm, y: yMm, rotation: end.angleDeg,
+        width: DEFAULT_STAIR_WIDTH, flip,
+        totalRise: end.totalRise, maxRiser: end.maxRiser, going: end.going, nosing: DEFAULT_NOSING,
+        turnDirection, windersPerTurn: DEFAULT_WINDERS_PER_TURN, stepsBeforeTurn: end.stepsBeforeTurn,
+        pivotOffset: DEFAULT_PIVOT_OFFSET, walklineOffset: DEFAULT_WALKLINE_OFFSET, showWalkline: false,
+        color: '#C9A876', finish: 'wood', materialCode: null,
+      }
+    }
     return {
       id: makeStairId(), shape: 'straight',
       x: xMm, y: yMm, rotation: end.angleDeg,
-      width: DEFAULT_STAIR_WIDTH, flip: chooseDefaultStairSide(xMm, yMm, end.angleDeg, room),
+      width: DEFAULT_STAIR_WIDTH, flip,
       totalRise: end.totalRise, maxRiser: end.maxRiser, going: end.going, nosing: DEFAULT_NOSING,
       color: '#C9A876', finish: 'wood', materialCode: null,
     }
@@ -712,7 +795,7 @@ export default function RoomCanvas({
       if (mode !== 'draw' && mode !== 'stair') return
       if (e.key === 'Enter' && mode === 'stair') {
         const end = getStairPreviewEnd()
-        if (end && startPoint && end.lengthMm > 0) {
+        if (end && startPoint && (end.isWinder || end.lengthMm > 0)) {
           const newStair = buildStairFromDraft(startPoint, end)
           pushHistory(walls, [...stairs, newStair])
           setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
@@ -861,7 +944,7 @@ export default function RoomCanvas({
         return
       }
       const end = getStairPreviewEnd()
-      if (end && end.lengthMm > 0) {
+      if (end && (end.isWinder || end.lengthMm > 0)) {
         const newStair = buildStairFromDraft(startPoint, end)
         pushHistory(walls, [...stairs, newStair])
         setStartPoint(null); setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
@@ -1171,10 +1254,14 @@ export default function RoomCanvas({
     return [0, cab.height || 0]
   }
   const rangesOverlap = (a, b) => a[0] < b[1] && b[0] < a[1]
+  // One axis per edge (not just the first two) -- a rectangle only needs two
+  // since its far edges are parallel to the near ones, but a stair step can
+  // now be a triangle, kite, or pentagon (winder treads), whose edges aren't
+  // all parallel to just two directions.
   const polyAxes = (poly) => {
     const axes = []
-    for (let i = 0; i < 2; i++) {
-      const [x1, y1] = poly[i], [x2, y2] = poly[i + 1]
+    for (let i = 0; i < poly.length; i++) {
+      const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length]
       axes.push([-(y2 - y1), x2 - x1])
     }
     return axes
@@ -1588,17 +1675,20 @@ export default function RoomCanvas({
               <circle cx={previewEnd.x} cy={previewEnd.y} r={5} fill={previewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
             </>
           )}
-          {mode === 'stair' && startPoint && stairPreviewEnd && stairPreviewEnd.lengthMm > 0 && (() => {
+          {mode === 'stair' && startPoint && stairPreviewEnd && (stairPreviewEnd.isWinder || stairPreviewEnd.lengthMm > 0) && (() => {
             const draft = buildStairFromDraft(startPoint, stairPreviewEnd)
             const mx = (startPoint.x + stairPreviewEnd.x) / 2, my = (startPoint.y + stairPreviewEnd.y) / 2
+            const label = stairPreviewEnd.isWinder
+              ? `${stairPreviewEnd.stepsBeforeTurn} treads · turn ${stairPreviewEnd.turnDirection}`
+              : `${stairPreviewEnd.lengthMm}mm · ${stairPreviewEnd.angleDeg}°`
             return (
               <>
                 <g opacity={0.6}><StairShape2D stair={draft} scale={scale} selected onMouseDown={() => {}} /></g>
                 <line x1={startPoint.x} y1={startPoint.y} x2={stairPreviewEnd.x} y2={stairPreviewEnd.y}
                   stroke={ACCENT} strokeWidth={1.5} strokeDasharray="6,4" style={{ pointerEvents: 'none' }} />
                 <g transform={`translate(${mx},${my})`}>
-                  <rect x={-40} y={-13} width={80} height={20} rx={4} fill={ACCENT} opacity={0.9} />
-                  <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{stairPreviewEnd.lengthMm}mm · {stairPreviewEnd.angleDeg}°</text>
+                  <rect x={-56} y={-13} width={112} height={20} rx={4} fill={ACCENT} opacity={0.9} />
+                  <text x={0} y={3} textAnchor="middle" fontSize={10} fill="#fff" fontFamily="Inter,sans-serif" fontWeight={700}>{label}</text>
                 </g>
                 <circle cx={stairPreviewEnd.x} cy={stairPreviewEnd.y} r={5} fill={stairPreviewEnd.snapped ? '#2AC87A' : ACCENT} stroke="#fff" strokeWidth={2} style={{ pointerEvents: 'none' }} />
               </>

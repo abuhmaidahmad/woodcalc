@@ -1224,7 +1224,20 @@
     "stairWarnRiser": "ارتفاع الدرجة {{val}}مم (المدى المريح 150–190مم)",
     "stairWarnGoing": "عمق القائمة {{val}}مم (المدى المريح 250–300مم)",
     "stairMaterial": "المادة",
-    "steppedTopToggle": "اتباع الدرج أعلاه (سطح متدرج)"
+    "steppedTopToggle": "اتباع الدرج أعلاه (سطح متدرج)",
+    "stairTurn": "المنعطف",
+    "stairTurnDirection": "الاتجاه",
+    "stairTurnLeft": "يسار",
+    "stairTurnRight": "يمين",
+    "stairWindersPerTurn": "عدد الدرجات المروحية لكل منعطف",
+    "stairStepsBeforeTurn": "عدد الدرجات قبل المنعطف",
+    "stairPivotOffset": "إزاحة نقطة الارتكاز (مم)",
+    "stairWalklineOffset": "إزاحة خط المشي (مم)",
+    "stairShowWalkline": "إظهار خط المشي (متقطع)",
+    "stairUpperFlightSummary": "الجزء العلوي: {{count}} درجات",
+    "stairWarnStepsClamped": "تم تقليص عدد الدرجات قبل المنعطف إلى {{val}} لتناسب المساحة",
+    "stairWarnWalklineGoing": "عمق القائمة عند خط المشي {{val}}مم وليس {{target}}مم",
+    "stairWarnNarrowEnd": "الطرف الضيق للدرجة المروحية {{index}} هو {{val}}مم (الحد الأدنى 50مم)"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",

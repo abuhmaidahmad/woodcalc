@@ -1794,6 +1794,52 @@ const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_ROOM_H, 
 // solid surface in this file uses; the stringers get a flat/wood material since
 // UV-mapping a photo texture onto their sawtooth profile isn't worth the
 // complexity for a secondary structural element.
+function footprintPrismGeometry(footprint, heightMm) {
+  const shape = new THREE.Shape()
+  footprint.forEach(([wx, wz], i) => {
+    const u = wx / 1000, v = -wz / 1000
+    if (i === 0) shape.moveTo(u, v)
+    else shape.lineTo(u, v)
+  })
+  shape.closePath()
+  return new THREE.ExtrudeGeometry(shape, { depth: heightMm / 1000, bevelEnabled: false })
+}
+
+// A winder tread's footprint (triangle, kite, or pentagon -- see
+// computeStairSteps) is already in absolute world mm, unlike a straight
+// stair's local run/width scalars, so it's extruded directly as a polygon
+// prism (floor to that step's own top height) instead of a boxGeometry.
+// Stringers and nosing are straight-run-specific constructs that don't
+// generalize cleanly to a bent walking path, so a winder renders solid
+// tread/riser prisms only for now.
+const WinderStair3D = React.memo(function WinderStair3D({ stair, textureMap = {} }) {
+  const data = useMemo(() => computeStairSteps(stair), [stair])
+  const color = stair.color || '#C9A876'
+  const finish = stair.finish || 'wood'
+  const matProps = getMaterialProps(finish)
+  const texEntry = stair.materialCode ? textureMap[stair.materialCode] : null
+  const mat = texEntry
+    ? <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness}
+        clearcoat={matProps.clearcoat} clearcoatRoughness={matProps.clearcoatRoughness} envMapIntensity={1.0} />
+    : isWoodMaterial(finish)
+      ? <WoodPanelMaterial color={color} matProps={matProps} envMapIntensity={1.0} />
+      : <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness}
+          clearcoat={matProps.clearcoat} clearcoatRoughness={matProps.clearcoatRoughness} envMapIntensity={1.0} />
+
+  return (
+    <>
+      {data.steps.map((step, i) => {
+        const geometry = footprintPrismGeometry(step.footprint, step.topHeight)
+        return (
+          <mesh key={i} geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+            {mat}
+          </mesh>
+        )
+      })}
+    </>
+  )
+})
+
 const Stair3D = React.memo(function Stair3D({ stair, textureMap = {} }) {
   const data = useMemo(() => computeStairSteps(stair), [stair])
   const x = stair.x / 1000, z = stair.y / 1000
@@ -2064,7 +2110,9 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         {/* --- Scene geometry --- */}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
         {walls.map((w,i)=><Wall3D key={w.id || i} wall={w} body={wallBodies[i]} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
-        {stairs.map(st=><Stair3D key={st.id} stair={st} textureMap={textureMap} />)}
+        {stairs.map(st=>st.shape==='L-winder'
+          ? <WinderStair3D key={st.id} stair={st} textureMap={textureMap} />
+          : <Stair3D key={st.id} stair={st} textureMap={textureMap} />)}
         {wallEls.map(el=>el.type==='window'
           ?<WindowElement key={el.id} el={el}/>
           :<DoorElement key={el.id} el={el}/>)}
