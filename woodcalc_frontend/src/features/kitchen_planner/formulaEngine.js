@@ -147,6 +147,21 @@ export function buildZonePresets(height) {
   ];
 }
 
+// A Gola C-channel sits between two adjacent zones so you can hook a finger under
+// the front below it and pull it open (the topmost zone instead opens via the
+// carcass's own shared L-channel, so index 0 never gets one here). Two small
+// drawers stacked back-to-back are the one exception: the lower small drawer
+// already opens fine from the channel below it (shared with the bigger drawer
+// beneath, e.g. '2_small_1_big_drawer'), so a channel between the two smalls
+// would just be a second, redundant pull point for the same front -- skip it.
+export function golaNeedsChannelAbove(zones, i) {
+  if (i <= 0) return false;
+  const prev = zones[i - 1], cur = zones[i], next = zones[i + 1];
+  const isRedundantSmallPair = prev?.type === 'drawer' && cur?.type === 'drawer'
+    && next?.type === 'drawer' && cur.h === prev.h && next.h > cur.h;
+  return !isRedundantSmallPair;
+}
+
 const DEFAULT_ZONE_PRESET_ID = { Drawers: '4_drawers', '2Drw+Door': '2_small_1_door' };
 
 // Resolves a cabinet's actual interior layout: whatever the user picked, or a
@@ -460,10 +475,12 @@ export function calculateCabinet(config) {
 
   // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
   // Oven towers have no doors/drawers to channel — their fronts are fixed panels.
-  // A Drawers/2Drw+Door cabinet needs one C-channel between every adjacent pair
-  // of zones (N-1 for N zones) instead of the fixed single channel other subtypes use.
+  // A Drawers/2Drw+Door cabinet needs one C-channel above every zone that actually
+  // needs its own pull point (golaNeedsChannelAbove) instead of the fixed single
+  // channel other subtypes use.
+  const zonesForGola = config.zonePreset?.zones || [];
   const numGolaChannels = isDrawerCab
-    ? Math.max(0, (config.zonePreset?.zones?.length || 1) - 1)
+    ? zonesForGola.reduce((n, _, i) => n + (golaNeedsChannelAbove(zonesForGola, i) ? 1 : 0), 0)
     : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
   const golaProfiles = (doorStyle === 'Gola' && !isOvenTower) ? {
     // Tall units have no top L-profile; their base-level channel is a C.

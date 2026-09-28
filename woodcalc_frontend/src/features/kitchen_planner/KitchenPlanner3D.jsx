@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -441,7 +441,10 @@ const GOLA_CH          = 0.025   // channel opening / door height reduction (25m
 // formulaEngine.js, which shrinks a Gola front's cut height by the same GOLA_CH
 // amount) — so slots stack edge-to-edge and sum to exactly H, no overflow. Every
 // front gets a channel directly above it; the topmost one is the carcass's own
-// shared L-channel notch (not re-rendered here to avoid a duplicate mesh).
+// shared L-channel notch (not re-rendered here to avoid a duplicate mesh). Which
+// zones actually get a channel is decided by golaNeedsChannelAbove (formulaEngine.js)
+// -- e.g. two stacked small drawers share the channel below them, so the one
+// between them is skipped -- keeping this render in lockstep with the BOM count.
 function computeGolaDrawerLayout(H, zones) {
   const CH = GOLA_CH
   let yTop = H / 2
@@ -452,7 +455,7 @@ function computeGolaDrawerLayout(H, zones) {
     const frontH = slot - CH
     const frontCenter = yTop - CH - frontH / 2
     positions.push({ h: frontH, yCenter: frontCenter, type: zone.type })
-    if (i > 0) channels.push({ y: yTop - CH / 2, size: CH })
+    if (golaNeedsChannelAbove(zones, i)) channels.push({ y: yTop - CH / 2, size: CH })
     yTop -= slot
   })
   return { positions, channels }
