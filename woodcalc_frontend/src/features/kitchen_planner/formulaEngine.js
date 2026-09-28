@@ -162,6 +162,17 @@ export function golaNeedsChannelAbove(zones, i) {
   return !isRedundantSmallPair;
 }
 
+// mm eaten from the top of zone i's slot by whatever sits directly above it: the
+// topmost zone always sits below the carcass's shared L-channel (25mm); every
+// other zone gets the same 25mm C-channel gap only when golaNeedsChannelAbove
+// says it needs its own pull point -- otherwise there's no milled channel there
+// at all, so the fronts stack on a normal reveal instead (handled by the generic
+// +3mm edge clearance applied at every call site, same as a non-Gola front).
+export function golaChannelGapMm(zones, i) {
+  if (i === 0) return GOLA_CHANNEL_MM;
+  return golaNeedsChannelAbove(zones, i) ? GOLA_CHANNEL_MM : 0;
+}
+
 const DEFAULT_ZONE_PRESET_ID = { Drawers: '4_drawers', '2Drw+Door': '2_small_1_door' };
 
 // Resolves a cabinet's actual interior layout: whatever the user picked, or a
@@ -437,13 +448,14 @@ export function calculateCabinet(config) {
       ? config.zonePreset
       : { zones: [{ type: 'drawer', h: H }] }; // defensive fallback: a raw config with no zonePreset
     const zoneList = zonePreset.zones;
-    // Every front in a Gola stack sits behind a milled channel/reveal (25mm) —
-    // matching the 3D render's computeGolaDrawerLayout, which shrinks each front
-    // by the same amount to make its slot fit without overflowing the cabinet.
-    const zoneReduction = doorStyle === 'Gola' ? (GOLA_CHANNEL_MM + 3) : 3;
     const maxDrawerH = Math.max(0, ...zoneList.filter(z => z.type === 'drawer').map(z => z.h));
     let tipOnAssigned = false;
-    zoneList.forEach((zone) => {
+    zoneList.forEach((zone, zoneIdx) => {
+      // Every front in a Gola stack sits behind whatever's milled above it (25mm
+      // channel, or none at all when golaNeedsChannelAbove skips it) plus the
+      // usual 3mm edge clearance every front gets — matching the 3D render's
+      // computeGolaDrawerLayout, which shrinks each front by the same amount.
+      const zoneReduction = doorStyle === 'Gola' ? (golaChannelGapMm(zoneList, zoneIdx) + 3) : 3;
       if (zone.type === 'door') {
         const widths = zonePreset.doorCount === 2 ? [twoDoorWidthEach, twoDoorWidthEach] : [oneDoorWidth];
         const dh = round2(zone.h - zoneReduction);

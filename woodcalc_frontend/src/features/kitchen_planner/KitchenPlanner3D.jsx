@@ -437,14 +437,14 @@ const GOLA_CH          = 0.025   // channel opening / door height reduction (25m
 // always agree (single source of truth) — driven by the cabinet's own interior-
 // layout zones (see formulaEngine.js's buildZonePresets/resolveZonePreset),
 // listed top-to-bottom, instead of a fixed 2-small-1-big shape. Each zone is a
-// "slot" whose nominal height already includes its own pull channel (matching
-// formulaEngine.js, which shrinks a Gola front's cut height by the same GOLA_CH
-// amount) — so slots stack edge-to-edge and sum to exactly H, no overflow. Every
-// front gets a channel directly above it; the topmost one is the carcass's own
-// shared L-channel notch (not re-rendered here to avoid a duplicate mesh). Which
-// zones actually get a channel is decided by golaNeedsChannelAbove (formulaEngine.js)
-// -- e.g. two stacked small drawers share the channel below them, so the one
-// between them is skipped -- keeping this render in lockstep with the BOM count.
+// "slot"; the topmost one always sits below the carcass's own shared L-channel
+// notch (not re-rendered here to avoid a duplicate mesh), so it always loses
+// GOLA_CH off its top. Every other zone only loses GOLA_CH when it actually
+// gets its own milled C-channel (golaNeedsChannelAbove, formulaEngine.js) --
+// e.g. two stacked small drawers share the channel below them, so the one
+// between them is skipped and those two fronts instead sit edge-to-edge with
+// just DoorPanel's own small built-in reveal, matching formulaEngine.js's cut
+// heights (which apply the same GOLA_CH-or-nothing rule) so BOM and render agree.
 function computeGolaDrawerLayout(H, zones) {
   const CH = GOLA_CH
   let yTop = H / 2
@@ -452,10 +452,12 @@ function computeGolaDrawerLayout(H, zones) {
   const channels = []
   zones.forEach((zone, i) => {
     const slot = zone.h / 1000
-    const frontH = slot - CH
-    const frontCenter = yTop - CH - frontH / 2
+    const hasChannel = i === 0 || golaNeedsChannelAbove(zones, i)
+    const gap = hasChannel ? CH : 0
+    const frontH = slot - gap
+    const frontCenter = yTop - gap - frontH / 2
     positions.push({ h: frontH, yCenter: frontCenter, type: zone.type })
-    if (golaNeedsChannelAbove(zones, i)) channels.push({ y: yTop - CH / 2, size: CH })
+    if (i > 0 && hasChannel) channels.push({ y: yTop - CH / 2, size: CH })
     yTop -= slot
   })
   return { positions, channels }
