@@ -2,12 +2,12 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
-import { computeStairDerived } from './stairGeometry'
+import { computeStairDerived, findOverlappingStairProfile } from './stairGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -127,7 +127,7 @@ function EBCell({ eb }) {
 }
 
 // ─── Per-Cabinet Cut List ────────────────────────────────────────────
-function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
+function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = [] }) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = React.useState({})
   const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
@@ -137,13 +137,14 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
       <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>{t('kitchenPlannerModule.perCabinetCutList')}</div>
       {cabinets.map((c, i) => {
         if (!isCarcassCabinet(c)) return null
+        const stepped = resolveStairSteppedCabinet(c, stairs)
         let result
-        try { result = calculateCabinet(cabinetConfig(c)) } catch { return null }
+        try { result = calculateCabinet(stepped ? { ...cabinetConfig(c), height: stepped.effectiveH } : cabinetConfig(c)) } catch { return null }
         const isOpen = expanded[c.id]
         const carcassMat = c.carcassMaterialName || c.carcassColor || 'Carcass'
         const frontMat = c.frontMaterialName || c.frontColor || 'Front'
         // exclude toe kick from per-cabinet list
-        const panels = result.panels.filter(p => !p.name.includes('Toe'))
+        const panels = [...result.panels, ...(stepped ? stepped.extraPanels : [])].filter(p => !p.name.includes('Toe'))
         return (
           <div key={c.id} style={{ background: '#fff', borderRadius: 12, marginBottom: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div onClick={() => toggle(c.id)}
@@ -526,15 +527,35 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   )
 }
 
-function aggregateBOM(cabinets) {
+// A tall cabinet with steppedTop finds whichever stair overlaps it and
+// resolves that into a shorter uniform carcass height plus small filler
+// panels above it (see resolveSteppedCabinetProfile / stairFillerPanels in
+// formulaEngine.js) -- every BOM-facing consumer (aggregate totals, the
+// per-cabinet cut list) swaps in that result instead of the cabinet's own
+// nominal height, so the cut list never charges for material the stepped
+// design doesn't actually use.
+function resolveStairSteppedCabinet(cab, stairs) {
+  if (!cab.steppedTop || cab.category !== 'tall' || !stairs || stairs.length === 0) return null
+  const hit = findOverlappingStairProfile(cab, stairs)
+  if (!hit) return null
+  const resolved = resolveSteppedCabinetProfile(cab, hit.profile)
+  const extraPanels = resolved.segments.flatMap(seg => stairFillerPanels(seg, resolved.effectiveH, cab.depth))
+  return { effectiveH: resolved.effectiveH, extraPanels }
+}
+
+function aggregateBOM(cabinets, stairs = []) {
   const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0, cabinetHangers: 0 }
   cabinets.forEach(cab => {
     if (!isCarcassCabinet(cab)) return
     try {
-      const r = calculateCabinet(cabinetConfig(cab))
-      totals.sheet18    += r.panels.filter(p => p.thickness === 18).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.hdf8       += r.panels.filter(p => p.thickness === 8).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.edgeM      += (2 * cab.height + (cab.width - 36) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+      const stepped = resolveStairSteppedCabinet(cab, stairs)
+      const cfg = stepped ? { ...cabinetConfig(cab), height: stepped.effectiveH } : cabinetConfig(cab)
+      const r = calculateCabinet(cfg)
+      const allPanels = stepped ? [...r.panels, ...stepped.extraPanels] : r.panels
+      const effectiveHeight = stepped ? stepped.effectiveH : cab.height
+      totals.sheet18    += allPanels.filter(p => p.thickness === 18).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
+      totals.hdf8       += allPanels.filter(p => p.thickness === 8).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
+      totals.edgeM      += (2 * effectiveHeight + (cab.width - 36) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
       totals.hinges     += r.doors.reduce((s, d) => s + d.hinges, 0)
       totals.legs       += r.hardware.legs
       totals.confirmats += r.hardware.confirmats
@@ -936,7 +957,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const selCab = cabinets.find(c => c.id === selected && selectedType === 'cabinet')
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
-  const bom    = aggregateBOM(cabinets)
+  const bom    = aggregateBOM(cabinets, stairs)
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
 
@@ -1745,6 +1766,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </div>
                 )}
 
+                {selCab.category === 'tall' && findOverlappingStairProfile(selCab, stairs) && (
+                  <div style={{ marginBottom: 10 }}>
+                    <div
+                      onClick={() => updateCab('steppedTop', !selCab.steppedTop)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.steppedTop ? ACCENT : '#E0DAD4'}`, background: selCab.steppedTop ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.steppedTop ? ACCENT : '#ccc'}`, background: selCab.steppedTop ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.steppedTop ? '✓' : ''}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: selCab.steppedTop ? ACCENT : '#666' }}>{t('kitchenPlannerModule.steppedTopToggle')}</span>
+                    </div>
+                  </div>
+                )}
+
                 {['base', 'vanity', 'corner', 'tall'].includes(selCab.category) && (selCab.elevation || 0) === 0 && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={s.propLabel}>{t('kitchenPlannerModule.skirtingBoardSides')}</div>
@@ -1927,7 +1959,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <HardwareSummary cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
 
               {/* Cut Lists */}
-              <PerCabinetCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
+              <PerCabinetCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} stairs={stairs} />
               <MasterCutList cabinets={cabinets} calculateCabinet={calculateCabinet} ACCENT={ACCENT} DARK={DARK} />
 
             </div>

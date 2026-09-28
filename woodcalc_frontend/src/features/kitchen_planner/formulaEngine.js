@@ -175,6 +175,52 @@ function chooseToeKickAndLegs(height) {
   return { toeKickH, legH, preset };
 }
 
+// Tall cabinets stand on the same legs a base run does, sized off the
+// project's base height setting -- matches the Cabinet component's own
+// showLegs/legH logic in KitchenPlanner3D.jsx exactly, so a stair's
+// floor-referenced clearance and the cabinet's own H field convert the same
+// way in both the 3D view and the BOM.
+export function getTallLegHeightMm(cab) {
+  return cab.baseHeight === 720 ? 150 : 80;
+}
+
+// Turns a stair's absolute (floor-referenced) top_profile (stairGeometry.js's
+// computeStairTopProfile) into an actual carcass height for this cabinet:
+// effectiveH is the tallest uniform height that clears every constrained
+// segment, and each segment's own availableH is how tall a stepped filler
+// above that uniform body could go before it would hit the stair. Never
+// exceeds the cabinet's own designed height -- a stepped top only gives back
+// room the stair allows, it doesn't grow the unit beyond what was designed.
+export function resolveSteppedCabinetProfile(cab, stairProfile, minHeightMm = 300) {
+  const nominalH = cab.height;
+  const legHmm = getTallLegHeightMm(cab);
+  const segments = stairProfile.segments.map(seg => {
+    const availableH = seg.capHeight == null
+      ? nominalH
+      : Math.min(nominalH, Math.max(0, seg.capHeight - legHmm));
+    return { x0: seg.x0, x1: seg.x1, availableH };
+  });
+  const effectiveH = Math.max(minHeightMm, Math.min(nominalH, ...segments.map(s => s.availableH)));
+  return { nominalH, effectiveH, legHmm, segments };
+}
+
+// Extra sheet-good pieces for one stepped-top filler block sitting on top of
+// the (shorter, uniform) main carcass, filling the gap up to what that
+// segment's own stair clearance allows. Closed box, no door -- the filler is
+// bonus storage above the unit's normal front, not a redesigned zone.
+export function stairFillerPanels(seg, effectiveH, depth) {
+  const fillerH = round2(seg.availableH - effectiveH);
+  if (fillerH <= 1) return [];
+  const w = round2(seg.x1 - seg.x0);
+  const innerDepth = round2(depth - 30 - 8);
+  return [
+    { name: 'Stepped filler side panel', qty: 2, width: fillerH, depth, thickness: T, notes: 'Follows stair above' },
+    { name: 'Stepped filler top panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
+    { name: 'Stepped filler bottom panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
+    { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: BACK_T, notes: 'Follows stair above' },
+  ];
+}
+
 export function calculateCabinet(config) {
   const W = Number(config.width);
   const H = Number(config.height);

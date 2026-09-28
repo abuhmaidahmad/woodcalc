@@ -1223,7 +1223,8 @@
     "stairWarnComfort": "2× riser + going = {{val}}mm (comfortable range 600–650mm)",
     "stairWarnRiser": "Riser height {{val}}mm (comfortable range 150–190mm)",
     "stairWarnGoing": "Going {{val}}mm (comfortable range 250–300mm)",
-    "stairMaterial": "Material"
+    "stairMaterial": "Material",
+    "steppedTopToggle": "Follow stair above (stepped top)"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

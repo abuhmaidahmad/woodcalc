@@ -81,3 +81,63 @@ export function getStairOutline(stair) {
   const w1x = p1x + perpX * width, w1y = p1y + perpY * width
   return [[p0x, p0y], [p1x, p1y], [w1x, w1y], [w0x, w0y]]
 }
+
+function pointInPolygon(px, py, poly) {
+  let inside = false
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const [xi, yi] = poly[i], [xj, yj] = poly[j]
+    if (((yi > py) !== (yj > py)) && (px < (xj - xi) * (py - yi) / (yj - yi) + xi)) inside = !inside
+  }
+  return inside
+}
+
+export const STAIR_TOP_PROFILE_SEGMENTS = 8
+export const STAIR_TOP_PROFILE_CLEARANCE_MM = 5
+
+// Samples the stair's step top-heights across a cabinet's plan footprint,
+// divided into segmentCount slices along the cabinet's own width axis. Each
+// segment's capHeight is the lowest step ceiling found anywhere within that
+// width slice (sampled across the full depth too), in absolute floor-based
+// mm -- or null where no step overhangs that slice at all. This is the one
+// place that maps "a stair sits over this cabinet" into a height constraint;
+// resolveSteppedCabinetProfile (formulaEngine.js) turns it into an actual
+// carcass height, and Stair3D-adjacent rendering/BOM code both read from
+// that, so nobody re-derives this sampling independently.
+export function computeStairTopProfile(stair, cab, segmentCount = STAIR_TOP_PROFILE_SEGMENTS) {
+  const rad = ((cab.rotation || 0) * Math.PI) / 180
+  const cos = Math.cos(rad), sin = Math.sin(rad)
+  const toWorld = (lx, ly) => ({ x: cab.x + lx * cos - ly * sin, y: cab.y + lx * sin + ly * cos })
+  const steps = computeStairSteps(stair).steps
+  const DEPTH_SAMPLES = 4
+  const segments = []
+  let overlaps = false
+  for (let i = 0; i < segmentCount; i++) {
+    const x0 = (i / segmentCount) * cab.width
+    const x1 = ((i + 1) / segmentCount) * cab.width
+    const xc = (x0 + x1) / 2
+    let capHeight = null
+    for (let j = 0; j <= DEPTH_SAMPLES; j++) {
+      const yc = (j / DEPTH_SAMPLES) * cab.depth
+      const world = toWorld(xc, yc)
+      steps.forEach(step => {
+        if (!pointInPolygon(world.x, world.y, step.footprint)) return
+        overlaps = true
+        const h = step.topHeight - STAIR_TOP_PROFILE_CLEARANCE_MM
+        if (capHeight == null || h < capHeight) capHeight = h
+      })
+    }
+    segments.push({ x0, x1, capHeight })
+  }
+  return { overlaps, segments }
+}
+
+// Finds the first stair (in draw order) whose profile actually overlaps this
+// cabinet's footprint -- the common case is at most one stair near any given
+// tall unit, so first-match is enough rather than combining several.
+export function findOverlappingStairProfile(cab, stairs, segmentCount = STAIR_TOP_PROFILE_SEGMENTS) {
+  for (const stair of stairs) {
+    const profile = computeStairTopProfile(stair, cab, segmentCount)
+    if (profile.overlaps) return { stair, profile }
+  }
+  return null
+}
