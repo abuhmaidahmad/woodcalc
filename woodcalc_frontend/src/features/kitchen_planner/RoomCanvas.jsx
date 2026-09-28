@@ -392,6 +392,14 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
         <text x={pts[0][0]} y={pts[0][1] - 8} textAnchor="middle" fontSize={10} fontWeight={700} fill={color}
           style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
         <circle cx={stair.x * scale} cy={stair.y * scale} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+        {stair.showStepNumbers && data.steps.map((step, i) => {
+          const cx = step.footprint.reduce((s, p) => s + p[0], 0) / step.footprint.length * scale
+          const cy = step.footprint.reduce((s, p) => s + p[1], 0) / step.footprint.length * scale
+          return (
+            <text key={`n${i}`} x={cx} y={cy} textAnchor="middle" fontSize={9} fontWeight={700} fill="#C0392B"
+              style={{ pointerEvents: 'none', userSelect: 'none' }}>{step.index} · {Math.round(step.topHeight)}</text>
+          )
+        })}
       </g>
     )
   }
@@ -453,6 +461,10 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
         fill={color} style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
 
       <circle cx={0} cy={0} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+      {stair.showStepNumbers && data.steps.map((step, i) => (
+        <text key={`n${i}`} x={(i + 0.5) * goingPx} y={midY} textAnchor="middle" fontSize={9} fontWeight={700} fill="#C0392B"
+          style={{ pointerEvents: 'none', userSelect: 'none' }}>{step.index} · {Math.round(step.topHeight)}</text>
+      ))}
     </g>
   )
 })

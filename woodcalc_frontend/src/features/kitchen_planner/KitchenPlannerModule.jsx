@@ -1408,6 +1408,15 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 <input type="number" value={st.nosing || 0} onChange={e => updateStair('nosing', +e.target.value)} style={s.propInput} />
               </div>
 
+              <div style={{ marginBottom: 10 }}>
+                <div
+                  onClick={() => updateStair('showStepNumbers', !st.showStepNumbers)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${st.showStepNumbers ? ACCENT : '#E0DAD4'}`, background: st.showStepNumbers ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                  <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${st.showStepNumbers ? ACCENT : '#ccc'}`, background: st.showStepNumbers ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{st.showStepNumbers ? '✓' : ''}</div>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: st.showStepNumbers ? ACCENT : '#666' }}>{t('kitchenPlannerModule.stairShowStepNumbers')}</span>
+                </div>
+              </div>
+
               {isWinder && (
                 <>
                   <div style={s.propSection}>{t('kitchenPlannerModule.stairTurn')}</div>

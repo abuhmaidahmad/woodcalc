@@ -34,6 +34,31 @@ export function goingFromRunLength(stair, runLength) {
   return runLength / treadCount
 }
 
+function signedArea(poly) {
+  let s = 0
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length]
+    s += x1 * y2 - x2 * y1
+  }
+  return s / 2
+}
+
+// Every footprint must wind the same way (matching `side`, the same +-1
+// flip already used for the width axis) regardless of which code path built
+// it -- the turn's canonical-to-real conversion is a reflection for one
+// turnDirection but not the other, which otherwise leaves the winder/upper-
+// flight footprints wound opposite to the lower flight's. Consumers that
+// rely on consistent winding (3D face normals, signed-area area checks)
+// would otherwise silently break for exactly one turnDirection.
+function normalizeWinding(steps, side) {
+  const expectPositive = side >= 0
+  return steps.map(step => {
+    const area = signedArea(step.footprint)
+    if ((area >= 0) === expectPositive) return step
+    return { ...step, footprint: [...step.footprint].reverse() }
+  })
+}
+
 function straightFlightSteps(startIndex, treadCount, going, riserHeight, originX, originY, dirX, dirY, perpX, perpY, width) {
   const steps = []
   for (let i = 0; i < treadCount; i++) {
@@ -60,7 +85,7 @@ function computeStraightSteps(stair) {
   const dirX = Math.cos(rad), dirY = Math.sin(rad)
   const perpX = -dirY * side, perpY = dirX * side
 
-  const steps = straightFlightSteps(0, treadCount, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width)
+  const steps = normalizeWinding(straightFlightSteps(0, treadCount, going, riserHeight, stair.x, stair.y, dirX, dirY, perpX, perpY, width), side)
 
   return { ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps }
 }
@@ -76,30 +101,32 @@ export function getWalklineOffset(stair) {
   return Math.min(stair.walklineOffset || DEFAULT_WALKLINE_OFFSET, width / 2)
 }
 
-// One 90 degree turn's tread footprints, in a canonical local (p,q) frame:
-// p runs along the incoming flight's own walking direction (and doubles as
-// the outgoing flight's own width axis), q runs along the incoming flight's
-// width axis (and doubles as the outgoing flight's walking direction).
-// windersPerTurn treads split the square into windersPerTurn EQUAL angles
-// around the pivot at (0,0) -- equal angles is what makes every winder's
-// walkline going equal (arc length is proportional to angle at the walkline's
-// constant radius from that same pivot), not an assumption made in place of
-// checking the walkline. pivotOffset only chamfers the two outermost
-// boundaries (the ones that coincide with the pre-existing wall lines) --
-// interior boundaries between winders always meet exactly at the pivot.
+// One 90 degree turn's tread footprints, in a canonical local (p,q) frame
+// centered on the pivot at (0,0): q=width (p=0) is the straight-line
+// continuation of the LAST LOWER-FLIGHT tread's own far edge (so phi=0
+// walks that same edge out to the square's boundary), and p=width (q=0) is
+// the continuation of the FIRST UPPER-FLIGHT tread's own near edge (so
+// phi=90 walks that edge) -- phi sweeps between them. windersPerTurn treads
+// split that 90 degrees into EQUAL angles -- equal angles is what makes
+// every winder's walkline going equal (arc length is proportional to angle
+// at the walkline's constant radius from that same pivot), not an
+// assumption made in place of checking the walkline. pivotOffset only
+// chamfers the two outermost boundaries (the ones that coincide with the
+// pre-existing wall lines) -- interior boundaries between winders always
+// meet exactly at the pivot.
 function winderTurnLocalPolygons(width, windersPerTurn, pivotOffset) {
   const rayHit = (phiDeg) => {
     const phi = (phiDeg * Math.PI) / 180
     const t = Math.tan(phi)
-    if (phiDeg <= 45) return [width, width * t]
-    return [width / t, width]
+    if (phiDeg <= 45) return [width * t, width]
+    return [width, width / t]
   }
   const angleStep = 90 / windersPerTurn
   const polygons = []
   for (let w = 0; w < windersPerTurn; w++) {
     const phiA = w * angleStep, phiB = (w + 1) * angleStep
-    const innerA = w === 0 ? [pivotOffset, 0] : [0, 0]
-    const innerB = w === windersPerTurn - 1 ? [0, pivotOffset] : [0, 0]
+    const innerA = w === 0 ? [0, pivotOffset] : [0, 0]
+    const innerB = w === windersPerTurn - 1 ? [pivotOffset, 0] : [0, 0]
     const outerA = rayHit(phiA)
     const outerB = rayHit(phiB)
     const points = [innerA]
@@ -185,7 +212,7 @@ function computeWinderSteps(stair) {
   }
 
   return {
-    ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps,
+    ...derived, width, flip: !!stair.flip, rotation: stair.rotation || 0, steps: normalizeWinding(steps, side),
     turnDirection, windersPerTurn, stepsBeforeTurn, pivotOffset, walklineOffset,
     upperFlightTreads, walklineGoing,
     warnings,
