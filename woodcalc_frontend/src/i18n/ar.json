@@ -1283,6 +1283,7 @@
     "thicknessSide": "الجانب:",
     "thicknessSideLeft": "يسار",
     "thicknessSideRight": "يمين",
+    "flipThicknessSide": "⇄ قلب الجانب",
     "deleteWall": "🗑 حذف الجدار",
     "clearAll": "مسح الكل",
     "wall": "الجدار",

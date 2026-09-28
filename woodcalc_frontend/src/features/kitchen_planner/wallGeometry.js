@@ -1,5 +1,21 @@
 export const DEFAULT_WALL_THICKNESS = 120
-export const DEFAULT_JOIN_THRESHOLD = 60
+// Two endpoints within this many real-world mm of each other are treated as
+// the same physical corner for loop-tracing/mitering purposes. This is a
+// topology tolerance, not a UI hit-radius -- it has to be small enough that
+// unrelated nearby walls never get bridged into a loop they don't belong to,
+// and it's expressed in mm (converted to the caller's px space at the call
+// site) so it means the same physical distance no matter what `scale` is.
+export const DEFAULT_JOIN_THRESHOLD_MM = 5
+// Endpoint-drag/draw snapping already makes truly-connected walls share
+// exact (or near machine-precision) coordinates, so 5mm is generous headroom
+// for float drift, not a substitute for real snapping.
+//
+// migrateLegacyWalls runs once, on data drawn under the old symmetric
+// centerline model that never had real endpoint snapping -- its own join
+// tolerance stays exactly what it always was (60 units in the wall's scaled-
+// px space) so already-migrated projects keep reloading at unchanged wall
+// positions. It is intentionally NOT tied to DEFAULT_JOIN_THRESHOLD_MM.
+const LEGACY_MIGRATION_THRESHOLD_PX = 60
 
 // Beyond this many multiples of thickness, a mitered corner would spike out
 // absurdly far (near-parallel or reflex angles) -- bevel instead, same idea
@@ -76,7 +92,7 @@ export function getWallLength(wall) {
   return ptDist(wall.x1, wall.y1, wall.x2, wall.y2)
 }
 
-export function traceClosedPolygon(walls, threshold = DEFAULT_JOIN_THRESHOLD) {
+export function traceClosedPolygon(walls, threshold) {
   const n = walls.length
   if (n < 3) return null
   const steps = [{ wallIndex: 0, reversed: false }]
@@ -103,7 +119,15 @@ function stepEndpoints(walls, step) {
   return { start, end, ...normalize(end.x - start.x, end.y - start.y) }
 }
 
-function offsetClosedLoop(walls, loop, thicknessOf, signMultiplier) {
+function wallSideSign(wall) {
+  return wall.thicknessSide === 'left' ? -1 : 1
+}
+
+// Used only by migrateLegacyWalls, which has no real per-wall thicknessSide
+// to work from yet -- it's reconstructing one from scratch by assuming the
+// old symmetric model was always drawn with a single consistent winding
+// around the whole loop.
+function offsetClosedLoopByWinding(walls, loop, thicknessOf, signMultiplier) {
   const n = loop.length
   const dirs = loop.map(step => stepEndpoints(walls, step))
   const vertexLoop = dirs.map(d => d.start)
@@ -119,6 +143,37 @@ function offsetClosedLoop(walls, loop, thicknessOf, signMultiplier) {
     const normalB = outwardNormal(nextDir.dx, nextDir.dy, outwardSign)
     const shared = nextDir.start
     const { a, b } = offsetVertex(prevDir, normalA, prevThickness, nextDir, normalB, nextThickness, shared)
+    results[prevStep.wallIndex] = { ...(results[prevStep.wallIndex] || {}), [prevStep.reversed ? 'outerStart' : 'outerEnd']: a }
+    results[nextStep.wallIndex] = { ...(results[nextStep.wallIndex] || {}), [nextStep.reversed ? 'outerEnd' : 'outerStart']: b }
+  }
+  return results
+}
+
+// Live rendering/collision path: a wall's outward side is always its own
+// stored thicknessSide, evaluated against the wall's own x1->x2 direction --
+// never an inferred winding over the rest of the loop. That's what makes it
+// stay put regardless of what any other wall in the room does. Only the
+// corner intersection itself (offsetVertex) needs the loop's actual shared
+// vertex; two walls with opposite thicknessSide still resolve to a sane
+// corner because offsetVertex already falls back to a flat cap whenever the
+// two offset lines don't form a sensible miter (near-parallel, or a spike
+// past MITER_LIMIT) -- the same fallback a sharp reflex/acute corner hits.
+function offsetClosedLoopBySide(walls, loop, thicknessOf) {
+  const n = loop.length
+  const dirs = loop.map(step => stepEndpoints(walls, step))
+  const results = {}
+  for (let i = 0; i < n; i++) {
+    const nextIdx = (i + 1) % n
+    const prevStep = loop[i], nextStep = loop[nextIdx]
+    const prevWall = walls[prevStep.wallIndex], nextWall = walls[nextStep.wallIndex]
+    const prevThickness = thicknessOf(prevWall, prevStep.wallIndex)
+    const nextThickness = thicknessOf(nextWall, nextStep.wallIndex)
+    const prevOwnDir = wallDir(prevWall)
+    const nextOwnDir = wallDir(nextWall)
+    const normalA = outwardNormal(prevOwnDir.dx, prevOwnDir.dy, wallSideSign(prevWall))
+    const normalB = outwardNormal(nextOwnDir.dx, nextOwnDir.dy, wallSideSign(nextWall))
+    const shared = dirs[nextIdx].start
+    const { a, b } = offsetVertex(prevOwnDir, normalA, prevThickness, nextOwnDir, normalB, nextThickness, shared)
     results[prevStep.wallIndex] = { ...(results[prevStep.wallIndex] || {}), [prevStep.reversed ? 'outerStart' : 'outerEnd']: a }
     results[nextStep.wallIndex] = { ...(results[nextStep.wallIndex] || {}), [nextStep.reversed ? 'outerEnd' : 'outerStart']: b }
   }
@@ -160,7 +215,7 @@ function offsetOpenChain(walls, thicknessOf, normalOf, threshold) {
 // Walls store x1/y1/x2/y2 in scaled px (mm * scale) but thickness in raw mm --
 // every offset computed here has to happen in the same px space as the
 // coordinates, so thickness is converted with `scale` before use.
-export function computeWallBodies(walls, scale = 1, threshold = DEFAULT_JOIN_THRESHOLD) {
+export function computeWallBodies(walls, scale = 1, thresholdMm = DEFAULT_JOIN_THRESHOLD_MM) {
   const bodies = walls.map(w => ({
     faceStart: { x: w.x1, y: w.y1 },
     faceEnd: { x: w.x2, y: w.y2 },
@@ -169,15 +224,15 @@ export function computeWallBodies(walls, scale = 1, threshold = DEFAULT_JOIN_THR
     thickness: getWallThickness(w) * scale,
     closed: false,
   }))
-  const loop = traceClosedPolygon(walls, threshold)
+  const thresholdPx = thresholdMm * scale
+  const loop = traceClosedPolygon(walls, thresholdPx)
   const thicknessOf = (w) => getWallThickness(w) * scale
   let results
   if (loop) {
-    results = offsetClosedLoop(walls, loop, thicknessOf, 1)
+    results = offsetClosedLoopBySide(walls, loop, thicknessOf)
     loop.forEach(step => { bodies[step.wallIndex].closed = true })
   } else {
-    const signOf = (w) => (w.thicknessSide === 'left' ? -1 : 1)
-    results = offsetOpenChain(walls, thicknessOf, (w, i, dir) => outwardNormal(dir.dx, dir.dy, signOf(w)), threshold)
+    results = offsetOpenChain(walls, thicknessOf, (w, i, dir) => outwardNormal(dir.dx, dir.dy, wallSideSign(w)), thresholdPx)
   }
   Object.keys(results).forEach(idx => Object.assign(bodies[idx], results[idx]))
   return bodies
@@ -229,7 +284,7 @@ function legacyWindingSign(walls) {
 // room face a legacy project's cabinets are actually snapped against is simply
 // the centerline moved halfThickness towards the room interior, independent of
 // whatever lengthMode was set -- migration ignores lengthMode entirely.
-export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNESS, scale = 1, threshold = DEFAULT_JOIN_THRESHOLD) {
+export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNESS, scale = 1, threshold = LEGACY_MIGRATION_THRESHOLD_PX) {
   if (!walls || walls.length === 0) return walls
   const alreadyMigrated = walls.every(w => w.thickness != null && w.lengthMode === undefined)
   if (alreadyMigrated) return walls
@@ -238,7 +293,7 @@ export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNE
   const loop = traceClosedPolygon(walls, threshold)
   let results
   if (loop) {
-    results = offsetClosedLoop(walls, loop, thicknessOf, -1)
+    results = offsetClosedLoopByWinding(walls, loop, thicknessOf, -1)
   } else {
     const sign = legacyWindingSign(walls)
     results = offsetOpenChain(walls, thicknessOf, (w, i, dir) => {

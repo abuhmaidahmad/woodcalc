@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
-  DEFAULT_JOIN_THRESHOLD, computeWallBodies, getWallThickness, getWallLength, makeWallId,
+  computeWallBodies, getWallThickness, getWallLength, makeWallId,
   chooseDefaultThicknessSide, getWallMidlinePoint,
 } from './wallGeometry'
 import {
@@ -15,7 +15,10 @@ const ACCENT = '#C8902A'
 const BULK_ACCENT = '#2AC87A'
 const EMPTY_BULK_IDS = new Set()
 const GRID = 50
-export const ENDPOINT_SNAP_DIST = DEFAULT_JOIN_THRESHOLD
+// Screen/view-space mouse-snap radius for the draw/drag UI -- a UX concern
+// about cursor proximity, unrelated to wallGeometry's mm-based join
+// tolerance used for loop-tracing and offset mitering.
+export const ENDPOINT_SNAP_DIST = 60
 // Element types that can snap onto a wall's centerline while dragging. Windows/doors
 // become wall cutouts (EmbeddedElement); the point types just get wall-relative
 // positioning while still rendering as icons — see the element drag handler and
@@ -1018,7 +1021,7 @@ export default function RoomCanvas({
     const finalPos = snapPt || pos
     const end = getPreviewEnd()
     if (end && end.lengthMm > 0) {
-      pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: 'right' }])
+      pushHistory([...walls, { id: makeWallId(), x1: startPoint.x, y1: startPoint.y, x2: end.x, y2: end.y, thickness: wallThickness, thicknessSide: chooseDefaultThicknessSide(startPoint.x, startPoint.y, end.x, end.y, walls) }])
       setStartPoint({ x: end.x, y: end.y })
       setLockedLength(null); setLockedAngle(null); setInputVal(''); setInputMode(null)
     }
@@ -1085,7 +1088,7 @@ export default function RoomCanvas({
       let fx1 = nx1, fy1 = ny1, fx2 = nx2, fy2 = ny2
       if (s1) { fx2 += s1.x - nx1; fy2 += s1.y - ny1; fx1 = s1.x; fy1 = s1.y }
       else if (s2) { fx1 += s2.x - nx2; fy1 += s2.y - ny2; fx2 = s2.x; fy2 = s2.y }
-      commitDragThrottled(() => setWalls(p => p.map((w, i) => i === dragging.index ? { x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w)))
+      commitDragThrottled(() => setWalls(p => p.map((w, i) => i === dragging.index ? { ...w, x1: fx1, y1: fy1, x2: fx2, y2: fy2 } : w)))
     } else if (dragging.type === 'endpoint') {
       const snapPt = findNearestEndpoint(rawX, rawY, walls, dragging.wallIndex, snapThreshold)
       const fx = snapPt ? snapPt.x : rawX, fy = snapPt ? snapPt.y : rawY
@@ -1563,18 +1566,19 @@ export default function RoomCanvas({
                 onChange={e => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thickness: +e.target.value } : w))}
                 style={{ width: 70, accentColor: ACCENT }} />
               <span style={{ fontSize: 11, color: ACCENT, fontWeight: 700, minWidth: 36 }}>{getWallThickness(walls[selectedWall])}mm</span>
-              {!wallBodies[selectedWall]?.closed && (
-                <>
-                  <span style={{ fontSize: 11, color: '#888', marginInlineStart: 6 }}>{t('roomCanvas.thicknessSide')}</span>
-                  {[['right', t('roomCanvas.thicknessSideRight')], ['left', t('roomCanvas.thicknessSideLeft')]].map(([side, label]) => (
-                    <button key={side}
-                      onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thicknessSide: side } : w))}
-                      style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                      {label}
-                    </button>
-                  ))}
-                </>
-              )}
+              <span style={{ fontSize: 11, color: '#888', marginInlineStart: 6 }}>{t('roomCanvas.thicknessSide')}</span>
+              {[['right', t('roomCanvas.thicknessSideRight')], ['left', t('roomCanvas.thicknessSideLeft')]].map(([side, label]) => (
+                <button key={side}
+                  onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thicknessSide: side } : w))}
+                  style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid', borderColor: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#E0DAD4', background: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT + '18' : '#fff', color: (walls[selectedWall]?.thicknessSide || 'right') === side ? ACCENT : '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+              <button onClick={() => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, thicknessSide: w.thicknessSide === 'left' ? 'right' : 'left' } : w))}
+                title={t('roomCanvas.flipThicknessSide')}
+                style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                {t('roomCanvas.flipThicknessSide')}
+              </button>
             </div>
           )}
           {mode === 'select' && selectedWall !== null && (
