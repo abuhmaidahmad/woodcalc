@@ -1236,8 +1236,9 @@
     "stairShowWalkline": "Show Walkline (dashed)",
     "stairUpperFlightSummary": "Upper flight: {{count}} treads",
     "stairWarnStepsClamped": "Treads before turn clamped to {{val}} to fit",
-    "stairWarnWalklineGoing": "Going at the walkline is {{val}}mm, not {{target}}mm",
-    "stairWarnNarrowEnd": "Winder {{index}} narrow end is {{val}}mm (min 50mm)"
+    "stairWarnNarrowEnd": "Winder {{index}} narrow end is {{val}}mm (min 50mm)",
+    "stairInfoWalklineGoing": "Winder going at the walkline is {{val}}mm (flight going is {{target}}mm)",
+    "stairWarnWinderComfort": "2× riser + winder walkline going is {{val}}mm (comfortable range 550–700mm)"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

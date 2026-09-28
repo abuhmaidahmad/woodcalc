@@ -1365,7 +1365,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const updateStair = (key, val) => setStairs(p => p.map(s2 => s2.id === selected ? { ...s2, [key]: val } : s2))
           const warningText = {
             comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing',
-            stepsBeforeTurnClamped: 'stairWarnStepsClamped', walklineGoing: 'stairWarnWalklineGoing', winderNarrowEnd: 'stairWarnNarrowEnd',
+            stepsBeforeTurnClamped: 'stairWarnStepsClamped', walklineGoing: 'stairInfoWalklineGoing',
+            winderNarrowEnd: 'stairWarnNarrowEnd', winderComfort: 'stairWarnWinderComfort',
           }
           return (
             <div>
@@ -1474,11 +1475,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
               {derived.warnings.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
-                  {derived.warnings.map((w, i) => (
-                    <div key={i} style={{ padding: '6px 8px', background: '#FEF9E7', border: '1px solid #F5D57A', borderRadius: 6, fontSize: 11, color: '#8A6D00', marginBottom: 4 }}>
-                      ⚠ {t(`kitchenPlannerModule.${warningText[w.code]}`, { val: w.value, target: w.target, index: (w.index ?? 0) + 1 })}
-                    </div>
-                  ))}
+                  {derived.warnings.map((w, i) => {
+                    const isInfo = w.level === 'info'
+                    return (
+                      <div key={i} style={{ padding: '6px 8px', background: isInfo ? '#EBF5FB' : '#FEF9E7', border: `1px solid ${isInfo ? '#AED6F1' : '#F5D57A'}`, borderRadius: 6, fontSize: 11, color: isInfo ? '#1B4F72' : '#8A6D00', marginBottom: 4 }}>
+                        {isInfo ? 'ℹ' : '⚠'} {t(`kitchenPlannerModule.${warningText[w.code]}`, { val: w.value, target: w.target, index: (w.index ?? 0) + 1 })}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
 

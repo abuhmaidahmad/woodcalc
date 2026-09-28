@@ -1236,8 +1236,9 @@
     "stairShowWalkline": "إظهار خط المشي (متقطع)",
     "stairUpperFlightSummary": "الجزء العلوي: {{count}} درجات",
     "stairWarnStepsClamped": "تم تقليص عدد الدرجات قبل المنعطف إلى {{val}} لتناسب المساحة",
-    "stairWarnWalklineGoing": "عمق القائمة عند خط المشي {{val}}مم وليس {{target}}مم",
-    "stairWarnNarrowEnd": "الطرف الضيق للدرجة المروحية {{index}} هو {{val}}مم (الحد الأدنى 50مم)"
+    "stairWarnNarrowEnd": "الطرف الضيق للدرجة المروحية {{index}} هو {{val}}مم (الحد الأدنى 50مم)",
+    "stairInfoWalklineGoing": "عمق القائمة للدرجة المروحية عند خط المشي {{val}}مم (عمق الجزء المستقيم {{target}}مم)",
+    "stairWarnWinderComfort": "2× ارتفاع القائمة + عمق الدرجة المروحية عند خط المشي = {{val}}مم (المدى المريح 550–700مم)"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",
