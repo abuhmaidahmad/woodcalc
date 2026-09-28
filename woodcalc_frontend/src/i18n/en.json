@@ -1246,7 +1246,16 @@
     "stairShapeU": "U-Winder",
     "stairMiddleFlightSteps": "Middle Flight Treads",
     "stairWellWidth": "Well Width (derived)",
-    "stairWarnMiddleClamped": "Middle flight treads clamped to {{val}} to fit"
+    "stairWarnMiddleClamped": "Middle flight treads clamped to {{val}} to fit",
+    "stairConstruction": "Construction",
+    "stairConstructionClosed": "Closed",
+    "stairConstructionOpen": "Open",
+    "stairConstructionFloating": "Floating",
+    "stairTreadThickness": "Tread Thickness (mm)",
+    "stairSupportSide": "Support Side (wall)",
+    "stairSupportSideOuterAuto": "Support side is the outer edge of the turn (auto)",
+    "stairShowSupportPlate": "Show steel support plate",
+    "stairWarnNoWallSupport": "Floating stair's support side isn't against a wall"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

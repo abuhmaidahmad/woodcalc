@@ -1246,7 +1246,16 @@
     "stairShapeU": "منعطف على شكل U",
     "stairMiddleFlightSteps": "درجات الجزء الأوسط",
     "stairWellWidth": "عرض الفتحة الوسطى (مشتق)",
-    "stairWarnMiddleClamped": "تم تقليص درجات الجزء الأوسط إلى {{val}} لتناسب المساحة"
+    "stairWarnMiddleClamped": "تم تقليص درجات الجزء الأوسط إلى {{val}} لتناسب المساحة",
+    "stairConstruction": "نوع البناء",
+    "stairConstructionClosed": "مغلق",
+    "stairConstructionOpen": "مفتوح",
+    "stairConstructionFloating": "معلّق",
+    "stairTreadThickness": "سماكة الدرجة (مم)",
+    "stairSupportSide": "جانب الدعم (الحائط)",
+    "stairSupportSideOuterAuto": "جانب الدعم هو الحافة الخارجية للمنعطف (تلقائي)",
+    "stairShowSupportPlate": "إظهار لوح الدعم الفولاذي",
+    "stairWarnNoWallSupport": "جانب الدعم للسلم المعلّق ليس ملاصقًا لحائط"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",

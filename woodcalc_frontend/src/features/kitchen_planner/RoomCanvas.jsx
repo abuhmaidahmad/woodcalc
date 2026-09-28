@@ -7,8 +7,8 @@ import {
 } from './wallGeometry'
 import {
   computeStairDerived, computeStairSteps, computeWalklinePath, goingFromRunLength, makeStairId,
-  DEFAULT_STAIR_WIDTH, DEFAULT_GOING, DEFAULT_MAX_RISER, DEFAULT_NOSING, DEFAULT_TOTAL_RISE,
-  DEFAULT_WINDERS_PER_TURN, DEFAULT_PIVOT_OFFSET, DEFAULT_WALKLINE_OFFSET,
+  getStairSupportSegments, DEFAULT_STAIR_WIDTH, DEFAULT_GOING, DEFAULT_MAX_RISER, DEFAULT_NOSING, DEFAULT_TOTAL_RISE,
+  DEFAULT_WINDERS_PER_TURN, DEFAULT_PIVOT_OFFSET, DEFAULT_WALKLINE_OFFSET, DEFAULT_SUPPORT_SIDE,
 } from './stairGeometry'
 
 const ACCENT = '#C8902A'
@@ -364,7 +364,9 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
   const { t } = useTranslation()
   const data = useMemo(() => computeStairSteps(stair), [stair])
   const isWinder = stair.shape === 'L-winder' || stair.shape === 'U-winder'
+  const isFloating = data.constructionStyle === 'floating'
   const walklinePts = useMemo(() => (isWinder ? computeWalklinePath(stair).map(([px, py]) => [px * scale, py * scale]) : null), [stair, isWinder, scale])
+  const supportSegments = useMemo(() => (isFloating ? getStairSupportSegments(stair) : []), [stair, isFloating])
   const color = selected ? ACCENT : '#333'
   const breakIdx = data.steps.findIndex(s => s.topHeight >= STAIR_BREAK_HEIGHT_MM)
 
@@ -392,6 +394,10 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
         <text x={pts[0][0]} y={pts[0][1] - 8} textAnchor="middle" fontSize={10} fontWeight={700} fill={color}
           style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
         <circle cx={stair.x * scale} cy={stair.y * scale} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
+        {supportSegments.map((seg, i) => (
+          <line key={`sup${i}`} x1={seg[0][0] * scale} y1={seg[0][1] * scale} x2={seg[1][0] * scale} y2={seg[1][1] * scale}
+            stroke={color} strokeWidth={4} strokeLinecap="round" style={{ pointerEvents: 'none' }} />
+        ))}
         {stair.showStepNumbers && data.steps.map((step, i) => {
           const cx = step.footprint.reduce((s, p) => s + p[0], 0) / step.footprint.length * scale
           const cy = step.footprint.reduce((s, p) => s + p[1], 0) / step.footprint.length * scale
@@ -416,14 +422,18 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
   const arrowStartX = Math.min(runPx * 0.15, goingPx)
   const arrowEndX = Math.max(arrowStartX + goingPx, runPx - goingPx * 0.6)
 
-  const stringerLine = (ya) => breakX == null
-    ? <line x1={0} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={1.5} />
-    : (
-      <>
-        <line x1={0} y1={ya} x2={breakX} y2={ya} stroke={color} strokeWidth={1.5} />
-        <line x1={breakX} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={1.5} strokeDasharray="5,3" />
-      </>
-    )
+  const stringerLine = (ya, thick = false) => {
+    const w = thick ? 4 : 1.5
+    return breakX == null
+      ? <line x1={0} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={w} />
+      : (
+        <>
+          <line x1={0} y1={ya} x2={breakX} y2={ya} stroke={color} strokeWidth={w} />
+          <line x1={breakX} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={w} strokeDasharray="5,3" />
+        </>
+      )
+  }
+  const supportIsNear = (data.supportSide || DEFAULT_SUPPORT_SIDE) === 'left'
 
   return (
     <g transform={`translate(${x},${y}) rotate(${rot})`}
@@ -441,8 +451,8 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
       })}
       <line x1={0} y1={0} x2={0} y2={wpx} stroke={color} strokeWidth={1.5} />
 
-      {stringerLine(0)}
-      {stringerLine(wpx)}
+      {(!isFloating || supportIsNear) && stringerLine(0, isFloating && supportIsNear)}
+      {(!isFloating || !supportIsNear) && stringerLine(wpx, isFloating && !supportIsNear)}
 
       {breakX != null && (() => {
         const jog = goingPx * 0.3
@@ -1340,7 +1350,7 @@ export default function RoomCanvas({
     stairs.forEach(st => {
       computeStairSteps(st).steps.forEach(step => {
         cabinets.forEach((cab, i) => {
-          if (!rangesOverlap(elevRanges[i], [0, step.topHeight])) return
+          if (!rangesOverlap(elevRanges[i], [step.bottomHeight, step.topHeight])) return
           if (polysIntersect(corners[i], step.footprint)) ids.add(cab.id)
         })
       })

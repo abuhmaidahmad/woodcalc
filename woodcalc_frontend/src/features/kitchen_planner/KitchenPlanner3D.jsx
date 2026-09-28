@@ -1829,9 +1829,9 @@ const WinderStair3D = React.memo(function WinderStair3D({ stair, textureMap = {}
   return (
     <>
       {data.steps.map((step, i) => {
-        const geometry = footprintPrismGeometry(step.footprint, step.topHeight)
+        const geometry = footprintPrismGeometry(step.footprint, step.topHeight - step.bottomHeight)
         return (
-          <mesh key={i} geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
+          <mesh key={i} geometry={geometry} position={[0, step.bottomHeight / 1000, 0]} rotation={[-Math.PI / 2, 0, 0]} castShadow receiveShadow>
             {mat}
           </mesh>
         )
@@ -1853,6 +1853,8 @@ const Stair3D = React.memo(function Stair3D({ stair, textureMap = {} }) {
   const matProps = getMaterialProps(finish)
   const texEntry = stair.materialCode ? textureMap[stair.materialCode] : null
   const side = data.flip ? -1 : 1
+  const constructionStyle = data.constructionStyle || 'closed'
+  const supportIsNear = (data.supportSide || 'left') === 'left'
 
   const renderBox = (key, args, position) => {
     if (texEntry) {
@@ -1872,8 +1874,9 @@ const Stair3D = React.memo(function Stair3D({ stair, textureMap = {} }) {
 
   const treadZ = side * widthM / 2
   const treads = data.steps.map((step, i) => {
-    const h = step.topHeight / 1000
-    return renderBox(`t${i}`, [goingM, h, widthM], [(i + 0.5) * goingM, h / 2, treadZ])
+    const top = step.topHeight / 1000, bottom = step.bottomHeight / 1000
+    const h = top - bottom
+    return renderBox(`t${i}`, [goingM, h, widthM], [(i + 0.5) * goingM, bottom + h / 2, treadZ])
   })
 
   const nosings = nosingM > 0 ? data.steps.map((step, i) => {
@@ -1904,16 +1907,33 @@ const Stair3D = React.memo(function Stair3D({ stair, textureMap = {} }) {
     : <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness}
         clearcoat={matProps.clearcoat} clearcoatRoughness={matProps.clearcoatRoughness} envMapIntensity={1.0} />
 
+  const isFloating = constructionStyle === 'floating'
+  const plateT = 0.006
+  const plateGeometry = useMemo(
+    () => (isFloating && stair.showSupportPlate ? new THREE.ExtrudeGeometry(stringerShape, { depth: plateT, bevelEnabled: false }) : null),
+    [isFloating, stair.showSupportPlate, stringerShape]
+  )
+  const isZMinSide = supportIsNear === (side === 1)
+
   return (
     <group position={[x, 0, z]} rotation={[0, -rot, 0]}>
       {treads}
       {nosings}
-      <mesh geometry={stringerGeometry} position={[0, 0, zMin - stringerT]} castShadow receiveShadow>
-        {stringerMat}
-      </mesh>
-      <mesh geometry={stringerGeometry} position={[0, 0, zMax]} castShadow receiveShadow>
-        {stringerMat}
-      </mesh>
+      {!isFloating && (
+        <>
+          <mesh geometry={stringerGeometry} position={[0, 0, zMin - stringerT]} castShadow receiveShadow>
+            {stringerMat}
+          </mesh>
+          <mesh geometry={stringerGeometry} position={[0, 0, zMax]} castShadow receiveShadow>
+            {stringerMat}
+          </mesh>
+        </>
+      )}
+      {plateGeometry && (
+        <mesh geometry={plateGeometry} position={[0, 0, isZMinSide ? zMin - plateT : zMax]} castShadow receiveShadow>
+          <meshPhysicalMaterial color="#B0B4B8" roughness={0.3} metalness={0.85} envMapIntensity={1.0} />
+        </mesh>
+      )}
     </group>
   )
 })

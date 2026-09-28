@@ -3,6 +3,12 @@ export const DEFAULT_GOING = 280
 export const DEFAULT_MAX_RISER = 180
 export const DEFAULT_NOSING = 0
 export const DEFAULT_TOTAL_RISE = 2800
+export const DEFAULT_CONSTRUCTION_STYLE = 'closed'
+export const DEFAULT_TREAD_THICKNESS = 80
+export const MIN_TREAD_THICKNESS = 40
+export const MAX_TREAD_THICKNESS = 120
+export const DEFAULT_SUPPORT_SIDE = 'left'
+export const STAIR_WALL_SUPPORT_TOLERANCE_MM = 150
 
 export function makeStairId() {
   return `st-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`
@@ -319,10 +325,71 @@ function computeUWinderSteps(stair) {
 // L-winder, or -- once added -- U-winder). Every consumer (2D preview/
 // symbol, 3D mesh, SAT collision, cabinet top_profile sampling) reads this
 // instead of deriving the geometry itself.
+function applyConstructionStyle(result, stair) {
+  const constructionStyle = stair.constructionStyle || DEFAULT_CONSTRUCTION_STYLE
+  const treadThickness = stair.treadThickness || DEFAULT_TREAD_THICKNESS
+  const supportSide = stair.supportSide || DEFAULT_SUPPORT_SIDE
+  const steps = result.steps.map(step => ({
+    ...step,
+    bottomHeight: constructionStyle === 'closed' ? 0 : Math.max(0, step.topHeight - treadThickness),
+  }))
+  return { ...result, steps, constructionStyle, treadThickness, supportSide }
+}
+
 export function computeStairSteps(stair) {
-  if (stair.shape === 'L-winder') return computeWinderSteps(stair)
-  if (stair.shape === 'U-winder') return computeUWinderSteps(stair)
-  return computeStraightSteps(stair)
+  let result
+  if (stair.shape === 'L-winder') result = computeWinderSteps(stair)
+  else if (stair.shape === 'U-winder') result = computeUWinderSteps(stair)
+  else result = computeStraightSteps(stair)
+  return applyConstructionStyle(result, stair)
+}
+
+function flightEdgeSegment(steps, supportSide, isWinder) {
+  if (!steps.length) return null
+  const edgeOf = step => {
+    const [p0, p1, w1, w0] = step.footprint
+    return supportSide === 'right' || isWinder ? [w0, w1] : [p0, p1]
+  }
+  return [edgeOf(steps[0])[0], edgeOf(steps[steps.length - 1])[1]]
+}
+
+export function getStairSupportSegments(stair) {
+  const result = computeStairSteps(stair)
+  const { steps } = result
+  const supportSide = stair.supportSide || DEFAULT_SUPPORT_SIDE
+  const isWinder = stair.shape === 'L-winder' || stair.shape === 'U-winder'
+  if (!isWinder) {
+    const seg = flightEdgeSegment(steps, supportSide, false)
+    return seg ? [seg] : []
+  }
+  const stepsBeforeTurn = result.stepsBeforeTurn || 0
+  const upperFlightTreads = result.upperFlightTreads || 0
+  const lowerSeg = flightEdgeSegment(steps.slice(0, stepsBeforeTurn), supportSide, true)
+  const upperSeg = flightEdgeSegment(steps.slice(steps.length - upperFlightTreads), supportSide, true)
+  return [lowerSeg, upperSeg].filter(Boolean)
+}
+
+function distPointToSegment(px, py, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1
+  const lenSq = dx * dx + dy * dy
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1)
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq))
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy))
+}
+
+export function checkStairWallSupport(stair, wallsMm, tolerance = STAIR_WALL_SUPPORT_TOLERANCE_MM) {
+  const constructionStyle = stair.constructionStyle || DEFAULT_CONSTRUCTION_STYLE
+  if (constructionStyle !== 'floating') return []
+  const segments = getStairSupportSegments(stair)
+  const warnings = []
+  segments.forEach((seg, i) => {
+    const [[x1, y1], [x2, y2]] = seg
+    const near = (wallsMm || []).some(w =>
+      distPointToSegment(x1, y1, w.x1, w.y1, w.x2, w.y2) < tolerance &&
+      distPointToSegment(x2, y2, w.x1, w.y1, w.x2, w.y2) < tolerance)
+    if (!near) warnings.push({ code: 'floatingNoWallSupport', segmentIndex: i, level: 'warning' })
+  })
+  return warnings
 }
 
 // The walkline's path through one turn, offset walklineOffset from the
@@ -434,7 +501,9 @@ export function computeStairTopProfile(stair, cab, segmentCount = STAIR_TOP_PROF
   const rad = ((cab.rotation || 0) * Math.PI) / 180
   const cos = Math.cos(rad), sin = Math.sin(rad)
   const toWorld = (lx, ly) => ({ x: cab.x + lx * cos - ly * sin, y: cab.y + lx * sin + ly * cos })
-  const steps = computeStairSteps(stair).steps
+  const stairData = computeStairSteps(stair)
+  const { steps, constructionStyle } = stairData
+  const followsUnderside = constructionStyle !== 'closed'
   const DEPTH_SAMPLES = 4
   const segments = []
   let overlaps = false
@@ -449,7 +518,8 @@ export function computeStairTopProfile(stair, cab, segmentCount = STAIR_TOP_PROF
       steps.forEach(step => {
         if (!pointInPolygon(world.x, world.y, step.footprint)) return
         overlaps = true
-        const h = step.topHeight - STAIR_TOP_PROFILE_CLEARANCE_MM
+        const ceilingHeight = followsUnderside ? step.bottomHeight : step.topHeight
+        const h = ceilingHeight - STAIR_TOP_PROFILE_CLEARANCE_MM
         if (capHeight == null || h < capHeight) capHeight = h
       })
     }

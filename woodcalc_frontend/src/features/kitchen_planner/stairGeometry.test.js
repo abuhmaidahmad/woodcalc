@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStairSteps } from './stairGeometry'
+import { computeStairSteps, getStairSupportSegments, checkStairWallSupport, computeStairTopProfile } from './stairGeometry'
 
 function signedArea(poly) {
   let s = 0
@@ -331,5 +331,103 @@ describe('computeStairSteps U-winder with middleFlightSteps=0', () => {
     const turn1Start = U_STEPS_BEFORE_TURN
     const turn2Start = U_STEPS_BEFORE_TURN + WINDERS
     expect(sharedEdgeLength(data.steps[turn1Start + WINDERS - 1].footprint, data.steps[turn2Start].footprint)).toBeCloseTo(WIDTH, 0)
+  })
+})
+
+function makeStraightStair(overrides = {}) {
+  return { x: 0, y: 0, rotation: 0, width: WIDTH, going: GOING, maxRiser: MAX_RISER, totalRise: TOTAL_RISE, shape: 'straight', ...overrides }
+}
+
+describe('computeStairSteps constructionStyle', () => {
+  it('defaults to closed with bottomHeight 0 for every step', () => {
+    const data = computeStairSteps(makeStraightStair())
+    expect(data.constructionStyle).toBe('closed')
+    data.steps.forEach(s => expect(s.bottomHeight).toBe(0))
+  })
+
+  it('open/floating treads become a thin slab: bottomHeight = topHeight - treadThickness', () => {
+    for (const constructionStyle of ['open', 'floating']) {
+      const data = computeStairSteps(makeStraightStair({ constructionStyle, treadThickness: 60 }))
+      data.steps.forEach(s => expect(s.bottomHeight).toBeCloseTo(s.topHeight - 60, 6))
+      expect(data.treadThickness).toBe(60)
+    }
+  })
+
+  it('bottomHeight never goes negative even if treadThickness exceeds the first riser height', () => {
+    const data = computeStairSteps(makeStraightStair({ constructionStyle: 'floating', treadThickness: 5000 }))
+    data.steps.forEach(s => expect(s.bottomHeight).toBeGreaterThanOrEqual(0))
+  })
+
+  it('closed-style top_profile caps at the tread top; open/floating caps at the tread underside', () => {
+    const cab = { x: 0, y: -450, width: 600, depth: 600, rotation: 0 }
+    const closed = computeStairTopProfile(makeStraightStair(), cab)
+    const floating = computeStairTopProfile(makeStraightStair({ constructionStyle: 'floating', treadThickness: 60 }), cab)
+    expect(closed.overlaps).toBe(true)
+    expect(floating.overlaps).toBe(true)
+    const closedCap = closed.segments.find(s => s.capHeight != null).capHeight
+    const floatingCap = floating.segments.find(s => s.capHeight != null).capHeight
+    expect(floatingCap).toBeLessThan(closedCap)
+    expect(floatingCap).toBeCloseTo(closedCap - 60, 6)
+  })
+})
+
+describe('getStairSupportSegments', () => {
+  it('straight stair: supportSide left is the near (path) edge, right is the far edge', () => {
+    const left = getStairSupportSegments(makeStraightStair({ supportSide: 'left' }))
+    const right = getStairSupportSegments(makeStraightStair({ supportSide: 'right' }))
+    expect(left).toHaveLength(1)
+    expect(right).toHaveLength(1)
+    expect(left[0][0][1]).toBeCloseTo(0, 6)
+    expect(right[0][0][1]).toBeCloseTo(WIDTH, 6)
+  })
+
+  it('L-winder: returns two segments, one per straight flight, each on that flight\'s outer (width) edge', () => {
+    const stair = makeStair('left', false)
+    const data = computeStairSteps(stair)
+    const segs = getStairSupportSegments(stair)
+    expect(segs).toHaveLength(2)
+    const lowerLast = data.steps[STEPS_BEFORE_TURN - 1].footprint
+    const upperFirstIndex = data.steps.length - data.upperFlightTreads
+    const upperFirst = data.steps[upperFirstIndex].footprint
+    expect(findVertex(lowerLast, segs[0][1])).toBe(true)
+    expect(findVertex(upperFirst, segs[1][0])).toBe(true)
+  })
+})
+
+describe('checkStairWallSupport', () => {
+  it('closed/open stairs never produce a floatingNoWallSupport warning', () => {
+    expect(checkStairWallSupport(makeStraightStair({ constructionStyle: 'closed' }), [])).toHaveLength(0)
+    expect(checkStairWallSupport(makeStraightStair({ constructionStyle: 'open' }), [])).toHaveLength(0)
+  })
+
+  it('floating stair with no walls at all warns', () => {
+    const warnings = checkStairWallSupport(makeStraightStair({ constructionStyle: 'floating', supportSide: 'right' }), [])
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0].code).toBe('floatingNoWallSupport')
+  })
+
+  it('floating stair flush against a matching wall produces no warning', () => {
+    const stair = makeStraightStair({ constructionStyle: 'floating', supportSide: 'right' })
+    const runLength = computeStairSteps(stair).runLength
+    const wall = { x1: 0, y1: WIDTH, x2: runLength, y2: WIDTH }
+    expect(checkStairWallSupport(stair, [wall])).toHaveLength(0)
+  })
+
+  it('floating stair far from any wall still warns even if a wall exists elsewhere', () => {
+    const stair = makeStraightStair({ constructionStyle: 'floating', supportSide: 'right' })
+    const wall = { x1: 5000, y1: 5000, x2: 6000, y2: 5000 }
+    const warnings = checkStairWallSupport(stair, [wall])
+    expect(warnings).toHaveLength(1)
+  })
+
+  it('U-winder floating stair warns separately for each of the two corner walls', () => {
+    const stair = makeUStair('left', false, { constructionStyle: 'floating', middleFlightSteps: 0 })
+    const noWalls = checkStairWallSupport(stair, [])
+    expect(noWalls).toHaveLength(2)
+    const segs = getStairSupportSegments(stair)
+    const onlyLowerWall = { x1: segs[0][0][0], y1: segs[0][0][1], x2: segs[0][1][0], y2: segs[0][1][1] }
+    const oneWallWarnings = checkStairWallSupport(stair, [onlyLowerWall])
+    expect(oneWallWarnings).toHaveLength(1)
+    expect(oneWallWarnings[0].segmentIndex).toBe(1)
   })
 })

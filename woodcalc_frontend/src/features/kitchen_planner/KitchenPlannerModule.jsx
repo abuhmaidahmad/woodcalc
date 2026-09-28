@@ -7,7 +7,10 @@ import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
-import { computeStairSteps, findOverlappingStairProfile } from './stairGeometry'
+import {
+  computeStairSteps, findOverlappingStairProfile, checkStairWallSupport,
+  DEFAULT_CONSTRUCTION_STYLE, DEFAULT_TREAD_THICKNESS, MIN_TREAD_THICKNESS, MAX_TREAD_THICKNESS, DEFAULT_SUPPORT_SIDE,
+} from './stairGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
 import ProposalTab from './ProposalTab'
@@ -1380,8 +1383,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing',
             stepsBeforeTurnClamped: 'stairWarnStepsClamped', walklineGoing: 'stairInfoWalklineGoing',
             winderNarrowEnd: 'stairWarnNarrowEnd', winderComfort: 'stairWarnWinderComfort',
-            middleFlightStepsClamped: 'stairWarnMiddleClamped',
+            middleFlightStepsClamped: 'stairWarnMiddleClamped', floatingNoWallSupport: 'stairWarnNoWallSupport',
           }
+          const constructionStyle = st.constructionStyle || DEFAULT_CONSTRUCTION_STYLE
+          const wallsMm = walls.map(w => ({ x1: w.x1 / SCALE, y1: w.y1 / SCALE, x2: w.x2 / SCALE, y2: w.y2 / SCALE }))
+          const wallSupportWarnings = checkStairWallSupport(st, wallsMm)
+          const allWarnings = [...derived.warnings, ...wallSupportWarnings]
           return (
             <div>
               <div style={s.propTitle}>{t('kitchenPlannerModule.stairTitle')}</div>
@@ -1440,6 +1447,52 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <span style={{ fontSize: 12, fontWeight: 600, color: st.showStepNumbers ? ACCENT : '#666' }}>{t('kitchenPlannerModule.stairShowStepNumbers')}</span>
                 </div>
               </div>
+
+              <div style={s.propSection}>{t('kitchenPlannerModule.stairConstruction')}</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {['closed', 'open', 'floating'].map(styleVal => (
+                  <button key={styleVal} onClick={() => updateStair('constructionStyle', styleVal)}
+                    style={{ flex: 1, padding: '6px 4px', border: `1.5px solid ${constructionStyle === styleVal ? ACCENT : '#E0DAD4'}`, borderRadius: 6, background: constructionStyle === styleVal ? ACCENT + '18' : '#fff', color: constructionStyle === styleVal ? ACCENT : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    {t(`kitchenPlannerModule.stairConstruction${styleVal.charAt(0).toUpperCase()}${styleVal.slice(1)}`)}
+                  </button>
+                ))}
+              </div>
+              {constructionStyle !== 'closed' && (
+                <div style={{ marginBottom: 10 }}>
+                  <div style={s.propLabel}>{t('kitchenPlannerModule.stairTreadThickness')}</div>
+                  <input type="number" min={MIN_TREAD_THICKNESS} max={MAX_TREAD_THICKNESS} value={st.treadThickness || DEFAULT_TREAD_THICKNESS}
+                    onChange={e => updateStair('treadThickness', Math.min(MAX_TREAD_THICKNESS, Math.max(MIN_TREAD_THICKNESS, +e.target.value)))} style={s.propInput} />
+                </div>
+              )}
+              {constructionStyle === 'floating' && (
+                <>
+                  {!isWinder ? (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.stairSupportSide')}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {['left', 'right'].map(sideVal => (
+                          <button key={sideVal} onClick={() => updateStair('supportSide', sideVal)}
+                            style={{ flex: 1, padding: '6px', border: `1.5px solid ${(st.supportSide || DEFAULT_SUPPORT_SIDE) === sideVal ? ACCENT : '#E0DAD4'}`, borderRadius: 6, background: (st.supportSide || DEFAULT_SUPPORT_SIDE) === sideVal ? ACCENT + '18' : '#fff', color: (st.supportSide || DEFAULT_SUPPORT_SIDE) === sideVal ? ACCENT : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            {sideVal === 'left' ? t('kitchenPlannerModule.stairTurnLeft') : t('kitchenPlannerModule.stairTurnRight')}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ marginBottom: 10, padding: '6px 8px', background: '#F5F0E8', borderRadius: 6, fontSize: 11, color: '#8A6D3B' }}>
+                      {t('kitchenPlannerModule.stairSupportSideOuterAuto')}
+                    </div>
+                  )}
+                  <div style={{ marginBottom: 10 }}>
+                    <div
+                      onClick={() => updateStair('showSupportPlate', !st.showSupportPlate)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${st.showSupportPlate ? ACCENT : '#E0DAD4'}`, background: st.showSupportPlate ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                      <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${st.showSupportPlate ? ACCENT : '#ccc'}`, background: st.showSupportPlate ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{st.showSupportPlate ? '✓' : ''}</div>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: st.showSupportPlate ? ACCENT : '#666' }}>{t('kitchenPlannerModule.stairShowSupportPlate')}</span>
+                    </div>
+                  </div>
+                </>
+              )}
 
               {isWinder && (
                 <>
@@ -1520,9 +1573,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 } : s2))}
               />
 
-              {derived.warnings.length > 0 && (
+              {allWarnings.length > 0 && (
                 <div style={{ marginBottom: 10 }}>
-                  {derived.warnings.map((w, i) => {
+                  {allWarnings.map((w, i) => {
                     const isInfo = w.level === 'info'
                     return (
                       <div key={i} style={{ padding: '6px 8px', background: isInfo ? '#EBF5FB' : '#FEF9E7', border: `1px solid ${isInfo ? '#AED6F1' : '#F5D57A'}`, borderRadius: 6, fontSize: 11, color: isInfo ? '#1B4F72' : '#8A6D00', marginBottom: 4 }}>
