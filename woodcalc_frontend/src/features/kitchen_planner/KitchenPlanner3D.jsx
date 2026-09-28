@@ -1132,8 +1132,24 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
 
 
 // ---- Appliance visuals (fridge, oven, dishwasher, hood) — real look instead of generic cabinet doors ----
-function FridgeAppliance({ W, H, D }) {
-  const bodyColor = '#d7dadd', seamColor = '#9aa0a4', handleColor = '#3a3d40'
+// Two-tone appliance finish: 'black' is a black body with chrome/silver hardware
+// (knobs, handles, buttons), 'silver' is a stainless body with black hardware --
+// the two combinations that keep hardware legible against the body, matching the
+// two options real appliance ranges are actually sold in. Each appliance component
+// below keeps its historical look as the default so existing designs don't shift
+// colors on their own; `cab.applianceFinish` (set per-cabinet in the properties
+// panel) overrides it.
+const APPLIANCE_FINISHES = {
+  black:  { body: '#2b2b2b', hardware: '#c9cccf', glass: '#111418' },
+  silver: { body: '#d7dadd', hardware: '#232323', glass: '#111418' },
+}
+function applianceFinish(name) {
+  return APPLIANCE_FINISHES[name] || APPLIANCE_FINISHES.black
+}
+
+function FridgeAppliance({ W, H, D, finish = 'silver' }) {
+  const { body: bodyColor, hardware: handleColor } = applianceFinish(finish)
+  const seamColor = '#9aa0a4'
   const doorSplitY = H * 0.62
   return (
     <group>
@@ -1163,8 +1179,8 @@ function FridgeAppliance({ W, H, D }) {
   )
 }
 
-function FreestandingOvenAppliance({ W, H, D }) {
-  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+function FreestandingOvenAppliance({ W, H, D, finish = 'black' }) {
+  const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
   return (
     <group>
       <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
@@ -1173,12 +1189,12 @@ function FreestandingOvenAppliance({ W, H, D }) {
       </mesh>
       <mesh position={[0, H - 0.035, D / 2 + 0.001]}>
         <boxGeometry args={[W - 0.02, 0.05, 0.002]} />
-        <meshPhysicalMaterial color="#3d3d3d" metalness={0.6} roughness={0.3} />
+        <meshPhysicalMaterial color={hardware} metalness={0.6} roughness={0.3} />
       </mesh>
       {[-0.15, -0.05, 0.05, 0.15].map((kx, i) => (
         <mesh key={i} position={[W * kx, H - 0.035, D / 2 + 0.008]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.012, 0.012, 0.01, 12]} />
-          <meshPhysicalMaterial color="#111" metalness={0.8} roughness={0.2} />
+          <meshPhysicalMaterial color={hardware} metalness={0.8} roughness={0.2} />
         </mesh>
       ))}
       <mesh position={[0, H * 0.35, D / 2 + 0.001]}>
@@ -1187,7 +1203,7 @@ function FreestandingOvenAppliance({ W, H, D }) {
       </mesh>
       <mesh position={[0, H * 0.35 + H * 0.21 + 0.01, D / 2 + 0.02]}>
         <boxGeometry args={[W * 0.75, 0.02, 0.025]} />
-        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+        <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
       </mesh>
       <mesh position={[0, H + 0.005, 0]}>
         <boxGeometry args={[W, 0.01, D]} />
@@ -1203,8 +1219,8 @@ function FreestandingOvenAppliance({ W, H, D }) {
   )
 }
 
-function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
-  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, finish = 'black' }) {
+  const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
   // Standard oven cavity: 595mm x 595mm, edge-to-edge on the cabinet (no
@@ -1247,7 +1263,7 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMa
     </mesh>,
     <mesh key={key + '-handle'} position={[0, cy, doorZ2]}>
       <boxGeometry args={[ovenW * 0.75, 0.02, 0.025]} />
-      <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+      <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
     </mesh>,
   ])
 
@@ -1290,8 +1306,8 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMa
 // Base-height cooker cabinet: a control fascia band (hob knobs) at the top of
 // the front, with the built-in single oven door below it — the hob itself
 // sits on the countertop above (see HobPlate), not on this carcass front.
-function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps }) {
-  const bodyColor = '#2b2b2b', doorGlass = '#111418'
+function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, finish = 'black' }) {
+  const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
   const edgeGap = 0.003
@@ -1341,7 +1357,7 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
       </mesh>
       <mesh position={[0, doorCenter, doorZ2]}>
         <boxGeometry args={[frontW * 0.75, 0.02, 0.025]} />
-        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+        <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
       </mesh>
     </group>
   )
@@ -1402,26 +1418,27 @@ function HobPlate({ W, D }) {
   )
 }
 
-function DishwasherAppliance({ W, H, D }) {
+function DishwasherAppliance({ W, H, D, finish = 'silver' }) {
+  const { body: bodyColor, hardware } = applianceFinish(finish)
   return (
     <group>
       <mesh position={[0, H / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[W, H, D]} />
-        <meshPhysicalMaterial color="#d7dadd" metalness={0.65} roughness={0.3} envMapIntensity={1.2} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.65} roughness={0.3} envMapIntensity={1.2} />
       </mesh>
       <mesh position={[0, H - 0.04, D / 2 + 0.001]}>
         <boxGeometry args={[W - 0.02, 0.06, 0.002]} />
-        <meshPhysicalMaterial color="#3d3d3d" metalness={0.5} roughness={0.3} />
+        <meshPhysicalMaterial color={hardware} metalness={0.5} roughness={0.3} />
       </mesh>
       {[-0.25, -0.1, 0.05, 0.2].map((kx, i) => (
         <mesh key={i} position={[W * kx, H - 0.04, D / 2 + 0.003]}>
           <boxGeometry args={[0.02, 0.015, 0.002]} />
-          <meshBasicMaterial color="#111" />
+          <meshBasicMaterial color={hardware} />
         </mesh>
       ))}
       <mesh position={[0, H * 0.55, D / 2 + 0.015]}>
         <boxGeometry args={[W * 0.7, 0.02, 0.02]} />
-        <meshPhysicalMaterial color="#888" metalness={0.85} roughness={0.2} />
+        <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
       </mesh>
     </group>
   )
@@ -1433,11 +1450,11 @@ function DishwasherAppliance({ W, H, D }) {
 // canopy has to read as the wide part CLOSEST to the cooktop (the bottom of this group,
 // at its elevation offset), tapering up into a narrower flue that rises toward the
 // ceiling. Getting that inverted (wide-on-top) reads as a pedestal table, not a hood.
-function FreestandingHoodAppliance({ W, H, D }) {
+function FreestandingHoodAppliance({ W, H, D, finish = 'silver' }) {
   const canopyH = Math.min(H * 0.32, 0.22)
   const ductH = H - canopyH
   const ductW = W * 0.4, ductD = D * 0.55
-  const bodyColor = '#c9cccf', trimColor = '#8f9296'
+  const { body: bodyColor, hardware } = applianceFinish(finish)
   return (
     <group>
       {/* Wide capture canopy -- closest to the cooktop below */}
@@ -1448,12 +1465,12 @@ function FreestandingHoodAppliance({ W, H, D }) {
       {/* Machined trim line along the canopy's lower front edge */}
       <mesh position={[0, canopyH * 0.06, D / 2 - 0.012]}>
         <boxGeometry args={[W - 0.03, 0.01, 0.01]} />
-        <meshPhysicalMaterial color={trimColor} metalness={0.9} roughness={0.15} />
+        <meshPhysicalMaterial color={hardware} metalness={0.9} roughness={0.15} />
       </mesh>
       {/* Front control strip */}
       <mesh position={[0, canopyH * 0.55, D / 2 + 0.001]}>
         <boxGeometry args={[W * 0.32, canopyH * 0.22, 0.002]} />
-        <meshPhysicalMaterial color="#151515" metalness={0.4} roughness={0.3} />
+        <meshPhysicalMaterial color={hardware} metalness={0.4} roughness={0.3} />
       </mesh>
       {/* Under-canopy light strip, glowing down onto the hob */}
       <mesh position={[0, 0.006, 0]}>
@@ -1469,21 +1486,22 @@ function FreestandingHoodAppliance({ W, H, D }) {
   )
 }
 
-function HoodAppliance({ W, H, D }) {
+function HoodAppliance({ W, H, D, finish = 'silver' }) {
   const canopyH = Math.min(H * 0.35, 0.15)
+  const { body: bodyColor, hardware } = applianceFinish(finish)
   return (
     <group>
       <mesh position={[0, H - canopyH / 2, 0]} castShadow receiveShadow>
         <boxGeometry args={[W, canopyH, D]} />
-        <meshPhysicalMaterial color="#c9cccf" metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
       </mesh>
       <mesh position={[0, (H - canopyH) / 2, 0]} scale={[0.55, 1, 0.55]}>
         <boxGeometry args={[W, H - canopyH, D]} />
-        <meshPhysicalMaterial color="#c9cccf" metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
       </mesh>
       <mesh position={[0, H - canopyH / 2, D / 2 + 0.001]}>
         <boxGeometry args={[W * 0.5, 0.02, 0.002]} />
-        <meshPhysicalMaterial color="#3d3d3d" metalness={0.5} roughness={0.3} />
+        <meshPhysicalMaterial color={hardware} metalness={0.5} roughness={0.3} />
       </mesh>
     </group>
   )
@@ -1582,25 +1600,25 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         </mesh>
       ))}
       {applianceKind === 'fridge' ? (
-        <FridgeAppliance W={W} H={H} D={D} />
+        <FridgeAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'ovenTower' ? (
         <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
-          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
       ) : applianceKind === 'hobOven' ? (
         <HobOvenAppliance W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
-          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} />
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
       ) : applianceKind === 'hood' ? (
-        <HoodAppliance W={W} H={H} D={D} />
+        <HoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingOven' ? (
-        <FreestandingOvenAppliance W={W} H={H} D={D} />
+        <FreestandingOvenAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingFridge' ? (
-        <FridgeAppliance W={W} H={H} D={D} />
+        <FridgeAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingDishwasher' ? (
-        <DishwasherAppliance W={W} H={H} D={D} />
+        <DishwasherAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingHood' ? (
-        <FreestandingHoodAppliance W={W} H={H} D={D} />
+        <FreestandingHoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}

@@ -1824,6 +1824,31 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </>
                 )}
                 <div style={s.propSection}>{t('kitchenPlannerModule.materialStyle')}</div>
+                {[...APPLIANCE_SUBTYPES, 'Hob + Oven'].includes(selCab.subtype) && (() => {
+                  // Purchased/built-in appliances render in two hardware-contrast finishes
+                  // (see applianceFinish() in KitchenPlanner3D.jsx); each appliance component
+                  // defaults to whichever finish matches its historical look, so an unset
+                  // value here highlights that same default rather than nothing at all.
+                  const defaultFinish = ['Fridge', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood', 'Appliance'].includes(selCab.subtype) ? 'silver' : 'black'
+                  const current = selCab.applianceFinish || defaultFinish
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.applianceFinish')}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[
+                          { id: 'black', body: '#2b2b2b', hw: '#c9cccf', label: t('kitchenPlannerModule.applianceFinishBlack') },
+                          { id: 'silver', body: '#d7dadd', hw: '#232323', label: t('kitchenPlannerModule.applianceFinishSilver') },
+                        ].map(opt => (
+                          <div key={opt.id} onClick={() => updateCab('applianceFinish', opt.id)}
+                            style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${current === opt.id ? ACCENT : '#E0DAD4'}`, background: current === opt.id ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
+                            <div style={{ width: 16, height: 16, borderRadius: '50%', background: opt.body, border: `2.5px solid ${opt.hw}`, margin: '0 auto 4px' }} />
+                            <div style={{ fontSize: 9, fontWeight: 700, color: current === opt.id ? ACCENT : '#666' }}>{opt.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
                 {selCab.category !== 'accessories' && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={s.propLabel}>{t('kitchenPlannerModule.doorStyle')}</div>

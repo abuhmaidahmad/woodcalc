@@ -316,7 +316,13 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
   const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
-  const applianceFill = APPLIANCE_2D_COLORS[cab.subtype] || (cab.category === 'wall' && cab.subtype === 'Appliance' ? '#c9cccf' : null)
+  // cab.applianceFinish ('black'|'silver', set in the properties panel) overrides the
+  // subtype's default plan color -- keeps the top-view fill in sync with the body color
+  // chosen for the 3D render (see applianceFinish() in KitchenPlanner3D.jsx).
+  const isApplianceSubtype = cab.subtype in APPLIANCE_2D_COLORS || (cab.category === 'wall' && cab.subtype === 'Appliance')
+  const applianceFill = isApplianceSubtype
+    ? (cab.applianceFinish === 'black' ? '#2b2b2b' : cab.applianceFinish === 'silver' ? '#d7dadd' : (APPLIANCE_2D_COLORS[cab.subtype] || '#c9cccf'))
+    : null
   const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
   return (
     <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
