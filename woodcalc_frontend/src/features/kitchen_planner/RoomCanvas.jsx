@@ -283,6 +283,7 @@ const APPLIANCE_2D_COLORS = {
   'Freestanding Oven': '#2b2b2b',
   'Freestanding Fridge': '#d7dadd',
   'Freestanding Dishwasher': '#d7dadd',
+  'Freestanding Hood': '#c9cccf',
   'Fridge': '#d7dadd',
   'Oven Tower': '#2b2b2b',
   'Double Oven': '#2b2b2b',
@@ -320,7 +321,7 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
   return (
     <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
       onMouseDown={e => onMouseDown(e, cab.id)}
-      style={{ cursor: 'move', opacity: cab.category === 'wall' ? 0.6 : 1 }}>
+      style={{ cursor: 'move', opacity: (cab.category === 'wall' || cab.subtype === 'Freestanding Hood') ? 0.6 : 1 }}>
       {(w < 8 || h < 8) && (
         // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
         // otherwise render no visible area, making the cabinet unclickable and
@@ -329,7 +330,24 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
           width={Math.max(w, 8)} height={Math.max(h, 8)}
           fill="transparent" style={{ pointerEvents: 'all' }} />
       )}
-      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={cab.category === 'wall' ? '5,3' : undefined} rx={2} />
+      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={(cab.category === 'wall' || cab.subtype === 'Freestanding Hood') ? '5,3' : undefined} rx={2} />
+      {cab.subtype === 'Freestanding Hood' && (() => {
+        // Plan-view extractor symbol (inset duct outline + fan cross) so a hood
+        // reads as a hood from above, not a generic labeled box -- dashed edge
+        // above already signals it's suspended, not floor-standing.
+        const cx = w / 2, cy = h / 2
+        const r = Math.min(w, h) * 0.26
+        return (
+          <g style={{ pointerEvents: 'none' }}>
+            <rect x={w * 0.12} y={h * 0.12} width={w * 0.76} height={h * 0.76} fill="none" stroke={outlineColor} strokeWidth={1} strokeDasharray="3,2" rx={2} />
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke={outlineColor} strokeWidth={1.25} />
+            {[0, 45, 90, 135].map(a => {
+              const rad = a * Math.PI / 180
+              return <line key={a} x1={cx - r * Math.cos(rad)} y1={cy - r * Math.sin(rad)} x2={cx + r * Math.cos(rad)} y2={cy + r * Math.sin(rad)} stroke={outlineColor} strokeWidth={1} />
+            })}
+          </g>
+        )
+      })()}
       {cab.subtype === 'Blind' && (() => {
         const blindWpx = BLIND_PANEL_WIDTH * scale
         const side = cab.blindSide || 'left'

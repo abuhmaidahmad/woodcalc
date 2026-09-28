@@ -99,7 +99,7 @@ function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
 // ─── Price a single cabinet ────────────────────────────────────────────────
 function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   if (!isCarcassCabinet(cab)) {
-    // Purchased appliances (Fridge, Freestanding Oven/Fridge/Dishwasher, wall
+    // Purchased appliances (Fridge, Freestanding Oven/Fridge/Dishwasher/Hood, wall
     // Appliance) aren't sold through WoodCalc today -- design/space-planning
     // placeholders only, no cost. Oven Tower/Double Oven are NOT in this branch
     // (isCarcassCabinet is true for them) -- their carcass is fabricated and

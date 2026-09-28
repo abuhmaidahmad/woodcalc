@@ -68,6 +68,7 @@ const Icons = {
   accessory_gap_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="6" y="18" width="36" height="24" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#2b2b2b" fillOpacity="0.85"/><rect x="10" y="24" width="28" height="14" rx="1" fill="#111"/><rect x="6" y="10" width="36" height="8" rx="1" fill="#ddd" stroke="#2c3e50" strokeWidth="1"/><circle cx="14" cy="14" r="2" fill="#333"/><circle cx="24" cy="14" r="2" fill="#333"/><circle cx="34" cy="14" r="2" fill="#333"/></svg>),
   accessory_gap_fridge: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8f0f8"/><line x1="10" y1="26" x2="38" y2="26" stroke="#2c3e50" strokeWidth="1.5"/><circle cx="34" cy="14" r="1.5" fill="#2c3e50"/><circle cx="34" cy="34" r="1.5" fill="#2c3e50"/></svg>),
   accessory_gap_dish: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="8" width="40" height="32" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#eef0f1"/><rect x="8" y="12" width="32" height="6" rx="1" fill="#3d3d3d"/><circle cx="14" cy="15" r="1" fill="#111"/><circle cx="20" cy="15" r="1" fill="#111"/></svg>),
+  accessory_gap_hood: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="4" width="40" height="10" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#c9cccf"/><path d="M12 14 L36 14 L26 26 L22 26 Z" stroke="#2c3e50" strokeWidth="1.5" fill="#c9cccf"/><line x1="20" y1="26" x2="20" y2="34" stroke="#888" strokeWidth="1.5"/><line x1="28" y1="26" x2="28" y2="34" stroke="#888" strokeWidth="1.5"/></svg>),
 }
 
 // Cabinet catalog labels/subtypes generated below (e.g. "Base 200", "Standard") stay in
@@ -167,6 +168,11 @@ function buildLibrary(baseHeight) {
     // base run's carcass height) rather than a fixed appliance height — see isBase in
     // KitchenPlanner3D, which now includes this subtype so it gets legs + a countertop.
     { id: 'acc_free_dish',       label: 'Freestanding Dishwasher', subtype: 'Freestanding Dishwasher', width: 600, height: baseHeight, depth: 560, icon: 'accessory_gap_dish',   category: 'accessories' },
+    // An island hood hangs from the ceiling with no host wall cabinet underneath it
+    // (unlike the wall-category 'Appliance' hood, which sits above a wall run) -- so
+    // like the freestanding oven/fridge above, it's a standalone accessory. It reuses
+    // wallElevation to hang at the same height wall cabinets start, clear of head height.
+    { id: 'acc_free_hood', label: 'Freestanding Hood', subtype: 'Freestanding Hood', width: 900, height: 600, depth: 500, icon: 'accessory_gap_hood', category: 'accessories', elevation: wallElevation },
   ]
 
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }

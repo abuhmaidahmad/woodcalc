@@ -1427,6 +1427,48 @@ function DishwasherAppliance({ W, H, D }) {
   )
 }
 
+// A ceiling-suspended island hood: unlike the wall-mounted HoodAppliance below (whose
+// narrow "duct" fills the space down to the hob, since it hangs right under an upper
+// cabinet run), an island hood has nothing above or below it in frame -- so its capture
+// canopy has to read as the wide part CLOSEST to the cooktop (the bottom of this group,
+// at its elevation offset), tapering up into a narrower flue that rises toward the
+// ceiling. Getting that inverted (wide-on-top) reads as a pedestal table, not a hood.
+function FreestandingHoodAppliance({ W, H, D }) {
+  const canopyH = Math.min(H * 0.32, 0.22)
+  const ductH = H - canopyH
+  const ductW = W * 0.4, ductD = D * 0.55
+  const bodyColor = '#c9cccf', trimColor = '#8f9296'
+  return (
+    <group>
+      {/* Wide capture canopy -- closest to the cooktop below */}
+      <mesh position={[0, canopyH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[W, canopyH, D]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.85} roughness={0.22} envMapIntensity={1.4} />
+      </mesh>
+      {/* Machined trim line along the canopy's lower front edge */}
+      <mesh position={[0, canopyH * 0.06, D / 2 - 0.012]}>
+        <boxGeometry args={[W - 0.03, 0.01, 0.01]} />
+        <meshPhysicalMaterial color={trimColor} metalness={0.9} roughness={0.15} />
+      </mesh>
+      {/* Front control strip */}
+      <mesh position={[0, canopyH * 0.55, D / 2 + 0.001]}>
+        <boxGeometry args={[W * 0.32, canopyH * 0.22, 0.002]} />
+        <meshPhysicalMaterial color="#151515" metalness={0.4} roughness={0.3} />
+      </mesh>
+      {/* Under-canopy light strip, glowing down onto the hob */}
+      <mesh position={[0, 0.006, 0]}>
+        <boxGeometry args={[W * 0.55, 0.006, D * 0.55]} />
+        <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={2.5} toneMapped={false} />
+      </mesh>
+      {/* Narrowing flue duct rising toward the ceiling */}
+      <mesh position={[0, canopyH + ductH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[ductW, ductH, ductD]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.8} roughness={0.3} envMapIntensity={1.2} />
+      </mesh>
+    </group>
+  )
+}
+
 function HoodAppliance({ W, H, D }) {
   const canopyH = Math.min(H * 0.35, 0.15)
   return (
@@ -1516,6 +1558,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
     cab.subtype === 'Freestanding Oven' ? 'freestandingOven' :
     cab.subtype === 'Freestanding Fridge' ? 'freestandingFridge' :
     cab.subtype === 'Freestanding Dishwasher' ? 'freestandingDishwasher' :
+    cab.subtype === 'Freestanding Hood' ? 'freestandingHood' :
     null
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
 
@@ -1556,6 +1599,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <FridgeAppliance W={W} H={H} D={D} />
       ) : applianceKind === 'freestandingDishwasher' ? (
         <DishwasherAppliance W={W} H={H} D={D} />
+      ) : applianceKind === 'freestandingHood' ? (
+        <FreestandingHoodAppliance W={W} H={H} D={D} />
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}

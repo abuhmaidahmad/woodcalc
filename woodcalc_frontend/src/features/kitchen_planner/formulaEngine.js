@@ -32,7 +32,7 @@ export function isShelfEligible(cab) {
 // houses a purchased oven, so they're excluded from this list but stay in
 // APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
 export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance'];
-export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher'];
+export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
 
 export function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
