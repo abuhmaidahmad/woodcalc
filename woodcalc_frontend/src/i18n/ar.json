@@ -1222,7 +1222,8 @@
     "stairSummary": "عدد الدرجات: {{risers}} · ارتفاع الدرجة: {{riserHeight}}مم · طول المسار: {{run}}مم",
     "stairWarnComfort": "2× الارتفاع + العمق = {{val}}مم (المدى المريح 600–650مم)",
     "stairWarnRiser": "ارتفاع الدرجة {{val}}مم (المدى المريح 150–190مم)",
-    "stairWarnGoing": "عمق القائمة {{val}}مم (المدى المريح 250–300مم)"
+    "stairWarnGoing": "عمق القائمة {{val}}مم (المدى المريح 250–300مم)",
+    "stairMaterial": "المادة"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",

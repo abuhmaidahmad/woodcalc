@@ -692,6 +692,7 @@ export default function RoomCanvas({
       x: xMm, y: yMm, rotation: end.angleDeg,
       width: DEFAULT_STAIR_WIDTH, flip: chooseDefaultStairSide(xMm, yMm, end.angleDeg, room),
       totalRise: end.totalRise, maxRiser: end.maxRiser, going: end.going, nosing: DEFAULT_NOSING,
+      color: '#C9A876', finish: 'wood', materialCode: null,
     }
   }, [scale, room])
 

@@ -9,6 +9,7 @@ import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import { computeWallBodies, getWallThickness } from './wallGeometry'
+import { computeStairSteps } from './stairGeometry'
 
 const ALL_CT_MATS = [
   ...COUNTERTOP_MATERIALS,
@@ -1732,6 +1733,91 @@ const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_ROOM_H, 
   )
 })
 
+// Solid treads+risers as one box per step (floor to that step's own top height --
+// see computeStairSteps), an optional nosing lip at each tread's front edge, and
+// two extruded stringer boards following the actual staircase profile down both
+// sides. Treads/nosing reuse the same PhotoTexturedBox/SmartBox split every other
+// solid surface in this file uses; the stringers get a flat/wood material since
+// UV-mapping a photo texture onto their sawtooth profile isn't worth the
+// complexity for a secondary structural element.
+const Stair3D = React.memo(function Stair3D({ stair, textureMap = {} }) {
+  const data = useMemo(() => computeStairSteps(stair), [stair])
+  const x = stair.x / 1000, z = stair.y / 1000
+  const rot = (stair.rotation || 0) * Math.PI / 180
+  const widthM = data.width / 1000
+  const goingM = data.going / 1000
+  const runLenM = data.runLength / 1000
+  const nosingM = (stair.nosing || 0) / 1000
+  const color = stair.color || '#C9A876'
+  const finish = stair.finish || 'wood'
+  const matProps = getMaterialProps(finish)
+  const texEntry = stair.materialCode ? textureMap[stair.materialCode] : null
+  const side = data.flip ? -1 : 1
+
+  const renderBox = (key, args, position) => {
+    if (texEntry) {
+      const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+      const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+      return (
+        <PhotoTexturedBox key={key} args={args} position={position} castShadow receiveShadow
+          imageUrl={texEntry.texture_image} color={color} matProps={matProps}
+          envMapIntensity={1.0} repeatU={args[0] / physW} repeatV={args[2] / physH} />
+      )
+    }
+    return (
+      <SmartBox key={key} args={args} position={position} castShadow receiveShadow
+        color={color} materialName={finish} matProps={matProps} envMapIntensity={1.0} />
+    )
+  }
+
+  const treadZ = side * widthM / 2
+  const treads = data.steps.map((step, i) => {
+    const h = step.topHeight / 1000
+    return renderBox(`t${i}`, [goingM, h, widthM], [(i + 0.5) * goingM, h / 2, treadZ])
+  })
+
+  const nosings = nosingM > 0 ? data.steps.map((step, i) => {
+    const h = step.topHeight / 1000
+    const noseT = 0.02
+    return renderBox(`n${i}`, [nosingM, noseT, widthM], [i * goingM - nosingM / 2, h - noseT / 2, treadZ])
+  }) : null
+
+  const stringerShape = useMemo(() => {
+    const shape = new THREE.Shape()
+    shape.moveTo(0, 0)
+    data.steps.forEach((step, i) => {
+      shape.lineTo(i * goingM, step.topHeight / 1000)
+      shape.lineTo((i + 1) * goingM, step.topHeight / 1000)
+    })
+    shape.lineTo(runLenM, 0)
+    shape.closePath()
+    return shape
+  }, [data.steps, goingM, runLenM])
+  const stringerT = 0.04
+  const stringerGeometry = useMemo(
+    () => new THREE.ExtrudeGeometry(stringerShape, { depth: stringerT, bevelEnabled: false }),
+    [stringerShape]
+  )
+  const zMin = Math.min(0, side * widthM), zMax = Math.max(0, side * widthM)
+  const stringerMat = isWoodMaterial(finish)
+    ? <WoodPanelMaterial color={color} matProps={matProps} envMapIntensity={1.0} />
+    : <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness}
+        clearcoat={matProps.clearcoat} clearcoatRoughness={matProps.clearcoatRoughness} envMapIntensity={1.0} />
+
+  return (
+    <group position={[x, 0, z]} rotation={[0, -rot, 0]}>
+      {treads}
+      {nosings}
+      <mesh geometry={stringerGeometry} position={[0, 0, zMin - stringerT]} castShadow receiveShadow>
+        {stringerMat}
+      </mesh>
+      <mesh geometry={stringerGeometry} position={[0, 0, zMax]} castShadow receiveShadow>
+        {stringerMat}
+      </mesh>
+    </group>
+  )
+})
+
 const WindowElement = React.memo(function WindowElement({ el }) {
   const x = el.x/1000, z = el.y/1000
   const W = el.w/1000, T = (el.wallThickness||120)/1000
@@ -1822,14 +1908,14 @@ function RedrawOnActivate({ active }) {
 // what happens while orbiting/zooming. Disabling autoUpdate and only
 // flagging needsUpdate when the shadow-casting geometry itself changes cuts
 // that from "every frame" down to "once, when it actually needs to."
-function ShadowMapOnDemand({ cabinets, walls, room }) {
+function ShadowMapOnDemand({ cabinets, walls, stairs, room }) {
   const gl = useThree(state => state.gl)
   useEffect(() => {
     gl.shadowMap.autoUpdate = false
   }, [gl])
   useEffect(() => {
     gl.shadowMap.needsUpdate = true
-  }, [gl, cabinets, walls, room])
+  }, [gl, cabinets, walls, stairs, room])
   return null
 }
 
@@ -1840,7 +1926,7 @@ function ShadowMapOnDemand({ cabinets, walls, room }) {
 // every unrelated state change in the parent (selecting a cabinet, switching
 // tool mode, etc.), not just when its own props actually change. Memoizing
 // keeps it inert unless cabinets/room/walls/elements/materials really changed.
-function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null, active = true }) {
+function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = [], floorTile = 'white_large', countertopId = 'sil_white_storm', countertopMat: countertopMatProp = null, countertopThickness = 30, backsplashSegments = [], backsplashHeight = 50, backsplashThickness = 20, companySlug = null, active = true }) {
   const countertopMat = countertopMatProp || ALL_CT_MATS.find(m => m.id === countertopId) || COUNTERTOP_MATERIALS[0]
   const ROOM_H = (room?.ceilingHeight || 2800) / 1000
   const wallBodies = useMemo(() => computeWallBodies(walls, SCALE), [walls])
@@ -1902,7 +1988,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
         // one-off hack.
         performance={{ min: 0.5 }}>
         <RedrawOnActivate active={active} />
-        <ShadowMapOnDemand cabinets={cabinets} walls={walls} room={room} />
+        <ShadowMapOnDemand cabinets={cabinets} walls={walls} stairs={stairs} room={room} />
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
         <color attach="background" args={['#ddd9d3']} />
@@ -1924,6 +2010,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], elements = [], floorTile
         {/* --- Scene geometry --- */}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
         {walls.map((w,i)=><Wall3D key={w.id || i} wall={w} body={wallBodies[i]} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
+        {stairs.map(st=><Stair3D key={st.id} stair={st} textureMap={textureMap} />)}
         {wallEls.map(el=>el.type==='window'
           ?<WindowElement key={el.id} el={el}/>
           :<DoorElement key={el.id} el={el}/>)}
