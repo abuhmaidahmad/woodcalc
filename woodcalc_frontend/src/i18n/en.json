@@ -1239,7 +1239,14 @@
     "stairWarnNarrowEnd": "Winder {{index}} narrow end is {{val}}mm (min 50mm)",
     "stairInfoWalklineGoing": "Winder going at the walkline is {{val}}mm (flight going is {{target}}mm)",
     "stairWarnWinderComfort": "2× riser + winder walkline going is {{val}}mm (comfortable range 550–700mm)",
-    "stairShowStepNumbers": "Show step numbers (debug)"
+    "stairShowStepNumbers": "Show step numbers (debug)",
+    "stairShape": "Shape",
+    "stairShapeStraight": "Straight",
+    "stairShapeL": "L-Winder",
+    "stairShapeU": "U-Winder",
+    "stairMiddleFlightSteps": "Middle Flight Treads",
+    "stairWellWidth": "Well Width (derived)",
+    "stairWarnMiddleClamped": "Middle flight treads clamped to {{val}} to fit"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

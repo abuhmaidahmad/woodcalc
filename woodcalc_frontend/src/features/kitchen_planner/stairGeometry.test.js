@@ -170,13 +170,13 @@ describe.each([
   })
 })
 
-const MIDDLE_FLIGHT_STEPS = 1, WELL_GAP = 300, U_STEPS_BEFORE_TURN = 4
+const MIDDLE_FLIGHT_STEPS = 1, U_STEPS_BEFORE_TURN = 4
 
 function makeUStair(turnDirection, flip, overrides = {}) {
   return {
     x: 0, y: 0, rotation: 0, width: WIDTH, going: GOING, maxRiser: MAX_RISER, totalRise: TOTAL_RISE,
     shape: 'U-winder', windersPerTurn: WINDERS, stepsBeforeTurn: U_STEPS_BEFORE_TURN,
-    middleFlightSteps: MIDDLE_FLIGHT_STEPS, wellGap: WELL_GAP,
+    middleFlightSteps: MIDDLE_FLIGHT_STEPS,
     turnDirection, flip, pivotOffset: 0, walklineOffset: 450,
     ...overrides,
   }
@@ -263,7 +263,7 @@ describe.each([
     expect(dot).toBeCloseTo(-1, 6)
   })
 
-  it('the lower and upper flights are separated by exactly middleFlightSteps*going + wellGap along their shared width axis', () => {
+  it('the lower and upper flights are separated by exactly middleFlightSteps*going (the well width) along their shared width axis', () => {
     const lower = steps[0].footprint
     const upper = steps[upperStart].footprint
     const widthAxis = [lower[3][0] - lower[0][0], lower[3][1] - lower[0][1]]
@@ -274,18 +274,59 @@ describe.each([
     const lowerMin = Math.min(...lowerProj), lowerMax = Math.max(...lowerProj)
     const upperMin = Math.min(...upperProj), upperMax = Math.max(...upperProj)
     const gap = Math.max(upperMin - lowerMax, lowerMin - upperMax)
-    expect(gap).toBeCloseTo(MIDDLE_FLIGHT_STEPS * GOING + WELL_GAP, 0)
+    expect(gap).toBeCloseTo(MIDDLE_FLIGHT_STEPS * GOING, 0)
+    expect(data.wellWidth).toBeCloseTo(MIDDLE_FLIGHT_STEPS * GOING, 6)
   })
 
-  it('every footprint winds consistently (same sign of signed area throughout)', () => {
+  it('every footprint winds consistently (same sign of signed area throughout, matching the L-winder convention)', () => {
     const signs = steps.map(s => signedArea(s.footprint) >= 0)
     expect(signs.every(s => s === signs[0])).toBe(true)
   })
+
+  it('every straight segment has the same basis determinant (matching side): turns never flip chirality mid-chain', () => {
+    // Infer each segment's own (dir, perp) directly from its footprint's edges
+    // (footprint = [p0,p1,w1,w0], so p1-p0 is the walking direction and
+    // w0-p0 is the width direction) -- determinant sign is scale-invariant,
+    // so this is a black-box check of the actual geometry produced, not of
+    // applyTurn's internals.
+    const basisDet = (fp) => {
+      const dir = [fp[1][0] - fp[0][0], fp[1][1] - fp[0][1]]
+      const perp = [fp[3][0] - fp[0][0], fp[3][1] - fp[0][1]]
+      return Math.sign(dir[0] * perp[1] - perp[0] * dir[1])
+    }
+    const expectedSign = flip ? -1 : 1
+    const lowerDet = basisDet(steps[0].footprint)
+    const middleDet = basisDet(steps[turn1Start + WINDERS].footprint)
+    const upperDet = basisDet(steps[upperStart].footprint)
+    expect(lowerDet).toBe(expectedSign)
+    expect(middleDet).toBe(expectedSign)
+    expect(upperDet).toBe(expectedSign)
+  })
+
+  it("both turns' pivots sit on the well side, between the two parallel flights", () => {
+    const lower = steps[0].footprint
+    const widthAxis = [lower[3][0] - lower[0][0], lower[3][1] - lower[0][1]]
+    const axisLen = Math.hypot(...widthAxis)
+    const unit = [widthAxis[0] / axisLen, widthAxis[1] / axisLen]
+    const project = (p) => p[0] * unit[0] + p[1] * unit[1]
+    const lowerMax = Math.max(...lower.map(project))
+    const upper = steps[upperStart].footprint
+    const upperMin = Math.min(...upper.map(project))
+    const wellMin = Math.min(lowerMax, upperMin), wellMax = Math.max(lowerMax, upperMin)
+    for (const start of [turn1Start, turn2Start]) {
+      const winders = steps.slice(start, start + WINDERS).map(s => s.footprint)
+      const [first, mid, last] = winders
+      const pivot = first.find(v => findVertex(mid, v) && findVertex(last, v))
+      const p = project(pivot)
+      expect(p).toBeGreaterThanOrEqual(wellMin - 0.5)
+      expect(p).toBeLessThanOrEqual(wellMax + 0.5)
+    }
+  })
 })
 
-describe('computeStairSteps U-winder with middleFlightSteps=0 and wellGap=0', () => {
+describe('computeStairSteps U-winder with middleFlightSteps=0', () => {
   it('turn 1 and turn 2 sit immediately adjacent, sharing a full width edge', () => {
-    const stair = makeUStair('left', false, { middleFlightSteps: 0, wellGap: 0 })
+    const stair = makeUStair('left', false, { middleFlightSteps: 0 })
     const data = computeStairSteps(stair)
     const turn1Start = U_STEPS_BEFORE_TURN
     const turn2Start = U_STEPS_BEFORE_TURN + WINDERS

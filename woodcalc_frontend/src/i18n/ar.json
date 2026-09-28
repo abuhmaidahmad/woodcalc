@@ -1239,7 +1239,14 @@
     "stairWarnNarrowEnd": "الطرف الضيق للدرجة المروحية {{index}} هو {{val}}مم (الحد الأدنى 50مم)",
     "stairInfoWalklineGoing": "عمق القائمة للدرجة المروحية عند خط المشي {{val}}مم (عمق الجزء المستقيم {{target}}مم)",
     "stairWarnWinderComfort": "2× ارتفاع القائمة + عمق الدرجة المروحية عند خط المشي = {{val}}مم (المدى المريح 550–700مم)",
-    "stairShowStepNumbers": "إظهار أرقام الدرجات (تصحيح الأخطاء)"
+    "stairShowStepNumbers": "إظهار أرقام الدرجات (تصحيح الأخطاء)",
+    "stairShape": "الشكل",
+    "stairShapeStraight": "مستقيم",
+    "stairShapeL": "منعطف على شكل L",
+    "stairShapeU": "منعطف على شكل U",
+    "stairMiddleFlightSteps": "درجات الجزء الأوسط",
+    "stairWellWidth": "عرض الفتحة الوسطى (مشتق)",
+    "stairWarnMiddleClamped": "تم تقليص درجات الجزء الأوسط إلى {{val}} لتناسب المساحة"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",

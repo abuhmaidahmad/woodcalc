@@ -1361,16 +1361,40 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const st = stairs.find(s2 => s2.id === selected)
           if (!st) return null
           const derived = computeStairSteps(st)
-          const isWinder = st.shape === 'L-winder'
+          const isLWinder = st.shape === 'L-winder'
+          const isUWinder = st.shape === 'U-winder'
+          const isWinder = isLWinder || isUWinder
           const updateStair = (key, val) => setStairs(p => p.map(s2 => s2.id === selected ? { ...s2, [key]: val } : s2))
+          const setStairShape = (newShape) => setStairs(p => p.map(s2 => {
+            if (s2.id !== selected) return s2
+            const next = { ...s2, shape: newShape }
+            if (newShape === 'straight') return next
+            next.turnDirection = next.turnDirection || 'left'
+            next.windersPerTurn = next.windersPerTurn || 3
+            next.pivotOffset = next.pivotOffset || 0
+            next.walklineOffset = next.walklineOffset || 450
+            if (newShape === 'U-winder') next.middleFlightSteps = next.middleFlightSteps ?? 0
+            return next
+          }))
           const warningText = {
             comfort: 'stairWarnComfort', riser: 'stairWarnRiser', going: 'stairWarnGoing',
             stepsBeforeTurnClamped: 'stairWarnStepsClamped', walklineGoing: 'stairInfoWalklineGoing',
             winderNarrowEnd: 'stairWarnNarrowEnd', winderComfort: 'stairWarnWinderComfort',
+            middleFlightStepsClamped: 'stairWarnMiddleClamped',
           }
           return (
             <div>
               <div style={s.propTitle}>{t('kitchenPlannerModule.stairTitle')}</div>
+
+              <div style={s.propSection}>{t('kitchenPlannerModule.stairShape')}</div>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+                {['straight', 'L-winder', 'U-winder'].map(shapeVal => (
+                  <button key={shapeVal} onClick={() => setStairShape(shapeVal)}
+                    style={{ flex: 1, padding: '6px 4px', border: `1.5px solid ${(st.shape || 'straight') === shapeVal ? ACCENT : '#E0DAD4'}`, borderRadius: 6, background: (st.shape || 'straight') === shapeVal ? ACCENT + '18' : '#fff', color: (st.shape || 'straight') === shapeVal ? ACCENT : '#666', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                    {shapeVal === 'straight' ? t('kitchenPlannerModule.stairShapeStraight') : shapeVal === 'L-winder' ? t('kitchenPlannerModule.stairShapeL') : t('kitchenPlannerModule.stairShapeU')}
+                  </button>
+                ))}
+              </div>
 
               <div style={s.propSection}>{t('kitchenPlannerModule.dimensions')}</div>
               <div style={{ marginBottom: 10 }}>
@@ -1446,6 +1470,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     <div style={s.propLabel}>{t('kitchenPlannerModule.stairStepsBeforeTurn')}</div>
                     <input type="number" min={0} value={st.stepsBeforeTurn ?? 0} onChange={e => updateStair('stepsBeforeTurn', Math.max(0, +e.target.value))} style={s.propInput} />
                   </div>
+                  {isUWinder && (
+                    <>
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={s.propLabel}>{t('kitchenPlannerModule.stairMiddleFlightSteps')}</div>
+                        <input type="number" min={0} value={st.middleFlightSteps ?? 0} onChange={e => updateStair('middleFlightSteps', Math.max(0, +e.target.value))} style={s.propInput} />
+                      </div>
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={s.propLabel}>{t('kitchenPlannerModule.stairWellWidth')}</div>
+                        <div style={{ padding: '6px 8px', background: '#F5F0E8', borderRadius: 6, fontSize: 12, color: '#8B5E3C', fontWeight: 600 }}>
+                          {Math.round(derived.wellWidth || 0)}mm
+                        </div>
+                      </div>
+                    </>
+                  )}
                   <div style={{ marginBottom: 10 }}>
                     <div style={s.propLabel}>{t('kitchenPlannerModule.stairPivotOffset')}</div>
                     <input type="number" min={0} value={st.pivotOffset || 0} onChange={e => updateStair('pivotOffset', Math.max(0, +e.target.value))} style={s.propInput} />

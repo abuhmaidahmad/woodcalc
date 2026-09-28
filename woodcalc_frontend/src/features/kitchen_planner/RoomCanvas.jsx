@@ -363,7 +363,7 @@ const STAIR_BREAK_HEIGHT_MM = 1200
 const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, onMouseDown }) {
   const { t } = useTranslation()
   const data = useMemo(() => computeStairSteps(stair), [stair])
-  const isWinder = stair.shape === 'L-winder'
+  const isWinder = stair.shape === 'L-winder' || stair.shape === 'U-winder'
   const walklinePts = useMemo(() => (isWinder ? computeWalklinePath(stair).map(([px, py]) => [px * scale, py * scale]) : null), [stair, isWinder, scale])
   const color = selected ? ACCENT : '#333'
   const breakIdx = data.steps.findIndex(s => s.topHeight >= STAIR_BREAK_HEIGHT_MM)

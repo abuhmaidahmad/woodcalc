@@ -2110,7 +2110,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         {/* --- Scene geometry --- */}
         <Floor cx={cx} cz={cz} width={room?.width||4000} depth={room?.depth||3000} floorTile={floorTile} />
         {walls.map((w,i)=><Wall3D key={w.id || i} wall={w} body={wallBodies[i]} roomH={ROOM_H} elements={elements} wallIndex={i} />)}
-        {stairs.map(st=>st.shape==='L-winder'
+        {stairs.map(st=>(st.shape==='L-winder'||st.shape==='U-winder')
           ? <WinderStair3D key={st.id} stair={st} textureMap={textureMap} />
           : <Stair3D key={st.id} stair={st} textureMap={textureMap} />)}
         {wallEls.map(el=>el.type==='window'
