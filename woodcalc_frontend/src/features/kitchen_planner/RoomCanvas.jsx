@@ -1233,8 +1233,21 @@ export default function RoomCanvas({
         if (polysIntersect(corners[i], wallCorners)) ids.add(cab.id)
       })
     })
+    // A stair is solid from the floor up to each step's own top height, not the
+    // stair's overall bounding box -- testing per step (rather than one box sized
+    // to the whole flight) is what lets a wall cabinet mounted above a step's
+    // clearance, or any cabinet positioned past the stair's actual footprint,
+    // correctly avoid a false collision.
+    stairs.forEach(st => {
+      computeStairSteps(st).steps.forEach(step => {
+        cabinets.forEach((cab, i) => {
+          if (!rangesOverlap(elevRanges[i], [0, step.topHeight])) return
+          if (polysIntersect(corners[i], step.footprint)) ids.add(cab.id)
+        })
+      })
+    })
     return ids
-  }, [cabinets, wallBodies, scale])
+  }, [cabinets, wallBodies, stairs, scale])
 
   const centerCabinetOnNearestOpening = (cabId) => {
     const cab = cabinets.find(c => c.id === cabId)
