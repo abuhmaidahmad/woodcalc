@@ -351,33 +351,76 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
   )
 })
 
-// Stage 1 placeholder symbol: tread rectangles plus a start marker. The final
-// drafting-convention symbol (stringers, UP arrow, break line above 1200mm)
-// lands in stage 2 -- both read from the same computeStairSteps output, so
-// swapping the rendering here won't touch the underlying model.
+// Standard drafting-convention stair plan symbol: a line at every tread edge,
+// stringer outlines down both sides, an UP arrow from the bottom step, and a
+// diagonal break line at the step whose top height first reaches 1200mm --
+// everything above that break is drawn dashed (it's above the plan's cut
+// plane). All of it reads from computeStairSteps, so 3D/collision/top_profile
+// consumers built on the same function stay pixel-for-pixel consistent with
+// what's drawn here.
+const STAIR_BREAK_HEIGHT_MM = 1200
 const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, onMouseDown }) {
+  const { t } = useTranslation()
   const data = useMemo(() => computeStairSteps(stair), [stair])
   const x = stair.x * scale, y = stair.y * scale
   const rot = stair.rotation || 0
-  const side = stair.flip ? -1 : 1
-  const wpx = stair.width * scale * side
-  const color = selected ? ACCENT : '#555'
+  const wpx = data.width * scale * (data.flip ? -1 : 1)
+  const runPx = data.runLength * scale
+  const goingPx = data.going * scale
+  const color = selected ? ACCENT : '#333'
+
+  const breakIdx = data.steps.findIndex(s => s.topHeight >= STAIR_BREAK_HEIGHT_MM)
+  const breakX = breakIdx > 0 ? breakIdx * goingPx : null
+
+  const midY = wpx / 2
+  const arrowStartX = Math.min(runPx * 0.15, goingPx)
+  const arrowEndX = Math.max(arrowStartX + goingPx, runPx - goingPx * 0.6)
+
+  const stringerLine = (ya) => breakX == null
+    ? <line x1={0} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={1.5} />
+    : (
+      <>
+        <line x1={0} y1={ya} x2={breakX} y2={ya} stroke={color} strokeWidth={1.5} />
+        <line x1={breakX} y1={ya} x2={runPx} y2={ya} stroke={color} strokeWidth={1.5} strokeDasharray="5,3" />
+      </>
+    )
+
   return (
     <g transform={`translate(${x},${y}) rotate(${rot})`}
       onMouseDown={onMouseDown} style={{ cursor: 'move' }}>
+      <rect x={0} y={Math.min(0, wpx)} width={runPx} height={Math.abs(wpx)}
+        fill={selected ? ACCENT + '14' : '#fafafa'} stroke="none" />
+
       {data.steps.map((step, i) => {
-        const d0 = i * data.going * scale, d1 = (i + 1) * data.going * scale
+        const xPos = (i + 1) * goingPx
+        const isAboveBreak = breakIdx >= 0 && i >= breakIdx
         return (
-          <g key={i}>
-            <rect x={d0} y={Math.min(0, wpx)} width={d1 - d0} height={Math.abs(wpx)}
-              fill={selected ? ACCENT + '18' : '#f7f7f7'} stroke={color} strokeWidth={1} />
-            <line x1={d1} y1={0} x2={d1} y2={wpx} stroke={color} strokeWidth={1} />
-          </g>
+          <line key={i} x1={xPos} y1={0} x2={xPos} y2={wpx} stroke={color} strokeWidth={1}
+            strokeDasharray={isAboveBreak ? '4,3' : undefined} />
         )
       })}
-      <circle cx={0} cy={0} r={5} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
-      <text x={data.runLength * scale / 2} y={wpx / 2 + 4} textAnchor="middle" fontSize={9} fontWeight={700}
-        fill={color} style={{ pointerEvents: 'none', userSelect: 'none' }}>STAIR</text>
+      <line x1={0} y1={0} x2={0} y2={wpx} stroke={color} strokeWidth={1.5} />
+
+      {stringerLine(0)}
+      {stringerLine(wpx)}
+
+      {breakX != null && (() => {
+        const jog = goingPx * 0.3
+        const yq = wpx * 0.35, yh = wpx * 0.65
+        return (
+          <path d={`M ${breakX - jog} 0 L ${breakX + jog} ${yq} L ${breakX - jog} ${yh} L ${breakX + jog} ${wpx}`}
+            stroke={color} strokeWidth={1.25} fill="none" />
+        )
+      })()}
+
+      <g stroke={color} fill={color}>
+        <line x1={arrowStartX} y1={midY} x2={arrowEndX} y2={midY} strokeWidth={1.5} />
+        <path d={`M ${arrowEndX} ${midY} L ${arrowEndX - 10} ${midY - 5} L ${arrowEndX - 10} ${midY + 5} Z`} />
+      </g>
+      <text x={(arrowStartX + arrowEndX) / 2} y={midY - 6} textAnchor="middle" fontSize={10} fontWeight={700}
+        fill={color} style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
+
+      <circle cx={0} cy={0} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
     </g>
   )
 })
