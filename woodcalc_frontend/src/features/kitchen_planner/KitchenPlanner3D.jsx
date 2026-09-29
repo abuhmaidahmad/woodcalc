@@ -1613,11 +1613,13 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const zonePreset = isDrawers ? resolveZonePreset(cab) : null
   const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel'
   const isSidePanel = cab.subtype === 'Side Panel'
-  // Align panel top with the neighbouring carcass top (legH + carcass height); if the
-  // user extends the panel height to cover the legs, panelLift shrinks to 0 (floor).
+  // A panel sits on the same leg/toe-kick gap as any floor cabinet, so it's lifted
+  // by legH regardless of its own height -- the user sets Height to whatever reaches
+  // the top of the neighbouring run (previously this guessed a "target top" from a
+  // hardcoded 2220mm tall-cabinet assumption, which silently dropped the gap to 0
+  // for any tall panel resized past that, e.g. to match a 2400mm-tall run).
   // Hoisted out of SidePanelSlab so the same gap height can also size PanelSkirtingFill.
-  const panelTargetTop = legH + (cab.height > 1200 ? 2.22 : (cab.baseHeight || 800) / 1000)
-  const panelLift = (cab.elevation || 0) > 0 ? 0 : Math.max(0, panelTargetTop - H)
+  const panelLift = (cab.elevation || 0) > 0 ? 0 : legH
   const isGlass   = cab.subtype === 'Glass Door'
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
