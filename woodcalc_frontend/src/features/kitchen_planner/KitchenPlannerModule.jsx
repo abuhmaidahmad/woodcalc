@@ -248,7 +248,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
   // Cross-cabinet corner joins (e.g. a blind cabinet's run turning 90°) — these need a corner
   // elbow too, but aren't caught by the per-cabinet front/left/right/back check below since that
   // only covers a single cabinet's own skirtingSides, not two separate cabinets meeting at a corner.
-  const skirtable = cabinets.filter(c => ['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
+  const skirtable = cabinets.filter(c => (['base', 'vanity', 'corner', 'tall'].includes(c.category) || c.subtype === 'Side Panel') && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
   detectCornerJoins(skirtable).forEach(j => {
     const a = cabinets.find(c => c.id === j.aId), b = cabinets.find(c => c.id === j.bId)
     if (!a || !b) return
@@ -265,6 +265,14 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     const frontMat = c.frontMaterialName || 'Front'
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
+      // Side Panel is itself non-carcass (a flat piece, handled below) so it never
+      // reaches the carcass-only skirting check further down -- add its skirting
+      // board here instead, sized to the panel's own depth (see PanelSkirtingFill).
+      if (c.subtype === 'Side Panel' && (c.elevation || 0) === 0 && (c.skirtingSides || []).includes('left')) {
+        const matKey = c.skirtingMaterial || 'match_countertop'
+        if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = { meters: 0, elbows: 0 }
+        skirtingByMaterial[matKey].meters += c.depth / 1000
+      }
       // Filler/Panel/etc: one piece at its actual dimensions, no formula run
       const { width: pieceWidth, depth: pieceDepth, thickness: pieceTh } = nonCarcassPieceDims(c)
       const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
@@ -1981,6 +1989,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   </div>
                 )}
+                {selCab.subtype === 'Side Panel' && (selCab.elevation || 0) === 0 && (() => {
+                  const hasSkirt = (selCab.skirtingSides || []).includes('left')
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div
+                        onClick={() => updateCab('skirtingSides', hasSkirt ? [] : ['left'])}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${hasSkirt ? ACCENT : '#E0DAD4'}`, background: hasSkirt ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${hasSkirt ? ACCENT : '#ccc'}`, background: hasSkirt ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{hasSkirt ? '✓' : ''}</div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: hasSkirt ? ACCENT : '#666' }}>{t('kitchenPlannerModule.skirtingBoardToggle')}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
                 {['Drawers', '2Drw+Door'].includes(selCab.subtype) && (
                   <>
                     <div style={s.propSection}>{t('kitchenPlannerModule.drawerSystem')}</div>

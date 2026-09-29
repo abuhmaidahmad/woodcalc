@@ -261,15 +261,9 @@ function StandardBox({ args, position, castShadow, receiveShadow, color, matProp
   )
 }
 
-function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, legH }) {
+function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, lift }) {
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] : null
-  const isElevated = (cab.elevation || 0) > 0
-  const Hmm = H * 1000
-  // Align panel top with the neighbouring carcass top (legH + carcass height).
-  // If the user extends the panel height to cover the legs, lift shrinks to 0 (floor).
-  const targetTop = legH + (Hmm > 1200 ? 2.22 : (cab.baseHeight || 800) / 1000)
-  const lift = isElevated ? 0 : Math.max(0, targetTop - H)
   if (texEntry) {
     const physW = (texEntry.texture_physical_width_mm || 600) / 1000
     const physH = (texEntry.texture_physical_height_mm || 600) / 1000
@@ -1055,8 +1049,20 @@ const SKIRTING_PVC_COLORS = {
   pvc_silver: '#c0c0c0',
 }
 
+// Shared color resolution for every skirting-board mesh (cabinet runs, corner
+// joins, and side-panel fills) so the three never drift out of sync.
+function skirtingColorProps(skirtingMaterial, countertopMat) {
+  if (skirtingMaterial === 'match_countertop' && countertopMat) {
+    return { color: countertopMat.color, roughness: countertopMat.roughness, metalness: countertopMat.metalness }
+  }
+  if (SKIRTING_PVC_COLORS[skirtingMaterial]) {
+    return { color: SKIRTING_PVC_COLORS[skirtingMaterial], roughness: 0.3, metalness: 0.1 }
+  }
+  return { color: '#1a1a1a', roughness: 0.4, metalness: 0.0 }
+}
+
 function SkirtingCornerJoins({ cabinets, countertopMat }) {
-  const skirtable = cabinets.filter(c => ['base', 'vanity', 'corner', 'tall'].includes(c.category) && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
+  const skirtable = cabinets.filter(c => (['base', 'vanity', 'corner', 'tall'].includes(c.category) || c.subtype === 'Side Panel') && (c.elevation || 0) === 0 && c.skirtingSides && c.skirtingSides.length > 0)
   const joins = detectCornerJoins(skirtable)
   return (
     <>
@@ -1064,12 +1070,7 @@ function SkirtingCornerJoins({ cabinets, countertopMat }) {
         const a = cabinets.find(c => c.id === j.aId), b = cabinets.find(c => c.id === j.bId)
         if (!a || !b) return null
         const matKey = a.skirtingMaterial || b.skirtingMaterial || 'match_countertop'
-        let color = '#1a1a1a', roughness = 0.4, metalness = 0.0
-        if (matKey === 'match_countertop' && countertopMat) {
-          color = countertopMat.color; roughness = countertopMat.roughness; metalness = countertopMat.metalness
-        } else if (SKIRTING_PVC_COLORS[matKey]) {
-          color = SKIRTING_PVC_COLORS[matKey]; roughness = 0.3; metalness = 0.1
-        }
+        const { color, roughness, metalness } = skirtingColorProps(matKey, countertopMat)
         const legHmm = a.baseHeight === 720 ? 150 : a.baseHeight === 800 ? 80 : 80
         const legH = legHmm / 1000
         return (
@@ -1085,19 +1086,7 @@ function SkirtingCornerJoins({ cabinets, countertopMat }) {
 
 function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
   const T = 0.018
-  let color = '#1a1a1a'
-  let roughness = 0.4
-  let metalness = 0.0
-
-  if (skirtingMaterial === 'match_countertop' && countertopMat) {
-    color = countertopMat.color
-    roughness = countertopMat.roughness
-    metalness = countertopMat.metalness
-  } else if (SKIRTING_PVC_COLORS[skirtingMaterial]) {
-    color = SKIRTING_PVC_COLORS[skirtingMaterial]
-    roughness = 0.3
-    metalness = 0.1
-  }
+  const { color, roughness, metalness } = skirtingColorProps(skirtingMaterial, countertopMat)
 
   // Skirting sits at the leg line (same 25mm inset from the cabinet edge used for leg placement),
   // not flush with the outer cabinet face — matching real toe-kick clip installation.
@@ -1137,6 +1126,22 @@ function SkirtingBoard({ sides, W, D, legH, skirtingMaterial, countertopMat }) {
         </mesh>
       ))}
     </>
+  )
+}
+
+// A side/end panel (base or tall) sits on top of the toe-kick line, not flush to the
+// floor -- see the `lift` calc in SidePanelSlab -- leaving a gap the same height as a
+// regular cabinet's legs. This fills that gap with a single board spanning the panel's
+// full footprint (its width IS the skirting board's thickness, its depth the board's
+// length), rather than the thin offset strip SkirtingBoard uses for a normal cabinet's
+// much wider face.
+function PanelSkirtingFill({ W, D, height, skirtingMaterial, countertopMat }) {
+  const { color, roughness, metalness } = skirtingColorProps(skirtingMaterial, countertopMat)
+  return (
+    <mesh position={[0, height / 2, 0]} castShadow receiveShadow>
+      <boxGeometry args={[W, height, D]} />
+      <meshPhysicalMaterial color={color} roughness={roughness} metalness={metalness} />
+    </mesh>
   )
 }
 
@@ -1607,6 +1612,12 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
   const zonePreset = isDrawers ? resolveZonePreset(cab) : null
   const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel'
+  const isSidePanel = cab.subtype === 'Side Panel'
+  // Align panel top with the neighbouring carcass top (legH + carcass height); if the
+  // user extends the panel height to cover the legs, panelLift shrinks to 0 (floor).
+  // Hoisted out of SidePanelSlab so the same gap height can also size PanelSkirtingFill.
+  const panelTargetTop = legH + (cab.height > 1200 ? 2.22 : (cab.baseHeight || 800) / 1000)
+  const panelLift = (cab.elevation || 0) > 0 ? 0 : Math.max(0, panelTargetTop - H)
   const isGlass   = cab.subtype === 'Glass Door'
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
@@ -1664,7 +1675,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'} />
       ) : isPanel ? (
-        <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} legH={legH} />
+        <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
         <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} zones={zonePreset?.zones} isTall={isTall}
           isSink={cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'} />
@@ -1691,6 +1702,9 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       })()}
       {showLegs && cab.skirtingSides && cab.skirtingSides.length > 0 && (
         <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
+      )}
+      {isSidePanel && panelLift > 0.001 && cab.skirtingSides?.includes('left') && (
+        <PanelSkirtingFill W={W} D={D} height={panelLift} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
       )}
       {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight)) && (
         <group position={[0, H, 0]}>
