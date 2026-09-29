@@ -94,8 +94,8 @@ class Material(models.Model):
     class Meta:
         unique_together = ('tenant', 'sku')
 
-    MAX_DIMENSION = 2048
-    JPEG_QUALITY = 85
+    MAX_DIMENSION = 4096
+    JPEG_QUALITY = 92
 
     def save(self, *args, **kwargs):
         if self.texture_image and hasattr(self.texture_image, 'file'):
@@ -109,7 +109,7 @@ class Material(models.Model):
                     img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
 
                 buffer = BytesIO()
-                img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True)
+                img.save(buffer, format='JPEG', quality=self.JPEG_QUALITY, optimize=True, progressive=True)
                 buffer.seek(0)
 
                 original_name = os.path.basename(self.texture_image.name).rsplit('.', 1)[0]

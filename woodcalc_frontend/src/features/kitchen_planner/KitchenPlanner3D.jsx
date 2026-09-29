@@ -87,6 +87,16 @@ function forceHttps(url) {
   return url.replace(/^http:\/\//i, 'https://')
 }
 
+function configureTextureQuality(texture, gl) {
+  texture.anisotropy = gl.capabilities.getMaxAnisotropy()
+  texture.minFilter = THREE.LinearMipmapLinearFilter
+  texture.magFilter = THREE.LinearFilter
+  texture.generateMipmaps = true
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.needsUpdate = true
+  return texture
+}
+
 export function useMaterialTextureMap(companySlug) {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
@@ -106,6 +116,7 @@ export function useMaterialTextureMap(companySlug) {
 }
 
 function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0, rotate90 = false }) {
+  const { gl } = useThree()
   const texture = useLoader(THREE.TextureLoader, imageUrl)
   const t = useMemo(() => {
     if (!texture) return null
@@ -116,16 +127,15 @@ function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, 
     c.wrapT = THREE.RepeatWrapping
     c.repeat.set(repeatU, repeatV)
     c.offset.set(0, offsetV)
-    c.colorSpace = THREE.SRGBColorSpace
     // Side panel grain runs perpendicular to doors/drawers on this UV mapping;
     // rotate 90° about the texture's own center to correct grain direction.
     if (rotate90) {
       c.center.set(0.5, 0.5)
       c.rotation = Math.PI / 2
     }
-    c.needsUpdate = true
+    configureTextureQuality(c, gl)
     return c
-  }, [texture, repeatU, repeatV, offsetV, rotate90])
+  }, [texture, repeatU, repeatV, offsetV, rotate90, gl])
   return (
     <meshPhysicalMaterial
       map={t}
@@ -185,16 +195,16 @@ function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl,
 }
 
 function WoodPanelMaterial({ color, matProps, envMapIntensity = 1.0 }) {
+  const { gl } = useThree()
   const texture = useLoader(THREE.TextureLoader, WOOD_B64)
   const t = useMemo(() => {
     if (!texture) return null
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
-    texture.colorSpace = THREE.SRGBColorSpace
     texture.repeat.set(1.5, 2)
-    texture.needsUpdate = true
+    configureTextureQuality(texture, gl)
     return texture
-  }, [texture])
+  }, [texture, gl])
   return (
     <meshPhysicalMaterial
       map={t}
@@ -2187,6 +2197,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
       <Canvas shadows
+        dpr={[1, 2]}
         frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
         // The postprocessing pipeline below (EffectComposer with
