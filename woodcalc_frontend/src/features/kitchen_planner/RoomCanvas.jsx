@@ -44,6 +44,126 @@ function pointInPolygon(px, py, poly) {
   return inside
 }
 
+// ---- Cabinet/wall SAT collision -- shared by the live collidingIds check
+// (collision highlighting) and the wall-edit cabinet guard below, so both
+// always agree on what counts as overlapping. ----
+function getCabCorners(cab) {
+  const x = cab.x, y = cab.y, w = cab.width, h = cab.depth
+  const cx = x + w / 2, cy = y + h / 2
+  const rad = ((cab.rotation || 0) * Math.PI) / 180
+  const cos = Math.cos(rad), sin = Math.sin(rad)
+  return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => [
+    cx + (px - cx) * cos - (py - cy) * sin,
+    cy + (px - cx) * sin + (py - cy) * cos,
+  ])
+}
+function getCabElevRange(cab) {
+  if (cab.category === 'wall' || (cab.elevation || 0) > 0) {
+    const bottom = cab.elevation ?? 1450
+    return [bottom, bottom + (cab.height || 0)]
+  }
+  return [0, cab.height || 0]
+}
+const rangesOverlap = (a, b) => a[0] < b[1] && b[0] < a[1]
+// One axis per edge (not just the first two) -- a rectangle only needs two
+// since its far edges are parallel to the near ones, but a stair step can
+// be a triangle, kite, or pentagon (winder treads), whose edges aren't all
+// parallel to just two directions.
+function polyAxes(poly) {
+  const axes = []
+  for (let i = 0; i < poly.length; i++) {
+    const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length]
+    axes.push([-(y2 - y1), x2 - x1])
+  }
+  return axes
+}
+function project(poly, axis) {
+  let min = Infinity, max = -Infinity
+  poly.forEach(([x, y]) => {
+    const d = x * axis[0] + y * axis[1]
+    if (d < min) min = d
+    if (d > max) max = d
+  })
+  return [min, max]
+}
+function polysIntersect(polyA, polyB) {
+  // Small tolerance (mm) so cabinets snapped flush edge-to-edge don't register as overlapping
+  const EPS = 2
+  const axes = [...polyAxes(polyA), ...polyAxes(polyB)]
+  return axes.every(axis => {
+    const axisLen = Math.hypot(axis[0], axis[1]) || 1
+    const eps = EPS * axisLen
+    const [aMin, aMax] = project(polyA, axis)
+    const [bMin, bMax] = project(polyB, axis)
+    return aMin < bMax - eps && bMin < aMax - eps
+  })
+}
+// Same SAT projection as polysIntersect but the mirror-image tolerance --
+// widens each shape's bounds instead of shrinking them, so it also catches
+// two polygons that are merely close (flush or a small gap), not just truly
+// overlapping ones. Used to tell whether a cabinet is sitting flush against
+// a wall (a legitimate, intentional design state) as distinct from actually
+// colliding with it.
+function polysNear(polyA, polyB, gapMm) {
+  const axes = [...polyAxes(polyA), ...polyAxes(polyB)]
+  return axes.every(axis => {
+    const axisLen = Math.hypot(axis[0], axis[1]) || 1
+    const g = gapMm * axisLen
+    const [aMin, aMax] = project(polyA, axis)
+    const [bMin, bMax] = project(polyB, axis)
+    return aMin < bMax + g && bMin < aMax + g
+  })
+}
+// A wall's true rendered footprint -- the mitered body polygon from
+// computeWallBodies, converted to mm -- so cabinets overlapping a wall get
+// flagged the same way cabinets overlapping each other do.
+function getWallCorners(body, scale) {
+  if (!body) return null
+  const toMm = (p) => [p.x / scale, p.y / scale]
+  return [toMm(body.faceStart), toMm(body.faceEnd), toMm(body.outerEnd), toMm(body.outerStart)]
+}
+
+// A cabinet is considered "touching" a wall if it's within this many mm of
+// it -- generous enough to cover ordinary flush-snapped placement (which
+// lands at 0mm) plus a little float/rounding slack, tight enough that a
+// cabinet merely nearby with a real gap doesn't count.
+const WALL_TOUCH_GAP_MM = 5
+
+// Before committing a wall edit (length/angle change, drag, thickness/side
+// change, or a brand-new wall), compares the room's cabinet-collision state
+// under the wall's OLD geometry against its PROPOSED new geometry, using the
+// exact same SAT test collidingIds already uses. Returns every (wall,
+// cabinet) pair where the edit would either create a new overlap that
+// didn't exist before, or pull the wall away from a cabinet it used to sit
+// flush against -- both signs the edit did something the user didn't
+// intend, per the room's actual cabinet layout rather than just its wall
+// topology.
+function checkWallEditAgainstCabinets(oldWalls, newWalls, cabinets, scale) {
+  const oldBodies = computeWallBodies(oldWalls, scale)
+  const newBodies = computeWallBodies(newWalls, scale)
+  const cabCorners = cabinets.map(getCabCorners)
+  const violations = []
+  const n = Math.max(oldWalls.length, newWalls.length)
+  for (let wi = 0; wi < n; wi++) {
+    const oldCorners = getWallCorners(oldBodies[wi], scale)
+    const newCorners = getWallCorners(newBodies[wi], scale)
+    if (!oldCorners && !newCorners) continue
+    const wallId = (newWalls[wi] || oldWalls[wi])?.id
+    cabinets.forEach((cab, ci) => {
+      const overlapOld = oldCorners ? polysIntersect(cabCorners[ci], oldCorners) : false
+      const overlapNew = newCorners ? polysIntersect(cabCorners[ci], newCorners) : false
+      const touchOld = oldCorners ? polysNear(cabCorners[ci], oldCorners, WALL_TOUCH_GAP_MM) : false
+      const touchNew = newCorners ? polysNear(cabCorners[ci], newCorners, WALL_TOUCH_GAP_MM) : false
+      if (!overlapOld && overlapNew) {
+        violations.push({ type: 'newOverlap', wallIndex: wi, wallId, cabinetId: cab.id, cabinetLabel: cab.label })
+      } else if (touchOld && !overlapOld && !touchNew) {
+        violations.push({ type: 'pulledAway', wallIndex: wi, wallId, cabinetId: cab.id, cabinetLabel: cab.label })
+      }
+    })
+  }
+  return violations
+}
+
 function findNearestEndpoint(px, py, walls, skipIndex, threshold) {
   let best = null, bestDist = threshold
   walls.forEach((w, i) => {
@@ -1286,66 +1406,6 @@ export default function RoomCanvas({
   }, [editingWall, editingLenVal, editingAngleVal, walls, scale, pushHistory])
 
   // ---- Collision detection: overlapping footprint AND overlapping elevation range ----
-  const getCabCorners = (cab) => {
-    const x = cab.x, y = cab.y, w = cab.width, h = cab.depth
-    const cx = x + w / 2, cy = y + h / 2
-    const rad = ((cab.rotation || 0) * Math.PI) / 180
-    const cos = Math.cos(rad), sin = Math.sin(rad)
-    return [[x, y], [x + w, y], [x + w, y + h], [x, y + h]].map(([px, py]) => [
-      cx + (px - cx) * cos - (py - cy) * sin,
-      cy + (px - cx) * sin + (py - cy) * cos,
-    ])
-  }
-  const getCabElevRange = (cab) => {
-    if (cab.category === 'wall' || (cab.elevation || 0) > 0) {
-      const bottom = cab.elevation ?? 1450
-      return [bottom, bottom + (cab.height || 0)]
-    }
-    return [0, cab.height || 0]
-  }
-  const rangesOverlap = (a, b) => a[0] < b[1] && b[0] < a[1]
-  // One axis per edge (not just the first two) -- a rectangle only needs two
-  // since its far edges are parallel to the near ones, but a stair step can
-  // now be a triangle, kite, or pentagon (winder treads), whose edges aren't
-  // all parallel to just two directions.
-  const polyAxes = (poly) => {
-    const axes = []
-    for (let i = 0; i < poly.length; i++) {
-      const [x1, y1] = poly[i], [x2, y2] = poly[(i + 1) % poly.length]
-      axes.push([-(y2 - y1), x2 - x1])
-    }
-    return axes
-  }
-  const project = (poly, axis) => {
-    let min = Infinity, max = -Infinity
-    poly.forEach(([x, y]) => {
-      const d = x * axis[0] + y * axis[1]
-      if (d < min) min = d
-      if (d > max) max = d
-    })
-    return [min, max]
-  }
-  const polysIntersect = (polyA, polyB) => {
-    // Small tolerance (mm) so cabinets snapped flush edge-to-edge don't register as overlapping
-    const EPS = 2
-    const axes = [...polyAxes(polyA), ...polyAxes(polyB)]
-    return axes.every(axis => {
-      const axisLen = Math.hypot(axis[0], axis[1]) || 1
-      const eps = EPS * axisLen
-      const [aMin, aMax] = project(polyA, axis)
-      const [bMin, bMax] = project(polyB, axis)
-      return aMin < bMax - eps && bMin < aMax - eps
-    })
-  }
-  // A wall's true rendered footprint -- the mitered body polygon from
-  // computeWallBodies, converted to mm -- so cabinets overlapping a wall get
-  // flagged the same way cabinets overlapping each other do.
-  const getWallCorners = (body) => {
-    if (!body) return null
-    const toMm = (p) => [p.x / scale, p.y / scale]
-    return [toMm(body.faceStart), toMm(body.faceEnd), toMm(body.outerEnd), toMm(body.outerStart)]
-  }
-
   const collidingIds = useMemo(() => {
     const ids = new Set()
     // Each cabinet's corners/elevation range only depend on its own fields, not
@@ -1364,7 +1424,7 @@ export default function RoomCanvas({
     // Walls run full floor-to-ceiling, so any cabinet overlapping one in plan view is a real
     // collision regardless of the cabinet's own elevation (base, wall, or tall).
     wallBodies.forEach(body => {
-      const wallCorners = getWallCorners(body)
+      const wallCorners = getWallCorners(body, scale)
       if (!wallCorners) return
       cabinets.forEach((cab, i) => {
         if (polysIntersect(corners[i], wallCorners)) ids.add(cab.id)

@@ -123,6 +123,16 @@ function wallSideSign(wall) {
   return wall.thicknessSide === 'left' ? -1 : 1
 }
 
+// The single rotational sense (not per-wall -- one value for the whole loop)
+// that offsetClosedLoopByWinding offsets every wall outward by. Exposed
+// separately so migrateLegacyWalls can label each wall's thicknessSide with
+// the exact same convention it used to actually compute that wall's face
+// position, instead of guessing independently.
+function closedLoopOutwardSign(walls, loop, signMultiplier) {
+  const vertexLoop = loop.map(step => stepEndpoints(walls, step).start)
+  return (polygonSignedArea(vertexLoop) >= 0 ? 1 : -1) * signMultiplier
+}
+
 // Used only by migrateLegacyWalls, which has no real per-wall thicknessSide
 // to work from yet -- it's reconstructing one from scratch by assuming the
 // old symmetric model was always drawn with a single consistent winding
@@ -130,8 +140,7 @@ function wallSideSign(wall) {
 function offsetClosedLoopByWinding(walls, loop, thicknessOf, signMultiplier) {
   const n = loop.length
   const dirs = loop.map(step => stepEndpoints(walls, step))
-  const vertexLoop = dirs.map(d => d.start)
-  const outwardSign = (polygonSignedArea(vertexLoop) >= 0 ? 1 : -1) * signMultiplier
+  const outwardSign = closedLoopOutwardSign(walls, loop, signMultiplier)
   const results = {}
   for (let i = 0; i < n; i++) {
     const nextIdx = (i + 1) % n
@@ -291,9 +300,37 @@ export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNE
   const halfT = (legacyThickness * scale) / 2
   const thicknessOf = () => halfT
   const loop = traceClosedPolygon(walls, threshold)
-  let results
+  let results, loopSides
   if (loop) {
     results = offsetClosedLoopByWinding(walls, loop, thicknessOf, -1)
+    // The old renderer picked a room-wide outward winding and every wall
+    // followed it, with no per-wall side stored anywhere -- computeWallBodies
+    // now always reads a wall's own thicknessSide, so a migrated wall left
+    // without one would silently default to 'right' regardless of which way
+    // it actually faces, which is only right for about half of any given
+    // room. Freezing in the exact side that winding implies for each wall,
+    // at migration time, is what keeps an old room rendering identically to
+    // how it always did.
+    //
+    // The sign here is +1, not the -1 passed to offsetClosedLoopByWinding
+    // above -- that -1 is a separate, unrelated inversion used only to walk
+    // the offset machinery backwards into the room to find the face point.
+    // thicknessSide has to encode the room's real outward sense, which is
+    // the plain (+1) winding of the original centerline loop.
+    //
+    // A wall the loop happens to walk end-to-start (step.reversed) has its
+    // traversal direction pointing opposite its own stored x1->x2 direction
+    // -- thicknessSide is always relative to a wall's own stored direction
+    // (that's what offsetClosedLoopBySide/offsetOpenChain both key off of),
+    // so a reversed wall's label has to flip relative to the loop's global
+    // sign, or it comes out backwards for exactly the walls a human happened
+    // to draw "into" the loop instead of "out of" it.
+    const outwardSign = closedLoopOutwardSign(walls, loop, 1)
+    loopSides = {}
+    loop.forEach(step => {
+      const sign = step.reversed ? -outwardSign : outwardSign
+      loopSides[step.wallIndex] = sign >= 0 ? 'right' : 'left'
+    })
   } else {
     const sign = legacyWindingSign(walls)
     results = offsetOpenChain(walls, thicknessOf, (w, i, dir) => {
@@ -308,12 +345,12 @@ export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNE
     const dir = wallDir(w)
     const sign = legacyWindingSign(walls)
     const normal = outwardNormal(dir.dx, dir.dy, sign)
-    const thicknessSide = (normal.nx * dir.dy - normal.ny * dir.dx) >= 0 ? 'right' : 'left'
+    const openChainSide = (normal.nx * dir.dy - normal.ny * dir.dx) >= 0 ? 'right' : 'left'
     return {
       id: w.id || `w${i}-${Date.now()}`,
       x1: faceStart.x, y1: faceStart.y, x2: faceEnd.x, y2: faceEnd.y,
       thickness: legacyThickness,
-      thicknessSide: loop ? undefined : thicknessSide,
+      thicknessSide: loop ? loopSides[i] : openChainSide,
     }
   })
 }
