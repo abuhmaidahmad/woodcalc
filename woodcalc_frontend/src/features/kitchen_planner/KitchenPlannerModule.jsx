@@ -1831,6 +1831,25 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   </>
                 )}
+                {selCab.subtype === 'Freestanding Hood' && (() => {
+                  const currentMount = selCab.hoodMount || 'island'
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.hoodMount')}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[
+                          { id: 'island', label: t('kitchenPlannerModule.hoodMountIsland') },
+                          { id: 'wall', label: t('kitchenPlannerModule.hoodMountWall') },
+                        ].map(opt => (
+                          <div key={opt.id} onClick={() => updateCab('hoodMount', opt.id)}
+                            style={{ flex: 1, padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${currentMount === opt.id ? ACCENT : '#E0DAD4'}`, background: currentMount === opt.id ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center' }}>
+                            <div style={{ fontSize: 9, fontWeight: 700, color: currentMount === opt.id ? ACCENT : '#666' }}>{opt.label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
                 <div style={s.propSection}>{t('kitchenPlannerModule.materialStyle')}</div>
                 {[...APPLIANCE_SUBTYPES, 'Hob + Oven'].includes(selCab.subtype) && (() => {
                   // Purchased/built-in appliances render in two hardware-contrast finishes

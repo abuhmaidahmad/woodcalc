@@ -1464,7 +1464,7 @@ function DishwasherAppliance({ W, H, D, finish = 'silver' }) {
 // rounded, boat-nose taper rather than a flat rectangle) sits at the very bottom,
 // closest to the cooktop, with a control-button row on top of it; a narrower
 // rectangular flue duct -- vertical trim rib, vent grille slats near the top --
-// rises from its center up to the ceiling. Unlike the wall-mounted HoodAppliance
+// rises from its center up to the ceiling. Unlike the wall-mounted ChimneyHood
 // below (whose duct fills the space down to the hob, since it hangs right under
 // an upper cabinet run), an island hood has nothing above or below it in frame,
 // so the wide part has to read as the bottom or the whole thing looks like an
@@ -1531,23 +1531,137 @@ function FreestandingHoodAppliance({ W, H, D, finish = 'silver' }) {
   )
 }
 
-function HoodAppliance({ W, H, D, finish = 'silver' }) {
-  const canopyH = Math.min(H * 0.35, 0.15)
-  const { body: bodyColor, hardware } = applianceFinish(finish)
+function ChimneyHood({ width = 900, ceilingHeight = 2800, mountHeight = 1480, finish = 'silver' }) {
+  const glassDepth = 500
+  const glassT = 8
+  const glassDip = 70
+  const canopyW = width * 0.6
+  const canopyD = 480
+  const canopyH = 90
+  const canopyBottomInset = 40
+  const controlW = 240
+  const controlH = 35
+  const controlT = 4
+  const chimneyW = width * 0.32
+  const chimneyD = 250
+  const chimneyInset = 6
+  const boltDia = 12
+
+  const archY = (x) => -glassDip * (x / (width / 2)) ** 2
+  const chimneyTotalH = Math.max(300, ceilingHeight - mountHeight - canopyH)
+  const lowerH = chimneyTotalH * 0.75
+  const upperH = chimneyTotalH - lowerH
+  const upperW = chimneyW - chimneyInset * 2
+  const upperD = chimneyD - chimneyInset * 2
+
+  const bodyColor = finish === 'black' ? '#3a3d40' : '#c9ccd0'
+  const hardwareColor = applianceFinish(finish).hardware
+
+  const glassGeom = useMemo(() => {
+    const shape = new THREE.Shape()
+    const half = width / 2
+    const N = 24
+    const pts = []
+    for (let i = 0; i <= N; i++) {
+      const x = -half + (i / N) * width
+      pts.push([x / 1000, (-glassDip * (x / half) ** 2) / 1000])
+    }
+    shape.moveTo(pts[0][0], pts[0][1])
+    pts.forEach(([x, y]) => shape.lineTo(x, y))
+    for (let i = N; i >= 0; i--) shape.lineTo(pts[i][0], pts[i][1] - glassT / 1000)
+    shape.closePath()
+    return new THREE.ExtrudeGeometry(shape, { depth: glassDepth / 1000, bevelEnabled: false, steps: 1 })
+  }, [width])
+
+  const canopyGeom = useMemo(() => {
+    const shape = new THREE.Shape()
+    const halfTop = canopyW / 2
+    const halfBottom = halfTop - canopyBottomInset
+    shape.moveTo(-halfBottom / 1000, 0)
+    shape.lineTo(halfBottom / 1000, 0)
+    const N = 16
+    for (let i = 0; i <= N; i++) {
+      const x = halfTop - (i / N) * canopyW
+      shape.lineTo(x / 1000, (canopyH + archY(x)) / 1000)
+    }
+    shape.closePath()
+    return new THREE.ExtrudeGeometry(shape, { depth: canopyD / 1000, bevelEnabled: false, steps: 1 })
+  }, [width])
+
+  const displayTexture = useMemo(() => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 128
+    canvas.height = 32
+    const ctx = canvas.getContext('2d')
+    ctx.fillStyle = '#0a0a0a'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillStyle = '#ff2a2a'
+    ctx.font = 'bold 22px monospace'
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor = '#ff2a2a'
+    ctx.shadowBlur = 8
+    ctx.fillText('88:88', canvas.width / 2, canvas.height / 2 + 1)
+    const tex = new THREE.CanvasTexture(canvas)
+    tex.colorSpace = THREE.SRGBColorSpace
+    return tex
+  }, [])
+
+  const iconXs = [-100, -75, -50, 50, 75, 100]
+  const boltXs = [-canopyW * 0.32, canopyW * 0.32]
+  const boltZs = [glassDepth * 0.14, glassDepth * 0.8]
+
   return (
     <group>
-      <mesh position={[0, H - canopyH / 2, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W, canopyH, D]} />
-        <meshPhysicalMaterial color={bodyColor} metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+      <mesh geometry={glassGeom} position={[0, (canopyH + glassT) / 1000, 0]} castShadow receiveShadow>
+        <meshPhysicalMaterial color="#e4e9ea" roughness={0.05} transmission={0.9} ior={1.5} thickness={0.008} envMapIntensity={1.4} side={THREE.DoubleSide} />
       </mesh>
-      <mesh position={[0, (H - canopyH) / 2, 0]} scale={[0.55, 1, 0.55]}>
-        <boxGeometry args={[W, H - canopyH, D]} />
-        <meshPhysicalMaterial color={bodyColor} metalness={0.75} roughness={0.25} envMapIntensity={1.4} />
+      {boltXs.flatMap(bx =>
+        boltZs.map((bz, i) => (
+          <mesh key={`${bx}-${i}`} position={[bx / 1000, (canopyH + glassT + archY(bx) + boltDia * 0.4) / 1000, bz / 1000]}>
+            <cylinderGeometry args={[boltDia / 2000, boltDia / 2000, boltDia / 2000, 12]} />
+            <meshPhysicalMaterial color={hardwareColor} metalness={0.95} roughness={0.15} envMapIntensity={1.6} />
+          </mesh>
+        ))
+      )}
+      <mesh geometry={canopyGeom} castShadow receiveShadow>
+        <meshStandardMaterial color={bodyColor} metalness={0.9} roughness={0.3} />
       </mesh>
-      <mesh position={[0, H - canopyH / 2, D / 2 + 0.001]}>
-        <boxGeometry args={[W * 0.5, 0.02, 0.002]} />
-        <meshPhysicalMaterial color={hardware} metalness={0.5} roughness={0.3} />
+      <mesh position={[0, 3 / 1000, canopyD / 2 / 1000]}>
+        <boxGeometry args={[(canopyW - 20) / 1000, 4 / 1000, (canopyD - 20) / 1000]} />
+        <meshStandardMaterial color="#2a2a2a" metalness={0.2} roughness={0.6} />
       </mesh>
+      <mesh position={[0, (canopyH * 0.5) / 1000, (canopyD + controlT / 2) / 1000]}>
+        <boxGeometry args={[controlW / 1000, controlH / 1000, controlT / 1000]} />
+        <meshPhysicalMaterial color="#0a0a0a" roughness={0.15} clearcoat={1} clearcoatRoughness={0.05} metalness={0.1} />
+      </mesh>
+      <mesh position={[0, (canopyH * 0.5) / 1000, (canopyD + controlT + 1) / 1000]}>
+        <planeGeometry args={[60 / 1000, 16 / 1000]} />
+        <meshBasicMaterial map={displayTexture} toneMapped={false} />
+      </mesh>
+      {iconXs.map((ix, i) => (
+        <mesh key={i} position={[ix / 1000, (canopyH * 0.5) / 1000, (canopyD + controlT / 2 + 1) / 1000]} rotation={[Math.PI / 2, 0, 0]}>
+          <cylinderGeometry args={[3 / 1000, 3 / 1000, 1 / 1000, 12]} />
+          <meshStandardMaterial color="#e8e8e8" metalness={0.1} roughness={0.5} />
+        </mesh>
+      ))}
+      <RoundedBox args={[chimneyW / 1000, lowerH / 1000, chimneyD / 1000]} radius={0.004} smoothness={2}
+        position={[0, (canopyH + lowerH / 2) / 1000, chimneyD / 2 / 1000]} castShadow receiveShadow>
+        <meshStandardMaterial color={bodyColor} metalness={0.9} roughness={0.3} />
+      </RoundedBox>
+      <RoundedBox args={[upperW / 1000, upperH / 1000, upperD / 1000]} radius={0.004} smoothness={2}
+        position={[0, (canopyH + lowerH + upperH / 2) / 1000, chimneyD / 2 / 1000]} castShadow receiveShadow>
+        <meshStandardMaterial color={bodyColor} metalness={0.9} roughness={0.3} />
+      </RoundedBox>
+      {[-1, 1].map(side =>
+        Array.from({ length: 8 }).map((_, i) => (
+          <mesh key={`${side}-${i}`}
+            position={[side * (upperW / 2 + 1) / 1000, (canopyH + lowerH + upperH * 0.55 + i * 10) / 1000, chimneyD / 2 / 1000]}>
+            <boxGeometry args={[2 / 1000, 4 / 1000, (upperD * 0.5) / 1000]} />
+            <meshStandardMaterial color="#1a1a1a" metalness={0.2} roughness={0.5} />
+          </mesh>
+        ))
+      )}
     </group>
   )
 }
@@ -1588,7 +1702,7 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
 // `cab` keeps a stable object reference for every cabinet except the one
 // being edited (state updates use `cabinets.map(c => c.id === id ? {...} : c)`),
 // so memoizing here turns an O(N) rebuild into O(1) per edit.
-const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {} }) {
+const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {}, roomHeightMm = 2800 }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
   const D = cab.depth / 1000
@@ -1663,7 +1777,9 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
       ) : applianceKind === 'hood' ? (
-        <HoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
+        <group position={[0, 0, -D / 2]}>
+          <ChimneyHood width={cab.width} ceilingHeight={roomHeightMm} mountHeight={elevation} finish={cab.applianceFinish} />
+        </group>
       ) : applianceKind === 'freestandingOven' ? (
         <FreestandingOvenAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingFridge' ? (
@@ -1671,7 +1787,13 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : applianceKind === 'freestandingDishwasher' ? (
         <DishwasherAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'freestandingHood' ? (
-        <FreestandingHoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
+        cab.hoodMount === 'wall' ? (
+          <group position={[0, 0, -D / 2]}>
+            <ChimneyHood width={cab.width} ceilingHeight={roomHeightMm} mountHeight={elevation} finish={cab.applianceFinish} />
+          </group>
+        ) : (
+          <FreestandingHoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
+        )
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
@@ -2267,7 +2389,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
             const hit = findOverlappingStairProfile(cab, stairs)
             if (hit) return <SteppedTallCabinet key={cab.id} cab={cab} profile={hit.profile} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>
           }
-          return <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>
+          return <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap} roomHeightMm={ROOM_H * 1000}/>
         })}
         {backsplashSegments.map(seg => (
           <Backsplash3D key={seg.id} seg={seg} cabinets={cabinets} countertopMat={countertopMat}

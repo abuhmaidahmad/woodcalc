@@ -110,7 +110,6 @@ function buildLibrary(baseHeight) {
     { id: `wall_std_${w}_${h}`,  label: `Wall ${w}`,      subtype: 'Standard',   width: w, height: h, depth: 300, icon: 'wall_standard',  category: 'wall', wallHeight: h, elevation: wallElevation },
     { id: `wall_open_${w}_${h}`, label: `Open ${w}`,      subtype: 'Open Shelf', width: w, height: h, depth: 300, icon: 'wall_open',       category: 'wall', wallHeight: h, elevation: wallElevation },
     { id: `wall_glass_${w}_${h}`,label: `Glass ${w}`,     subtype: 'Glass Door', width: w, height: h, depth: 300, icon: 'wall_glass',      category: 'wall', wallHeight: h, elevation: wallElevation },
-    { id: `wall_app_${w}_${h}`,  label: `Appliance ${w}`, subtype: 'Appliance',  width: w, height: h, depth: 350, icon: 'wall_appliance',  category: 'wall', wallHeight: h, elevation: wallElevation },
   ]))
 
   const tall = [
@@ -168,10 +167,10 @@ function buildLibrary(baseHeight) {
     // base run's carcass height) rather than a fixed appliance height — see isBase in
     // KitchenPlanner3D, which now includes this subtype so it gets legs + a countertop.
     { id: 'acc_free_dish',       label: 'Freestanding Dishwasher', subtype: 'Freestanding Dishwasher', width: 600, height: baseHeight, depth: 560, icon: 'accessory_gap_dish',   category: 'accessories' },
-    // An island hood hangs from the ceiling with no host wall cabinet underneath it
-    // (unlike the wall-category 'Appliance' hood, which sits above a wall run) -- so
-    // like the freestanding oven/fridge above, it's a standalone accessory. It reuses
-    // wallElevation to hang at the same height wall cabinets start, clear of head height.
+    // A hood has no host wall cabinet underneath it (unlike other wall units), so it's a
+    // standalone accessory even for the wall-mounted look -- `cab.hoodMount` ('wall' | 'island',
+    // set in the properties panel) picks which 3D component renders it. Reuses wallElevation
+    // to hang at the same height wall cabinets start, clear of head height.
     { id: 'acc_free_hood', label: 'Freestanding Hood', subtype: 'Freestanding Hood', width: 900, height: 600, depth: 500, icon: 'accessory_gap_hood', category: 'accessories', elevation: wallElevation },
   ]
 
