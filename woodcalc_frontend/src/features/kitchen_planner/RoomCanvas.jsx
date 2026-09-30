@@ -660,7 +660,6 @@ export default function RoomCanvas({
   const [history, setHistory] = useState([{ walls: [], stairs: [] }])
   const [dragging, setDragging] = useState(null)
   const [dragStart, setDragStart] = useState(null)
-  const [dragCorner, setDragCorner] = useState(null)
   const [wallSnapPreview, setWallSnapPreview] = useState(null)
   const [measureStart, setMeasureStart] = useState(null)
   const [measureEnd, setMeasureEnd] = useState(null)
@@ -686,6 +685,10 @@ export default function RoomCanvas({
   // Remembers where the last cabinet click landed, so a repeated click at (roughly)
   // the same spot can be told apart from a fresh click elsewhere — see startElementDrag.
   const cabClickRef = useRef({ pos: null })
+
+  const dragOriginScreenRef = useRef(null)
+  const dragThresholdMetRef = useRef(false)
+  const DRAG_THRESHOLD_PX = 4
 
   // Dragging (wall/element/cabinet) recomputes a new position on every raw
   // mousemove event, which can fire far more often than the screen repaints
@@ -1199,6 +1202,12 @@ export default function RoomCanvas({
     if (mode === 'measure') setMeasureSnap(findMeasureSnapPoint(rawX, rawY, walls, cabinets, wallThickness, scale, snapThreshold))
     if (!dragging) return
 
+    if (!dragThresholdMetRef.current) {
+      const origin = dragOriginScreenRef.current
+      if (origin && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < DRAG_THRESHOLD_PX) return
+      dragThresholdMetRef.current = true
+    }
+
     if (dragging.type === 'wall') {
       const dx = rawX - dragStart.x, dy = rawY - dragStart.y
       const orig = dragging.origWall
@@ -1227,18 +1236,16 @@ export default function RoomCanvas({
         } : el)))
       } else {
         setWallSnapPreview(null)
-        const corner = dragCorner || { ox: 0.5, oy: 0.5 }
-        const itemW = item.w * scale, itemH = item.h * scale
-        const x = Math.max(0, snap((rawX - (corner.ox - 0.5) * itemW) / scale))
-        const y = Math.max(0, snap((rawY - (corner.oy - 0.5) * itemH) / scale))
+        const x = Math.max(0, snap(rawX / scale - dragging.offsetX))
+        const y = Math.max(0, snap(rawY / scale - dragging.offsetY))
         commitDragThrottled(() => setElements(p => p.map(el => el.id === dragging.id ? { ...el, x, y, wallAngle: undefined, embeddedInWall: false } : el)))
       }
     } else if (dragging.type === 'cabinet') {
       const cab = cabinets.find(c => c.id === dragging.id)
       if (!cab) return
       const SNAP_PX = 15 / zoom
-      const rawCabX = rawX - cab.width * scale / 2
-      const rawCabY = rawY - cab.depth * scale / 2
+      const rawCabX = rawX - dragging.offsetX * scale
+      const rawCabY = rawY - dragging.offsetY * scale
       const cabWpx = cab.width * scale
       const cabDpx = cab.depth * scale
       let finalX = rawCabX, finalY = rawCabY
@@ -1296,7 +1303,7 @@ export default function RoomCanvas({
       const fx = snapPt ? snapPt.x : nx, fy = snapPt ? snapPt.y : ny
       commitDragThrottled(() => setStairs(p => p.map(s => s.id === dragging.id ? { ...s, x: fx / scale, y: fy / scale } : s)))
     }
-  }, [dragging, dragStart, dragCorner, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, setStairs, getSVGPos, snapThreshold, zoom, commitDragThrottled])
+  }, [dragging, dragStart, mode, startPoint, walls, wallThickness, scale, elements, cabinets, setWalls, setCabinets, setElements, setStairs, getSVGPos, snapThreshold, zoom, commitDragThrottled])
 
   const handleMouseUp = useCallback(() => {
     isPanningRef.current = false
@@ -1316,13 +1323,17 @@ export default function RoomCanvas({
     if (dragging && (dragging.type === 'wall' || dragging.type === 'endpoint' || dragging.type === 'stair')) {
       setHistory(h => [...h.slice(-20), { walls, stairs }])
     }
-    setDragging(null); setDragStart(null); setDragCorner(null); setWallSnapPreview(null)
+    dragOriginScreenRef.current = null
+    dragThresholdMetRef.current = false
+    setDragging(null); setDragStart(null); setWallSnapPreview(null)
   }, [dragging, walls, stairs])
 
   const startWallDrag = useCallback((e, index) => {
     if (mode !== 'select' || hideWallsElements) return
     e.stopPropagation()
     wallClickedRef.current = true
+    dragOriginScreenRef.current = { x: e.clientX, y: e.clientY }
+    dragThresholdMetRef.current = false
     setDragging({ type: 'wall', index, origWall: { ...walls[index] } })
     setDragStart(getSVGPos(e))
   }, [mode, hideWallsElements, walls, getSVGPos])
@@ -1330,6 +1341,8 @@ export default function RoomCanvas({
   const startEndpointDrag = useCallback((e, wallIndex, ep) => {
     if (mode !== 'select' || hideWallsElements) return
     e.stopPropagation()
+    dragOriginScreenRef.current = { x: e.clientX, y: e.clientY }
+    dragThresholdMetRef.current = false
     setDragging({ type: 'endpoint', wallIndex, ep })
     setDragStart(getSVGPos(e))
   }, [mode, hideWallsElements, getSVGPos])
@@ -1375,9 +1388,12 @@ export default function RoomCanvas({
       : type === 'stair' ? stairs.find(s => s.id === targetId)
       : elements.find(el => el.id === targetId)
     if (!item) return
-    setDragging(type === 'stair' ? { type, id: targetId, orig: { x: item.x, y: item.y } } : { type, id: targetId })
+    dragOriginScreenRef.current = { x: e.clientX, y: e.clientY }
+    dragThresholdMetRef.current = false
+    setDragging(type === 'stair'
+      ? { type, id: targetId, orig: { x: item.x, y: item.y } }
+      : { type, id: targetId, offsetX: pos.x / scale - item.x, offsetY: pos.y / scale - item.y })
     setDragStart(pos)
-    setDragCorner({ ox: 0.5, oy: 0.5 })
     setSelected(targetId)
     setSelectedType(type)
   }, [mode, hideWallsElements, cabinets, elements, stairs, getSVGPos, setSelected, setSelectedType, selected, scale, onToggleBulk])
