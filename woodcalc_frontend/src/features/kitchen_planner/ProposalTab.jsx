@@ -441,7 +441,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
                         <td style={{ padding: '10px 12px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
                           {cab.width}×{cab.height}×{cab.depth}
                         </td>
-                        <td style={{ padding: '10px 12px', fontSize: 11 }}>{cab.material}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 11 }}>{cab.carcassMaterialName || cab.material}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: DARK }}>
                           {fmtC(cab.pricing.total)}
                         </td>
@@ -593,7 +593,7 @@ function exportPDF(data) {
       <td>${String(i+1).padStart(2,'0')}</td>
       <td>${c.label}</td>
       <td style="font-family:monospace">${c.width}×${c.height}×${c.depth}mm</td>
-      <td>${c.material}</td>
+      <td>${c.carcassMaterialName || c.material}</td>
       <td>${c.doorStyle}</td>
       <td style="text-align:end;font-weight:700">${fmt(c.pricing.total)} JD</td>
     </tr>`).join('')
@@ -693,7 +693,7 @@ function exportExcel(data) {
 
   pricedCabinets.forEach((c, i) => {
     rows.push([
-      i + 1, c.label, c.width, c.height, c.depth, c.material, c.doorStyle,
+      i + 1, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
       fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost),
       fmt(c.pricing.machiningCost), fmt(c.pricing.laborCost), fmt(c.pricing.total)
     ])

@@ -15,9 +15,15 @@ const FINISH_KEYS = {
   matt: 'materialCatalog.finishMatt', gloss: 'materialCatalog.finishGloss', wood: 'materialCatalog.finishWood',
   metal: 'materialCatalog.finishMetal', other: 'materialCatalog.finishOther',
 }
+// Must exactly match Material.core_material's choices in woodcalc_backend/inventory/models.py
+const CORE_MATERIAL_OPTIONS = ['particleboard', 'mdf', 'hdf', 'plywood', 'solid_wood', 'compact']
+const CORE_MATERIAL_KEYS = {
+  particleboard: 'materialCatalog.coreParticleboard', mdf: 'materialCatalog.coreMdf', hdf: 'materialCatalog.coreHdf',
+  plywood: 'materialCatalog.corePlywood', solid_wood: 'materialCatalog.coreSolidWood', compact: 'materialCatalog.coreCompact',
+}
 
 const EMPTY_FORM = {
-  name: '', sku: '', material_type: 'front', finish: 'matt',
+  name: '', sku: '', material_type: 'front', finish: 'matt', core_material: '',
   supplier: '', fallback_hex: '#C8902A',
   board_width: 2440, board_height: 1220, board_thickness: 18,
   price_per_board: '', roughness: 0.4, metalness: 0.0,
@@ -86,6 +92,7 @@ export default function MaterialCatalog() {
       sku: tex.sku || '',
       material_type: tex.material_type || 'front',
       finish: tex.finish || 'matt',
+      core_material: tex.core_material || '',
       supplier: tex.supplier || '',
       fallback_hex: tex.fallback_hex || '#C8902A',
       board_width: tex.board_width || 2440,
@@ -112,6 +119,7 @@ export default function MaterialCatalog() {
 
   const save = async () => {
     if (!form.name.trim()) return
+    if (!form.core_material) return
     if (!editing && !imageFile) return
     setSaving(true)
     setSaveError('')
@@ -358,6 +366,18 @@ export default function MaterialCatalog() {
               </div>
             </div>
 
+            {/* Core material -- drives which board price rate (particleboard/plywood/MDF/...)
+                this material is priced at in proposals, so it has no default: the person
+                cataloging the board must pick it explicitly. */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.coreMaterialLabel')}</div>
+              <select value={form.core_material} onChange={e => setForm(f => ({ ...f, core_material: e.target.value }))}
+                style={{ ...selectStyle, borderColor: form.core_material ? '#E0DAD4' : '#E7A8A8' }}>
+                <option value="" disabled>{t('materialCatalog.coreMaterialPlaceholder')}</option>
+                {CORE_MATERIAL_OPTIONS.map(o => <option key={o} value={o}>{t(CORE_MATERIAL_KEYS[o])}</option>)}
+              </select>
+            </div>
+
             {/* Supplier */}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.supplierLabel')}</div>
@@ -438,8 +458,8 @@ export default function MaterialCatalog() {
                 {t('materialCatalog.cancel')}
               </button>
               <button onClick={save}
-                disabled={saving || !form.name.trim() || (!editing && !imageFile)}
-                style={{ flex: 2, padding: '11px', background: (form.name.trim() && (editing || imageFile)) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                disabled={saving || !form.name.trim() || !form.core_material || (!editing && !imageFile)}
+                style={{ flex: 2, padding: '11px', background: (form.name.trim() && form.core_material && (editing || imageFile)) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                 {saving ? t('materialCatalog.saving') : editing ? t('materialCatalog.saveChanges') : t('materialCatalog.addMaterial')}
               </button>
             </div>
