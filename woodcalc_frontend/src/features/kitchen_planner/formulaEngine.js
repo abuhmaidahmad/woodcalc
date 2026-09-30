@@ -467,18 +467,23 @@ export function calculateCabinet(config) {
           });
         });
       } else {
-        // The biggest drawer in the stack gets the Gola TIP-ON (push-to-open,
-        // LEGRABOX C) treatment; smaller ones use a regular LEGRABOX M channel pull.
+        // The biggest drawer in the stack gets the taller LEGRABOX C runner (tip-on
+        // capable on a Gola front); smaller ones use the standard LEGRABOX M runner.
+        // This is a runner-height fact of the metal-sided box system itself, not a
+        // front-style choice -- it applies to every integrated-box drawer cabinet,
+        // Gola or plain Handle/Push alike.
         const isBig = zone.h === maxDrawerH && !tipOnAssigned;
         if (isBig) tipOnAssigned = true;
         drawerFronts.push({
           width: round2(W - 3),
           height: round2(zone.h - zoneReduction),
           style: doorStyle,
-          runnerSize: doorStyle === 'Gola' ? (isBig ? 'C' : 'M') : undefined,
+          runnerSize: systemHasIntegratedBox ? (isBig ? 'C' : 'M') : undefined,
           opening: doorStyle === 'Gola' ? (isBig ? 'TIP-ON' : 'channel') : doorStyle,
           tipOn: doorStyle === 'Push' ? true : (doorStyle === 'Gola' && isBig),
-          notes: doorStyle === 'Gola' ? (isBig ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access') : '',
+          notes: doorStyle === 'Gola'
+            ? (isBig ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access')
+            : (systemHasIntegratedBox ? (isBig ? 'Big drawer: LEGRABOX C' : 'LEGRABOX M') : ''),
         });
       }
     });
@@ -514,7 +519,7 @@ export function calculateCabinet(config) {
   if (drawerCount > 0) {
     hardware.drawer_runner_sets = drawerCount;
     hardware.drawer_system = drawerSystem;
-    if (doorStyle === 'Gola') {
+    if (systemHasIntegratedBox) {
       hardware.runner_sizes = {
         M: drawerFronts.filter(d => d.runnerSize === 'M').length,
         C: drawerFronts.filter(d => d.runnerSize === 'C').length,
@@ -548,12 +553,21 @@ export function calculateCabinet(config) {
         false_front_clearance_bottom: -3,
       };
     } else {
+      // Metal-sided systems (LEGRABOX etc.) supply the sides + back with the runner
+      // set itself, but not the bottom -- that's still a shop-cut board sized to the
+      // steel box's own interior, same clearance logic as a wood box.
+      const intBoxW = round2(W - 2 * T - 25);
+      const intBoxD = round2(D - 30 - 50);
       drawerBox = {
         type: drawerType,
         system: drawerSystem,
         count: drawerCount,
         integrated_front: true,
-        note: `Integrated box system (${drawerSystem}) — no wood box parts`,
+        parts_per_drawer: [
+          { name: 'Drawer bottom panel (8mm HDF)', qty: 1, width: intBoxW, depth: intBoxD },
+        ],
+        base_thickness: 8,
+        note: `Integrated box system (${drawerSystem}) — sides/back supplied by the runner set, bottom panel shop-cut`,
       };
     }
   }

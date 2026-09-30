@@ -169,7 +169,15 @@ class DrawerSystem(models.Model):
     name = models.CharField(max_length=100)
     brand = models.CharField(max_length=100, blank=True, default='')
     box_construction = models.CharField(max_length=15, choices=BOX_CHOICES, default='wood_box')
+    # Flat fallback price, used as-is for wood_box systems (their runners aren't
+    # height-classed) and as a last-resort fallback for metal_sided systems that
+    # haven't been given size-specific prices yet.
     price_per_set = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # LEGRABOX-style metal_sided systems come in distinct height classes priced
+    # differently: M (standard concealed height) and C (tall, tip-on capable —
+    # used for the biggest drawer in a stack). Left blank for wood_box systems.
+    price_per_set_m = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_per_set_c = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

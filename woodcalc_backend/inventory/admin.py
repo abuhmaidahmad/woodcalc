@@ -1,10 +1,19 @@
 from django.contrib import admin
-from .models import Material, Supplier, StockMovement, StockAlert, Sink
+from .models import Material, Supplier, StockMovement, StockAlert, Sink, DrawerSystem
 
 admin.site.register(Material)
 admin.site.register(Supplier)
 admin.site.register(StockMovement)
 admin.site.register(StockAlert)
+
+
+@admin.register(DrawerSystem)
+class DrawerSystemAdmin(admin.ModelAdmin):
+    list_display = ('name', 'brand', 'box_construction', 'price_per_set',
+                     'price_per_set_m', 'price_per_set_c', 'is_active', 'sort_order')
+    list_filter = ('box_construction', 'is_active')
+    search_fields = ('name', 'brand')
+    list_editable = ('price_per_set', 'price_per_set_m', 'price_per_set_c', 'is_active', 'sort_order')
 
 
 

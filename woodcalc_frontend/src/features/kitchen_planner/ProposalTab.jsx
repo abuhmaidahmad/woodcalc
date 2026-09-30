@@ -1,9 +1,11 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { authFetch } from '../../api/auth'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
+const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
 // ─── Default price list (JD) ───────────────────────────────────────────────
 const DEFAULT_PRICES = {
@@ -79,19 +81,48 @@ function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
   const rows = []
   const box = result.drawerBox
   const sysEntry = drawerSystemsCatalog.find(s => s.name === box.system)
-  const perSet = sysEntry?.price_per_set != null ? Number(sysEntry.price_per_set) : prices.drawer_runner_pc
-  const runnerCost = parseFloat((perSet * box.count).toFixed(3))
-  rows.push({ label: t('proposalTab.breakdownDrawerRunners', { system: box.system }), qty: box.count + ' ' + t('proposalTab.unitPcs'), unit: perSet, cost: runnerCost })
+  const runnerSizes = result.hardware.runner_sizes
+  let runnerCost = 0
+
+  if (runnerSizes && (runnerSizes.M > 0 || runnerSizes.C > 0)) {
+    // Metal-sided (LEGRABOX-style) box: M and C are different runner heights with
+    // different prices -- fall back size-by-size to the system's flat price, then
+    // to the generic default, rather than pricing every runner the same.
+    const fallback = sysEntry?.price_per_set != null ? Number(sysEntry.price_per_set) : prices.drawer_runner_pc
+    const priceM = sysEntry?.price_per_set_m != null ? Number(sysEntry.price_per_set_m) : fallback
+    const priceC = sysEntry?.price_per_set_c != null ? Number(sysEntry.price_per_set_c) : fallback
+    if (runnerSizes.M > 0) {
+      const mCost = parseFloat((priceM * runnerSizes.M).toFixed(3))
+      rows.push({ label: t('proposalTab.breakdownDrawerRunnersM', { system: box.system }), qty: runnerSizes.M + ' ' + t('proposalTab.unitPcs'), unit: priceM, cost: mCost })
+      runnerCost += mCost
+    }
+    if (runnerSizes.C > 0) {
+      const cCost = parseFloat((priceC * runnerSizes.C).toFixed(3))
+      rows.push({ label: t('proposalTab.breakdownDrawerRunnersC', { system: box.system }), qty: runnerSizes.C + ' ' + t('proposalTab.unitPcs'), unit: priceC, cost: cCost })
+      runnerCost += cCost
+    }
+  } else {
+    const perSet = sysEntry?.price_per_set != null ? Number(sysEntry.price_per_set) : prices.drawer_runner_pc
+    runnerCost = parseFloat((perSet * box.count).toFixed(3))
+    rows.push({ label: t('proposalTab.breakdownDrawerRunners', { system: box.system }), qty: box.count + ' ' + t('proposalTab.unitPcs'), unit: perSet, cost: runnerCost })
+  }
   let cost = runnerCost
 
   if (box.parts_per_drawer) {
-    const m2_12 = box.parts_per_drawer.filter(p => !p.name.includes('HDF')).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
-    const m2_8  = box.parts_per_drawer.filter(p => p.name.includes('HDF')).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
-    const boardCost = parseFloat((m2_12 * prices.board12_m2).toFixed(3))
-    const hdfCost    = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
-    rows.push({ label: t('proposalTab.breakdownDrawerBoxBoard'), qty: m2_12.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices.board12_m2, cost: boardCost })
-    rows.push({ label: t('proposalTab.breakdownDrawerBoxHdf'),   qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: prices.hdf8_m2, cost: hdfCost })
-    cost += boardCost + hdfCost
+    const boardParts = box.parts_per_drawer.filter(p => !p.name.includes('HDF'))
+    const hdfParts = box.parts_per_drawer.filter(p => p.name.includes('HDF'))
+    if (boardParts.length > 0) {
+      const m2_12 = boardParts.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
+      const boardCost = parseFloat((m2_12 * prices.board12_m2).toFixed(3))
+      rows.push({ label: t('proposalTab.breakdownDrawerBoxBoard'), qty: m2_12.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices.board12_m2, cost: boardCost })
+      cost += boardCost
+    }
+    if (hdfParts.length > 0) {
+      const m2_8 = hdfParts.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0) * box.count
+      const hdfCost = parseFloat((m2_8 * prices.hdf8_m2).toFixed(3))
+      rows.push({ label: t('proposalTab.breakdownDrawerBoxHdf'), qty: m2_8.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: prices.hdf8_m2, cost: hdfCost })
+      cost += hdfCost
+    }
   }
   return { cost, rows }
 }
@@ -210,6 +241,65 @@ function PriceRow({ label, value, onChange, unit = 'JD' }) {
   )
 }
 
+// ─── Editable drawer system row (company catalog, saved via API) ──────────
+function DrawerSystemRow({ entry, onChange, onSave, saving, saved, error, t }) {
+  const isMetal = entry.box_construction === 'metal_sided'
+  const numInput = (value, onVal, placeholder) => (
+    <input type="number" value={value ?? ''} step="0.01" min="0" placeholder={placeholder}
+      onChange={e => onVal(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
+      style={{ width: '100%', padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+        fontSize: 11, textAlign: 'right', outline: 'none', color: DARK, boxSizing: 'border-box' }} />
+  )
+  return (
+    <div style={{ border: '1.5px solid #E0DAD4', borderRadius: 8, padding: 10, marginBottom: 8 }}>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+        <input value={entry.name} onChange={e => onChange({ ...entry, name: e.target.value })}
+          placeholder={t('proposalTab.drawerSystemNewName')}
+          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+            fontSize: 11, fontWeight: 700, outline: 'none', color: DARK, boxSizing: 'border-box' }} />
+      </div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+        <input value={entry.brand || ''} onChange={e => onChange({ ...entry, brand: e.target.value })}
+          placeholder={t('proposalTab.drawerSystemBrand')}
+          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+            fontSize: 11, outline: 'none', color: DARK, boxSizing: 'border-box' }} />
+        <select value={entry.box_construction} onChange={e => onChange({ ...entry, box_construction: e.target.value })}
+          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+            fontSize: 11, outline: 'none', color: DARK }}>
+          <option value="metal_sided">{t('proposalTab.drawerSystemMetalSided')}</option>
+          <option value="wood_box">{t('proposalTab.drawerSystemWoodBox')}</option>
+        </select>
+      </div>
+      {isMetal ? (
+        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemPriceM')}</div>
+            {numInput(entry.price_per_set_m, v => onChange({ ...entry, price_per_set_m: v }))}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemPriceC')}</div>
+            {numInput(entry.price_per_set_c, v => onChange({ ...entry, price_per_set_c: v }))}
+          </div>
+        </div>
+      ) : null}
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemFlatPrice')}</div>
+        {numInput(entry.price_per_set, v => onChange({ ...entry, price_per_set: v }))}
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <button onClick={onSave} disabled={saving}
+          style={{ padding: '5px 12px', background: ACCENT, border: 'none', borderRadius: 6,
+            color: '#fff', fontSize: 11, fontWeight: 700, cursor: saving ? 'default' : 'pointer',
+            opacity: saving ? 0.6 : 1 }}>
+          {saving ? t('proposalTab.drawerSystemSaving') : t('proposalTab.drawerSystemSave')}
+        </button>
+        {saved && !saving && <span style={{ fontSize: 10, color: '#3A8A4A' }}>✓ {t('proposalTab.drawerSystemSaved')}</span>}
+        {error && <span style={{ fontSize: 10, color: '#E74C3C' }}>{t('proposalTab.drawerSystemError')}</span>}
+      </div>
+    </div>
+  )
+}
+
 // ─── Extra line item ───────────────────────────────────────────────────────
 function ExtraItem({ item, onChange, onDelete }) {
   const { t } = useTranslation()
@@ -253,15 +343,49 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const [showPrices, setShowPrices]   = useState(false)
   const [currency, setCurrency]       = useState('JD')
 
+  // Drawer systems catalog: seeded from the parent's fetch, but edited/saved here
+  // directly against the company catalog API so a price fix applies everywhere
+  // (this proposal and every future one), not just as a local override.
+  const [drawerSystems, setDrawerSystems] = useState(drawerSystemsCatalog)
+  const [showDrawerSystems, setShowDrawerSystems] = useState(false)
+  const [drawerSystemSaveState, setDrawerSystemSaveState] = useState({}) // id -> 'saving'|'saved'|'error'
+  useEffect(() => {
+    if (drawerSystemsCatalog.length) setDrawerSystems(drawerSystemsCatalog)
+  }, [drawerSystemsCatalog])
+
   const updatePrice = (key, val) => setPrices(p => ({ ...p, [key]: val }))
   const updateExtra = (id, data) => setExtras(p => p.map(e => e.id === id ? data : e))
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
   const addExtra = () => setExtras(p => [...p, { id: Date.now(), label: '', qty: 1, unitPrice: 0 }])
 
+  const updateDrawerSystem = (id, data) => setDrawerSystems(p => p.map(s => s.id === id ? data : s))
+  const addDrawerSystem = () => setDrawerSystems(p => [...p, {
+    id: `new-${Date.now()}`, name: '', brand: '', box_construction: 'metal_sided',
+    price_per_set: null, price_per_set_m: null, price_per_set_c: null, is_active: true, sort_order: p.length,
+  }])
+  const saveDrawerSystem = async (entry) => {
+    if (!entry.name.trim()) { setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'error' })); return }
+    setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'saving' }))
+    const isNew = typeof entry.id === 'string' && entry.id.startsWith('new-')
+    const { id, ...body } = entry
+    try {
+      const res = await authFetch(`${API_BASE}/api/inventory/drawer-systems/${isNew ? '' : id + '/'}`, {
+        method: isNew ? 'POST' : 'PATCH',
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error('save failed')
+      const saved = await res.json()
+      setDrawerSystems(p => p.map(s => s.id === entry.id ? saved : s))
+      setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'saved', [saved.id]: 'saved' }))
+    } catch {
+      setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'error' }))
+    }
+  }
+
   // Price each cabinet
   const pricedCabinets = useMemo(() =>
-    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) })),
-    [cabinets, prices, materialsMap, drawerSystemsCatalog, t]
+    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystems, t) })),
+    [cabinets, prices, materialsMap, drawerSystems, t]
   )
 
   // Backsplash: real board area (linear meters drawn × chosen height) priced by
@@ -325,6 +449,33 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <SectionTitle>{t('proposalTab.servicesPerCabinet')}</SectionTitle>
           <PriceRow label={t('proposalTab.cncMachining')}       value={prices.machining_cab}  onChange={v => updatePrice('machining_cab', v)} />
           <PriceRow label={t('proposalTab.labor')}              value={prices.labor_cab}      onChange={v => updatePrice('labor_cab', v)} />
+        </>}
+
+        <button onClick={() => setShowDrawerSystems(p => !p)}
+          style={{ width: '100%', padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4',
+            borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#555',
+            marginTop: 4, marginBottom: 10, textAlign: 'start' }}>
+          {showDrawerSystems ? '▾' : '▸'} {t('proposalTab.drawerSystemsCatalog')}
+        </button>
+
+        {showDrawerSystems && <>
+          <div style={{ fontSize: 10, color: '#999', marginBottom: 10, lineHeight: 1.4 }}>
+            {t('proposalTab.drawerSystemsHint')}
+          </div>
+          {drawerSystems.map(entry => (
+            <DrawerSystemRow key={entry.id} entry={entry}
+              onChange={data => updateDrawerSystem(entry.id, data)}
+              onSave={() => saveDrawerSystem(entry)}
+              saving={drawerSystemSaveState[entry.id] === 'saving'}
+              saved={drawerSystemSaveState[entry.id] === 'saved'}
+              error={drawerSystemSaveState[entry.id] === 'error'}
+              t={t} />
+          ))}
+          <button onClick={addDrawerSystem}
+            style={{ width: '100%', padding: '7px', background: '#fff', border: `1.5px dashed ${ACCENT}`,
+              borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: ACCENT, marginBottom: 12 }}>
+            {t('proposalTab.drawerSystemAdd')}
+          </button>
         </>}
 
         <SectionTitle>{t('proposalTab.marginCurrency')}</SectionTitle>

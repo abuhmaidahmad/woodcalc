@@ -17,7 +17,11 @@ STARTER_MATERIALS = [
 
 STARTER_DRAWER_SYSTEMS = [
     dict(name="Standard Wood Box", brand="Generic", box_construction="wood_box", price_per_set=35.00, sort_order=0),
-    dict(name="Metal-Sided Slim Box", brand="Generic", box_construction="metal_sided", price_per_set=65.00, sort_order=1),
+    # Metal-sided (LEGRABOX-style) systems are height-classed: M (standard) is
+    # cheaper than C (tall, tip-on capable — used for the biggest drawer in a
+    # stack). price_per_set stays as a last-resort fallback only.
+    dict(name="Metal-Sided Slim Box", brand="Generic", box_construction="metal_sided",
+         price_per_set=65.00, price_per_set_m=55.00, price_per_set_c=75.00, sort_order=1),
 ]
 
 STARTER_SINKS = [
