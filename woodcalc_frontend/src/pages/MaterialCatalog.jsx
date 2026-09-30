@@ -32,6 +32,11 @@ const EMPTY_FORM = {
 
 const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', address: '' }
 
+const EMPTY_DRAWER_SYSTEM = {
+  name: '', brand: '', box_construction: 'metal_sided',
+  price_per_set: '', price_per_set_m: '', price_per_set_c: '',
+}
+
 function forceHttps(url) {
   if (!url) return url
   return url.replace(/^http:\/\//i, 'https://')
@@ -59,22 +64,99 @@ export default function MaterialCatalog() {
   const [savingSupplier, setSavingSupplier] = useState(false)
   const fileRef = useRef()
 
+  // Drawer Systems tab -- hardware catalog (LEGRABOX/TANDEMBOX/etc.) with the
+  // per-size runner prices the Proposal tab's BOM pricing actually reads, edited
+  // here (the real company catalog) rather than as a disconnected local override.
+  const [activeTab, setActiveTab] = useState('materials')
+  const [drawerSystems, setDrawerSystems] = useState([])
+  const [showDsModal, setShowDsModal] = useState(false)
+  const [editingDs, setEditingDs] = useState(null) // null = add, object = edit
+  const [dsForm, setDsForm] = useState(EMPTY_DRAWER_SYSTEM)
+  const [savingDs, setSavingDs] = useState(false)
+  const [dsSaveError, setDsSaveError] = useState('')
+  const [deletingDs, setDeletingDs] = useState(null)
+
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [tRes, sRes] = await Promise.all([
+      const [tRes, sRes, dRes] = await Promise.all([
         authFetch(API + '/api/inventory/materials/'),
         authFetch(API + '/api/inventory/suppliers/'),
+        authFetch(API + '/api/inventory/drawer-systems/'),
       ])
       const tData = await tRes.json()
       const sData = await sRes.json()
+      const dData = await dRes.json()
       setTextures(Array.isArray(tData) ? tData : (tData.results || []))
       setSuppliers(Array.isArray(sData) ? sData : (sData.results || []))
+      setDrawerSystems(Array.isArray(dData) ? dData : (dData.results || []))
     } catch {}
     setLoading(false)
   }
 
   useEffect(() => { fetchAll() }, [])
+
+  const openAddDs = () => {
+    setEditingDs(null)
+    setDsForm(EMPTY_DRAWER_SYSTEM)
+    setDsSaveError('')
+    setShowDsModal(true)
+  }
+
+  const openEditDs = (sys) => {
+    setEditingDs(sys)
+    setDsForm({
+      name: sys.name || '',
+      brand: sys.brand || '',
+      box_construction: sys.box_construction || 'metal_sided',
+      price_per_set: sys.price_per_set ?? '',
+      price_per_set_m: sys.price_per_set_m ?? '',
+      price_per_set_c: sys.price_per_set_c ?? '',
+    })
+    setDsSaveError('')
+    setShowDsModal(true)
+  }
+
+  const saveDs = async () => {
+    if (!dsForm.name.trim()) return
+    setSavingDs(true)
+    setDsSaveError('')
+    try {
+      const body = {
+        ...dsForm,
+        price_per_set: dsForm.price_per_set === '' ? null : dsForm.price_per_set,
+        price_per_set_m: dsForm.price_per_set_m === '' ? null : dsForm.price_per_set_m,
+        price_per_set_c: dsForm.price_per_set_c === '' ? null : dsForm.price_per_set_c,
+      }
+      // Name is locked once created (see dsForm's name field below) -- cabinets
+      // reference a drawer system by its name string, so renaming one here would
+      // silently orphan every cabinet already using it.
+      if (editingDs) delete body.name
+      const url = editingDs ? API + `/api/inventory/drawer-systems/${editingDs.id}/` : API + '/api/inventory/drawer-systems/'
+      const res = await authFetch(url, { method: editingDs ? 'PATCH' : 'POST', body: JSON.stringify(body) })
+      if (res.ok) {
+        setShowDsModal(false)
+        fetchAll()
+      } else {
+        const errData = await res.json().catch(() => ({}))
+        const msg = Object.entries(errData).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' | ')
+        setDsSaveError(msg || t('materialCatalog.serverError', { status: res.status }))
+      }
+    } catch {
+      setDsSaveError(t('materialCatalog.networkError'))
+    }
+    setSavingDs(false)
+  }
+
+  const deleteDs = async (id) => {
+    if (!window.confirm(t('materialCatalog.confirmDeleteDrawerSystem'))) return
+    setDeletingDs(id)
+    try {
+      await authFetch(API + `/api/inventory/drawer-systems/${id}/`, { method: 'DELETE' })
+      fetchAll()
+    } catch {}
+    setDeletingDs(null)
+  }
 
   const openAdd = () => {
     setEditing(null)
@@ -219,62 +301,117 @@ export default function MaterialCatalog() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: 24 }}>
 
-        {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('materialCatalog.title')}</h1>
-            <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>
-              {textures.length === 1
-                ? t('materialCatalog.materialCount')
-                : t('materialCatalog.materialCountPlural', { count: textures.length })}
+        {/* Tab switcher */}
+        <div style={{ display: 'flex', gap: 4, marginBottom: 20 }}>
+          {[['materials', t('materialCatalog.title')], ['drawerSystems', t('materialCatalog.tabDrawerSystems')]].map(([val, label]) => (
+            <button key={val} onClick={() => setActiveTab(val)}
+              style={{ padding: '9px 18px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700,
+                background: activeTab === val ? DARK : '#fff',
+                color: activeTab === val ? '#fff' : '#666',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {activeTab === 'materials' && <>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('materialCatalog.title')}</h1>
+              <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>
+                {textures.length === 1
+                  ? t('materialCatalog.materialCount')
+                  : t('materialCatalog.materialCountPlural', { count: textures.length })}
+              </div>
             </div>
+            <button onClick={openAdd}
+              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              {t('materialCatalog.addMaterial')}
+            </button>
           </div>
-          <button onClick={openAdd}
-            style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            {t('materialCatalog.addMaterial')}
-          </button>
-        </div>
 
-        {/* Filters + Search */}
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: 4 }}>
-            {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')]].map(([val, label]) => (
-              <button key={val} onClick={() => setFilter(val)}
-                style={{ padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                  background: filter === val ? ACCENT : '#fff',
-                  color: filter === val ? '#fff' : '#666',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-                {label}
-              </button>
-            ))}
+          {/* Filters + Search */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')]].map(([val, label]) => (
+                <button key={val} onClick={() => setFilter(val)}
+                  style={{ padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                    background: filter === val ? ACCENT : '#fff',
+                    color: filter === val ? '#fff' : '#666',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <input value={search} onChange={e => setSearch(e.target.value)}
+              placeholder={t('materialCatalog.searchPlaceholder')}
+              style={{ flex: 1, minWidth: 200, padding: '8px 14px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }} />
           </div>
-          <input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder={t('materialCatalog.searchPlaceholder')}
-            style={{ flex: 1, minWidth: 200, padding: '8px 14px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 13, outline: 'none', background: '#fff' }} />
-        </div>
 
-        {/* Grid */}
-        {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>{t('materialCatalog.loading')}</div>
-        ) : filtered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>🪵</div>
-            <div style={{ fontWeight: 600, fontSize: 16 }}>{t('materialCatalog.emptyTitle')}</div>
-            <div style={{ fontSize: 13, marginTop: 4 }}>{t('materialCatalog.emptyDesc')}</div>
+          {/* Grid */}
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>{t('materialCatalog.loading')}</div>
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🪵</div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>{t('materialCatalog.emptyTitle')}</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>{t('materialCatalog.emptyDesc')}</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+              {filtered.map(tex => (
+                <MaterialCard
+                  key={tex.id} texture={tex}
+                  onEdit={() => openEdit(tex)}
+                  onDelete={() => deleteMaterial(tex.id)}
+                  deleting={deleting === tex.id}
+                  t={t} dir={dir}
+                />
+              ))}
+            </div>
+          )}
+        </>}
+
+        {activeTab === 'drawerSystems' && <>
+          {/* Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+            <div>
+              <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('materialCatalog.tabDrawerSystems')}</h1>
+              <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>
+                {drawerSystems.length === 1
+                  ? t('materialCatalog.drawerSystemCount')
+                  : t('materialCatalog.drawerSystemCountPlural', { count: drawerSystems.length })}
+              </div>
+            </div>
+            <button onClick={openAddDs}
+              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              {t('materialCatalog.addDrawerSystem')}
+            </button>
           </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            {filtered.map(tex => (
-              <MaterialCard
-                key={tex.id} texture={tex}
-                onEdit={() => openEdit(tex)}
-                onDelete={() => deleteMaterial(tex.id)}
-                deleting={deleting === tex.id}
-                t={t} dir={dir}
-              />
-            ))}
-          </div>
-        )}
+
+          {loading ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>{t('materialCatalog.loading')}</div>
+          ) : drawerSystems.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#bbb' }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🗄️</div>
+              <div style={{ fontWeight: 600, fontSize: 16 }}>{t('materialCatalog.emptyDrawerSystemsTitle')}</div>
+              <div style={{ fontSize: 13, marginTop: 4 }}>{t('materialCatalog.emptyDrawerSystemsDesc')}</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+              {drawerSystems.map(sys => (
+                <DrawerSystemCard
+                  key={sys.id} sys={sys}
+                  onEdit={() => openEditDs(sys)}
+                  onDelete={() => deleteDs(sys.id)}
+                  deleting={deletingDs === sys.id}
+                  t={t} dir={dir}
+                />
+              ))}
+            </div>
+          )}
+        </>}
       </div>
 
       {/* Supplier Modal */}
@@ -466,6 +603,116 @@ export default function MaterialCatalog() {
           </div>
         </div>
       )}
+
+      {/* Drawer System Modal */}
+      {showDsModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
+
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>
+              {editingDs ? t('materialCatalog.editDrawerSystemTitle') : t('materialCatalog.addDrawerSystemTitle')}
+            </div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>
+              {editingDs ? t('materialCatalog.editingLabel', { name: editingDs.name }) : t('materialCatalog.fillDetails')}
+            </div>
+
+            <div style={{ marginBottom: 12 }}>
+              <Field label={t('materialCatalog.drawerSystemNameLabel')} value={dsForm.name}
+                onChange={v => setDsForm(f => ({ ...f, name: v }))}
+                placeholder={t('materialCatalog.drawerSystemNamePlaceholder')}
+                disabled={!!editingDs} />
+              {editingDs && <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemNameLocked')}</div>}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <Field label={t('materialCatalog.drawerSystemBrandLabel')} value={dsForm.brand}
+                onChange={v => setDsForm(f => ({ ...f, brand: v }))}
+                placeholder={t('materialCatalog.drawerSystemBrandPlaceholder')} />
+              <div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.drawerSystemBoxTypeLabel')}</div>
+                <select value={dsForm.box_construction} onChange={e => setDsForm(f => ({ ...f, box_construction: e.target.value }))}
+                  style={selectStyle}>
+                  <option value="metal_sided">{t('materialCatalog.drawerSystemMetalSided')}</option>
+                  <option value="wood_box">{t('materialCatalog.drawerSystemWoodBox')}</option>
+                </select>
+              </div>
+            </div>
+
+            {dsForm.box_construction === 'metal_sided' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <Field label={t('materialCatalog.drawerSystemPriceMLabel')} value={dsForm.price_per_set_m} type="number"
+                  onChange={v => setDsForm(f => ({ ...f, price_per_set_m: v }))} placeholder="0.00" />
+                <Field label={t('materialCatalog.drawerSystemPriceCLabel')} value={dsForm.price_per_set_c} type="number"
+                  onChange={v => setDsForm(f => ({ ...f, price_per_set_c: v }))} placeholder="0.00" />
+              </div>
+            )}
+
+            <div style={{ marginBottom: 20 }}>
+              <Field label={t('materialCatalog.drawerSystemFlatPriceLabel')} value={dsForm.price_per_set} type="number"
+                onChange={v => setDsForm(f => ({ ...f, price_per_set: v }))} placeholder="0.00" />
+            </div>
+
+            {dsSaveError && (
+              <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FFF0F0', border: '1.5px solid #FFCCCC', borderRadius: 8, fontSize: 12, color: '#C0392B' }}>
+                ⚠️ {dsSaveError}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setShowDsModal(false)}
+                style={{ flex: 1, padding: '11px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666', fontWeight: 600 }}>
+                {t('materialCatalog.cancel')}
+              </button>
+              <button onClick={saveDs} disabled={savingDs || !dsForm.name.trim()}
+                style={{ flex: 2, padding: '11px', background: dsForm.name.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                {savingDs ? t('materialCatalog.saving') : editingDs ? t('materialCatalog.saveChanges') : t('materialCatalog.addDrawerSystem')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DrawerSystemCard({ sys, onEdit, onDelete, deleting, t, dir }) {
+  const [hovered, setHovered] = useState(false)
+  const isMetal = sys.box_construction === 'metal_sided'
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: hovered ? '0 6px 20px rgba(0,0,0,0.10)' : '0 1px 4px rgba(0,0,0,0.06)', border: '1.5px solid', borderColor: hovered ? ACCENT : 'transparent', transition: 'all 0.15s' }}>
+      <div style={{ padding: '14px 16px' }} dir={dir}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{sys.name}</div>
+          <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', background: isMetal ? '#2A7AC8' : '#2A8A4A', padding: '3px 8px', borderRadius: 4 }}>
+            {isMetal ? t('materialCatalog.metalSidedChip') : t('materialCatalog.woodBoxChip')}
+          </span>
+        </div>
+        {sys.brand && <div style={{ fontSize: 11, color: '#888', marginBottom: 8 }}>{sys.brand}</div>}
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+          {isMetal ? (
+            <>
+              <Chip label={`M: ${sys.price_per_set_m != null ? parseFloat(sys.price_per_set_m).toFixed(2) + ' JD' : '—'}`} accent />
+              <Chip label={`C: ${sys.price_per_set_c != null ? parseFloat(sys.price_per_set_c).toFixed(2) + ' JD' : '—'}`} accent />
+            </>
+          ) : null}
+          <Chip label={sys.price_per_set != null ? `${parseFloat(sys.price_per_set).toFixed(2)} JD` : '—'} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={onEdit}
+            style={{ flex: 1, padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#555' }}>
+            {t('materialCatalog.edit')}
+          </button>
+          <button onClick={onDelete} disabled={deleting}
+            style={{ padding: '7px 12px', background: '#FFF0F0', border: '1.5px solid #FFCCCC', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#E74C3C' }}>
+            {deleting ? t('materialCatalog.deleting') : t('materialCatalog.delete')}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -528,13 +775,13 @@ function MaterialCard({ texture, onEdit, onDelete, deleting, t, dir }) {
   )
 }
 
-function Field({ label, value, onChange, placeholder, type = 'text' }) {
+function Field({ label, value, onChange, placeholder, type = 'text', disabled = false }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{label.toUpperCase()}</div>
       <input type={type} value={value} onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        style={inputStyle} />
+        placeholder={placeholder} disabled={disabled}
+        style={{ ...inputStyle, ...(disabled ? { background: '#F7F4F0', color: '#999', cursor: 'not-allowed' } : {}) }} />
     </div>
   )
 }

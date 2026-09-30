@@ -449,6 +449,12 @@ export function calculateCabinet(config) {
       : { zones: [{ type: 'drawer', h: H }] }; // defensive fallback: a raw config with no zonePreset
     const zoneList = zonePreset.zones;
     const maxDrawerH = Math.max(0, ...zoneList.filter(z => z.type === 'drawer').map(z => z.h));
+    // LEGRABOX-style height class is a fact of each drawer's own face height, not
+    // of its position in the stack -- e.g. '2_drawers' (two equal-height "big"
+    // drawers) needs 2x LEGRABOX C, not 1x C + 1x M just because only one of them
+    // is picked for the Gola TIP-ON treatment below. 'small' is this cabinet's own
+    // height-tier threshold (matches buildZonePresets' own small/big split).
+    const smallZoneH = H >= 780 ? 200 : 180;
     let tipOnAssigned = false;
     zoneList.forEach((zone, zoneIdx) => {
       // Every front in a Gola stack sits behind whatever's milled above it (25mm
@@ -467,23 +473,21 @@ export function calculateCabinet(config) {
           });
         });
       } else {
-        // The biggest drawer in the stack gets the taller LEGRABOX C runner (tip-on
-        // capable on a Gola front); smaller ones use the standard LEGRABOX M runner.
-        // This is a runner-height fact of the metal-sided box system itself, not a
-        // front-style choice -- it applies to every integrated-box drawer cabinet,
-        // Gola or plain Handle/Push alike.
+        // Gola TIP-ON (push-to-open) is still assigned to only one drawer in the
+        // stack -- a separate hardware/style decision from runner height class.
         const isBig = zone.h === maxDrawerH && !tipOnAssigned;
         if (isBig) tipOnAssigned = true;
+        const runnerSize = systemHasIntegratedBox ? (zone.h <= smallZoneH ? 'M' : 'C') : undefined;
         drawerFronts.push({
           width: round2(W - 3),
           height: round2(zone.h - zoneReduction),
           style: doorStyle,
-          runnerSize: systemHasIntegratedBox ? (isBig ? 'C' : 'M') : undefined,
+          runnerSize,
           opening: doorStyle === 'Gola' ? (isBig ? 'TIP-ON' : 'channel') : doorStyle,
           tipOn: doorStyle === 'Push' ? true : (doorStyle === 'Gola' && isBig),
           notes: doorStyle === 'Gola'
-            ? (isBig ? 'Big drawer: LEGRABOX C, push-to-open (TIP-ON)' : 'LEGRABOX M, Gola channel access')
-            : (systemHasIntegratedBox ? (isBig ? 'Big drawer: LEGRABOX C' : 'LEGRABOX M') : ''),
+            ? (isBig ? 'Big drawer: push-to-open (TIP-ON)' : 'Gola channel access')
+            : (runnerSize ? `LEGRABOX ${runnerSize}` : ''),
         });
       }
     });

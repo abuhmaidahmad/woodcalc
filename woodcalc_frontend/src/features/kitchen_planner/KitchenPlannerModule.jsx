@@ -810,14 +810,27 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
   const [grandTotal, setGrandTotal] = useState(0)
+  // Proposal tab's price overrides/margin/customer/extras -- kept here so the
+  // project's own Save button persists them in planner_data like everything
+  // else, instead of them living only in ProposalTab's local state and
+  // resetting to hardcoded defaults every time the project is reopened.
+  const [proposalSettings, setProposalSettings] = useState(null)
   const textureMap = useMaterialTextureMap(publicCompanySlug)
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-    authFetch(withCompanyParam(API + '/api/inventory/drawer-systems/', publicCompanySlug))
-      .then(r => r.json())
-      .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
-      .catch(() => {})
+    const fetchDrawerSystems = () => {
+      authFetch(withCompanyParam(API + '/api/inventory/drawer-systems/', publicCompanySlug))
+        .then(r => r.json())
+        .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
+        .catch(() => {})
+    }
+    fetchDrawerSystems()
+    // The catalog (name/prices) is edited on the Materials Catalog page, usually
+    // opened in a separate tab from here -- refetch on focus so switching back
+    // picks up a saved price change without needing a full page reload.
+    window.addEventListener('focus', fetchDrawerSystems)
+    return () => window.removeEventListener('focus', fetchDrawerSystems)
   }, [publicCompanySlug])
 
 
@@ -838,6 +851,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       if (initialData.grandTotal) setGrandTotal(initialData.grandTotal)
       if (initialData.countertopMat) setCountertopMat(initialData.countertopMat)
       if (initialData.countertopThickness) setCountertopThickness(initialData.countertopThickness)
+      if (initialData.proposalSettings) setProposalSettings(initialData.proposalSettings)
     }
   }, [initialData])
 
@@ -970,7 +984,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
   const bom    = aggregateBOM(cabinets, stairs)
 
-  const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness })
+  const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
   const saveProject = async () => {
     setSaving(true); setSavedMsg('')
@@ -2225,6 +2239,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     backsplashHeight={backsplashHeight}
     projectName={projectName}
     onGrandTotalChange={setGrandTotal}
+    initialSettings={proposalSettings}
+    onSettingsChange={setProposalSettings}
   />
 )}
 

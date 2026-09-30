@@ -1,11 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
-import { authFetch } from '../../api/auth'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
-const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
 // ─── Default price list (JD) ───────────────────────────────────────────────
 const DEFAULT_PRICES = {
@@ -241,65 +239,6 @@ function PriceRow({ label, value, onChange, unit = 'JD' }) {
   )
 }
 
-// ─── Editable drawer system row (company catalog, saved via API) ──────────
-function DrawerSystemRow({ entry, onChange, onSave, saving, saved, error, t }) {
-  const isMetal = entry.box_construction === 'metal_sided'
-  const numInput = (value, onVal, placeholder) => (
-    <input type="number" value={value ?? ''} step="0.01" min="0" placeholder={placeholder}
-      onChange={e => onVal(e.target.value === '' ? null : parseFloat(e.target.value) || 0)}
-      style={{ width: '100%', padding: '4px 6px', border: '1.5px solid #E0DAD4', borderRadius: 5,
-        fontSize: 11, textAlign: 'right', outline: 'none', color: DARK, boxSizing: 'border-box' }} />
-  )
-  return (
-    <div style={{ border: '1.5px solid #E0DAD4', borderRadius: 8, padding: 10, marginBottom: 8 }}>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-        <input value={entry.name} onChange={e => onChange({ ...entry, name: e.target.value })}
-          placeholder={t('proposalTab.drawerSystemNewName')}
-          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
-            fontSize: 11, fontWeight: 700, outline: 'none', color: DARK, boxSizing: 'border-box' }} />
-      </div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-        <input value={entry.brand || ''} onChange={e => onChange({ ...entry, brand: e.target.value })}
-          placeholder={t('proposalTab.drawerSystemBrand')}
-          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
-            fontSize: 11, outline: 'none', color: DARK, boxSizing: 'border-box' }} />
-        <select value={entry.box_construction} onChange={e => onChange({ ...entry, box_construction: e.target.value })}
-          style={{ flex: 1, padding: '4px 7px', border: '1.5px solid #E0DAD4', borderRadius: 5,
-            fontSize: 11, outline: 'none', color: DARK }}>
-          <option value="metal_sided">{t('proposalTab.drawerSystemMetalSided')}</option>
-          <option value="wood_box">{t('proposalTab.drawerSystemWoodBox')}</option>
-        </select>
-      </div>
-      {isMetal ? (
-        <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemPriceM')}</div>
-            {numInput(entry.price_per_set_m, v => onChange({ ...entry, price_per_set_m: v }))}
-          </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemPriceC')}</div>
-            {numInput(entry.price_per_set_c, v => onChange({ ...entry, price_per_set_c: v }))}
-          </div>
-        </div>
-      ) : null}
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 9.5, color: '#999', marginBottom: 2 }}>{t('proposalTab.drawerSystemFlatPrice')}</div>
-        {numInput(entry.price_per_set, v => onChange({ ...entry, price_per_set: v }))}
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <button onClick={onSave} disabled={saving}
-          style={{ padding: '5px 12px', background: ACCENT, border: 'none', borderRadius: 6,
-            color: '#fff', fontSize: 11, fontWeight: 700, cursor: saving ? 'default' : 'pointer',
-            opacity: saving ? 0.6 : 1 }}>
-          {saving ? t('proposalTab.drawerSystemSaving') : t('proposalTab.drawerSystemSave')}
-        </button>
-        {saved && !saving && <span style={{ fontSize: 10, color: '#3A8A4A' }}>✓ {t('proposalTab.drawerSystemSaved')}</span>}
-        {error && <span style={{ fontSize: 10, color: '#E74C3C' }}>{t('proposalTab.drawerSystemError')}</span>}
-      </div>
-    </div>
-  )
-}
-
 // ─── Extra line item ───────────────────────────────────────────────────────
 function ExtraItem({ item, onChange, onDelete }) {
   const { t } = useTranslation()
@@ -326,66 +265,43 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, onGrandTotalChange }) {
+export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, onGrandTotalChange, initialSettings = null, onSettingsChange }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
-  const [prices, setPrices]           = useState(DEFAULT_PRICES)
-  const [margin, setMargin]           = useState(30)
-  const [usdRate, setUsdRate]         = useState(USD_RATE)
-  const [extras, setExtras]           = useState([
-    { id: 1, label: t('extras.countertopInstalled'), qty: 3, unitPrice: prices.countertop_lm },
-    { id: 3, label: t('extras.delivery'),             qty: 1, unitPrice: prices.delivery },
-    { id: 4, label: t('extras.installation'),         qty: cabinets.length || 1, unitPrice: prices.installation_cab },
+  // Seeded from the project's own saved data (initialSettings, restored via the
+  // project's normal Save/Load) when this project already has proposal settings
+  // saved; otherwise falls back to hardcoded defaults for a brand-new proposal.
+  const [prices, setPrices]           = useState(initialSettings?.prices || DEFAULT_PRICES)
+  const [margin, setMargin]           = useState(initialSettings?.margin ?? 30)
+  const [usdRate, setUsdRate]         = useState(initialSettings?.usdRate ?? USD_RATE)
+  const [extras, setExtras]           = useState(initialSettings?.extras || [
+    { id: 1, label: t('extras.countertopInstalled'), qty: 3, unitPrice: DEFAULT_PRICES.countertop_lm },
+    { id: 3, label: t('extras.delivery'),             qty: 1, unitPrice: DEFAULT_PRICES.delivery },
+    { id: 4, label: t('extras.installation'),         qty: cabinets.length || 1, unitPrice: DEFAULT_PRICES.installation_cab },
   ])
-  const [customer, setCustomer]       = useState({ name: '', phone: '', address: '', notes: '' })
+  const [customer, setCustomer]       = useState(initialSettings?.customer || { name: '', phone: '', address: '', notes: '' })
   const [expandedCab, setExpandedCab] = useState(null)
   const [showPrices, setShowPrices]   = useState(false)
   const [currency, setCurrency]       = useState('JD')
 
-  // Drawer systems catalog: seeded from the parent's fetch, but edited/saved here
-  // directly against the company catalog API so a price fix applies everywhere
-  // (this proposal and every future one), not just as a local override.
-  const [drawerSystems, setDrawerSystems] = useState(drawerSystemsCatalog)
-  const [showDrawerSystems, setShowDrawerSystems] = useState(false)
-  const [drawerSystemSaveState, setDrawerSystemSaveState] = useState({}) // id -> 'saving'|'saved'|'error'
+  // Push every settings change up to the parent, which includes it in the
+  // project's normal planner_data payload -- so the top toolbar's own Save
+  // button persists these overrides like it does cabinets/room/etc., instead
+  // of them living only in this component's state and resetting on reload.
   useEffect(() => {
-    if (drawerSystemsCatalog.length) setDrawerSystems(drawerSystemsCatalog)
-  }, [drawerSystemsCatalog])
+    if (onSettingsChange) onSettingsChange({ prices, margin, usdRate, extras, customer })
+  }, [prices, margin, usdRate, extras, customer])
 
   const updatePrice = (key, val) => setPrices(p => ({ ...p, [key]: val }))
   const updateExtra = (id, data) => setExtras(p => p.map(e => e.id === id ? data : e))
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
   const addExtra = () => setExtras(p => [...p, { id: Date.now(), label: '', qty: 1, unitPrice: 0 }])
 
-  const updateDrawerSystem = (id, data) => setDrawerSystems(p => p.map(s => s.id === id ? data : s))
-  const addDrawerSystem = () => setDrawerSystems(p => [...p, {
-    id: `new-${Date.now()}`, name: '', brand: '', box_construction: 'metal_sided',
-    price_per_set: null, price_per_set_m: null, price_per_set_c: null, is_active: true, sort_order: p.length,
-  }])
-  const saveDrawerSystem = async (entry) => {
-    if (!entry.name.trim()) { setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'error' })); return }
-    setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'saving' }))
-    const isNew = typeof entry.id === 'string' && entry.id.startsWith('new-')
-    const { id, ...body } = entry
-    try {
-      const res = await authFetch(`${API_BASE}/api/inventory/drawer-systems/${isNew ? '' : id + '/'}`, {
-        method: isNew ? 'POST' : 'PATCH',
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error('save failed')
-      const saved = await res.json()
-      setDrawerSystems(p => p.map(s => s.id === entry.id ? saved : s))
-      setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'saved', [saved.id]: 'saved' }))
-    } catch {
-      setDrawerSystemSaveState(s => ({ ...s, [entry.id]: 'error' }))
-    }
-  }
-
   // Price each cabinet
   const pricedCabinets = useMemo(() =>
-    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystems, t) })),
-    [cabinets, prices, materialsMap, drawerSystems, t]
+    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) })),
+    [cabinets, prices, materialsMap, drawerSystemsCatalog, t]
   )
 
   // Backsplash: real board area (linear meters drawn × chosen height) priced by
@@ -451,32 +367,12 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.labor')}              value={prices.labor_cab}      onChange={v => updatePrice('labor_cab', v)} />
         </>}
 
-        <button onClick={() => setShowDrawerSystems(p => !p)}
-          style={{ width: '100%', padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4',
-            borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#555',
-            marginTop: 4, marginBottom: 10, textAlign: 'start' }}>
-          {showDrawerSystems ? '▾' : '▸'} {t('proposalTab.drawerSystemsCatalog')}
+        <button onClick={() => window.open('/catalog', '_blank')}
+          style={{ width: '100%', padding: '9px', background: '#fff', border: `1.5px solid ${ACCENT}`,
+            borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: ACCENT,
+            marginTop: 4, marginBottom: 16, textAlign: 'center' }}>
+          {t('proposalTab.manageDrawerSystems')}
         </button>
-
-        {showDrawerSystems && <>
-          <div style={{ fontSize: 10, color: '#999', marginBottom: 10, lineHeight: 1.4 }}>
-            {t('proposalTab.drawerSystemsHint')}
-          </div>
-          {drawerSystems.map(entry => (
-            <DrawerSystemRow key={entry.id} entry={entry}
-              onChange={data => updateDrawerSystem(entry.id, data)}
-              onSave={() => saveDrawerSystem(entry)}
-              saving={drawerSystemSaveState[entry.id] === 'saving'}
-              saved={drawerSystemSaveState[entry.id] === 'saved'}
-              error={drawerSystemSaveState[entry.id] === 'error'}
-              t={t} />
-          ))}
-          <button onClick={addDrawerSystem}
-            style={{ width: '100%', padding: '7px', background: '#fff', border: `1.5px dashed ${ACCENT}`,
-              borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: ACCENT, marginBottom: 12 }}>
-            {t('proposalTab.drawerSystemAdd')}
-          </button>
-        </>}
 
         <SectionTitle>{t('proposalTab.marginCurrency')}</SectionTitle>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
