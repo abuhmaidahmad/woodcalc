@@ -349,6 +349,10 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
   const [golaColor, setGolaColor]       = useState(initial?.golaColor || 'black')
   const [handlePos, setHandlePos]       = useState(initial?.handlePos || 'bottom')
   const [carcassColor, setCarcassColor] = useState(initial?.carcassColor || '#F5F0E8')
+  const [carcassMaterial, setCarcassMaterial] = useState(initial?.carcassMaterial || 'matt')
+  const [carcassMaterialCode, setCarcassMaterialCode] = useState(initial?.carcassMaterialCode || null)
+  const [carcassMaterialName, setCarcassMaterialName] = useState(initial?.carcassMaterialName || null)
+  const [carcassTextureUrl, setCarcassTextureUrl] = useState(initial?.carcassTextureUrl || null)
   const [frontColor, setFrontColor]     = useState(initial?.frontColor || '#FFFFFF')
   const [frontMaterialCode, setFrontMaterialCode] = useState(initial?.frontMaterialCode || null)
   const [drawerSystems, setDrawerSystems] = useState([])
@@ -368,24 +372,14 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
   const [frontMaterialThickness, setFrontMaterialThickness] = useState(initial?.frontMaterialThickness || 18)
   const [frontFinish, setFrontFinish]   = useState(initial?.frontFinish || 'matt')
   const [skirtingMaterial, setSkirtingMaterial] = useState(initial?.skirtingMaterial || 'match_countertop')
-  const [carcassSearch, setCarcassSearch] = useState('')
   const ready = baseHeight && doorStyle
 
-  const CARCASS_OPTIONS = [
-    { color: '#F5F0E8', label: t('cabinetCatalog.carcassCreamWhite') }, { color: '#FFFFFF', label: t('cabinetCatalog.carcassWhite') },
-    { color: '#E8E4DC', label: t('cabinetCatalog.carcassOffWhite') },   { color: '#C8C4BE', label: t('cabinetCatalog.carcassLightGrey') },
-    { color: '#4A4846', label: t('cabinetCatalog.carcassAnthracite') },  { color: '#1A1A1A', label: t('cabinetCatalog.carcassBlack') },
-  ]
   const SKIRTING_OPTIONS = [
     { id: 'match_countertop', label: t('cabinetCatalog.skirtingMatchCountertop'), swatch: null },
     { id: 'pvc_black', label: t('cabinetCatalog.skirtingPvcBlack'), swatch: '#1a1a1a' },
     { id: 'pvc_champagne', label: t('cabinetCatalog.skirtingPvcChampagne'), swatch: '#c8a96e' },
     { id: 'pvc_silver', label: t('cabinetCatalog.skirtingPvcSilver'), swatch: '#c0c0c0' },
   ]
-
-  const filteredCarcass = carcassSearch
-    ? CARCASS_OPTIONS.filter(o => o.label.toLowerCase().includes(carcassSearch.toLowerCase()))
-    : CARCASS_OPTIONS
 
 
   return (
@@ -447,27 +441,25 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
           </>
         )}
 
-        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{t('cabinetCatalog.defaultCarcassColor')}</div>
-        <input
-          value={carcassSearch} onChange={e => setCarcassSearch(e.target.value)}
-          placeholder={t('cabinetCatalog.searchCarcassColor')}
-          style={{ width: '100%', padding: '7px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', marginBottom: 8 }}
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.defaultCarcassColor')}</div>
+        <MaterialLibrary
+          target="carcass"
+          companySlug={companySlug}
+          selectedCode={carcassMaterialCode}
+          onSelect={mat => {
+            setCarcassColor(mat.hex)
+            setCarcassMaterial(mat.finish)
+            setCarcassMaterialCode(mat.code)
+            setCarcassMaterialName(mat.name)
+            setCarcassTextureUrl(mat.textureUrl || null)
+          }}
         />
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginBottom: 18 }}>
-          {filteredCarcass.map(opt => {
-            const active = carcassColor === opt.color
-            return (
-              <div key={opt.color} onClick={() => setCarcassColor(opt.color)}
-                style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 8px', borderRadius: 8, cursor: 'pointer', border: `2px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '10' : '#FAFAFA' }}>
-                <div style={{ width: 22, height: 22, borderRadius: 5, flexShrink: 0, background: opt.color, border: '1.5px solid rgba(0,0,0,0.10)' }} />
-                <div style={{ fontSize: 10, fontWeight: 700, color: active ? ACCENT : DARK, lineHeight: 1.2 }}>{opt.label}</div>
-              </div>
-            )
-          })}
-          {filteredCarcass.length === 0 && (
-            <div style={{ gridColumn: '1/-1', fontSize: 11, color: '#bbb', padding: '8px 0' }}>{t('cabinetCatalog.noMatch')}</div>
-          )}
-        </div>
+        {carcassMaterialCode && (
+          <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>
+            {t('cabinetCatalog.selected')} <strong style={{ color: DARK }}>{carcassMaterialCode}</strong>
+          </div>
+        )}
+        <div style={{ marginBottom: 16 }} />
 
         <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cabinetCatalog.defaultFrontMaterial')}</div>
         <MaterialLibrary
@@ -514,7 +506,7 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
           ))}
         </div>
 
-        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial, drawerSystem: drawerSystem?.name || 'Local Bearing', drawerBoxConstruction: drawerSystem?.box_construction || 'wood_box' })}
+        <button onClick={() => ready && onConfirm({ baseHeight, doorStyle, golaColor, handlePos, carcassColor, carcassMaterial, carcassMaterialCode, carcassMaterialName, carcassTextureUrl, frontColor, frontFinish, frontMaterialCode, frontMaterialThickness, skirtingMaterial, drawerSystem: drawerSystem?.name || 'Local Bearing', drawerBoxConstruction: drawerSystem?.box_construction || 'wood_box' })}
           disabled={!ready}
           style={{ width: '100%', padding: '13px', background: ready ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: ready ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700 }}>
           {t('cabinetCatalog.startDesigning')}
