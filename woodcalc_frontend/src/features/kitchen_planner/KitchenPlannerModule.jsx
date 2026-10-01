@@ -273,6 +273,14 @@ function computeMasterCutList(cabinets, calculateCabinet) {
         if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = { meters: 0, elbows: 0 }
         skirtingByMaterial[matKey].meters += c.depth / 1000
       }
+      // Base-height Filler is non-carcass too (handled below) so it never reaches the
+      // carcass-only skirting check further down -- add its toe-kick board here, sized
+      // to the filler's own width (matches a base cabinet's front skirting board).
+      if (c.subtype === 'Filler' && c.height === c.baseHeight && (c.elevation || 0) === 0 && (c.skirtingSides || []).includes('front')) {
+        const matKey = c.skirtingMaterial || 'match_countertop'
+        if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = { meters: 0, elbows: 0 }
+        skirtingByMaterial[matKey].meters += c.width / 1000
+      }
       // Filler/Panel/etc: one piece at its actual dimensions, no formula run
       const { width: pieceWidth, depth: pieceDepth, thickness: pieceTh } = nonCarcassPieceDims(c)
       const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
@@ -2036,6 +2044,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     <div style={{ marginBottom: 10 }}>
                       <div
                         onClick={() => updateCab('skirtingSides', hasSkirt ? [] : ['left'])}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${hasSkirt ? ACCENT : '#E0DAD4'}`, background: hasSkirt ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${hasSkirt ? ACCENT : '#ccc'}`, background: hasSkirt ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{hasSkirt ? '✓' : ''}</div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: hasSkirt ? ACCENT : '#666' }}>{t('kitchenPlannerModule.skirtingBoardToggle')}</span>
+                      </div>
+                    </div>
+                  )
+                })()}
+                {selCab.subtype === 'Filler' && selCab.height === selCab.baseHeight && (selCab.elevation || 0) === 0 && (() => {
+                  const hasSkirt = (selCab.skirtingSides || []).includes('front')
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div
+                        onClick={() => updateCab('skirtingSides', hasSkirt ? [] : ['front'])}
                         style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${hasSkirt ? ACCENT : '#E0DAD4'}`, background: hasSkirt ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
                         <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${hasSkirt ? ACCENT : '#ccc'}`, background: hasSkirt ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{hasSkirt ? '✓' : ''}</div>
                         <span style={{ fontSize: 12, fontWeight: 600, color: hasSkirt ? ACCENT : '#666' }}>{t('kitchenPlannerModule.skirtingBoardToggle')}</span>

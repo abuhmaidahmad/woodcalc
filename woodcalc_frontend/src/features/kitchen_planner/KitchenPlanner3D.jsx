@@ -1846,6 +1846,14 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       {isSidePanel && panelLift > 0.001 && cab.skirtingSides?.includes('left') && (
         <PanelSkirtingFill W={W} D={D} height={panelLift} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
       )}
+      {cab.subtype === 'Filler' && cab.height === cab.baseHeight && (cab.elevation || 0) === 0 && cab.skirtingSides && cab.skirtingSides.length > 0 && (
+        // A filler has no leg-lifted outer group (showLegs is false for accessories --
+        // see the countertop group above), so wrap SkirtingBoard in a group lifted by
+        // legH to put it back on the same leg line a normal cabinet's toe-kick sits on.
+        <group position={[0, legH, 0]}>
+          <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
+        </group>
+      )}
       {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight)) && (
         // isPanel is only true here for the Filler branch: a filler has no leg-lifted
         // outer group of its own (showLegs is false for accessories), so SidePanelSlab
