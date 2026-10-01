@@ -53,6 +53,31 @@ function materialPricePerM2(code, materialsMap, prices, fallbackType, fallbackKe
   return prices[fallbackKey || boardMatKey(mat?.core_material || fallbackType)]
 }
 
+// Countertop suppliers quote per running meter at their own fixed slab depth
+// (e.g. a "meter" = a 600mm-deep x 1000mm-long cut), not per m² -- so the
+// catalog's price_per_board / board_width already IS that per-meter rate once
+// the material is set up with board_width = the length the supplier prices by
+// (1000mm = 1 "meter"). Falls back to the flat countertop_lm rate when the
+// selected countertop has no catalog price set (e.g. a built-in preset slab).
+function materialPricePerLm(code, materialsMap, fallback) {
+  const mat = code ? materialsMap[code] : null
+  if (mat && mat.price_per_board != null && mat.board_width) {
+    const lm = Number(mat.price_per_board) / (mat.board_width / 1000)
+    if (Number.isFinite(lm) && lm > 0) return lm
+  }
+  return fallback
+}
+
+// Which cabinets actually carry a countertop slab -- mirrors the exact rule
+// KitchenPlanner3D's Cabinet component uses to decide whether to render one
+// ((isBase && !isShelf) || a base-height Filler), so the quoted linear meters
+// always match what's visually sitting on top of the design.
+function hasCountertop(cab) {
+  const isBase  = cab.category === 'base' || cab.category === 'vanity' || cab.category === 'corner' || cab.subtype === 'Freestanding Dishwasher'
+  const isShelf = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
+  return (isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight)
+}
+
 // Fillers/Panels/Toe Kicks/Shelves are real cut boards -- just a single flat piece
 // at its own size, not a full box -- so they're priced as board area only. No
 // hardware, no CNC/labor line (those price a full cabinet's box+door job, not a
@@ -294,11 +319,15 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const [prices, setPrices]           = useState(initialSettings?.prices || DEFAULT_PRICES)
   const [margin, setMargin]           = useState(initialSettings?.margin ?? 30)
   const [usdRate, setUsdRate]         = useState(initialSettings?.usdRate ?? USD_RATE)
-  const [extras, setExtras]           = useState(initialSettings?.extras || [
-    { id: 1, label: t('extras.countertopInstalled'), qty: 3, unitPrice: DEFAULT_PRICES.countertop_lm },
+  // id 1 was previously a hardcoded "Countertop (installed)" placeholder row
+  // (flat qty 3 x 85) -- the countertop is now its own computed line below,
+  // priced off the real design and the selected material's catalog rate, so
+  // that stale placeholder is dropped from both fresh and previously-saved
+  // proposals (addExtra always mints ids via Date.now(), never 1).
+  const [extras, setExtras]           = useState((initialSettings?.extras || [
     { id: 3, label: t('extras.delivery'),             qty: 1, unitPrice: DEFAULT_PRICES.delivery },
     { id: 4, label: t('extras.installation'),         qty: cabinets.length || 1, unitPrice: DEFAULT_PRICES.installation_cab },
-  ])
+  ]).filter(e => e.id !== 1))
   const [customer, setCustomer]       = useState(initialSettings?.customer || { name: '', phone: '', address: '', notes: '' })
   const [expandedCab, setExpandedCab] = useState(null)
   const [showPrices, setShowPrices]   = useState(false)
@@ -330,9 +359,17 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const backsplashM2   = backsplashLm * (backsplashHeight / 1000)
   const backsplashCost = parseFloat((backsplashM2 * backsplashPricePerM2).toFixed(2))
 
+  // Countertop: linear meters = combined width of every base/vanity/corner
+  // cabinet and base-height filler (see hasCountertop), priced per running
+  // meter at the selected countertop material's catalog rate (see
+  // materialPricePerLm) -- not a flat guessed quantity/price.
+  const countertopLm        = useMemo(() => cabinets.filter(hasCountertop).reduce((s, c) => s + c.width, 0) / 1000, [cabinets])
+  const countertopPricePerLm = materialPricePerLm(countertopMat?.code, materialsMap, prices.countertop_lm)
+  const countertopCost      = parseFloat((countertopLm * countertopPricePerLm).toFixed(2))
+
   const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
   const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
-  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost
+  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost + countertopCost
   const marginAmount     = costSubtotal * (margin / 100)
   const afterMargin      = costSubtotal + marginAmount
   const vatAmount        = afterMargin * 0.16
@@ -371,6 +408,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.hdf8')}             value={prices.hdf8_m2}        onChange={v => updatePrice('hdf8_m2', v)} />
           <PriceRow label={t('proposalTab.board12')}          value={prices.board12_m2}     onChange={v => updatePrice('board12_m2', v)} />
           <PriceRow label={t('proposalTab.worktopFallback')}  value={prices.worktop_m2}     onChange={v => updatePrice('worktop_m2', v)} />
+          <PriceRow label={t('proposalTab.countertopLmFallback')} value={prices.countertop_lm} onChange={v => updatePrice('countertop_lm', v)} unit="JD/m" />
           <SectionTitle>{t('proposalTab.finishingPerM')}</SectionTitle>
           <PriceRow label={t('proposalTab.edgeBanding')}        value={prices.edge_banding_m} onChange={v => updatePrice('edge_banding_m', v)} />
           <SectionTitle>{t('proposalTab.hardwarePerPc')}</SectionTitle>
@@ -591,6 +629,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 14 }}>{t('proposalTab.summary')}</div>
             {[
               [t('proposalTab.cabinetsSubtotal'),  cabinetsSubtotal],
+              ...(countertopLm > 0 ? [[t('proposalTab.countertopRow', { m: countertopLm.toFixed(2) }), countertopCost]] : []),
               ...(backsplashCost > 0 ? [[t('proposalTab.backsplashRow', { m: backsplashLm.toFixed(2) }), backsplashCost]] : []),
               [t('proposalTab.additionalItemsRow'),   extrasSubtotal],
               [t('proposalTab.costSubtotal'),      costSubtotal],
@@ -625,6 +664,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button onClick={() => exportPDF({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
+              countertopLm, countertopCost, backsplashLm, backsplashCost,
               afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale })}
               style={{ flex: 1, padding: '12px', background: DARK, color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -632,6 +672,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             </button>
             <button onClick={() => exportExcel({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
+              countertopLm, countertopCost, backsplashLm, backsplashCost,
               afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale })}
               style={{ flex: 1, padding: '12px', background: '#2AC87A', color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -647,7 +688,8 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
 // ─── PDF Export ────────────────────────────────────────────────────────────
 function exportPDF(data) {
   const { projectName, customer, pricedCabinets, extras,
-    cabinetsSubtotal, extrasSubtotal, margin, marginAmount,
+    cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
+    countertopLm, countertopCost, backsplashLm, backsplashCost,
     afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -715,8 +757,10 @@ function exportPDF(data) {
   <div class="section">${tr('proposalPdf.summary')}</div>
   <div style="max-width:360px;margin-inline-start:auto">
     <div class="total-row"><span>${tr('proposalPdf.cabinetsSubtotal')}</span><span>${fmt(cabinetsSubtotal)} JD</span></div>
+    ${countertopLm > 0 ? `<div class="total-row"><span>${tr('proposalTab.countertopRow', { m: fmt(countertopLm) })}</span><span>${fmt(countertopCost)} JD</span></div>` : ''}
+    ${backsplashCost > 0 ? `<div class="total-row"><span>${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })}</span><span>${fmt(backsplashCost)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.additionalItemsRow')}</span><span>${fmt(extrasSubtotal)} JD</span></div>
-    <div class="total-row"><span>${tr('proposalPdf.costSubtotal')}</span><span>${fmt(cabinetsSubtotal + extrasSubtotal)} JD</span></div>
+    <div class="total-row"><span>${tr('proposalPdf.costSubtotal')}</span><span>${fmt(costSubtotal)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.marginPercent', { margin })}</span><span>${fmt(marginAmount)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.subtotalAfterMargin')}</span><span>${fmt(afterMargin)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.vat16')}</span><span>${fmt(vatAmount)} JD</span></div>
@@ -741,7 +785,8 @@ function exportPDF(data) {
 // ─── Excel Export ──────────────────────────────────────────────────────────
 function exportExcel(data) {
   const { projectName, customer, pricedCabinets, extras,
-    cabinetsSubtotal, extrasSubtotal, margin, marginAmount,
+    cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
+    countertopLm, countertopCost, backsplashLm, backsplashCost,
     afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -773,7 +818,10 @@ function exportExcel(data) {
   rows.push([])
   rows.push([tr('proposalPdf.summary')])
   rows.push([`${tr('proposalPdf.cabinetsSubtotal')} (JD)`,   fmt(cabinetsSubtotal)])
+  if (countertopLm > 0) rows.push([`${tr('proposalTab.countertopRow', { m: fmt(countertopLm) })} (JD)`, fmt(countertopCost)])
+  if (backsplashCost > 0) rows.push([`${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })} (JD)`, fmt(backsplashCost)])
   rows.push([`${tr('proposalPdf.additionalItemsRow')} (JD)`,    fmt(extrasSubtotal)])
+  rows.push([`${tr('proposalPdf.costSubtotal')} (JD)`,         fmt(costSubtotal)])
   rows.push([`${tr('proposalPdf.marginPercent', { margin })} (JD)`, fmt(marginAmount)])
   rows.push([`${tr('proposalPdf.subtotalAfterMargin')} (JD)`, fmt(afterMargin)])
   rows.push([`${tr('proposalPdf.vat16')} (JD)`,             fmt(vatAmount)])
