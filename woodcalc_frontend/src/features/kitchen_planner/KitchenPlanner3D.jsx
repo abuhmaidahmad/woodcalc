@@ -1333,7 +1333,7 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMa
 // Base-height cooker cabinet: a control fascia band (hob knobs) at the top of
 // the front, with the built-in single oven door below it — the hob itself
 // sits on the countertop above (see HobPlate), not on this carcass front.
-function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, finish = 'black' }) {
+function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, finish = 'black', doorStyle, golaColor }) {
   const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
@@ -1347,11 +1347,18 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
 
   // Plain control fascia band up top (the hob's own knobs sit on the hob itself,
   // see HobPlate), then the oven cavity door below it, then whatever's left down
-  // to the toe kick as a plain filler.
-  const fasciaH = Math.min(H * 0.14, 0.09)
-  const ovenH = Math.min(0.595, Math.max(0.3, H - fasciaH - 0.05))
-  const fasciaBottom = H - fasciaH
-  const fasciaCenter = (H + fasciaBottom) / 2
+  // to the toe kick as a plain filler. On Gola-style kitchens the fascia sits
+  // directly under the worktop just like a door front does, so it loses the same
+  // GOLA_CH sliver off its top to the milled L-channel (GolaProfile) -- otherwise
+  // the continuous handleless groove running along the rest of the run would
+  // visibly stop dead at this cabinet.
+  const isGola = doorStyle === 'Gola'
+  const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
+  const golaRecess = isGola ? GOLA_CH : 0
+  const fasciaH = Math.max(0.01, Math.min(H * 0.14, 0.09) - golaRecess)
+  const ovenH = Math.min(0.595, Math.max(0.3, H - fasciaH - golaRecess - 0.05))
+  const fasciaBottom = H - golaRecess - fasciaH
+  const fasciaCenter = (H - golaRecess + fasciaBottom) / 2
   const doorBottom = fasciaBottom - ovenH
   const doorCenter = (fasciaBottom + doorBottom) / 2
 
@@ -1372,6 +1379,11 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
     <group>
       <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
         color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      {isGola && (
+        <group position={[0, H, 0]}>
+          <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
+        </group>
+      )}
       {frontPiece('fascia', frontW, fasciaH, fasciaCenter)}
       {doorBottom > 0 && frontPiece('fill', frontW, doorBottom, doorBottom / 2)}
       <mesh position={[0, doorCenter, doorZ0]} castShadow>
@@ -1803,7 +1815,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : applianceKind === 'hobOven' ? (
         <HobOvenAppliance W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
-          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish}
+          doorStyle={doorStyle} golaColor={cab.golaColor || 'black'} />
       ) : applianceKind === 'hood' ? (
         <group position={[0, 0, -D / 2]}>
           <ChimneyHood width={cab.width} ceilingHeight={roomHeightMm} mountHeight={elevation} finish={cab.applianceFinish} />

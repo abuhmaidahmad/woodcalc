@@ -1265,6 +1265,7 @@ export default function RoomCanvas({
         const ox = other.x * scale, oy = other.y * scale
         const ow = other.width * scale, od = other.depth * scale
         const panelBackFirst = cab.subtype === 'Side Panel'
+        const panelFrontFirst = cab.subtype === 'Filler'
         if (!snappedX) {
           if (panelBackFirst && Math.abs(rawCabX - ox) < SNAP_PX) { finalX = ox; snappedX = true }
           else if (Math.abs(rawCabX + cabWpx - ox) < SNAP_PX) { finalX = ox - cabWpx; snappedX = true }
@@ -1274,6 +1275,7 @@ export default function RoomCanvas({
         }
         if (!snappedY) {
           if (panelBackFirst && Math.abs(rawCabY - oy) < SNAP_PX) { finalY = oy; snappedY = true }
+          else if (panelFrontFirst && Math.abs(rawCabY + cabDpx - (oy + od)) < SNAP_PX) { finalY = oy + od - cabDpx; snappedY = true }
           else if (Math.abs(rawCabY + cabDpx - oy) < SNAP_PX) { finalY = oy - cabDpx; snappedY = true }
           else if (Math.abs(rawCabY - (oy + od)) < SNAP_PX) { finalY = oy + od; snappedY = true }
           else if (Math.abs(rawCabY - oy) < SNAP_PX) { finalY = oy; snappedY = true }
