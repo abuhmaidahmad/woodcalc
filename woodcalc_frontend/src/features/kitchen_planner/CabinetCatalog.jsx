@@ -181,7 +181,7 @@ function buildLibrary(baseHeight) {
     // standalone accessory even for the wall-mounted look -- `cab.hoodMount` ('wall' | 'island',
     // set in the properties panel) picks which 3D component renders it. Reuses wallElevation
     // to hang at the same height wall cabinets start, clear of head height.
-    { id: 'acc_free_hood', label: 'Freestanding Hood', subtype: 'Freestanding Hood', width: 900, height: 600, depth: 500, icon: 'accessory_gap_hood', category: 'accessories', elevation: wallElevation },
+    { id: 'acc_free_hood', label: 'Freestanding Hood', subtype: 'Freestanding Hood', width: 900, height: 850, depth: 450, icon: 'accessory_gap_hood', category: 'accessories', elevation: wallElevation },
   ]
 
   return { base, wall, tall, vanity, corner, specialty, accessories, wallElevation }

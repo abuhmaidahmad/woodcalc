@@ -1459,74 +1459,90 @@ function DishwasherAppliance({ W, H, D, finish = 'silver' }) {
   )
 }
 
-// A ceiling-suspended island hood, modeled on the common "curved glass canopy +
-// stainless flue" chimney hood: a thin glass shelf (its front edge swept into a
-// rounded, boat-nose taper rather than a flat rectangle) sits at the very bottom,
-// closest to the cooktop, with a control-button row on top of it; a narrower
-// rectangular flue duct -- vertical trim rib, vent grille slats near the top --
-// rises from its center up to the ceiling. Unlike the wall-mounted ChimneyHood
-// below (whose duct fills the space down to the hob, since it hangs right under
-// an upper cabinet run), an island hood has nothing above or below it in frame,
-// so the wide part has to read as the bottom or the whole thing looks like an
-// inverted pedestal table instead of a hood.
+// A ceiling-suspended island hood, modeled on the common telescopic box-style
+// island hood: a flat-topped pyramid (frustum) body -- wide underside facing
+// the cooktop, where 3 mesh grease filters and a single control knob sit --
+// narrows at its neck into a square duct that telescopes up to the ceiling in
+// two sliding square sections (a fixed, wider outer tube near the body and a
+// narrower inner tube sliding up into the ceiling bracket). Unlike the
+// wall-mounted ChimneyHood below (whose duct fills the space down to the hob,
+// since it hangs right under an upper cabinet run), an island hood has nothing
+// above or below it in frame, so the wide part has to read as the bottom or
+// the whole thing looks like an inverted pedestal table instead of a hood.
 function FreestandingHoodAppliance({ W, H, D, finish = 'silver' }) {
-  const canopyT = Math.min(H * 0.09, 0.05)
-  const ductH = H - canopyT
-  const ductW = W * 0.42, ductD = D * 0.62
-  const { body: ductColor, hardware } = applianceFinish(finish)
-  const glassColor = finish === 'black' ? '#2b2f33' : '#c9d2d5'
+  const bodyH = Math.min(H * 0.32, 0.16)
+  const ductH = H - bodyH
+  const topW = W * 0.46, topD = D * 0.46
+  const { body: metalColor, hardware } = applianceFinish(finish)
 
-  // Glass canopy footprint: a rectangle at the back (against the duct) whose front
-  // edge is swept forward into a rounded, tapered "boat nose" via two quadratic
-  // curves -- the same extrude-a-2D-shape technique SinkBasin/NotchedSidePanel use
-  // elsewhere in this file, just for a silhouette instead of a milled hole.
-  const canopyGeom = useMemo(() => {
-    const hw = W / 2, hd = D / 2
-    const shape = new THREE.Shape()
-    shape.moveTo(-hw, -hd)
-    shape.lineTo(hw, -hd)
-    shape.quadraticCurveTo(hw * 0.94, hd * 0.4, hw * 0.36, hd * 1.05)
-    shape.quadraticCurveTo(0, hd * 1.18, -hw * 0.36, hd * 1.05)
-    shape.quadraticCurveTo(-hw * 0.94, hd * 0.4, -hw, -hd)
-    shape.closePath()
-    return new THREE.ExtrudeGeometry(shape, { depth: canopyT, bevelEnabled: true, bevelThickness: canopyT * 0.25, bevelSize: 0.005, bevelSegments: 3, steps: 1 })
-  }, [W, D, canopyT])
+  // Frustum body: 8 explicit corner vertices (bottom WxD, top topWxtopD) rather
+  // than a lathe/cylinder trick, since that's the only way to taper width and
+  // depth independently with flat faces aligned to the X/Z axes. flatShading
+  // gives the faceted pyramid look from just 8 shared vertices; DoubleSide
+  // guards against the hand-written triangle winding being backwards anywhere.
+  const bodyGeom = useMemo(() => {
+    const bw = W / 2, bd = D / 2, tw = topW / 2, td = topD / 2
+    const positions = new Float32Array([
+      -bw, 0, -bd,  bw, 0, -bd,  bw, 0, bd,  -bw, 0, bd,
+      -tw, bodyH, -td,  tw, bodyH, -td,  tw, bodyH, td,  -tw, bodyH, td,
+    ])
+    const geom = new THREE.BufferGeometry()
+    geom.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geom.setIndex([
+      0, 1, 2, 0, 2, 3,
+      4, 6, 5, 4, 7, 6,
+      0, 4, 5, 0, 5, 1,
+      1, 5, 6, 1, 6, 2,
+      2, 6, 7, 2, 7, 3,
+      3, 7, 4, 3, 4, 0,
+    ])
+    geom.computeVertexNormals()
+    return geom
+  }, [W, D, topW, topD, bodyH])
+
+  const ductW = topW * 0.9, ductD = topD * 0.9
+  const lowerH = ductH * 0.4, upperH = ductH - lowerH
+  const upperW = ductW * 0.82, upperD = ductD * 0.82
+
+  const filterXs = [-W * 0.26, 0, W * 0.26]
+  const filterW = W * 0.24, filterD = D * 0.7
 
   return (
     <group>
-      {/* Curved glass capture canopy -- closest to the cooktop below */}
-      <mesh geometry={canopyGeom} position={[0, canopyT, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow receiveShadow>
-        <meshPhysicalMaterial color={glassColor} metalness={0.1} roughness={0.08} transmission={0.5} thickness={0.02} ior={1.45} clearcoat={1} clearcoatRoughness={0.05} envMapIntensity={1.6} side={THREE.DoubleSide} />
+      {/* Frustum body: wide underside facing the cooktop, narrowing up to the duct */}
+      <mesh geometry={bodyGeom} castShadow receiveShadow>
+        <meshStandardMaterial color={metalColor} metalness={0.7} roughness={0.32} flatShading side={THREE.DoubleSide} />
       </mesh>
-      {/* Control button row, sitting on top of the glass near the front edge */}
-      {[-0.09, -0.03, 0.03, 0.09].map((kx, i) => (
-        <mesh key={i} position={[W * kx, canopyT + 0.003, D * 0.32]} rotation={[Math.PI / 2, 0, 0]}>
-          <cylinderGeometry args={[0.009, 0.009, 0.006, 16]} />
-          <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
-        </mesh>
+      {/* Grease filter mesh panels, recessed into the flat underside */}
+      {filterXs.map((fx, i) => (
+        <group key={i} position={[fx, -0.002, 0]}>
+          <mesh>
+            <boxGeometry args={[filterW, 0.003, filterD]} />
+            <meshStandardMaterial color="#1c1c1c" metalness={0.5} roughness={0.5} />
+          </mesh>
+          {Array.from({ length: 5 }).map((_, j) => (
+            <mesh key={j} position={[0, -0.0005, (j - 2) * (filterD / 5)]}>
+              <boxGeometry args={[filterW * 0.92, 0.001, 0.003]} />
+              <meshStandardMaterial color="#3a3a3a" metalness={0.6} roughness={0.4} />
+            </mesh>
+          ))}
+        </group>
       ))}
-      {/* Under-canopy light strip, glowing down onto the hob */}
-      <mesh position={[0, 0.003, 0]}>
-        <boxGeometry args={[W * 0.5, 0.006, D * 0.4]} />
-        <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={2.5} toneMapped={false} />
+      {/* Single control knob on the body's front edge */}
+      <mesh position={[W * 0.34, bodyH * 0.5, D / 2 - 0.01]} rotation={[Math.PI / 2, 0, 0]}>
+        <cylinderGeometry args={[0.012, 0.012, 0.008, 20]} />
+        <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
       </mesh>
-      {/* Flue duct rising toward the ceiling, centered over the canopy's back edge */}
-      <mesh position={[0, canopyT + ductH / 2, -D * 0.06]} castShadow receiveShadow>
-        <boxGeometry args={[ductW, ductH, ductD]} />
-        <meshPhysicalMaterial color={ductColor} metalness={0.75} roughness={0.28} envMapIntensity={1.3} />
+      {/* Lower (fixed, wider) duct section rising from the body's neck */}
+      <mesh position={[0, bodyH + lowerH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[ductW, lowerH, ductD]} />
+        <meshPhysicalMaterial color={metalColor} metalness={0.75} roughness={0.28} envMapIntensity={1.3} />
       </mesh>
-      {/* Vertical trim rib down the duct's front face */}
-      <mesh position={[0, canopyT + ductH / 2, -D * 0.06 + ductD / 2 + 0.001]}>
-        <boxGeometry args={[0.006, ductH * 0.94, 0.004]} />
-        <meshPhysicalMaterial color={hardware} metalness={0.9} roughness={0.15} />
+      {/* Upper (narrower, telescoping) duct section sliding up into the ceiling */}
+      <mesh position={[0, bodyH + lowerH + upperH / 2, 0]} castShadow receiveShadow>
+        <boxGeometry args={[upperW, upperH, upperD]} />
+        <meshPhysicalMaterial color={metalColor} metalness={0.78} roughness={0.25} envMapIntensity={1.3} />
       </mesh>
-      {/* Vent grille slats near the top of the duct */}
-      {[-0.045, -0.015, 0.015, 0.045].map((kx, i) => (
-        <mesh key={i} position={[W * kx, canopyT + ductH * 0.86, -D * 0.06 + ductD / 2 + 0.002]}>
-          <boxGeometry args={[0.006, ductH * 0.16, 0.003]} />
-          <meshPhysicalMaterial color="#1a1a1a" metalness={0.4} roughness={0.5} />
-        </mesh>
-      ))}
     </group>
   )
 }
