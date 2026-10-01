@@ -275,7 +275,14 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
     return (
       <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
         imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
-        envMapIntensity={1.2} repeatU={(isFiller ? W : D) / physW} repeatV={H / physH} radius={0.001} rotate90={!isFiller} />
+        envMapIntensity={1.2}
+        // A real 50-150mm filler is just a narrow crop of the sheet, but mapping the
+        // repeat strictly to its own true width over-magnifies the source photo at
+        // that width (little of the image's actual pixel detail left to stretch across
+        // it), reading as blurry/thick grain up close. Flooring the width used for the
+        // scale calc at 300mm keeps the crop modest -- still narrower than a full door,
+        // just not zoomed enough to fall apart.
+        repeatU={(isFiller ? Math.max(W, 0.3) : D) / physW} repeatV={H / physH} radius={0.001} rotate90={!isFiller} />
     )
   }
   return (
