@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -66,7 +66,26 @@ function priceFlatPiece(cab, prices, materialsMap, t) {
   const breakdown = [
     { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: pricePerM2, cost: boardCost },
   ]
-  return { materialCost: boardCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(boardCost.toFixed(2)), breakdown }
+  let materialCost = boardCost
+
+  // A Filler also needs its fixing cleat (see fillerCleatDims) -- carcass-material
+  // board plus a front edge band matching the filler's own front. Matches the
+  // master cut list's "Filler Fixing Cleat" piece so cut list and cost agree.
+  if (cab.subtype === 'Filler') {
+    const cleat = fillerCleatDims(cab)
+    const cleatPricePerM2 = materialPricePerM2(cab.carcassMaterialCode, materialsMap, prices, cab.material)
+    const cleatM2 = (cleat.width * cleat.depth) / 1e6
+    const cleatCost = parseFloat((cleatM2 * cleatPricePerM2).toFixed(3))
+    const ebLengthM = cleat.width / 1000
+    const ebCost = parseFloat((ebLengthM * prices.edge_banding_m).toFixed(3))
+    breakdown.push(
+      { label: t('proposalTab.breakdownFillerCleatBoard'), qty: cleatM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: cleatPricePerM2, cost: cleatCost },
+      { label: t('proposalTab.breakdownFillerCleatEdge'), qty: ebLengthM.toFixed(2) + ' ' + t('proposalTab.unitM'), unit: prices.edge_banding_m, cost: ebCost },
+    )
+    materialCost = parseFloat((materialCost + cleatCost + ebCost).toFixed(3))
+  }
+
+  return { materialCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(materialCost.toFixed(2)), breakdown }
 }
 
 // A wood-box drawer system needs manufactured board (sides/back at 12mm, base at

@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas from './RoomCanvas'
@@ -278,6 +278,14 @@ function computeMasterCutList(cabinets, calculateCabinet) {
       const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
       if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: pieceWidth, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: {}, qty: 0 }
       masterMap[key].qty += 1
+      // Filler panels get a fixing cleat behind them (see fillerCleatDims) — cut
+      // from carcass material, front edge banded to match the filler's own front.
+      if (c.subtype === 'Filler') {
+        const { width: cw, depth: cd, thickness: ct } = fillerCleatDims(c)
+        const cleatKey = `${cw}×${cd}×${ct}|${carcassMat}|piece-FillerCleat`
+        if (!masterMap[cleatKey]) masterMap[cleatKey] = { name: 'Filler Fixing Cleat', width: cw, depth: cd, thickness: ct, material: carcassMat, eb: { T: 'None', B: 'None', L: 'None', R: frontMat }, qty: 0 }
+        masterMap[cleatKey].qty += 1
+      }
       return
     }
     let result

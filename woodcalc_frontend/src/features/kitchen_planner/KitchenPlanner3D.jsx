@@ -1831,7 +1831,12 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <PanelSkirtingFill W={W} D={D} height={panelLift} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
       )}
       {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight)) && (
-        <group position={[0, H, 0]}>
+        // isPanel is only true here for the Filler branch: a filler has no leg-lifted
+        // outer group of its own (showLegs is false for accessories), so SidePanelSlab
+        // lifts the slab itself by panelLift (=legH) to land on the same leg height as
+        // the rest of the run. The countertop above it needs that same lift added back
+        // in, or it sits legH too low and ends up sunk into the filler block.
+        <group position={[0, H + (isPanel ? panelLift : 0), 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
             sinkColorHex={cab.sinkColorHex} sinkRoughness={cab.sinkRoughness} sinkMetalness={cab.sinkMetalness}

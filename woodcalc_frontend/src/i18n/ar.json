@@ -1010,6 +1010,8 @@
     "breakdownHdf8": "HDF 8مم",
     "breakdownDoorPanel": "لوح الواجهة (أبواب/أدراج)",
     "breakdownPieceBoard": "لوح",
+    "breakdownFillerCleatBoard": "لوح كتيفة التثبيت",
+    "breakdownFillerCleatEdge": "بانش حافة كتيفة التثبيت",
     "breakdownEdgeBand": "شريط الحواف",
     "breakdownDrawerRunners": "سكك {{system}}",
     "breakdownDrawerRunnersM": "سكك {{system}} (M)",

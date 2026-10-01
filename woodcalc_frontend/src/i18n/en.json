@@ -1010,6 +1010,8 @@
     "breakdownHdf8": "8mm HDF",
     "breakdownDoorPanel": "Front Board (Doors/Drawers)",
     "breakdownPieceBoard": "Board",
+    "breakdownFillerCleatBoard": "Fixing Cleat Board",
+    "breakdownFillerCleatEdge": "Fixing Cleat Edge Band",
     "breakdownEdgeBand": "Edge Band",
     "breakdownDrawerRunners": "{{system}} Runners",
     "breakdownDrawerRunnersM": "{{system}} Runners (M)",

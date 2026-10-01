@@ -52,6 +52,16 @@ export function nonCarcassPieceDims(c) {
   };
 }
 
+// A Filler is just an 18mm board with nothing solid behind it to screw into, so
+// it's backed by an L-shaped cleat cut from carcass material: one leg screws to
+// the adjoining cabinet's side, the filler face then screws to the other. 3mm
+// short of the filler's own height so it never telegraphs past the filler's top
+// or bottom edge. Shared by the master cut list and the cost proposal so they
+// never disagree on what's actually cut.
+export function fillerCleatDims(c) {
+  return { width: Math.max(0, c.height - 3), depth: 100, thickness: 18 };
+}
+
 // Builds the calculateCabinet() input from a saved cabinet object — shared by the
 // cut list and the cost proposal so a subtype's door/drawer rules (Blind's narrow
 // door, Hob + Oven's no-wood-door front, drawer counts, etc.) price the same way
