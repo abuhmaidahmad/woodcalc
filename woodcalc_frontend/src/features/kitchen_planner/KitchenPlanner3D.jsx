@@ -1377,8 +1377,18 @@ function HobOvenAppliance({ W, H, D, frontColor, frontMaterial, frontMaterialCod
 
   return (
     <group>
-      <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
-        color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      {isGola ? (
+        // Recessed like GolaCarcass's own body (art.1004-1005): the fascia/oven-door
+        // pieces below sit proud of this box everywhere, so pulling it back by the
+        // milling depth is invisible except in the exposed notch, where it stops the
+        // carcass's own (carcassColor) front face from sitting in front of -- and
+        // hiding -- the GolaProfile channel piece rendered just below.
+        <SmartBox args={[W, H, D - GOLA_NOTCH_DEPTH]} position={[0, H / 2, -GOLA_NOTCH_DEPTH / 2]} castShadow receiveShadow
+          color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      ) : (
+        <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+          color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      )}
       {isGola && (
         <group position={[0, H, 0]}>
           <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
