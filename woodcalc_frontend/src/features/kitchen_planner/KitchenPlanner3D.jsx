@@ -264,13 +264,18 @@ function StandardBox({ args, position, castShadow, receiveShadow, color, matProp
 function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, lift }) {
   const matProps = getMaterialProps(frontMaterial)
   const texEntry = cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] : null
+  // A Filler's visible broad face is its front (W x H, same orientation as a door front,
+  // which renders with no rotation and a width-based repeat) -- unlike Side Panel/Panel,
+  // whose W is just an 18mm thickness and whose visible broad face is actually the D x H
+  // side face (hence that case's rotate90 + depth-based repeat, below).
+  const isFiller = cab.subtype === 'Filler'
   if (texEntry) {
     const physW = (texEntry.texture_physical_width_mm || 600) / 1000
     const physH = (texEntry.texture_physical_height_mm || 600) / 1000
     return (
       <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
         imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
-        envMapIntensity={1.2} repeatU={D / physW} repeatV={H / physH} radius={0.001} rotate90 />
+        envMapIntensity={1.2} repeatU={(isFiller ? W : D) / physW} repeatV={H / physH} radius={0.001} rotate90={!isFiller} />
     )
   }
   return (
