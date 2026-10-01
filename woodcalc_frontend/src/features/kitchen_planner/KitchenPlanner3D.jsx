@@ -269,25 +269,44 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   // whose W is just an 18mm thickness and whose visible broad face is actually the D x H
   // side face (hence that case's rotate90 + depth-based repeat, below).
   const isFiller = cab.subtype === 'Filler'
+  // A base-height filler sits directly under the countertop just like a door front, so
+  // on Gola kitchens it loses the same GOLA_CH sliver off its top to the milled
+  // L-channel (GolaProfile) -- otherwise the handleless groove running along the rest
+  // of the run would visibly stop dead at the filler (matches HobOvenAppliance's fascia).
+  const isGolaFiller = isFiller && cab.height === cab.baseHeight && (cab.elevation || 0) === 0 && cab.doorStyle === 'Gola'
+  const slabH = isGolaFiller ? H - GOLA_CH : H
+  const golaColor = cab.golaColor || 'black'
+  const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
+  const golaCap = isGolaFiller && (
+    <group position={[0, H + lift, 0]}>
+      <GolaProfile W={W} D={D} golaHex={golaHex} golaColor={golaColor} />
+    </group>
+  )
   if (texEntry) {
     const physW = (texEntry.texture_physical_width_mm || 600) / 1000
     const physH = (texEntry.texture_physical_height_mm || 600) / 1000
     return (
-      <PhotoTexturedBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
-        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
-        envMapIntensity={1.2}
-        // A real 50-150mm filler is just a narrow crop of the sheet, but mapping the
-        // repeat strictly to its own true width over-magnifies the source photo at
-        // that width (little of the image's actual pixel detail left to stretch across
-        // it), reading as blurry/thick grain up close. Flooring the width used for the
-        // scale calc at 300mm keeps the crop modest -- still narrower than a full door,
-        // just not zoomed enough to fall apart.
-        repeatU={(isFiller ? Math.max(W, 0.3) : D) / physW} repeatV={H / physH} radius={0.001} rotate90={!isFiller} />
+      <>
+        <PhotoTexturedBox args={[W, slabH, D]} position={[0, slabH / 2 + lift, 0]} castShadow receiveShadow
+          imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
+          envMapIntensity={1.2}
+          // A real 50-150mm filler is just a narrow crop of the sheet, but mapping the
+          // repeat strictly to its own true width over-magnifies the source photo at
+          // that width (little of the image's actual pixel detail left to stretch across
+          // it), reading as blurry/thick grain up close. Flooring the width used for the
+          // scale calc at 300mm keeps the crop modest -- still narrower than a full door,
+          // just not zoomed enough to fall apart.
+          repeatU={(isFiller ? Math.max(W, 0.3) : D) / physW} repeatV={slabH / physH} radius={0.001} rotate90={!isFiller} />
+        {golaCap}
+      </>
     )
   }
   return (
-    <SmartBox args={[W, H, D]} position={[0, H / 2 + lift, 0]} castShadow receiveShadow
-      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+    <>
+      <SmartBox args={[W, slabH, D]} position={[0, slabH / 2 + lift, 0]} castShadow receiveShadow
+        color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
+      {golaCap}
+    </>
   )
 }
 
