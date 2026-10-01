@@ -151,6 +151,16 @@ function buildLibrary(baseHeight) {
     { id: 'acc_filler_50',   label: 'Filler 50mm',   subtype: 'Filler',    width: 50,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_100',  label: 'Filler 100mm',  subtype: 'Filler',    width: 100,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_150',  label: 'Filler 150mm',  subtype: 'Filler',    width: 150,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    // Wall/tall fillers follow Side Panel Wall/Tall's own pattern: wall height defaults
+    // to the shortest wall-cabinet option (editable afterwards like any other height),
+    // hung at the same elevation wall cabinets start; depth matches the host run's own
+    // cabinet depth, same as the base filler matching the base cabinet's 560mm depth.
+    { id: 'acc_filler_wall_50',  label: 'Filler Wall 50mm',  subtype: 'Filler', width: 50,  height: wallHeights[0], depth: 300, icon: 'accessory_filler', category: 'accessories', wallHeight: wallHeights[0], elevation: wallElevation },
+    { id: 'acc_filler_wall_100', label: 'Filler Wall 100mm', subtype: 'Filler', width: 100, height: wallHeights[0], depth: 300, icon: 'accessory_filler', category: 'accessories', wallHeight: wallHeights[0], elevation: wallElevation },
+    { id: 'acc_filler_wall_150', label: 'Filler Wall 150mm', subtype: 'Filler', width: 150, height: wallHeights[0], depth: 300, icon: 'accessory_filler', category: 'accessories', wallHeight: wallHeights[0], elevation: wallElevation },
+    { id: 'acc_filler_tall_50',  label: 'Filler Tall 50mm',  subtype: 'Filler', width: 50,  height: 2220, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_filler_tall_100', label: 'Filler Tall 100mm', subtype: 'Filler', width: 100, height: 2220, depth: 560, icon: 'accessory_filler', category: 'accessories' },
+    { id: 'acc_filler_tall_150', label: 'Filler Tall 150mm', subtype: 'Filler', width: 150, height: 2220, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_sidepanel',   label: 'Side Panel',    subtype: 'Panel',     width: 18,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_shelf_400',   label: 'Shelf 400',     subtype: 'Shelf',     width: 400,  height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
     { id: 'acc_shelf_600',   label: 'Shelf 600',     subtype: 'Shelf',     width: 600,  height: 30,         depth: 250, icon: 'accessory_shelf',  category: 'accessories' },
