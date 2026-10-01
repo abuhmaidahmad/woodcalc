@@ -315,14 +315,8 @@ function findMeasureSnapPoint(px, py, walls, cabinets, wallThickness, scale, thr
   return null
 }
 
-function WallSegment({ body, index, selected, lengthMm, onSelect, onDragStart, onEndpointDragStart, onLabelClick, editingLength, onLengthChange, onLengthConfirm, editingAngleVal, onAngleChange }) {
-  const { t } = useTranslation()
+function WallBody({ body, index, selected, onSelect, onDragStart, onEndpointDragStart }) {
   const { faceStart: p1, faceEnd: p2, outerStart: o1, outerEnd: o2, thickness } = body
-  const angle = radToDeg(Math.atan2(p2.y - p1.y, p2.x - p1.x))
-  const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2
-  const ocx = (o1.x + o2.x) / 2, ocy = (o1.y + o2.y) / 2
-  const labelX = cx + (ocx - cx) * 0.5
-  const labelY = cy + (ocy - cy) * 0.5
   const bodyPoints = `${p1.x},${p1.y} ${p2.x},${p2.y} ${o2.x},${o2.y} ${o1.x},${o1.y}`
   return (
     <g>
@@ -336,40 +330,55 @@ function WallSegment({ body, index, selected, lengthMm, onSelect, onDragStart, o
       <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y}
         stroke={selected ? '#fff' : '#88888855'} strokeWidth={1}
         strokeDasharray="4,3" style={{ pointerEvents: 'none' }} />
-      <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
-        onClick={e => { e.stopPropagation(); onLabelClick() }}
-        style={{ cursor: 'text' }}>
-        <rect x={editingLength ? -46 : -30} y={-11} width={editingLength ? 92 : 60} height={18} rx={4}
-          fill={selected ? ACCENT : 'white'} stroke={selected ? ACCENT : '#ddd'} strokeWidth={1} />
-        {editingLength ? (
-          <foreignObject x={-44} y={-10} width={88} height={16}>
-            <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-              <input autoFocus type="number" defaultValue={lengthMm}
-                onChange={e => onLengthChange(+e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
-                title={t('roomCanvas.lengthAngleTitle')}
-                style={{ width: '50%', border: 'none', outline: 'none', borderRight: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : '#ddd'}`, fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
-              <input type="number" defaultValue={editingAngleVal}
-                onChange={e => onAngleChange(+e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
-                title={t('roomCanvas.angleTitle')}
-                style={{ width: '50%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
-            </div>
-          </foreignObject>
-        ) : (
-   <text x={0} y={3} textAnchor="middle" fontSize={9}
-  fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
-  {lengthMm}mm
-</text>
-
-        )}
-      </g>
       {selected && [{ x: p1.x, y: p1.y, ep: 0 }, { x: p2.x, y: p2.y, ep: 1 }].map(({ x, y, ep }) => (
         <g key={ep} onMouseDown={e => { e.stopPropagation(); onEndpointDragStart(e, index, ep) }} style={{ cursor: 'crosshair' }}>
           <circle cx={x} cy={y} r={10} fill="transparent" />
           <circle cx={x} cy={y} r={5} fill="#fff" stroke={ACCENT} strokeWidth={2.5} />
         </g>
       ))}
+    </g>
+  )
+}
+
+// Rendered in its own pass, after windows/doors/cabinets, so an opening or
+// cabinet centered on the wall can never paint over the length label (it
+// used to be drawn inline with the wall body, which sits earlier in SVG
+// paint order than those elements and so could get covered by them).
+function WallLabel({ body, selected, lengthMm, onLabelClick, editingLength, onLengthChange, onLengthConfirm, editingAngleVal, onAngleChange }) {
+  const { t } = useTranslation()
+  const { faceStart: p1, faceEnd: p2, outerStart: o1, outerEnd: o2 } = body
+  const angle = radToDeg(Math.atan2(p2.y - p1.y, p2.x - p1.x))
+  const cx = (p1.x + p2.x) / 2, cy = (p1.y + p2.y) / 2
+  const ocx = (o1.x + o2.x) / 2, ocy = (o1.y + o2.y) / 2
+  const labelX = cx + (ocx - cx) * 0.5
+  const labelY = cy + (ocy - cy) * 0.5
+  return (
+    <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
+      onClick={e => { e.stopPropagation(); onLabelClick() }}
+      style={{ cursor: 'text' }}>
+      <rect x={editingLength ? -46 : -30} y={-11} width={editingLength ? 92 : 60} height={18} rx={4}
+        fill={selected ? ACCENT : 'white'} stroke={selected ? ACCENT : '#ddd'} strokeWidth={1} />
+      {editingLength ? (
+        <foreignObject x={-44} y={-10} width={88} height={16}>
+          <div style={{ display: 'flex', width: '100%', height: '100%' }}>
+            <input autoFocus type="number" defaultValue={lengthMm}
+              onChange={e => onLengthChange(+e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
+              title={t('roomCanvas.lengthAngleTitle')}
+              style={{ width: '50%', border: 'none', outline: 'none', borderRight: `1px solid ${selected ? 'rgba(255,255,255,0.4)' : '#ddd'}`, fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+            <input type="number" defaultValue={editingAngleVal}
+              onChange={e => onAngleChange(+e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') onLengthConfirm(); e.stopPropagation() }}
+              title={t('roomCanvas.angleTitle')}
+              style={{ width: '50%', border: 'none', outline: 'none', fontSize: 9, textAlign: 'center', background: 'transparent', color: selected ? '#fff' : '#333', fontFamily: 'Inter,sans-serif', fontWeight: 600 }} />
+          </div>
+        </foreignObject>
+      ) : (
+        <text x={0} y={3} textAnchor="middle" fontSize={9}
+          fill={selected ? '#fff' : '#555'} fontFamily="Inter,sans-serif" fontWeight={600}>
+          {lengthMm}mm
+        </text>
+      )}
     </g>
   )
 }
@@ -1765,23 +1774,10 @@ export default function RoomCanvas({
             <text x={-10} y={H/2} textAnchor="middle" fontSize={11} fill="#888" fontFamily="Inter,sans-serif" fontWeight={600} transform={`rotate(-90, -10, ${H/2})`}>{room.depth}mm</text>
           </>}
     {walls.map((w, i) => (
-  <WallSegment key={w.id || i} body={wallBodies[i]} index={i} selected={selectedWall === i}
-    lengthMm={Math.round(getWallLength(w) / scale)}
-
+  <WallBody key={w.id || i} body={wallBodies[i]} index={i} selected={selectedWall === i}
               onSelect={hideWallsElements || mode === 'measure' ? () => {} : () => { wallClickedRef.current = true; setSelectedWall(i) }}
               onDragStart={hideToolbar ? () => {} : startWallDrag}
               onEndpointDragStart={hideToolbar ? () => {} : startEndpointDrag}
-              onLabelClick={() => {
-                if (hideToolbar) return
-                setSelectedWall(i); setEditingWall(i)
-                setEditingLenVal(Math.round(getWallLength(w) / scale))
-                setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
-              }}
-              editingLength={!hideToolbar && editingWall === i}
-              onLengthChange={v => setEditingLenVal(v)}
-              editingAngleVal={editingAngleVal}
-              onAngleChange={v => setEditingAngleVal(v)}
-              onLengthConfirm={confirmWallEdit}
             />
           ))}
           {wallSnapPreview && <circle cx={wallSnapPreview.centerX} cy={wallSnapPreview.centerY} r={8} fill={ACCENT+'44'} stroke={ACCENT} strokeWidth={2} style={{ pointerEvents: 'none' }} />}
@@ -1888,6 +1884,22 @@ export default function RoomCanvas({
               </>
             )
           })()}
+          {walls.map((w, i) => (
+            <WallLabel key={`label-${w.id || i}`} body={wallBodies[i]} selected={selectedWall === i}
+              lengthMm={Math.round(getWallLength(w) / scale)}
+              onLabelClick={() => {
+                if (hideToolbar) return
+                setSelectedWall(i); setEditingWall(i)
+                setEditingLenVal(Math.round(getWallLength(w) / scale))
+                setEditingAngleVal(Math.round(radToDeg(Math.atan2(w.y2 - w.y1, w.x2 - w.x1))))
+              }}
+              editingLength={!hideToolbar && editingWall === i}
+              onLengthChange={v => setEditingLenVal(v)}
+              editingAngleVal={editingAngleVal}
+              onAngleChange={v => setEditingAngleVal(v)}
+              onLengthConfirm={confirmWallEdit}
+            />
+          ))}
           {mode === 'measure' && measureSnap && <circle cx={measureSnap.x} cy={measureSnap.y} r={10} fill="#3B82F633" stroke="#3B82F6" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
           {mode === 'measure' && measureStart && !measureEnd && mousePos && (() => {
             const end = measureSnap || mousePos
