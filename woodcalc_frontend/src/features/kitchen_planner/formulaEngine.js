@@ -531,6 +531,7 @@ export function calculateCabinet(config) {
     }
   }
   hardware.tip_on = numTipOn;
+  hardware.hinges = doors.reduce((acc, d) => acc + d.hinges, 0);
   hardware.confirmat_spec = CONFIRMAT;
   hardware.edge_banding_spec = EDGE_BANDING;
 
@@ -588,7 +589,7 @@ export function calculateCabinet(config) {
   edgeBanding.rules.door_front = 'banded in front color';
   edgeBanding.rules.carcass_exposed = 'banded in carcass color';
 
-  const totalHinges = doors.reduce((acc, d) => acc + d.hinges, 0);
+  const totalHinges = hardware.hinges;
 
   const summary = {
     width: W,
