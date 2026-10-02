@@ -1039,7 +1039,17 @@ export default function RoomCanvas({
   useEffect(() => {
     if (mode !== 'select') return
     const handler = (e) => {
-      if (e.target.tagName === 'INPUT') return
+      // Only step aside while the user is actually typing. Focus left on a
+      // checkbox or button (e.g. "Show grid" or a side-panel toggle) used to
+      // swallow every shortcut too, so Cmd+D fell through to the browser's
+      // bookmark dialog instead of duplicating the selected cabinet.
+      const tgt = e.target
+      const typing = tgt.isContentEditable || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' ||
+        (tgt.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'range', 'color'].includes(tgt.type))
+      const isDuplicate = (e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')
+      // Cmd+D does nothing useful inside a number/text field, so still let it
+      // duplicate from there (e.g. right after editing a cabinet's width).
+      if (typing && !(isDuplicate && tgt.tagName === 'INPUT')) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWall !== null) {
         pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
       }
@@ -1059,7 +1069,7 @@ export default function RoomCanvas({
         return
       }
       if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); return }
-      if ((e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D') && selected != null) {
+      if (isDuplicate && selected != null) {
         e.preventDefault()
         const OFFSET = 100 // mm — small nudge so the copy doesn't sit exactly on top of the original
         if (selectedType === 'cabinet') {
