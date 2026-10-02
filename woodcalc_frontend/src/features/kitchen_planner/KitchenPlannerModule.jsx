@@ -1924,7 +1924,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {selCab.category !== 'accessories' && (
+                {selCab.category !== 'accessories' && selCab.subtype !== 'Open Shelf' && (
                   <div style={{ marginBottom: 10 }}>
                     <div style={s.propLabel}>{t('kitchenPlannerModule.doorStyle')}</div>
                     <select value={selCab.doorStyle} onChange={e => updateCab('doorStyle', e.target.value)} style={s.propSelect}>
@@ -2130,7 +2130,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     <ZonePresetPicker height={selCab.height} width={selCab.width} selected={selCab.zonePreset} onChange={p => updateCab('zonePreset', p)} />
                   </>
                 )}
-                {selCab.subtype !== 'Open Shelf' && (
+                {/* An open box has no front of its own, so it only shows the one picker
+                    its Box Color toggle actually uses: front material when set to Front,
+                    carcass material otherwise. */}
+                {(selCab.subtype !== 'Open Shelf' || selCab.openBoxMaterialSource === 'front') && (
                   <>
                     <div style={s.propSection}>{t('kitchenPlannerModule.frontMaterial')}</div>
                     <MaterialLibrary
@@ -2147,7 +2150,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     />
                   </>
                 )}
-               {!['Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && (
+               {!['Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && !(['Open Shelf', 'Glass Door'].includes(selCab.subtype) && selCab.openBoxMaterialSource === 'front') && (
   <>
     <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
     <MaterialLibrary
