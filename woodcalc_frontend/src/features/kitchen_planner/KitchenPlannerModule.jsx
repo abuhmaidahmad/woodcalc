@@ -1954,14 +1954,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {selCab.subtype === 'Open Shelf' && (() => {
-                  // An open box has no front panel of its own to look at separately --
-                  // its whole carcass IS the visible front -- so instead of always
-                  // using the carcass color/material, let it borrow the project's
-                  // front color/material instead (e.g. to match the doors on the rest
-                  // of the run). Only the choice is stored; KitchenPlanner3D's Cabinet
-                  // picks frontColor/frontMaterial vs carcassColor/carcassMaterial from
-                  // this at render time.
+                {(selCab.subtype === 'Open Shelf' || selCab.subtype === 'Glass Door') && (() => {
+                  // Open boxes and glass-door cabinets show their carcass from the
+                  // front, so let them borrow the front color/material instead of the
+                  // carcass one (e.g. to match the doors on the rest of the run). Only
+                  // the choice is stored; KitchenPlanner3D's Cabinet picks the colors.
                   const boxSource = selCab.openBoxMaterialSource === 'front' ? 'front' : 'carcass'
                   return (
                     <div style={{ marginBottom: 10 }}>

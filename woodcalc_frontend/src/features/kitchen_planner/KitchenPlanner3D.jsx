@@ -1909,10 +1909,11 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const carcassMaterial = cab.carcassMaterial || ''
   const carcassMatProps = getMaterialProps(carcassMaterial)
   const elevation = cab.elevation || 0
-  // An open box's carcass IS its visible front -- it can borrow the front
-  // color/material instead of the carcass one (set via the Box Color toggle
-  // in the properties panel), e.g. to match the doors on the rest of the run.
-  const useFrontForBox = cab.subtype === 'Open Shelf' && cab.openBoxMaterialSource === 'front'
+  // Open-box and glass-door cabinets show their carcass from the front (no
+  // door, or a see-through one), so they can borrow the front color/material
+  // instead of the carcass one (set via the Box Color toggle in the
+  // properties panel), e.g. to match the doors on the rest of the run.
+  const useFrontForBox = (cab.subtype === 'Open Shelf' || isGlass) && cab.openBoxMaterialSource === 'front'
   const boxColor = useFrontForBox ? frontColor : carcassColor
   const boxMaterial = useFrontForBox ? frontMaterial : carcassMaterial
   const boxMatProps = useFrontForBox ? getMaterialProps(frontMaterial) : carcassMatProps
