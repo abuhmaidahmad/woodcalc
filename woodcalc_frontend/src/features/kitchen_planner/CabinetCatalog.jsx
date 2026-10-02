@@ -90,6 +90,13 @@ function buildLibrary(baseHeight) {
 
   const base = [
     ...baseWidths.map(w => ({ id: `base_std_${w}`, label: `Base ${w}`, subtype: 'Standard', width: w, height: baseHeight, depth: 560, icon: 'base_standard', category: 'base' })),
+    // Same "Glass Door" subtype as the wall glass cabinets below, just at base
+    // depth/height -- the 3D renderer (KitchenPlanner3D's Cabinet/HollowGlassCarcass)
+    // keys its legs/countertop/Gola-channel behavior off `category`/`doorStyle`,
+    // not off the subtype, so a base-category glass cabinet automatically picks up
+    // legs, the countertop above it, and (if the project's door style is Gola) the
+    // same milled notch + channel a solid Gola base door would get.
+    ...baseWidths.map(w => ({ id: `base_glass_${w}`, label: `Glass ${w}`, subtype: 'Glass Door', width: w, height: baseHeight, depth: 560, icon: 'wall_glass', category: 'base' })),
     ...baseWidths.filter(w => w >= 400).map(w => ({ id: `base_sink_${w}`, label: `Sink ${w}`, subtype: 'Sink', width: w, height: baseHeight, depth: 560, icon: 'base_sink', category: 'base' })),
     { id: 'base_hob_oven_900', label: 'Hob + Oven 900', subtype: 'Hob + Oven', width: 900, height: baseHeight, depth: 560, icon: 'base_hob_oven', category: 'base' },
     ...[300, 400, 450, 500, 600].map(w => ({ id: `base_drw_${w}`, label: `Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 560, icon: 'base_drawers', category: 'base' })),

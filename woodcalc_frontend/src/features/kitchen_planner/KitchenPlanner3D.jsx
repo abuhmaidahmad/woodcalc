@@ -322,7 +322,7 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   )
 }
 
-function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false }) {
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false }) {
   const T = 0.018
   const common = { color, materialName, matProps, envMapIntensity: 0.5, castShadow: true, receiveShadow: true }
   const shelfT = glassShelf ? 0.008 : T // 8mm clear glass, or standard 18mm wood panel
@@ -348,6 +348,27 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
       ) : (
         <SmartBox key={i} args={[W - T * 2 - 0.004, shelfT, D - T - 0.01]} position={[0, y, -0.005]} {...common} />
       )
+    )
+  }
+  // Gola base cabinets drop the separate top cap and instead notch both side
+  // panels' top band back from the front edge (the same milled recess
+  // GolaCarcass's own sides use), so the aluminum L-profile channel the glass
+  // door renders (see GlassDoor) seats in a real shadow gap, matching how a
+  // solid Gola door's carcass meets its own channel, instead of a flush glass-
+  // cabinet top cutting across it.
+  if (isGola) {
+    const sideH = H - T
+    const notches = [{ yBottom: sideH - GOLA_L_NOTCH_H, yTop: sideH }]
+    return (
+      <>
+        <SmartBox args={[W, T, D]} position={[0, T / 2, 0]} {...common} />
+        <group position={[0, T, 0]}>
+          <NotchedSidePanel H={sideH} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} />
+          <NotchedSidePanel H={sideH} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} />
+        </group>
+        {!openFront && <SmartBox args={[W - T * 2, sideH, T]} position={[0, T + sideH / 2, -D / 2 + T / 2]} {...common} />}
+        {shelves}
+      </>
     )
   }
   return (
@@ -1081,6 +1102,15 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType
           </group>
         )
       })}
+      {isGola && !isWallCabinet && (
+        // Same aluminum L-profile channel piece an opaque Gola door's carcass
+        // gets (see CabinetDoors' own GolaProfile) -- without it, a glass Gola
+        // door was just a panel dropped 25mm with no actual channel/handle at
+        // all, which looked like a mistake rather than a handleless pull.
+        <group position={[0, H / 2, 0]}>
+          <GolaProfile W={W} D={D} golaHex={frameHex} golaColor={frameColor} />
+        </group>
+      )}
     </>
   )
 }
@@ -1879,7 +1909,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
-          glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'} />
+          glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
+          isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf} />
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
