@@ -1909,6 +1909,13 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const carcassMaterial = cab.carcassMaterial || ''
   const carcassMatProps = getMaterialProps(carcassMaterial)
   const elevation = cab.elevation || 0
+  // An open box's carcass IS its visible front -- it can borrow the front
+  // color/material instead of the carcass one (set via the Box Color toggle
+  // in the properties panel), e.g. to match the doors on the rest of the run.
+  const useFrontForBox = cab.subtype === 'Open Shelf' && cab.openBoxMaterialSource === 'front'
+  const boxColor = useFrontForBox ? frontColor : carcassColor
+  const boxMaterial = useFrontForBox ? frontMaterial : carcassMaterial
+  const boxMatProps = useFrontForBox ? getMaterialProps(frontMaterial) : carcassMatProps
 
   return (
     <group position={[x + W/2, (showLegs ? legH : 0) + elevation/1000, z + D/2]} rotation={[0, -rot, 0]}>
@@ -1948,7 +1955,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           <FreestandingHoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
         )
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
-        <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
+        <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf} />

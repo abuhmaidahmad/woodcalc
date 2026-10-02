@@ -1954,6 +1954,33 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
+                {selCab.subtype === 'Open Shelf' && (() => {
+                  // An open box has no front panel of its own to look at separately --
+                  // its whole carcass IS the visible front -- so instead of always
+                  // using the carcass color/material, let it borrow the project's
+                  // front color/material instead (e.g. to match the doors on the rest
+                  // of the run). Only the choice is stored; KitchenPlanner3D's Cabinet
+                  // picks frontColor/frontMaterial vs carcassColor/carcassMaterial from
+                  // this at render time.
+                  const boxSource = selCab.openBoxMaterialSource === 'front' ? 'front' : 'carcass'
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.boxColorSource')}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {['carcass', 'front'].map(src => (
+                          <button key={src} onClick={() => updateCab('openBoxMaterialSource', src)}
+                            style={{
+                              flex: 1, padding: '6px 0', borderRadius: 6,
+                              border: boxSource === src ? '1.5px solid #C9A876' : '1.5px solid #E0DAD4',
+                              background: boxSource === src ? '#FBF3E7' : '#fff',
+                              color: boxSource === src ? '#8A6D3B' : '#666',
+                              fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                            }}>{src === 'carcass' ? t('kitchenPlannerModule.boxColorCarcass') : t('kitchenPlannerModule.boxColorFront')}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
                 {isShelfEligible(selCab) && selCab.subtype !== 'Blind' && selCab.subtype !== 'Open Shelf' && (() => {
                   // Open Shelf is an open-box cabinet with no door at all (isShelfEligible
                   // only gates the shelf-count control above, which Open Shelf legitimately
