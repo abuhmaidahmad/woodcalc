@@ -844,6 +844,43 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
 // Bottom edge is anchored at the countertop's top surface (leg height + cabinet
 // carcass height + countertop thickness) for the cabinet it's attached to;
 // height extends upward from there toward the ceiling.
+// Mirrors RoomCanvas.jsx's getCabinetEdgePx, but in real-world meters instead of
+// scaled px -- kept as a hand-synced twin rather than shared, since the 2D canvas
+// and 3D scene run on different unit systems. A backsplash segment has no
+// standalone position of its own: it's anchored to a cabinet edge (cabinetId +
+// side), so moving/rotating that cabinet carries the backsplash along with it.
+function cabinetEdgeM(cab, side) {
+  const cx = cab.x + cab.width / 2, cy = cab.y + cab.depth / 2
+  const rad = ((cab.rotation || 0) * Math.PI) / 180
+  const cos = Math.cos(rad), sin = Math.sin(rad)
+  const rot = (px, py) => {
+    const dx = px - cx, dy = py - cy
+    return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos }
+  }
+  let p1mm, p2mm
+  if (side === 'top') { p1mm = { x: cab.x, y: cab.y }; p2mm = { x: cab.x + cab.width, y: cab.y } }
+  else if (side === 'bottom') { p1mm = { x: cab.x, y: cab.y + cab.depth }; p2mm = { x: cab.x + cab.width, y: cab.y + cab.depth } }
+  else if (side === 'left') { p1mm = { x: cab.x, y: cab.y }; p2mm = { x: cab.x, y: cab.y + cab.depth } }
+  else { p1mm = { x: cab.x + cab.width, y: cab.y }; p2mm = { x: cab.x + cab.width, y: cab.y + cab.depth } }
+  const p1 = rot(p1mm.x, p1mm.y), p2 = rot(p2mm.x, p2mm.y)
+  return { x1: p1.x / 1000, y1: p1.y / 1000, x2: p2.x / 1000, y2: p2.y / 1000 }
+}
+
+// Trims the full cabinet edge down to the segment's own length (if shorter),
+// anchored at whichever end `fixedEnd` names -- matching resolveBacksplashSegmentPx
+// in RoomCanvas.jsx so the 2D line and this 3D slab always agree.
+function resolveBacksplashSegmentM(cab, seg) {
+  const full = cabinetEdgeM(cab, seg.side)
+  const fullLen = Math.hypot(full.x2 - full.x1, full.y2 - full.y1)
+  if (fullLen < 1e-6) return full
+  const len = Math.min(seg.length != null ? seg.length / 1000 : fullLen, fullLen)
+  const ux = (full.x2 - full.x1) / fullLen, uy = (full.y2 - full.y1) / fullLen
+  if ((seg.fixedEnd || 'start') === 'end') {
+    return { x1: full.x2 - ux * len, y1: full.y2 - uy * len, x2: full.x2, y2: full.y2 }
+  }
+  return { x1: full.x1, y1: full.y1, x2: full.x1 + ux * len, y2: full.y1 + uy * len }
+}
+
 function Backsplash3D({ seg, cabinets, countertopMat, countertopThickness, backsplashHeightDefault, backsplashThicknessMm, textureMap = {} }) {
   const cab = cabinets.find(c => c.id === seg.cabinetId)
   if (!cab) return null
@@ -857,8 +894,9 @@ function Backsplash3D({ seg, cabinets, countertopMat, countertopThickness, backs
   const heightM = (seg.height ?? backsplashHeightDefault) / 1000
   const thicknessM = backsplashThicknessMm / 1000
 
-  const x1 = px2m(seg.x1), z1 = px2m(seg.y1)
-  const x2 = px2m(seg.x2), z2 = px2m(seg.y2)
+  const edge = resolveBacksplashSegmentM(cab, seg)
+  const x1 = edge.x1, z1 = edge.y1
+  const x2 = edge.x2, z2 = edge.y2
   const dx = x2 - x1, dz = z2 - z1
   const lengthM = Math.hypot(dx, dz)
   if (lengthM < 0.001) return null

@@ -235,7 +235,7 @@ function chooseDefaultStairSide(xMm, yMm, angleDeg, room) {
 // of a cabinet's rectangular footprint, accounting for its rotation. Cabinet
 // coords are in mm; output is in scaled px to match the x1/y1/x2/y2 convention
 // used by walls and backsplash segments.
-function getCabinetEdgePx(cab, side, scale) {
+export function getCabinetEdgePx(cab, side, scale) {
   const cx = cab.x + cab.width / 2, cy = cab.y + cab.depth / 2
   const rad = ((cab.rotation || 0) * Math.PI) / 180
   const cos = Math.cos(rad), sin = Math.sin(rad)
@@ -250,6 +250,25 @@ function getCabinetEdgePx(cab, side, scale) {
   else { p1mm = { x: cab.x + cab.width, y: cab.y }; p2mm = { x: cab.x + cab.width, y: cab.y + cab.depth } }
   const p1 = rot(p1mm.x, p1mm.y), p2 = rot(p2mm.x, p2mm.y)
   return { x1: p1.x * scale, y1: p1.y * scale, x2: p2.x * scale, y2: p2.y * scale }
+}
+
+// A backsplash segment is anchored to a cabinet edge (cabinetId + side), not to a
+// standalone position -- it has no x1/y1/x2/y2 of its own. This re-derives its
+// current endpoints from the cabinet's live position/rotation every time, so
+// dragging or rotating the cabinet carries the backsplash along with it instead
+// of leaving it stranded wherever the cabinet used to be. `length`/`fixedEnd`
+// (set via the backsplash properties panel) trim the segment shorter than the
+// full edge, anchored at the cabinet's start or end corner.
+export function resolveBacksplashSegmentPx(cab, seg, scale) {
+  const full = getCabinetEdgePx(cab, seg.side, scale)
+  const fullLen = Math.hypot(full.x2 - full.x1, full.y2 - full.y1)
+  if (fullLen < 1e-6) return full
+  const lenPx = Math.min(seg.length != null ? seg.length * scale : fullLen, fullLen)
+  const ux = (full.x2 - full.x1) / fullLen, uy = (full.y2 - full.y1) / fullLen
+  if ((seg.fixedEnd || 'start') === 'end') {
+    return { x1: full.x2 - ux * lenPx, y1: full.y2 - uy * lenPx, x2: full.x2, y2: full.y2 }
+  }
+  return { x1: full.x1, y1: full.y1, x2: full.x1 + ux * lenPx, y2: full.y1 + uy * lenPx }
 }
 
 function distToSegment(px, py, x1, y1, x2, y2) {
@@ -1025,7 +1044,14 @@ export default function RoomCanvas({
         pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && selected != null) {
-        if (selectedType === 'cabinet') setCabinets(p => p.filter(c => c.id !== selected))
+        if (selectedType === 'cabinet') {
+          setCabinets(p => p.filter(c => c.id !== selected))
+          // Any backsplash segment hung off this cabinet's edge is dead without it --
+          // drop it too, instead of leaving an orphaned segment that still rendered
+          // wherever the cabinet used to be (segments are keyed by cabinetId+side, not
+          // their own standalone position).
+          setBacksplashSegments(p => p.filter(s => s.cabinetId !== selected))
+        }
         else if (selectedType === 'element') setElements(p => p.filter(el => el.id !== selected))
         else if (selectedType === 'backsplash') setBacksplashSegments(p => p.filter(s => s.id !== selected))
         else if (selectedType === 'stair') pushHistory(walls, stairs.filter(s => s.id !== selected))
@@ -1105,8 +1131,11 @@ export default function RoomCanvas({
           // Clicking a different existing segment selects it (opens the panel).
           setSelected(segId); setSelectedType('backsplash')
         } else {
-          // Empty edge: add a new segment and select it.
-          setBacksplashSegments(p => [...p, { id: segId, cabinetId: hit.cab.id, side: hit.side, ...hit.edge }])
+          // Empty edge: add a new segment and select it. No x1/y1/x2/y2 snapshot --
+          // the segment is purely cabinetId+side (+ optional length/fixedEnd trim),
+          // re-derived from the cabinet's live position on every render (see
+          // resolveBacksplashSegmentPx), so moving the cabinet moves the backsplash.
+          setBacksplashSegments(p => [...p, { id: segId, cabinetId: hit.cab.id, side: hit.side }])
           setSelected(segId); setSelectedType('backsplash')
         }
       }
@@ -1857,16 +1886,19 @@ export default function RoomCanvas({
             />
           ))}
           {backsplashSegments.map(seg => {
+            const cab = cabinets.find(c => c.id === seg.cabinetId)
+            if (!cab) return null
             const isSelBs = selected === seg.id && selectedType === 'backsplash'
+            const { x1, y1, x2, y2 } = resolveBacksplashSegmentPx(cab, seg, scale)
             return (
               <g key={seg.id}>
                 {/* No click handler here on purpose — segments are only ever
                     selectable through the Backsplash Edges tool (handleCanvasClick),
                     never by clicking directly in Select mode. */}
-                <line x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                <line x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke="#fff" strokeWidth={isSelBs ? 9 : 7.5}
                   strokeLinecap="round" style={{ pointerEvents: 'none' }} />
-                <line x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                <line x1={x1} y1={y1} x2={x2} y2={y2}
                   stroke={isSelBs ? ACCENT : '#8B5E3C'} strokeWidth={isSelBs ? 6 : 5}
                   strokeLinecap="round" style={{ pointerEvents: 'none' }} />
               </g>

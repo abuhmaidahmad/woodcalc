@@ -5,7 +5,7 @@ import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
-import RoomCanvas from './RoomCanvas'
+import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
 import {
   computeStairSteps, findOverlappingStairProfile, checkStairWallSupport,
@@ -1360,9 +1360,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         {selectedType === 'backsplash' ? (() => {
           const seg = backsplashSegments.find(s => s.id === selected)
           if (!seg) return null
-          const dx = seg.x2 - seg.x1, dy = seg.y2 - seg.y1
-          const curLenPx = Math.hypot(dx, dy)
-          const lenMm = Math.round(curLenPx / SCALE)
+          // A segment has no standalone geometry of its own -- it's anchored to a
+          // cabinet edge (cabinetId + side) and re-derived from that cabinet's live
+          // position every render (see resolveBacksplashSegmentPx in RoomCanvas.jsx),
+          // so dragging the cabinet carries the backsplash with it. Only its trimmed
+          // length (optional, defaults to the full edge) and which end that trim is
+          // anchored from are actually stored.
+          const cab = cabinets.find(c => c.id === seg.cabinetId)
+          if (!cab) return null
+          const fullEdge = getCabinetEdgePx(cab, seg.side, SCALE)
+          const fullLenMm = Math.round(Math.hypot(fullEdge.x2 - fullEdge.x1, fullEdge.y2 - fullEdge.y1) / SCALE)
+          const lenMm = seg.length != null ? Math.min(seg.length, fullLenMm) : fullLenMm
           const fixedEnd = seg.fixedEnd || 'start'
           return (
             <div>
@@ -1373,14 +1381,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 <input type="number" value={lenMm}
                   onChange={e => {
                     const newLenMm = +e.target.value
-                    if (!newLenMm || newLenMm <= 0 || curLenPx === 0) return
-                    const newLenPx = newLenMm * SCALE
-                    const ux = dx / curLenPx, uy = dy / curLenPx
-                    setBacksplashSegments(p => p.map(s => {
-                      if (s.id !== seg.id) return s
-                      if (fixedEnd === 'start') return { ...s, x2: s.x1 + ux * newLenPx, y2: s.y1 + uy * newLenPx }
-                      return { ...s, x1: s.x2 - ux * newLenPx, y1: s.y2 - uy * newLenPx }
-                    }))
+                    if (!newLenMm || newLenMm <= 0) return
+                    setBacksplashSegments(p => p.map(s => s.id === seg.id ? { ...s, length: Math.min(newLenMm, fullLenMm) } : s))
                   }}
                   style={s.propInput} />
               </div>
@@ -2280,7 +2282,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     countertopMat={countertopMat}
     materialsMap={textureMap}
     drawerSystemsCatalog={availableDrawerSystems}
-    backsplashLm={backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2 - seg.x1, seg.y2 - seg.y1) / SCALE / 1000, 0)}
+    backsplashLm={backsplashSegments.reduce((s, seg) => {
+      const cab = cabinets.find(c => c.id === seg.cabinetId)
+      if (!cab) return s
+      const { x1, y1, x2, y2 } = resolveBacksplashSegmentPx(cab, seg, SCALE)
+      return s + Math.hypot(x2 - x1, y2 - y1) / SCALE / 1000
+    }, 0)}
     backsplashHeight={backsplashHeight}
     projectName={projectName}
     onGrandTotalChange={setGrandTotal}
