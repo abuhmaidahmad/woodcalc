@@ -1046,7 +1046,11 @@ export default function RoomCanvas({
       const tgt = e.target
       const typing = tgt.isContentEditable || tgt.tagName === 'TEXTAREA' || tgt.tagName === 'SELECT' ||
         (tgt.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'range', 'color'].includes(tgt.type))
-      const isDuplicate = (e.ctrlKey || e.metaKey) && (e.key === 'd' || e.key === 'D')
+      // Letter shortcuts match the physical key (e.code), not the typed
+      // character (e.key): with the Arabic layout active, Cmd+D reports
+      // e.key === 'ي', so the shortcut silently missed and Safari's
+      // bookmark dialog opened instead.
+      const isDuplicate = (e.ctrlKey || e.metaKey) && e.code === 'KeyD'
       // Cmd+D does nothing useful inside a number/text field, so still let it
       // duplicate from there (e.g. right after editing a cabinet's width).
       if (typing && !(isDuplicate && tgt.tagName === 'INPUT')) return
@@ -1068,7 +1072,7 @@ export default function RoomCanvas({
         setSelected(null); setSelectedType(null)
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undo(); return }
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { undo(); return }
       if (isDuplicate && selected != null) {
         e.preventDefault()
         const OFFSET = 100 // mm — small nudge so the copy doesn't sit exactly on top of the original
@@ -1089,7 +1093,7 @@ export default function RoomCanvas({
         }
         return
       }
-      if (e.key === 'r' || e.key === 'R') {
+      if (e.code === 'KeyR' && !e.ctrlKey && !e.metaKey) {
         if (selectedType === 'cabinet') setCabinets(p => p.map(c => c.id === selected ? { ...c, rotation: ((c.rotation || 0) + 90) % 360 } : c))
         else if (selectedType === 'element') setElements(p => p.map(el => el.id === selected ? { ...el, rotation: ((el.rotation || 0) + 90) % 360 } : el))
         else if (selectedType === 'stair') setStairs(p => p.map(s => s.id === selected ? { ...s, rotation: ((s.rotation || 0) + 90) % 360 } : s))
