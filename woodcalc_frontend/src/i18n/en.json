@@ -1209,6 +1209,8 @@
     "colFront": "Front",
     "view3dFailed": "3D view failed to load",
     "view3dFailedHint": "Try switching tabs and back, or refresh the page",
+    "view3dLostHint": "Your device ran out of graphics memory. Reload to try again.",
+    "view3dReload": "Reload",
     "addCabinetsFirst": "Add cabinets first",
     "alreadySent": "✓ Already sent — no new cabinets to add",
     "backOrderSent": "✓ Back Order {{orderNumber}} sent! ({{count}} new cabinets)",

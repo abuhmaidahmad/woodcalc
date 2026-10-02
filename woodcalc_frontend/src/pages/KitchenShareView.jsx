@@ -61,6 +61,7 @@ export default function KitchenShareView() {
             cabinets={cabinets}
             room={room.room}
             walls={room.walls}
+            stairs={room.stairs || []}
             elements={room.elements}
             countertopMat={room.countertopMat}
             countertopThickness={room.countertopThickness}

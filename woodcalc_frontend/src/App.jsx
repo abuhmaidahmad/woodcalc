@@ -1,45 +1,60 @@
-import React from 'react';
+import React, { lazy as lazyReact, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import RoleSelect from './pages/auth/RoleSelect';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
-import RegisterCustomer from './pages/auth/RegisterCustomer';
-import RegisterArchitect from './pages/auth/RegisterArchitect';
-import RegisterManufacturer from './pages/auth/RegisterManufacturer';
-import RegisterSupplier from './pages/auth/RegisterSupplier';
-import Dashboard from './pages/Dashboard';
-import KitchenPlannerModule from './features/kitchen_planner/KitchenPlannerModule';
-import CuttingOptimizerModule from './features/manufacturing/CuttingOptimizerModule';
-import CadCamImport from './pages/CadCamImport';
-import CustomerList from './pages/CustomerList'
-import RoomDetail from './pages/RoomDetail'
-import ProductionBoard from './pages/ProductionBoard';
-import CustomerDetail from './pages/CustomerDetail';
-import ProjectDetail from './pages/ProjectDetail';
-import MaterialCatalog from './pages/MaterialCatalog';
-import Collections from './pages/Collections';
-import SupplierList from './pages/SupplierList';
-import PurchaseOrderList from './pages/PurchaseOrderList';
-import SupplierStatement from './pages/SupplierStatement';
-import PurchaseOrderDetail from './pages/PurchaseOrderDetail';
-import EmployeeList from './pages/EmployeeList';
-import EmployeeDetail from './pages/EmployeeDetail';
-import PayrollRun from './pages/PayrollRun';
-import MaterialList from './pages/MaterialList';
-import Settings from './pages/Settings';
-import BillingReturn from './pages/BillingReturn';
-import PublicCatalogBrowse from './pages/PublicCatalogBrowse';
-import KitchenShareView from './pages/KitchenShareView';
-import LeadList from './pages/LeadList';
-import LeadDesignView from './pages/LeadDesignView';
-import AdminCompanies from './pages/AdminCompanies';
-import AdminCompanyDetail from './pages/AdminCompanyDetail';
-import AdminFeedback from './pages/AdminFeedback';
 import TrialBanner from './components/TrialBanner';
 import FeedbackWidget from './components/FeedbackWidget';
 import LanguageSwitcher from './components/LanguageSwitcher';
 import { isStaff } from './api/auth';
+
+// Every page is loaded on demand so a visitor only downloads the code for the
+// route they open -- most importantly the public /view/:token 3D link, which
+// customers open on their phones and shouldn't have to pull the whole ERP.
+// A tab left open across a deploy still references the old chunk hashes, which
+// no longer exist on the server -- reload once to pick up the new build
+// instead of leaving the page blank.
+const lazy = (load) => lazyReact(() => load().catch((err) => {
+  if (!sessionStorage.getItem('chunk-reload')) {
+    sessionStorage.setItem('chunk-reload', '1');
+    window.location.reload();
+    return new Promise(() => {});
+  }
+  throw err;
+}).then((mod) => { sessionStorage.removeItem('chunk-reload'); return mod; }));
+const RegisterCustomer = lazy(() => import('./pages/auth/RegisterCustomer'));
+const RegisterArchitect = lazy(() => import('./pages/auth/RegisterArchitect'));
+const RegisterManufacturer = lazy(() => import('./pages/auth/RegisterManufacturer'));
+const RegisterSupplier = lazy(() => import('./pages/auth/RegisterSupplier'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const KitchenPlannerModule = lazy(() => import('./features/kitchen_planner/KitchenPlannerModule'));
+const CuttingOptimizerModule = lazy(() => import('./features/manufacturing/CuttingOptimizerModule'));
+const CadCamImport = lazy(() => import('./pages/CadCamImport'));
+const CustomerList = lazy(() => import('./pages/CustomerList'));
+const RoomDetail = lazy(() => import('./pages/RoomDetail'));
+const ProductionBoard = lazy(() => import('./pages/ProductionBoard'));
+const CustomerDetail = lazy(() => import('./pages/CustomerDetail'));
+const ProjectDetail = lazy(() => import('./pages/ProjectDetail'));
+const MaterialCatalog = lazy(() => import('./pages/MaterialCatalog'));
+const Collections = lazy(() => import('./pages/Collections'));
+const SupplierList = lazy(() => import('./pages/SupplierList'));
+const PurchaseOrderList = lazy(() => import('./pages/PurchaseOrderList'));
+const SupplierStatement = lazy(() => import('./pages/SupplierStatement'));
+const PurchaseOrderDetail = lazy(() => import('./pages/PurchaseOrderDetail'));
+const EmployeeList = lazy(() => import('./pages/EmployeeList'));
+const EmployeeDetail = lazy(() => import('./pages/EmployeeDetail'));
+const PayrollRun = lazy(() => import('./pages/PayrollRun'));
+const MaterialList = lazy(() => import('./pages/MaterialList'));
+const Settings = lazy(() => import('./pages/Settings'));
+const BillingReturn = lazy(() => import('./pages/BillingReturn'));
+const PublicCatalogBrowse = lazy(() => import('./pages/PublicCatalogBrowse'));
+const KitchenShareView = lazy(() => import('./pages/KitchenShareView'));
+const LeadList = lazy(() => import('./pages/LeadList'));
+const LeadDesignView = lazy(() => import('./pages/LeadDesignView'));
+const AdminCompanies = lazy(() => import('./pages/AdminCompanies'));
+const AdminCompanyDetail = lazy(() => import('./pages/AdminCompanyDetail'));
+const AdminFeedback = lazy(() => import('./pages/AdminFeedback'));
 
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
@@ -70,6 +85,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <LanguageSwitcher />
+      <Suspense fallback={<div style={{ minHeight: '100vh', background: '#1A1A1A' }} />}>
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<Login />} />
@@ -188,6 +204,7 @@ export default function App() {
         {/* Default */}
         <Route path="/" element={<Navigate to="/customers" />} />
       </Routes>
+      </Suspense>
     </BrowserRouter>
   );
 }

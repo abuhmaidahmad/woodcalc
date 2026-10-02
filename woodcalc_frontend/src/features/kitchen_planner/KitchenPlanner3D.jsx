@@ -8,6 +8,18 @@ import React, { useMemo, Suspense, useState, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
+import { useTranslation } from '../../i18n/LanguageContext'
+
+// Phones and tablets (touch-first, or few CPU cores) can't afford the full
+// pipeline below: 4 point-light cube shadow maps (~24 extra shadow passes),
+// SSAO with a normal pass and 4x MSAA at 2x DPR is enough to exhaust GPU
+// memory on iOS Safari, which then kills the WebGL context and leaves the
+// customer share link blank. They get a lighter render instead -- same
+// geometry, materials and key-light shadow, minus the most expensive extras.
+const LOW_POWER = typeof window !== 'undefined' && (
+  !!window.matchMedia?.('(pointer: coarse)').matches ||
+  (navigator.hardwareConcurrency || 8) <= 4
+)
 import { computeWallBodies, getWallThickness } from './wallGeometry'
 import { computeStairSteps, findOverlappingStairProfile } from './stairGeometry'
 
@@ -377,7 +389,7 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
         <circleGeometry args={[0.08, 16]} />
         <meshStandardMaterial color="#fffde7" emissive="#fffde7" emissiveIntensity={3} />
       </mesh>
-      <pointLight intensity={1.2} color="#fff5e0" distance={4} decay={2} castShadow
+      <pointLight intensity={1.2} color="#fff5e0" distance={4} decay={2} castShadow={!LOW_POWER}
         shadow-mapSize={[512, 512]} shadow-bias={-0.001} />
     </group>
   )
@@ -2415,10 +2427,25 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
     [cabinets]
   )
 
+  const { t } = useTranslation()
+  // The browser can drop the WebGL context (most often iOS Safari under memory
+  // pressure); without this the canvas just goes blank with no explanation.
+  const [contextLost, setContextLost] = useState(false)
+
   return (
-    <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd'}}>
+    <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd',position:'relative'}}>
+      {contextLost && (
+        <div style={{position:'absolute',inset:0,zIndex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:8,background:'#ddd9d3',textAlign:'center',padding:24,fontFamily:'Inter, sans-serif'}}>
+          <div style={{fontWeight:700,color:'#1A1A1A'}}>{t('kitchenPlannerModule.view3dFailed')}</div>
+          <div style={{fontSize:13,color:'#555'}}>{t('kitchenPlannerModule.view3dLostHint')}</div>
+          <button onClick={() => window.location.reload()} style={{marginTop:8,padding:'8px 18px',borderRadius:8,border:'none',background:'#C8902A',color:'#fff',fontWeight:700,cursor:'pointer'}}>
+            {t('kitchenPlannerModule.view3dReload')}
+          </button>
+        </div>
+      )}
       <Canvas shadows
-        dpr={[1, 2]}
+        dpr={LOW_POWER ? [1, 1.5] : [1, 2]}
+        onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setContextLost(true) })}
         frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
         // The postprocessing pipeline below (EffectComposer with
@@ -2498,10 +2525,16 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         <Environment files="/lebombo_1k.hdr" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
-        <EffectComposer enableNormalPass multisampling={4}>
-          <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
-          <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-        </EffectComposer>
+        {LOW_POWER ? (
+          <EffectComposer multisampling={0}>
+            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          </EffectComposer>
+        ) : (
+          <EffectComposer enableNormalPass multisampling={4}>
+            <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
+            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+          </EffectComposer>
+        )}
 
       </Canvas>
     </div>

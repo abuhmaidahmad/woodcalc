@@ -62,6 +62,7 @@ def public_room_share_view(request, token):
         'company_slug': room.project.client.tenant.slug,
         'room': data.get('room'),
         'walls': data.get('walls', []),
+        'stairs': data.get('stairs', []),
         'elements': data.get('elements', []),
         'cabinets': data.get('cabinets', []),
         'countertopMat': data.get('countertopMat'),
