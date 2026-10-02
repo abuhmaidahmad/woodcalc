@@ -1954,7 +1954,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {isShelfEligible(selCab) && selCab.subtype !== 'Blind' && (() => {
+                {isShelfEligible(selCab) && selCab.subtype !== 'Blind' && selCab.subtype !== 'Open Shelf' && (() => {
+                  // Open Shelf is an open-box cabinet with no door at all (isShelfEligible
+                  // only gates the shelf-count control above, which Open Shelf legitimately
+                  // needs) -- splitting a door count it doesn't have would be meaningless.
                   const doorOptions = [1, 2, 4]
                   const currentDoors = selCab.doorCount ?? getDefaultDoorCount(selCab.width)
                   return (
