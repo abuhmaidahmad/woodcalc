@@ -97,6 +97,11 @@ function buildLibrary(baseHeight) {
     // legs, the countertop above it, and (if the project's door style is Gola) the
     // same milled notch + channel a solid Gola base door would get.
     ...baseWidths.map(w => ({ id: `base_glass_${w}`, label: `Glass ${w}`, subtype: 'Glass Door', width: w, height: baseHeight, depth: 560, icon: 'wall_glass', category: 'base' })),
+    // "Open box" base cabinet — same hollow, doorless 'Open Shelf' subtype as the
+    // wall version below, at base depth/height. It still gets the countertop
+    // running across its top like any other base unit (see the Open-Shelf
+    // special case added next to the Filler one in KitchenPlanner3D's Cabinet).
+    ...baseWidths.map(w => ({ id: `base_open_${w}`, label: `Open ${w}`, subtype: 'Open Shelf', width: w, height: baseHeight, depth: 560, icon: 'wall_open', category: 'base' })),
     ...baseWidths.filter(w => w >= 400).map(w => ({ id: `base_sink_${w}`, label: `Sink ${w}`, subtype: 'Sink', width: w, height: baseHeight, depth: 560, icon: 'base_sink', category: 'base' })),
     { id: 'base_hob_oven_900', label: 'Hob + Oven 900', subtype: 'Hob + Oven', width: 900, height: baseHeight, depth: 560, icon: 'base_hob_oven', category: 'base' },
     ...[300, 400, 450, 500, 600].map(w => ({ id: `base_drw_${w}`, label: `Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 560, icon: 'base_drawers', category: 'base' })),
@@ -121,6 +126,14 @@ function buildLibrary(baseHeight) {
 
   const tall = [
     ...tallWidths.map(w => ({ id: `tall_pantry_${w}`,      label: `Pantry ${w}`,       subtype: 'Pantry',       width: w, height: 2220, depth: 560, icon: 'tall_pantry',      category: 'tall' })),
+    // Same 'Glass Door'/'Open Shelf' subtypes as the wall and base entries above,
+    // at tall depth/height. Legs (isTall) and the hollow glass-shelf carcass
+    // already key off category, not subtype, so these just work; a tall Gola
+    // glass door falls back to a plain glass panel with no top profile piece
+    // (see the isTall guard added to GlassDoor), same gap plain tall Gola doors
+    // already have outside the lower/upper split case.
+    ...tallWidths.map(w => ({ id: `tall_glass_${w}`, label: `Glass ${w}`, subtype: 'Glass Door', width: w, height: 2220, depth: 560, icon: 'wall_glass', category: 'tall' })),
+    ...tallWidths.map(w => ({ id: `tall_open_${w}`,  label: `Open ${w}`,  subtype: 'Open Shelf', width: w, height: 2220, depth: 560, icon: 'wall_open',  category: 'tall' })),
     ...tallWidths.filter(w => w >= 600).map(w => ({ id: `tall_oven_${w}`, label: `Oven Tower ${w}`, subtype: 'Oven Tower', width: w, height: 2220, depth: 560, icon: 'tall_oven', category: 'tall' })),
     ...tallWidths.filter(w => w >= 600).map(w => ({ id: `tall_doven_${w}`,label: `Dbl Oven ${w}`,   subtype: 'Double Oven',width: w, height: 2220, depth: 560, icon: 'tall_double_oven', category: 'tall' })),
     ...[600, 700, 800, 900].map(w => ({ id: `tall_fridge_${w}`, label: `Fridge ${w}`,  subtype: 'Fridge',       width: w, height: 2220, depth: 600, icon: 'tall_fridge',      category: 'tall' })),

@@ -1075,7 +1075,7 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
   )
 }
 
-function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black' }) {
+function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = false, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black' }) {
   const doorW = W / numDoors
   const GAP = 0.002
   const PROUD = 0.020
@@ -1140,11 +1140,14 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, glassType
           </group>
         )
       })}
-      {isGola && !isWallCabinet && (
+      {isGola && !isWallCabinet && !isTall && (
         // Same aluminum L-profile channel piece an opaque Gola door's carcass
         // gets (see CabinetDoors' own GolaProfile) -- without it, a glass Gola
         // door was just a panel dropped 25mm with no actual channel/handle at
         // all, which looked like a mistake rather than a handleless pull.
+        // Excluded for tall units same as CabinetDoors: tall Gola cabinets get
+        // a mid-height C-channel at the base-cabinet-top split line instead of
+        // a top L-profile, which this carcass doesn't attempt to replicate yet.
         <group position={[0, H / 2, 0]}>
           <GolaProfile W={W} D={D} golaHex={frameHex} golaColor={frameColor} />
         </group>
@@ -1989,12 +1992,16 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
         </group>
       )}
-      {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight)) && (
+      {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight) || (cab.subtype === 'Open Shelf' && isBase)) && (
         // isPanel is only true here for the Filler branch: a filler has no leg-lifted
         // outer group of its own (showLegs is false for accessories), so SidePanelSlab
         // lifts the slab itself by panelLift (=legH) to land on the same leg height as
         // the rest of the run. The countertop above it needs that same lift added back
-        // in, or it sits legH too low and ends up sunk into the filler block.
+        // in, or it sits legH too low and ends up sunk into the filler block. A base-
+        // category Open Shelf (an "open box" cabinet) isn't excluded by the isShelf
+        // guard here the way wall/tall ones are -- like any other base unit, it still
+        // has a real countertop running across its top, so it's added back in
+        // explicitly (it already has its own leg-lifted group, so no extra lift needed).
         <group position={[0, H + (isPanel ? panelLift : 0), 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
             sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
@@ -2030,6 +2037,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               numDoors={numDoors}
               handlePosition={cab.handlePosition || 'bottom'}
               isWallCabinet={isWall}
+              isTall={isTall}
               glassType={cab.glassType || 'clear'}
               doorStyle={doorStyle}
               frameColor={cab.frameColor || 'black'}
