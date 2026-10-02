@@ -1051,9 +1051,10 @@ export default function RoomCanvas({
       // e.key === 'ي', so the shortcut silently missed and Safari's
       // bookmark dialog opened instead.
       const isDuplicate = (e.ctrlKey || e.metaKey) && e.code === 'KeyD'
-      // Cmd+D does nothing useful inside a number/text field, so still let it
-      // duplicate from there (e.g. right after editing a cabinet's width).
-      if (typing && !(isDuplicate && tgt.tagName === 'INPUT')) return
+      // Cmd+D does nothing useful inside a field or dropdown, so still let it
+      // duplicate from there (e.g. right after editing a cabinet's width or
+      // door style) -- only free-text areas keep it.
+      if (typing && !(isDuplicate && !tgt.isContentEditable && tgt.tagName !== 'TEXTAREA')) return
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedWall !== null) {
         pushHistory(walls.filter((_, i) => i !== selectedWall)); setSelectedWall(null); return
       }

@@ -1791,7 +1791,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
               stairs={stairs} setStairs={setStairs}
-              backsplashSegments={backsplashSegments}
+              backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments}
               readOnly={false}
               hideToolbar={false}
               hideBacksplashTool={true}
