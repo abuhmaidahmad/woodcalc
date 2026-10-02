@@ -322,7 +322,7 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   )
 }
 
-function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false }) {
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null }) {
   const T = 0.018
   const common = { color, materialName, matProps, envMapIntensity: 0.5, castShadow: true, receiveShadow: true }
   const shelfT = glassShelf ? 0.008 : T // 8mm clear glass, or standard 18mm wood panel
@@ -356,28 +356,42 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
   // door renders (see GlassDoor) seats in a real shadow gap, matching how a
   // solid Gola door's carcass meets its own channel, instead of a flush glass-
   // cabinet top cutting across it.
+  // A catalog material's real look is its photo texture -- its `color` is only
+  // the fallback hex -- so when one is given, panels render textured like door
+  // fronts do instead of a flat (fallback) color.
+  const panel = (args, position) => {
+    if (!texEntry) return <SmartBox args={args} position={position} {...common} />
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    const [a, b] = [...args].sort((m, n) => n - m)
+    return (
+      <PhotoTexturedBox args={args} position={position} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={color} matProps={matProps}
+        envMapIntensity={0.8} repeatU={a / physW} repeatV={b / physH} />
+    )
+  }
   if (isGola) {
     const sideH = H - T
     const notches = [{ yBottom: sideH - GOLA_L_NOTCH_H, yTop: sideH }]
     return (
       <>
-        <SmartBox args={[W, T, D]} position={[0, T / 2, 0]} {...common} />
+        {panel([W, T, D], [0, T / 2, 0])}
         <group position={[0, T, 0]}>
-          <NotchedSidePanel H={sideH} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} />
-          <NotchedSidePanel H={sideH} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} />
+          <NotchedSidePanel H={sideH} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
+          <NotchedSidePanel H={sideH} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
         </group>
-        {!openFront && <SmartBox args={[W - T * 2, sideH, T]} position={[0, T + sideH / 2, -D / 2 + T / 2]} {...common} />}
+        {!openFront && panel([W - T * 2, sideH, T], [0, T + sideH / 2, -D / 2 + T / 2])}
         {shelves}
       </>
     )
   }
   return (
     <>
-      <SmartBox args={[W, T, D]} position={[0, T / 2, 0]} {...common} />
-      <SmartBox args={[W, T, D]} position={[0, H - T / 2, 0]} {...common} />
-      <SmartBox args={[T, H - T * 2, D]} position={[-W / 2 + T / 2, H / 2, 0]} {...common} />
-      <SmartBox args={[T, H - T * 2, D]} position={[W / 2 - T / 2, H / 2, 0]} {...common} />
-      {!openFront && <SmartBox args={[W - T * 2, H - T * 2, T]} position={[0, H / 2, -D / 2 + T / 2]} {...common} />}
+      {panel([W, T, D], [0, T / 2, 0])}
+      {panel([W, T, D], [0, H - T / 2, 0])}
+      {panel([T, H - T * 2, D], [-W / 2 + T / 2, H / 2, 0])}
+      {panel([T, H - T * 2, D], [W / 2 - T / 2, H / 2, 0])}
+      {!openFront && panel([W - T * 2, H - T * 2, T], [0, H / 2, -D / 2 + T / 2])}
       {shelves}
     </>
   )
@@ -547,7 +561,13 @@ function computeSimpleZoneLayout(H, zones) {
 
 // Side panel with milled notches on the front edge (Shape + Extrude).
 // Blank stays full H x D; notches are cut into the outline (art.1004-1005).
-function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = {} }) {
+class FallbackBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: false } }
+  static getDerivedStateFromError() { return { error: true } }
+  render() { return this.state.error ? this.props.fallback : this.props.children }
+}
+
+function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = {}, texEntry = null }) {
   const geom = useMemo(() => {
     const ND = GOLA_NOTCH_DEPTH
     const shape = new THREE.Shape()
@@ -567,10 +587,24 @@ function NotchedSidePanel({ H, D, T = 0.018, x, notches = [], color, matProps = 
     shape.closePath()
     return new THREE.ExtrudeGeometry(shape, { depth: T, bevelEnabled: false })
   }, [H, D, T, JSON.stringify(notches)])
-  return (
+  const flat = (
     <mesh geometry={geom} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow receiveShadow>
       <meshPhysicalMaterial color={color} roughness={matProps.roughness ?? 0.6} metalness={matProps.metalness ?? 0} envMapIntensity={0.5} />
     </mesh>
+  )
+  if (!texEntry) return flat
+  // Extrude cap UVs are the shape's own coords in meters, so repeat = 1/physical size.
+  const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+  const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+  return (
+    <FallbackBoundary fallback={flat}>
+      <Suspense fallback={flat}>
+        <mesh geometry={geom} position={[x, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow receiveShadow>
+          <PhotoPanelMaterial imageUrl={texEntry.texture_image} color={color} matProps={matProps}
+            envMapIntensity={0.8} repeatU={1 / physW} repeatV={1 / physH} />
+        </mesh>
+      </Suspense>
+    </FallbackBoundary>
   )
 }
 
@@ -1917,6 +1951,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const boxColor = useFrontForBox ? frontColor : carcassColor
   const boxMaterial = useFrontForBox ? frontMaterial : carcassMaterial
   const boxMatProps = useFrontForBox ? getMaterialProps(frontMaterial) : carcassMatProps
+  const boxTexEntry = useFrontForBox && cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] || null : null
 
   return (
     <group position={[x + W/2, (showLegs ? legH : 0) + elevation/1000, z + D/2]} rotation={[0, -rot, 0]}>
@@ -1956,7 +1991,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           <FreestandingHoodAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
         )
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
-        <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps}
+        <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps} texEntry={boxTexEntry}
           shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf} />
