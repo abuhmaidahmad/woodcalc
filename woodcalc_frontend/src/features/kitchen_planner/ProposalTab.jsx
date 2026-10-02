@@ -39,31 +39,56 @@ function boardMatKey(material) {
     : material?.toLowerCase().includes('mdf') ? 'sheet18_mdf_m2' : 'sheet18_m2'
 }
 
+// Depth a countertop strip is cut at -- base cabinets (560) plus front overhang.
+// Used to turn a per-linear-meter quote into per-m² (backsplash) and to count how
+// many countertop strips one slab yields.
+const COUNTERTOP_DEPTH_MM = 600
+
+// A catalog material's price as entered, plus what it's quoted per (see the
+// Material.price_unit field): 'board' (a whole board_width x board_height sheet),
+// 'lm' (one running meter at the supplier's slab depth) or 'm2'.
+function catalogPrice(code, materialsMap) {
+  const mat = code ? materialsMap[code] : null
+  if (!mat || mat.price_per_board == null || mat.price_per_board === '') return { mat, price: null, unit: null }
+  const price = Number(mat.price_per_board)
+  return { mat, price: Number.isFinite(price) && price > 0 ? price : null, unit: mat.price_unit || 'board' }
+}
+
 // Resolves a real per-m² price for a specific catalog material (front/carcass/
 // worktop, looked up by its code/sku in materialsMap -- the same map KitchenPlanner3D
 // already builds via useMaterialTextureMap, so this needs no extra fetch). Falls
 // back to the generic board-type rate (by the material's own core_material, or the
 // cabinet's plain `material` string) when the code isn't set or has no catalog price.
 function materialPricePerM2(code, materialsMap, prices, fallbackType, fallbackKey = null) {
-  const mat = code ? materialsMap[code] : null
-  if (mat && mat.price_per_board != null && mat.board_width && mat.board_height) {
-    const boardM2 = (mat.board_width * mat.board_height) / 1e6
-    if (boardM2 > 0) return Number(mat.price_per_board) / boardM2
+  const { mat, price, unit } = catalogPrice(code, materialsMap)
+  if (price != null) {
+    if (unit === 'm2') return price
+    if (unit === 'lm') return price / (COUNTERTOP_DEPTH_MM / 1000)
+    if (mat.board_width && mat.board_height) {
+      const boardM2 = (mat.board_width * mat.board_height) / 1e6
+      if (boardM2 > 0) return price / boardM2
+    }
   }
   return prices[fallbackKey || boardMatKey(mat?.core_material || fallbackType)]
 }
 
-// Countertop suppliers quote per running meter at their own fixed slab depth
-// (e.g. a "meter" = a 600mm-deep x 1000mm-long cut), not per m² -- so the
-// catalog's price_per_board / board_width already IS that per-meter rate once
-// the material is set up with board_width = the length the supplier prices by
-// (1000mm = 1 "meter"). Falls back to the flat countertop_lm rate when the
-// selected countertop has no catalog price set (e.g. a built-in preset slab).
+// Countertop price per running meter. A per-meter quote is used as-is; a per-m²
+// quote is scaled by the strip depth; a per-board slab yields
+// floor(board_height / 600) strips of board_width length each (e.g. a 3000x1400
+// quartz slab = 2 strips = 6 running meters), so its price is spread over all of
+// them rather than assuming one strip per slab. Falls back to the flat
+// countertop_lm rate when the selected countertop has no catalog price set
+// (e.g. a built-in preset slab).
 function materialPricePerLm(code, materialsMap, fallback) {
-  const mat = code ? materialsMap[code] : null
-  if (mat && mat.price_per_board != null && mat.board_width) {
-    const lm = Number(mat.price_per_board) / (mat.board_width / 1000)
-    if (Number.isFinite(lm) && lm > 0) return lm
+  const { mat, price, unit } = catalogPrice(code, materialsMap)
+  if (price != null) {
+    if (unit === 'lm') return price
+    if (unit === 'm2') return price * (COUNTERTOP_DEPTH_MM / 1000)
+    if (mat.board_width) {
+      const strips = Math.max(1, Math.floor((mat.board_height || COUNTERTOP_DEPTH_MM) / COUNTERTOP_DEPTH_MM))
+      const lm = price / (strips * mat.board_width / 1000)
+      if (Number.isFinite(lm) && lm > 0) return lm
+    }
   }
   return fallback
 }
@@ -629,7 +654,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 14 }}>{t('proposalTab.summary')}</div>
             {[
               [t('proposalTab.cabinetsSubtotal'),  cabinetsSubtotal],
-              ...(countertopLm > 0 ? [[t('proposalTab.countertopRow', { m: countertopLm.toFixed(2) }), countertopCost]] : []),
+              ...(countertopLm > 0 ? [[t('proposalTab.countertopRow', { m: countertopLm.toFixed(2), rate: (countertopCost / countertopLm).toFixed(2) }), countertopCost]] : []),
               ...(backsplashCost > 0 ? [[t('proposalTab.backsplashRow', { m: backsplashLm.toFixed(2) }), backsplashCost]] : []),
               [t('proposalTab.additionalItemsRow'),   extrasSubtotal],
               [t('proposalTab.costSubtotal'),      costSubtotal],
@@ -757,7 +782,7 @@ function exportPDF(data) {
   <div class="section">${tr('proposalPdf.summary')}</div>
   <div style="max-width:360px;margin-inline-start:auto">
     <div class="total-row"><span>${tr('proposalPdf.cabinetsSubtotal')}</span><span>${fmt(cabinetsSubtotal)} JD</span></div>
-    ${countertopLm > 0 ? `<div class="total-row"><span>${tr('proposalTab.countertopRow', { m: fmt(countertopLm) })}</span><span>${fmt(countertopCost)} JD</span></div>` : ''}
+    ${countertopLm > 0 ? `<div class="total-row"><span>${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })}</span><span>${fmt(countertopCost)} JD</span></div>` : ''}
     ${backsplashCost > 0 ? `<div class="total-row"><span>${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })}</span><span>${fmt(backsplashCost)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.additionalItemsRow')}</span><span>${fmt(extrasSubtotal)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.costSubtotal')}</span><span>${fmt(costSubtotal)} JD</span></div>
@@ -818,7 +843,7 @@ function exportExcel(data) {
   rows.push([])
   rows.push([tr('proposalPdf.summary')])
   rows.push([`${tr('proposalPdf.cabinetsSubtotal')} (JD)`,   fmt(cabinetsSubtotal)])
-  if (countertopLm > 0) rows.push([`${tr('proposalTab.countertopRow', { m: fmt(countertopLm) })} (JD)`, fmt(countertopCost)])
+  if (countertopLm > 0) rows.push([`${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })} (JD)`, fmt(countertopCost)])
   if (backsplashCost > 0) rows.push([`${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })} (JD)`, fmt(backsplashCost)])
   rows.push([`${tr('proposalPdf.additionalItemsRow')} (JD)`,    fmt(extrasSubtotal)])
   rows.push([`${tr('proposalPdf.costSubtotal')} (JD)`,         fmt(costSubtotal)])

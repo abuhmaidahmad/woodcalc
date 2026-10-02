@@ -22,11 +22,16 @@ const CORE_MATERIAL_KEYS = {
   plywood: 'materialCatalog.corePlywood', solid_wood: 'materialCatalog.coreSolidWood', compact: 'materialCatalog.coreCompact',
 }
 
+const PRICE_UNIT_KEYS = {
+  board: 'materialCatalog.priceUnitBoard', lm: 'materialCatalog.priceUnitLm', m2: 'materialCatalog.priceUnitM2',
+}
+const PRICE_UNIT_SHORT = { board: '/board', lm: '/m', m2: '/m²' }
+
 const EMPTY_FORM = {
   name: '', sku: '', material_type: 'front', finish: 'matt', core_material: '',
   supplier: '', fallback_hex: '#C8902A',
   board_width: 2440, board_height: 1220, board_thickness: 18,
-  price_per_board: '', roughness: 0.4, metalness: 0.0,
+  price_per_board: '', price_unit: 'board', roughness: 0.4, metalness: 0.0,
   texture_physical_width_mm: 600, texture_physical_height_mm: 600,
 }
 
@@ -181,6 +186,7 @@ export default function MaterialCatalog() {
       board_height: tex.board_height || 1220,
       board_thickness: tex.board_thickness || 18,
       price_per_board: tex.price_per_board || '',
+      price_unit: tex.price_unit || 'board',
       roughness: tex.roughness ?? 0.4,
       metalness: tex.metalness ?? 0.0,
       texture_physical_width_mm: tex.texture_physical_width_mm || 600,
@@ -549,9 +555,19 @@ export default function MaterialCatalog() {
               <Field label={t('materialCatalog.photoHeightLabel')} value={form.texture_physical_height_mm} type="number" onChange={v => setForm(f => ({ ...f, texture_physical_height_mm: v }))} placeholder="600" />
             </div>
 
-            {/* Price + Fallback color */}
+            {/* Price + what it's quoted per (countertop suppliers often price per running meter) */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
-              <Field label={t('materialCatalog.pricePerBoardLabel')} value={form.price_per_board} type="number" onChange={v => setForm(f => ({ ...f, price_per_board: v }))} placeholder="0.00" />
+              <Field label={t('materialCatalog.priceLabel')} value={form.price_per_board} type="number" onChange={v => setForm(f => ({ ...f, price_per_board: v }))} placeholder="0.00" />
+              <div>
+                <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.priceUnitLabel')}</div>
+                <select value={form.price_unit} onChange={e => setForm(f => ({ ...f, price_unit: e.target.value }))} style={{ ...selectStyle, width: '100%' }}>
+                  {Object.entries(PRICE_UNIT_KEYS).map(([k, key]) => <option key={k} value={k}>{t(key)}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Fallback color */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.fallbackColorLabel')}</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -753,7 +769,7 @@ function MaterialCard({ texture, onEdit, onDelete, deleting, t, dir }) {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
           <Chip label={t('materialCatalog.boardDims', { width: texture.board_width || 2440, height: texture.board_height || 1220 })} />
           <Chip label={t('materialCatalog.thicknessChip', { thickness: texture.board_thickness || 18 })} />
-          {texture.price_per_board && <Chip label={`${parseFloat(texture.price_per_board).toFixed(2)} JD`} accent />}
+          {texture.price_per_board && <Chip label={`${parseFloat(texture.price_per_board).toFixed(2)} JD${PRICE_UNIT_SHORT[texture.price_unit || 'board']}`} accent />}
         </div>
 
         {texture.supplier_name && (

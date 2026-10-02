@@ -81,6 +81,11 @@ class Material(models.Model):
         help_text='Board substrate/core',
     )
     price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    price_unit = models.CharField(
+        max_length=10, default='board',
+        choices=[('board', 'Per Board'), ('lm', 'Per Linear Meter'), ('m2', 'Per m²')],
+        help_text='What price_per_board is quoted per -- countertop suppliers often quote per running meter',
+    )
     texture_physical_width_mm = models.PositiveIntegerField(
         blank=True, null=True, default=600,
         help_text='Real-world width this texture image represents (mm), for scaling grain in 3D view',
