@@ -56,6 +56,16 @@ const AdminCompanies = lazy(() => import('./pages/AdminCompanies'));
 const AdminCompanyDetail = lazy(() => import('./pages/AdminCompanyDetail'));
 const AdminFeedback = lazy(() => import('./pages/AdminFeedback'));
 
+// Shown while a page's code chunk downloads (mostly right after a hard
+// refresh). Matches the app's light background so there's no dark flash.
+function PageLoader() {
+  return (
+    <div style={{ minHeight: '100vh', background: '#f8f5f1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="page-loader-spinner" />
+    </div>
+  );
+}
+
 function PrivateRoute({ children }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" />;
@@ -85,7 +95,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <LanguageSwitcher />
-      <Suspense fallback={<div style={{ minHeight: '100vh', background: '#1A1A1A' }} />}>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         {/* Auth */}
         <Route path="/login" element={<Login />} />
