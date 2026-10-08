@@ -13,7 +13,7 @@ import {
 } from './stairGeometry'
 import CabinetCatalog, { CountertopPicker, COUNTERTOP_MATERIALS, SinkPicker } from './CabinetCatalog'
 import DesignerAgentChat from './DesignerAgentChat'
-import ProposalTab from './ProposalTab'
+import ProposalTab, { computeProposalTotals, defaultProposalExtras } from './ProposalTab'
 import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
 import ErrorBoundary from '../../components/ErrorBoundary'
@@ -829,7 +829,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   }
   const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
   const [countertopThickness, setCountertopThickness] = useState(30)
-  const [grandTotal, setGrandTotal] = useState(0)
   // Proposal tab's price overrides/margin/customer/extras -- kept here so the
   // project's own Save button persists them in planner_data like everything
   // else, instead of them living only in ProposalTab's local state and
@@ -868,7 +867,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       if (initialData.cabinets) setCabinets(initialData.cabinets)
       if (initialData.baseHeight) setBaseHeight(initialData.baseHeight)
       if (initialData.projectDefaults) setProjectDefaults(initialData.projectDefaults)
-      if (initialData.grandTotal) setGrandTotal(initialData.grandTotal)
       if (initialData.countertopMat) setCountertopMat(initialData.countertopMat)
       if (initialData.countertopThickness) setCountertopThickness(initialData.countertopThickness)
       if (initialData.proposalSettings) setProposalSettings(initialData.proposalSettings)
@@ -1015,6 +1013,26 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const selCab = cabinets.find(c => c.id === selected && selectedType === 'cabinet')
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
   const bom    = aggregateBOM(cabinets, stairs)
+
+  const backsplashLm = backsplashSegments.reduce((s, seg) => {
+    const cab = cabinets.find(c => c.id === seg.cabinetId)
+    if (!cab) return s
+    const { x1, y1, x2, y2 } = resolveBacksplashSegmentPx(cab, seg, SCALE)
+    return s + Math.hypot(x2 - x1, y2 - y1) / SCALE / 1000
+  }, 0)
+  // Computed here rather than reported up by ProposalTab, so the total saved on the
+  // room (and shown on the project's room cards) always matches the current design
+  // even when the room is saved without opening the Proposal tab. Falls back to the
+  // same defaults ProposalTab seeds a fresh proposal with.
+  const grandTotal = useMemo(() => computeProposalTotals({
+    cabinets,
+    prices: proposalSettings?.prices,
+    margin: proposalSettings?.margin ?? 30,
+    extras: (proposalSettings?.extras || defaultProposalExtras(t, cabinets.length)).filter(e => e.id !== 1),
+    materialsMap: textureMap,
+    drawerSystemsCatalog: availableDrawerSystems,
+    countertopMat, backsplashLm, backsplashHeight, t,
+  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t])
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
@@ -2312,15 +2330,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     countertopMat={countertopMat}
     materialsMap={textureMap}
     drawerSystemsCatalog={availableDrawerSystems}
-    backsplashLm={backsplashSegments.reduce((s, seg) => {
-      const cab = cabinets.find(c => c.id === seg.cabinetId)
-      if (!cab) return s
-      const { x1, y1, x2, y2 } = resolveBacksplashSegmentPx(cab, seg, SCALE)
-      return s + Math.hypot(x2 - x1, y2 - y1) / SCALE / 1000
-    }, 0)}
+    backsplashLm={backsplashLm}
     backsplashHeight={backsplashHeight}
     projectName={projectName}
-    onGrandTotalChange={setGrandTotal}
     initialSettings={proposalSettings}
     onSettingsChange={setProposalSettings}
   />

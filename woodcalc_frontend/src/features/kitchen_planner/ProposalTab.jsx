@@ -280,6 +280,49 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
 }
 
 // ─── Section header ────────────────────────────────────────────────────────
+// ─── Whole-proposal totals ─────────────────────────────────────────────────
+// Pure so KitchenPlannerModule can compute the same grand total without this tab
+// being mounted -- the saved room total (shown on the project's room cards) must
+// match what the Proposal tab shows even when the room is saved from another tab.
+export function defaultProposalExtras(t, cabinetCount) {
+  return [
+    { id: 3, label: t('extras.delivery'),     qty: 1, unitPrice: DEFAULT_PRICES.delivery },
+    { id: 4, label: t('extras.installation'), qty: cabinetCount || 1, unitPrice: DEFAULT_PRICES.installation_cab },
+  ]
+}
+
+export function computeProposalTotals({ cabinets, prices = DEFAULT_PRICES, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, t }) {
+  const pricedCabinets = cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
+
+  // Backsplash: real board area (linear meters drawn × chosen height) priced by
+  // the countertop's own material (same slab it's cut from), falling back to a
+  // generic worktop rate when that material has no specific catalog price.
+  const backsplashPricePerM2 = materialPricePerM2(countertopMat?.code, materialsMap, prices, null, 'worktop_m2')
+  const backsplashM2   = backsplashLm * (backsplashHeight / 1000)
+  const backsplashCost = parseFloat((backsplashM2 * backsplashPricePerM2).toFixed(2))
+
+  // Countertop: linear meters = combined width of every base/vanity/corner
+  // cabinet and base-height filler (see hasCountertop), priced per running
+  // meter at the selected countertop material's catalog rate (see
+  // materialPricePerLm) -- not a flat guessed quantity/price.
+  const countertopLm         = cabinets.filter(hasCountertop).reduce((s, c) => s + c.width, 0) / 1000
+  const countertopPricePerLm = materialPricePerLm(countertopMat?.code, materialsMap, prices.countertop_lm)
+  const countertopCost       = parseFloat((countertopLm * countertopPricePerLm).toFixed(2))
+
+  const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
+  const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
+  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost + countertopCost
+  const marginAmount     = costSubtotal * (margin / 100)
+  const afterMargin      = costSubtotal + marginAmount
+  const vatAmount        = afterMargin * 0.16
+  const grandTotal       = afterMargin + vatAmount
+  return {
+    pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
+    countertopLm, countertopPricePerLm, countertopCost,
+    cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
+  }
+}
+
 function SectionTitle({ children }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase',
@@ -333,7 +376,7 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, onGrandTotalChange, initialSettings = null, onSettingsChange }) {
+export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, initialSettings = null, onSettingsChange }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
@@ -348,10 +391,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   // priced off the real design and the selected material's catalog rate, so
   // that stale placeholder is dropped from both fresh and previously-saved
   // proposals (addExtra always mints ids via Date.now(), never 1).
-  const [extras, setExtras]           = useState((initialSettings?.extras || [
-    { id: 3, label: t('extras.delivery'),             qty: 1, unitPrice: DEFAULT_PRICES.delivery },
-    { id: 4, label: t('extras.installation'),         qty: cabinets.length || 1, unitPrice: DEFAULT_PRICES.installation_cab },
-  ]).filter(e => e.id !== 1))
+  const [extras, setExtras]           = useState((initialSettings?.extras || defaultProposalExtras(t, cabinets.length)).filter(e => e.id !== 1))
   const [customer, setCustomer]       = useState(initialSettings?.customer || { name: '', phone: '', address: '', notes: '' })
   const [expandedCab, setExpandedCab] = useState(null)
   const [showPrices, setShowPrices]   = useState(false)
@@ -370,38 +410,14 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
   const addExtra = () => setExtras(p => [...p, { id: Date.now(), label: '', qty: 1, unitPrice: 0 }])
 
-  // Price each cabinet
-  const pricedCabinets = useMemo(() =>
-    cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) })),
-    [cabinets, prices, materialsMap, drawerSystemsCatalog, t]
-  )
-
-  // Backsplash: real board area (linear meters drawn × chosen height) priced by
-  // the countertop's own material (same slab it's cut from), falling back to a
-  // generic worktop rate when that material has no specific catalog price.
-  const backsplashPricePerM2 = materialPricePerM2(countertopMat?.code, materialsMap, prices, null, 'worktop_m2')
-  const backsplashM2   = backsplashLm * (backsplashHeight / 1000)
-  const backsplashCost = parseFloat((backsplashM2 * backsplashPricePerM2).toFixed(2))
-
-  // Countertop: linear meters = combined width of every base/vanity/corner
-  // cabinet and base-height filler (see hasCountertop), priced per running
-  // meter at the selected countertop material's catalog rate (see
-  // materialPricePerLm) -- not a flat guessed quantity/price.
-  const countertopLm        = useMemo(() => cabinets.filter(hasCountertop).reduce((s, c) => s + c.width, 0) / 1000, [cabinets])
-  const countertopPricePerLm = materialPricePerLm(countertopMat?.code, materialsMap, prices.countertop_lm)
-  const countertopCost      = parseFloat((countertopLm * countertopPricePerLm).toFixed(2))
-
-  const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
-  const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
-  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost + countertopCost
-  const marginAmount     = costSubtotal * (margin / 100)
-  const afterMargin      = costSubtotal + marginAmount
-  const vatAmount        = afterMargin * 0.16
-  const grandTotal       = afterMargin + vatAmount
+  const {
+    pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
+    countertopLm, countertopPricePerLm, countertopCost,
+    cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
+  } = useMemo(() => computeProposalTotals({
+    cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
+  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t])
   const grandTotalUSD    = grandTotal / usdRate
-  useEffect(() => {
-  if (onGrandTotalChange) onGrandTotalChange(grandTotal)
-}, [grandTotal])
 
 
   const fmt = (n) => n.toFixed(2)
