@@ -32,6 +32,10 @@ export function isShelfEligible(cab) {
 // houses a purchased oven, so they're excluded from this list but stay in
 // APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
 export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance'];
+// A Double Oven's lower oven sits this far off the cabinet bottom (not at countertop
+// height like a single Oven Tower) so the stacked pair stays within reach and leaves
+// a usable door above. Shared with OvenTowerAppliance in KitchenPlanner3D.jsx.
+export const DOUBLE_OVEN_BOTTOM = 450;
 export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
 
 export function isCarcassCabinet(c) {
@@ -390,26 +394,29 @@ export function calculateCabinet(config) {
   }
 
   if (isOvenTower) {
-    // No opening doors here — the oven(s) are a purchased appliance sitting in a cutout,
-    // flanked by fixed front panels above/below. The cavity's bottom is anchored to the
-    // project's countertop height (baseHeight) so it lines up with the worktop on
-    // neighboring base cabinets, matching OvenTowerAppliance in KitchenPlanner3D.jsx.
+    // The oven(s) are a purchased appliance sitting in a cutout, flanked by a hinged
+    // door below (storage under the oven) and a hinged door above. A single oven's
+    // cavity bottom is anchored to the project's countertop height (baseHeight) so it
+    // lines up with the worktop on neighboring base cabinets; a Double Oven's lower
+    // oven drops to DOUBLE_OVEN_BOTTOM instead. Matches OvenTowerAppliance in
+    // KitchenPlanner3D.jsx.
     const isDouble = config.subtype === 'Double Oven';
     const ovenCavityH = 595;
-    const baseH = Number(config.baseHeight) || 800;
-    const panelW = round2(W - 3);
-    if (isDouble) {
-      const bottomOvenBottom = baseH;
-      const bottomOvenTop = bottomOvenBottom + ovenCavityH;
-      const topOvenTop = bottomOvenTop + ovenCavityH;
-      panels.push({ name: 'Front panel (below ovens)', qty: 1, width: panelW, depth: round2(bottomOvenBottom), thickness: T, notes: 'Fixed panel, below the two ovens' });
-      panels.push({ name: 'Front panel (above ovens)', qty: 1, width: panelW, depth: round2(H - topOvenTop), thickness: T, notes: 'Fixed panel, above the two ovens' });
-    } else {
-      const ovenBottom = baseH;
-      const ovenTop = ovenBottom + ovenCavityH;
-      panels.push({ name: 'Front panel (below oven)', qty: 1, width: panelW, depth: round2(ovenBottom), thickness: T, notes: 'Fixed panel, below the oven' });
-      panels.push({ name: 'Front panel (above oven)', qty: 1, width: panelW, depth: round2(H - ovenTop), thickness: T, notes: 'Fixed panel, above the oven' });
-    }
+    const baseH = isDouble ? DOUBLE_OVEN_BOTTOM : (Number(config.baseHeight) || 800);
+    const ovenTop = baseH + ovenCavityH * (isDouble ? 2 : 1);
+    const label = isDouble ? 'ovens' : 'oven';
+    const lowerH = round2(baseH - 3);
+    const upperH = round2(H - ovenTop - 3);
+    doors.push({
+      width: round2(W - 3), height: lowerH, style: doorStyle,
+      hinges: getHingeCount(lowerH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+      notes: `Door below ${label}`,
+    });
+    doors.push({
+      width: round2(W - 3), height: upperH, style: doorStyle,
+      hinges: getHingeCount(upperH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+      notes: `Door above ${label}`,
+    });
   } else if (isDrawerCab) {
     // Handled entirely below via the zone-driven layout — no generic full-height
     // door here (a Drawers/2Drw+Door cabinet's fronts all come from its zones).
@@ -505,7 +512,7 @@ export function calculateCabinet(config) {
   const drawerCount = drawerFronts.length;
 
   // ---- Gola aluminum profiles (aggregated to linear meters at room level) ----
-  // Oven towers have no doors/drawers to channel — their fronts are fixed panels.
+  // Oven towers get no channel — the oven cutout itself gives both doors a finger pull.
   // A Drawers/2Drw+Door cabinet needs one C-channel above every zone that actually
   // needs its own pull point (golaNeedsChannelAbove) instead of the fixed single
   // channel other subtypes use.

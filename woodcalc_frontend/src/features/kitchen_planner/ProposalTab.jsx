@@ -218,9 +218,8 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const breakdown = []
 
   // Material cost -- split three ways: carcass panels price by the selected carcass
-  // material, front-facing panels (doors, drawer fronts, and an Oven Tower's fixed
-  // "Front panel" pieces -- visible, not structural) price by the selected front
-  // material, and the 8mm HDF back stays its own generic category (no per-cabinet
+  // material, front-facing panels (doors, drawer fronts, and any fixed "Front panel"
+  // pieces -- visible, not structural) price by the selected front material, and the 8mm HDF back stays its own generic category (no per-cabinet
   // material picker for it).
   const carcassPricePerM2 = materialPricePerM2(cab.carcassMaterialCode, materialsMap, prices, cab.material)
   const frontPricePerM2   = materialPricePerM2(cab.frontMaterialCode, materialsMap, prices, cab.material)

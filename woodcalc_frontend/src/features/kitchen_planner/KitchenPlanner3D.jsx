@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -1433,9 +1433,9 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, frontColor, frontMa
   let bands
   if (isDouble) {
     // Two 595mm-tall ovens stacked with no gap between them; the lower oven's
-    // bottom starts right at countertop height (baseH), same as the single-
-    // oven case, with the second oven stacked directly above it.
-    const b2Bottom = baseH, b2Top = b2Bottom + ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
+    // bottom sits at DOUBLE_OVEN_BOTTOM (below countertop height, unlike the
+    // single-oven case), with the second oven stacked directly above it.
+    const b2Bottom = DOUBLE_OVEN_BOTTOM / 1000, b2Top = b2Bottom + ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
     const b1Bottom = b2Top, b1Top = b1Bottom + ovenH, b1Center = (b1Top + b1Bottom) / 2, b1H = ovenH
     bands = (
       <>
