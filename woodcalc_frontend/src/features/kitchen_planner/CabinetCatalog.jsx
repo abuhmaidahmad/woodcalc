@@ -168,6 +168,12 @@ function buildLibrary(baseHeight) {
     { id: 'acc_sidepanel_base', label: 'Side Panel Base', subtype: 'Side Panel', width: 18, height: baseHeight, depth: 581, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_sidepanel_wall', label: 'Side Panel Wall', subtype: 'Side Panel', width: 18, height: wallHeights[0], depth: 321, icon: 'accessory_filler', category: 'accessories', wallHeight: wallHeights[0], elevation: wallElevation },
     { id: 'acc_sidepanel_tall', label: 'Side Panel Tall', subtype: 'Side Panel', width: 18, height: 2220, depth: 581, icon: 'accessory_filler', category: 'accessories' },
+    // Top Panel is the Side Panel laid flat: an 18mm cover board capping a wall run,
+    // a hood or a tall unit. Height is its thickness and Width its length; it's lifted
+    // to the top of the run it covers (wall cabinets at their default 4th height step,
+    // tall units at 2220 + leg height) and stays editable like any other elevation.
+    { id: 'acc_toppanel_wall', label: 'Top Panel Wall', subtype: 'Top Panel', width: 600, height: 18, depth: 321, icon: 'accessory_shelf', category: 'accessories', elevation: wallElevation + wallHeights[3] },
+    { id: 'acc_toppanel_tall', label: 'Top Panel Tall', subtype: 'Top Panel', width: 600, height: 18, depth: 581, icon: 'accessory_shelf', category: 'accessories', elevation: 2220 + (baseHeight === 720 ? 150 : 80) },
     { id: 'acc_filler_50',   label: 'Filler 50mm',   subtype: 'Filler',    width: 50,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_100',  label: 'Filler 100mm',  subtype: 'Filler',    width: 100,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_150',  label: 'Filler 150mm',  subtype: 'Filler',    width: 150,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },

@@ -15,7 +15,7 @@ export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjo
 export function isShelfEligible(cab) {
   if (['vanity', 'specialty', 'accessories'].includes(cab.category)) return false;
   if (['Drawers', '2Drw+Door', 'Sink', 'Double Sink', 'Hob + Oven'].includes(cab.subtype)) return false;
-  if (['Filler', 'Panel', 'Toe Kick', 'Side Panel'].includes(cab.subtype)) return false;
+  if (['Filler', 'Panel', 'Toe Kick', 'Side Panel', 'Top Panel'].includes(cab.subtype)) return false;
   // The oven(s) occupy the cavity — no room for adjustable shelves.
   if (['Oven Tower', 'Double Oven'].includes(cab.subtype)) return false;
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
@@ -45,9 +45,13 @@ export function isCarcassCabinet(c) {
 // Dimensions for a non-carcass flat piece (Filler/Panel/Toe Kick/Shelf/Open Shelf) —
 // one board cut at its own size, no box formula. Matches the master cut list's piece
 // entry exactly, so the cost proposal never charges for a size it wouldn't actually cut.
-// Side Panel is depth-oriented (a vertical infill against a wall); everything else in
-// this bucket is width-oriented (a horizontal strip/board).
+// Side Panel is depth-oriented (a vertical infill against a wall); Top Panel is the
+// same board laid flat (length x depth, its Height being the board thickness);
+// everything else in this bucket is width-oriented (a horizontal strip/board).
 export function nonCarcassPieceDims(c) {
+  if (c.subtype === 'Top Panel') {
+    return { width: c.width, depth: c.depth || 321, thickness: c.panelThickness || c.height || 18 };
+  }
   const isPanel = c.subtype === 'Side Panel';
   return {
     width: c.height,

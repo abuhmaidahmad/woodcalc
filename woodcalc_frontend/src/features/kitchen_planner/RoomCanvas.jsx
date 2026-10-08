@@ -475,11 +475,12 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
   const applianceFill = isApplianceSubtype
     ? (cab.applianceFinish === 'black' ? '#2b2b2b' : cab.applianceFinish === 'silver' ? '#d7dadd' : (APPLIANCE_2D_COLORS[cab.subtype] || '#c9cccf'))
     : null
-  const fill = applianceFill || (cab.subtype === 'Side Panel' ? cab.frontColor : cab.carcassColor)
+  const isFrontPanel = cab.subtype === 'Side Panel' || cab.subtype === 'Top Panel'
+  const fill = applianceFill || (isFrontPanel ? cab.frontColor : cab.carcassColor)
   return (
     <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
       onMouseDown={e => onMouseDown(e, cab.id)}
-      style={{ cursor: 'move', opacity: (cab.category === 'wall' || cab.subtype === 'Freestanding Hood') ? 0.6 : 1 }}>
+      style={{ cursor: 'move', opacity: (cab.category === 'wall' || cab.subtype === 'Freestanding Hood' || cab.subtype === 'Top Panel') ? 0.6 : 1 }}>
       {(w < 8 || h < 8) && (
         // Zero/near-zero width or depth (e.g. a mistyped 0mm dimension) would
         // otherwise render no visible area, making the cabinet unclickable and
@@ -488,7 +489,7 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
           width={Math.max(w, 8)} height={Math.max(h, 8)}
           fill="transparent" style={{ pointerEvents: 'all' }} />
       )}
-      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={(cab.category === 'wall' || cab.subtype === 'Freestanding Hood') ? '5,3' : undefined} rx={2} />
+      <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={(cab.category === 'wall' || cab.subtype === 'Freestanding Hood' || cab.subtype === 'Top Panel') ? '5,3' : undefined} rx={2} />
       {cab.subtype === 'Freestanding Hood' && (() => {
         // Plan-view extractor symbol (inset duct outline + fan cross) so a hood
         // reads as a hood from above, not a generic labeled box -- dashed edge
@@ -521,7 +522,7 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
       {isColliding && (
         <rect x={0} y={0} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
       )}
-      {cab.subtype !== 'Side Panel' && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
+      {!isFrontPanel && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
       <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
       {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
     </g>

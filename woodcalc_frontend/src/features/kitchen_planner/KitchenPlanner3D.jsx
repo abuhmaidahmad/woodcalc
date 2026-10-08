@@ -281,6 +281,9 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   // whose W is just an 18mm thickness and whose visible broad face is actually the D x H
   // side face (hence that case's rotate90 + depth-based repeat, below).
   const isFiller = cab.subtype === 'Filler'
+  // A Top Panel lies flat, so like a Filler its grain runs along W (no rotate90)
+  // rather than along an 18mm-thick Side Panel's depth.
+  const grainAlongW = isFiller || cab.subtype === 'Top Panel'
   // A base-height filler sits directly under the countertop just like a door front, so
   // on Gola kitchens it loses the same GOLA_CH sliver off its top to the milled
   // L-channel (GolaProfile) -- otherwise the handleless groove running along the rest
@@ -308,7 +311,7 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
           // it), reading as blurry/thick grain up close. Flooring the width used for the
           // scale calc at 300mm keeps the crop modest -- still narrower than a full door,
           // just not zoomed enough to fall apart.
-          repeatU={(isFiller ? Math.max(W, 0.3) : D) / physW} repeatV={slabH / physH} radius={0.001} rotate90={!isFiller} />
+          repeatU={(grainAlongW ? Math.max(W, 0.3) : D) / physW} repeatV={slabH / physH} radius={0.001} rotate90={!grainAlongW} />
         {golaCap}
       </>
     )
@@ -1911,7 +1914,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const isShelf   = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
   const isDrawers = cab.subtype === 'Drawers' || cab.subtype === '2Drw+Door'
   const zonePreset = isDrawers ? resolveZonePreset(cab) : null
-  const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel'
+  const isPanel   = cab.subtype === 'Side Panel' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Top Panel'
   const isSidePanel = cab.subtype === 'Side Panel'
   // A panel sits on the same leg/toe-kick gap as any floor cabinet, so it's lifted
   // by legH regardless of its own height -- the user sets Height to whatever reaches

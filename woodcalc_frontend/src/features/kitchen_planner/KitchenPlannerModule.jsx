@@ -905,6 +905,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       cab.width = th
       cab.depth = (t.category === 'wall' ? 300 : 560) + th + 3
     }
+    if (t.subtype === 'Top Panel') {
+      const th = cab.frontMaterialThickness || 18
+      cab.panelThickness = th
+      cab.height = th
+    }
     setCabinets(p => [...p, cab])
     setSelected(cab.id)
     setSelectedType('cabinet')
@@ -2168,7 +2173,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     />
                   </>
                 )}
-               {!['Shelf', 'Filler', 'Panel', 'Side Panel'].includes(selCab.subtype) && !(['Open Shelf', 'Glass Door'].includes(selCab.subtype) && selCab.openBoxMaterialSource === 'front') && (
+               {!['Shelf', 'Filler', 'Panel', 'Side Panel', 'Top Panel'].includes(selCab.subtype) && !(['Open Shelf', 'Glass Door'].includes(selCab.subtype) && selCab.openBoxMaterialSource === 'front') && (
   <>
     <div style={s.propSection}>{t('kitchenPlannerModule.carcassMaterial')}</div>
     <MaterialLibrary
