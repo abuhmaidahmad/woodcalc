@@ -16,6 +16,14 @@ class WorkOrderItemSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
+class WorkOrderItemBulkSerializer(serializers.ModelSerializer):
+    """One cut-list line for WorkOrderViewSet.add_items -- the work order comes from
+    the URL, so it isn't a field here."""
+    class Meta:
+        model = WorkOrderItem
+        fields = ['description', 'quantity', 'unit']
+
+
 class WorkOrderSerializer(serializers.ModelSerializer):
     items = WorkOrderItemSerializer(many=True, read_only=True)
 

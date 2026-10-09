@@ -1181,15 +1181,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           }
         })
 
-        const items = Object.values(masterMap)
+        const items = Object.values(masterMap).map(item => ({ description: item.desc, quantity: Math.ceil(item.qty), unit: item.unit }))
 
-        for (const item of items) {
-          try {
-            await authFetch(API + '/api/manufacturing/work-order-items/', {
-              method: 'POST',
-              body: JSON.stringify({ work_order: wo.id, description: item.desc, quantity: Math.ceil(item.qty), unit: item.unit })
-            })
-          } catch {}
+        // One request for the whole cut list -- posting each line separately took
+        // 100+ sequential round trips on a full kitchen. Falls back to parallel
+        // single-item posts if the bulk endpoint isn't available (404).
+        const bulkRes = await authFetch(API + `/api/manufacturing/work-orders/${wo.id}/items/`, {
+          method: 'POST',
+          body: JSON.stringify({ items }),
+        })
+        if (bulkRes.status === 404) {
+          await Promise.all(items.map(item => authFetch(API + '/api/manufacturing/work-order-items/', {
+            method: 'POST',
+            body: JSON.stringify({ work_order: wo.id, ...item }),
+          }).catch(() => {})))
         }
 
         setSentMsg(isBackOrder

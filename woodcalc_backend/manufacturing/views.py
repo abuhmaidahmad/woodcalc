@@ -5,7 +5,7 @@ from tenants.permissions import HasActiveCompany
 from .models import ProductionStation, WorkOrder, WorkOrderItem, StationLog, MaterialConsumption
 from .models import StockSheet, CuttingJob
 from .serializers import (
-    ProductionStationSerializer, WorkOrderSerializer, WorkOrderItemSerializer,
+    ProductionStationSerializer, WorkOrderSerializer, WorkOrderItemSerializer, WorkOrderItemBulkSerializer,
     StationLogSerializer, MaterialConsumptionSerializer,
 )
 from .serializers import StockSheetSerializer, CuttingJobSerializer
@@ -13,6 +13,7 @@ from .cutting_service import optimize_job
 from .cutting_export import export_csv, export_pdf
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.http import HttpResponse
 
 
@@ -34,12 +35,41 @@ class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
             qs = qs.filter(room_id_ref=room_id)
         return qs
 
+    @action(detail=True, methods=['post'], url_path='items')
+    def add_items(self, request, pk=None):
+        """Create a work order's whole cut list in one request. The planner used to
+        POST one work-order-item per distinct part (100+ sequential round trips on a
+        full kitchen); get_object() scopes the order to the caller's tenant."""
+        work_order = self.get_object()
+        serializer = WorkOrderItemBulkSerializer(data=request.data.get('items', []), many=True)
+        serializer.is_valid(raise_exception=True)
+        WorkOrderItem.objects.bulk_create([
+            WorkOrderItem(work_order=work_order, **item)
+            for item in serializer.validated_data
+        ])
+        return Response({'created': len(serializer.validated_data)}, status=201)
+
 
 class WorkOrderItemViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'work_order__tenant'
     queryset = WorkOrderItem.objects.all()
     serializer_class = WorkOrderItemSerializer
     permission_classes = [IsAuthenticated, HasActiveCompany]
+
+    # The mixin only scopes reads; without this a caller could attach items to (or
+    # move items onto) another company's work order just by passing its id.
+    def _check_work_order(self, serializer):
+        work_order = serializer.validated_data.get('work_order')
+        if work_order is not None and work_order.tenant_id != self.request.company.id:
+            raise ValidationError({'work_order': 'Work order not found.'})
+
+    def perform_create(self, serializer):
+        self._check_work_order(serializer)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        self._check_work_order(serializer)
+        super().perform_update(serializer)
 
     def get_queryset(self):
         qs = super().get_queryset()
