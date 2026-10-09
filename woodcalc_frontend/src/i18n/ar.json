@@ -1487,7 +1487,7 @@
     "chequeBounced": "مرتجع"
   },
   "cuttingOptimizer": {
-    "errSelectAll": "اختر أمر تشغيل ومادة وسماكة.",
+    "errSelectAll": "اختر أمر تشغيل وأضف جزءاً واحداً على الأقل.",
     "errCreateJob": "تعذّر إنشاء مهمة التقطيع",
     "errOptimizeJob": "تعذّر تحسين مهمة التقطيع",
     "errSelectWorkOrder": "اختر أمر تشغيل أولاً.",
@@ -1500,7 +1500,7 @@
     "workOrder": "أمر التشغيل",
     "select": "اختر...",
     "materialThickness": "المادة / السماكة",
-    "materialOption": "المادة #{{id}} - {{thickness}}مم ({{width}}×{{height}})",
+    "materialOption": "{{sku}} — {{name}} · {{thickness}}مم ({{width}}×{{height}})",
     "kerfMm": "سُمك القطع (مم)",
     "parts": "الأجزاء",
     "labelPlaceholder": "التسمية",
@@ -1525,7 +1525,13 @@
     "colY": "Y",
     "colRotated": "مُدار",
     "yes": "نعم",
-    "no": "لا"
+    "no": "لا",
+    "errGroupNoMaterial": "اختر مادة اللوح لـ {{group}}.",
+    "noMaterial": "لم تُحدَّد مادة",
+    "materialForGroup": "مادة {{group}}",
+    "skuNotInInventory": "{{sku}} غير موجود في المخزون — أضفه هناك أو اختر لوحاً هنا.",
+    "groupTab": "{{group}} · {{count}} قطعة",
+    "createOptimizeAll": "إنشاء وتحسين ({{count}} مواد)"
   },
   "extras": {
     "countertopInstalled": "سطح العمل (مع التركيب)",

@@ -9,10 +9,16 @@ function emptyPart() {
   return { label: '', width: '', height: '', quantity: 1, grain_locked: true }
 }
 
-function bomPanelsToParts(cabinets, group) {
-  const merged = new Map()
+// Splits the room's BOM into one group per board material -- a kitchen with two
+// front finishes (e.g. a high-gloss and a laminate) is cut from two different
+// boards, so each gets its own cutting job and sheet layout.
+export function bomPanelsToGroups(cabinets, group) {
+  const groups = new Map()
 
-  function addPart(label, width, height, grainLocked, qty) {
+  function addPart(sku, label, width, height, grainLocked, qty) {
+    const groupKey = sku || ''
+    if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, merged: new Map() })
+    const merged = groups.get(groupKey).merged
     const key = `${label}|${width}|${height}|${grainLocked}`
     if (merged.has(key)) {
       merged.get(key).quantity += qty
@@ -33,31 +39,53 @@ function bomPanelsToParts(cabinets, group) {
     if (group === 'carcass') {
       result.panels.forEach(p => {
         if (p.name.includes('Back panel')) return
-        addPart(p.name, p.width, p.depth, false, p.qty)
+        addPart(cab.carcassMaterialCode, p.name, p.width, p.depth, false, p.qty)
       })
     }
 
     if (group === 'back') {
       result.panels.forEach(p => {
         if (!p.name.includes('Back panel')) return
-        addPart(p.name, p.width, p.depth, false, p.qty)
+        addPart(null, p.name, p.width, p.depth, false, p.qty)
       })
     }
 
     if (group === 'front') {
       result.doors.forEach(d => {
-        addPart('Door', d.height, d.width, true, 1)
+        addPart(cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
       })
     }
   })
 
-  return Array.from(merged.values()).map(p => ({
-    label: p.label,
-    width: String(p.width),
-    height: String(p.height),
-    quantity: p.quantity,
-    grain_locked: p.grain_locked,
+  return Array.from(groups.values()).map(g => newGroup({
+    sku: g.sku,
+    parts: Array.from(g.merged.values()).map(p => ({
+      label: p.label,
+      width: String(p.width),
+      height: String(p.height),
+      quantity: p.quantity,
+      grain_locked: p.grain_locked,
+    })),
   }))
+}
+
+let groupSeq = 0
+function newGroup({ sku = null, materialId = '', thickness = '', parts = [emptyPart()] } = {}) {
+  groupSeq += 1
+  return { key: groupSeq, sku, materialId, thickness, parts }
+}
+
+async function fetchAllPages(url, headers) {
+  const all = []
+  for (let page = 1; ; page++) {
+    const res = await fetch(`${url}${url.includes('?') ? '&' : '?'}page=${page}`, { headers })
+    if (!res.ok) break
+    const data = await res.json()
+    if (Array.isArray(data)) return data
+    all.push(...(data.results || []))
+    if (!data.next) break
+  }
+  return all
 }
 
 function CuttingOptimizerModule() {
@@ -69,25 +97,64 @@ function CuttingOptimizerModule() {
 
   const [workOrders, setWorkOrders] = useState([])
   const [stockSheets, setStockSheets] = useState([])
+  const [materials, setMaterials] = useState([])
   const [workOrderId, setWorkOrderId] = useState('')
-  const [materialId, setMaterialId] = useState('')
-  const [thickness, setThickness] = useState('')
   const [kerf, setKerf] = useState('4')
-  const [parts, setParts] = useState([emptyPart()])
-  const [job, setJob] = useState(null)
+  const [groups, setGroups] = useState(() => [newGroup()])
+  const [activeKey, setActiveKey] = useState(null)
+  const [results, setResults] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [bomLoading, setBomLoading] = useState(false)
   const [preselectedFromUrl, setPreselectedFromUrl] = useState(false)
   const [autoLoaded, setAutoLoaded] = useState(false)
 
+  const activeGroup = groups.find(g => g.key === activeKey) || groups[0]
+  const materialsById = new Map(materials.map(m => [String(m.id), m]))
+  const materialsBySku = new Map(materials.map(m => [m.sku, m]))
+
+  // A BOM group only knows the planner's SKU; it resolves to the inventory
+  // material (and its board thickness) unless the user picked another one.
+  function groupMaterial(g) {
+    if (g.materialId) return materialsById.get(String(g.materialId)) || { id: g.materialId }
+    return g.sku ? materialsBySku.get(g.sku) || null : null
+  }
+  function groupThickness(g) {
+    if (g.thickness) return g.thickness
+    const m = groupMaterial(g)
+    return m?.board_thickness ? String(m.board_thickness) : ''
+  }
+  function groupLabel(g) {
+    if (g.sku) return g.sku
+    const m = groupMaterial(g)
+    return m?.sku || t('cuttingOptimizer.noMaterial')
+  }
+
+  // Sheet goods only: fronts and carcass boards, plus anything that already has
+  // a stock sheet set up (e.g. back-panel MDF) or is selected right now.
+  const sheetMaterialIds = new Set(stockSheets.map(s => String(s.material)))
+  const materialOptions = materials.filter(m =>
+    m.material_type === 'front' || m.material_type === 'carcass' || sheetMaterialIds.has(String(m.id))
+    || groups.some(g => String(groupMaterial(g)?.id) === String(m.id)))
+
+  function materialOptionLabel(m) {
+    const sheet = stockSheets.find(s => String(s.material) === String(m.id))
+    return t('cuttingOptimizer.materialOption', {
+      sku: m.sku, name: m.name,
+      thickness: sheet ? Number(sheet.thickness) : (m.board_thickness || 18),
+      width: sheet ? Number(sheet.width) : m.board_width,
+      height: sheet ? Number(sheet.height) : m.board_height,
+    })
+  }
+
   useEffect(() => {
     fetch(`${API}/api/manufacturing/work-orders/`, { headers: authHeaders })
       .then(r => r.json()).then(d => setWorkOrders(d.results || []))
       .catch(() => {})
-    fetch(`${API}/api/manufacturing/stock-sheets/`, { headers: authHeaders })
-      .then(r => r.json()).then(d => setStockSheets(d.results || []))
-      .catch(() => {})
+    fetchAllPages(`${API}/api/manufacturing/stock-sheets/`, authHeaders)
+      .then(setStockSheets).catch(() => {})
+    fetchAllPages(`${API}/api/inventory/materials/`, authHeaders)
+      .then(setMaterials).catch(() => {})
 
     const params = new URLSearchParams(window.location.search)
     const preselectId = params.get('work_order')
@@ -102,9 +169,11 @@ function CuttingOptimizerModule() {
       if (raw) {
         try {
           const group = JSON.parse(raw)
-          setMaterialId(String(group.material))
-          setThickness(String(group.thickness))
-          setParts(group.parts.map(p => ({ ...p, quantity: String(p.quantity) })))
+          setGroups([newGroup({
+            materialId: String(group.material),
+            thickness: String(group.thickness),
+            parts: group.parts.map(p => ({ ...p, quantity: String(p.quantity) })),
+          })])
         } catch {}
         sessionStorage.removeItem(`cadcam_group_${cadcamImportId}`)
       }
@@ -118,85 +187,90 @@ function CuttingOptimizerModule() {
     }
   }, [preselectedFromUrl, autoLoaded, workOrders, workOrderId])
 
+  function updateActiveGroup(fn) {
+    setGroups(prev => prev.map(g => g.key === activeGroup.key ? fn(g) : g))
+  }
+
   function updatePart(idx, field, value) {
-    setParts(prev => prev.map((p, i) => i === idx ? { ...p, [field]: value } : p))
+    updateActiveGroup(g => ({ ...g, parts: g.parts.map((p, i) => i === idx ? { ...p, [field]: value } : p) }))
   }
 
   function addPart() {
-    setParts(prev => [...prev, emptyPart()])
+    updateActiveGroup(g => ({ ...g, parts: [...g.parts, emptyPart()] }))
   }
 
   function removePart(idx) {
-    setParts(prev => prev.filter((_, i) => i !== idx))
+    updateActiveGroup(g => ({ ...g, parts: g.parts.filter((_, i) => i !== idx) }))
+  }
+
+  function selectMaterial(value) {
+    const m = materialsById.get(value)
+    const sheet = stockSheets.find(s => String(s.material) === value)
+    updateActiveGroup(g => ({
+      ...g,
+      materialId: value,
+      thickness: value ? String(sheet ? sheet.thickness : (m?.board_thickness || 18)) : '',
+    }))
   }
 
   async function createAndOptimize() {
     setError('')
-    if (!workOrderId || !materialId || !thickness) {
+    const toRun = groups
+      .map(g => ({ g, parts: g.parts.filter(p => p.label && p.width && p.height) }))
+      .filter(({ parts }) => parts.length > 0)
+    if (!workOrderId || toRun.length === 0) {
       setError(t('cuttingOptimizer.errSelectAll'))
       return
     }
+    const missing = toRun.find(({ g }) => !groupMaterial(g)?.id || !groupThickness(g))
+    if (missing) {
+      setActiveKey(missing.g.key)
+      setError(t('cuttingOptimizer.errGroupNoMaterial', { group: groupLabel(missing.g) }))
+      return
+    }
+
     setLoading(true)
-    try {
-      const createRes = await fetch(`${API}/api/manufacturing/cutting-jobs/`, {
-        method: 'POST',
-        headers: { ...authHeaders, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          work_order: workOrderId,
-          material: materialId,
-          thickness,
-          kerf,
-          parts: parts.filter(p => p.label && p.width && p.height),
-        }),
-      })
-      if (!createRes.ok) {
-        const errData = await createRes.json().catch(() => ({}))
-        throw new Error(errData.detail || t('cuttingOptimizer.errCreateJob'))
+    const done = []
+    const failures = []
+    for (const { g, parts } of toRun) {
+      const material = groupMaterial(g)
+      try {
+        const createRes = await fetch(`${API}/api/manufacturing/cutting-jobs/`, {
+          method: 'POST',
+          headers: { ...authHeaders, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            work_order: workOrderId,
+            material: material.id,
+            thickness: groupThickness(g),
+            kerf,
+            parts,
+          }),
+        })
+        if (!createRes.ok) {
+          const errData = await createRes.json().catch(() => ({}))
+          throw new Error(errData.detail || t('cuttingOptimizer.errCreateJob'))
+        }
+        const created = await createRes.json()
+
+        const optimizeRes = await fetch(`${API}/api/manufacturing/cutting-jobs/${created.id}/optimize/`, {
+          method: 'POST',
+          headers: authHeaders,
+        })
+        if (!optimizeRes.ok) {
+          const errData = await optimizeRes.json().catch(() => ({}))
+          throw new Error(errData.detail || t('cuttingOptimizer.errOptimizeJob'))
+        }
+        const job = await optimizeRes.json()
+        done.push({ job, title: material.name ? `${material.sku} — ${material.name}` : groupLabel(g) })
+      } catch (e) {
+        failures.push(`${groupLabel(g)}: ${e.message}`)
       }
-      const created = await createRes.json()
-
-      const optimizeRes = await fetch(`${API}/api/manufacturing/cutting-jobs/${created.id}/optimize/`, {
-        method: 'POST',
-        headers: authHeaders,
-      })
-      if (!optimizeRes.ok) {
-        const errData = await optimizeRes.json().catch(() => ({}))
-        throw new Error(errData.detail || t('cuttingOptimizer.errOptimizeJob'))
-      }
-      const optimized = await optimizeRes.json()
-      setJob(optimized)
-    } catch (e) {
-      setError(e.message)
-    } finally {
-      setLoading(false)
     }
-  }
-
-  async function autoSelectStockSheet(cabinets, group) {
-    if (group === 'back') return
-    const firstCab = cabinets.find(c => isCarcassCabinet(c))
-    if (!firstCab) return
-    const sku = group === 'carcass' ? firstCab.carcassMaterialCode : firstCab.frontMaterialCode
-    if (!sku) return
-
-    try {
-      const matRes = await fetch(`${API}/api/inventory/materials/?search=${encodeURIComponent(sku)}`, { headers: authHeaders })
-      if (!matRes.ok) return
-      const matData = await matRes.json()
-      const materials = Array.isArray(matData) ? matData : (matData.results || [])
-      const material = materials.find(m => m.sku === sku)
-      if (!material) return
-
-      const sheetRes = await fetch(`${API}/api/manufacturing/stock-sheets/?material=${material.id}`, { headers: authHeaders })
-      if (!sheetRes.ok) return
-      const sheetData = await sheetRes.json()
-      const sheets = Array.isArray(sheetData) ? sheetData : (sheetData.results || [])
-      if (sheets.length === 0) return
-
-      setMaterialId(String(sheets[0].material))
-      setThickness(String(sheets[0].thickness))
-    } catch {
-    }
+    setResults(done)
+    if (failures.length) setError(failures.join(' · '))
+    setLoading(false)
+    // Layouts carry the stock sheet the backend may have just created.
+    fetchAllPages(`${API}/api/manufacturing/stock-sheets/`, authHeaders).then(setStockSheets).catch(() => {})
   }
 
   async function loadFromBOM(group) {
@@ -220,13 +294,14 @@ function CuttingOptimizerModule() {
         setError(t('cuttingOptimizer.errNoCabinets'))
         return
       }
-      const bomParts = bomPanelsToParts(cabinets, group)
-      if (bomParts.length === 0) {
+      const bomGroups = bomPanelsToGroups(cabinets, group)
+      if (bomGroups.length === 0) {
         setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return
       }
-      setParts(bomParts)
-      await autoSelectStockSheet(cabinets, group)
+      setGroups(bomGroups)
+      setActiveKey(bomGroups[0].key)
+      setResults([])
     } catch (e) {
       setError(e.message)
     } finally {
@@ -234,8 +309,7 @@ function CuttingOptimizerModule() {
     }
   }
 
-  async function downloadExport(kind) {
-    if (!job) return
+  async function downloadExport(job, kind) {
     const res = await fetch(`${API}/api/manufacturing/cutting-jobs/${job.id}/export-${kind}/`, {
       headers: authHeaders,
     })
@@ -250,6 +324,8 @@ function CuttingOptimizerModule() {
 
   const inputStyle = { padding: 8, border: '1px solid #ddd', borderRadius: 6, width: '100%' }
   const labelStyle = { fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }
+  const activeMaterial = groupMaterial(activeGroup)
+  const activeMaterialMissing = activeGroup.sku && !activeGroup.materialId && !activeMaterial && materials.length > 0
 
   return (
     <div dir={dir} style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -260,7 +336,7 @@ function CuttingOptimizerModule() {
       <h1 style={{ color: '#2c3e50', marginBottom: 20 }}>{t('cuttingOptimizer.title')}</h1>
 
       <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>{t('cuttingOptimizer.workOrder')}</label>
             <select style={inputStyle} value={workOrderId} onChange={e => setWorkOrderId(e.target.value)}>
@@ -269,22 +345,26 @@ function CuttingOptimizerModule() {
             </select>
           </div>
           <div>
-            <label style={labelStyle}>{t('cuttingOptimizer.materialThickness')}</label>
+            <label style={labelStyle}>
+              {groups.length > 1
+                ? t('cuttingOptimizer.materialForGroup', { group: groupLabel(activeGroup) })
+                : t('cuttingOptimizer.materialThickness')}
+            </label>
             <select
               style={inputStyle}
-              value={materialId && thickness ? `${materialId}|${thickness}` : ''}
-              onChange={e => {
-                const [m, th] = e.target.value.split('|')
-                setMaterialId(m); setThickness(th)
-              }}
+              value={activeMaterial?.id ? String(activeMaterial.id) : ''}
+              onChange={e => selectMaterial(e.target.value)}
             >
               <option value="">{t('cuttingOptimizer.select')}</option>
-              {stockSheets.map(s => (
-                <option key={s.id} value={`${s.material}|${s.thickness}`}>
-                  {t('cuttingOptimizer.materialOption', { id: s.material, thickness: s.thickness, width: s.width, height: s.height })}
-                </option>
+              {materialOptions.map(m => (
+                <option key={m.id} value={String(m.id)}>{materialOptionLabel(m)}</option>
               ))}
             </select>
+            {activeMaterialMissing && (
+              <div style={{ fontSize: 12, color: '#e67e22', marginTop: 4 }}>
+                {t('cuttingOptimizer.skuNotInInventory', { sku: activeGroup.sku })}
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>{t('cuttingOptimizer.kerfMm')}</label>
@@ -292,9 +372,26 @@ function CuttingOptimizerModule() {
           </div>
         </div>
 
+        {groups.length > 1 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+            {groups.map(g => {
+              const active = g.key === activeGroup.key
+              const pieces = g.parts.reduce((n, p) => n + (Number(p.quantity) || 0), 0)
+              return (
+                <button key={g.key} onClick={() => setActiveKey(g.key)}
+                  style={{ padding: '6px 12px', borderRadius: 16, cursor: 'pointer', fontSize: 13,
+                    border: active ? '1px solid #2c3e50' : '1px solid #ddd',
+                    background: active ? '#2c3e50' : 'white', color: active ? 'white' : '#2c3e50' }}>
+                  {t('cuttingOptimizer.groupTab', { group: groupLabel(g), count: pieces })}
+                </button>
+              )
+            })}
+          </div>
+        )}
+
         <label style={labelStyle}>{t('cuttingOptimizer.parts')}</label>
         <div style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
-        {parts.map((p, idx) => (
+        {activeGroup.parts.map((p, idx) => (
           <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
             <input style={inputStyle} placeholder={t('cuttingOptimizer.labelPlaceholder')} value={p.label} onChange={e => updatePart(idx, 'label', e.target.value)} />
             <input style={inputStyle} placeholder={t('cuttingOptimizer.widthMmPlaceholder')} type="number" value={p.width} onChange={e => updatePart(idx, 'width', e.target.value)} />
@@ -327,23 +424,30 @@ function CuttingOptimizerModule() {
             disabled={loading}
             style={{ padding: '10px 20px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           >
-            {loading ? t('cuttingOptimizer.optimizing') : t('cuttingOptimizer.createOptimize')}
+            {loading
+              ? t('cuttingOptimizer.optimizing')
+              : groups.length > 1
+                ? t('cuttingOptimizer.createOptimizeAll', { count: groups.length })
+                : t('cuttingOptimizer.createOptimize')}
           </button>
           {error && <span style={{ color: '#e74c3c', marginLeft: 12 }}>{error}</span>}
         </div>
       </div>
 
-      {job && (
-        <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
+      {results.map(({ job, title }) => (
+        <div key={job.id} style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>
-              {t('cuttingOptimizer.jobHeader', { id: job.id, count: job.layouts.length })}
-            </h2>
             <div>
-              <button onClick={() => downloadExport('csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+              <div style={{ fontSize: 13, color: '#888', marginBottom: 2 }}>{title} · {Number(job.thickness)}mm</div>
+              <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>
+                {t('cuttingOptimizer.jobHeader', { id: job.id, count: job.layouts.length })}
+              </h2>
+            </div>
+            <div>
+              <button onClick={() => downloadExport(job, 'csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadCsv')}
               </button>
-              <button onClick={() => downloadExport('pdf')} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+              <button onClick={() => downloadExport(job, 'pdf')} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadPdf')}
               </button>
             </div>
@@ -378,7 +482,7 @@ function CuttingOptimizerModule() {
             </div>
           ))}
         </div>
-      )}
+      ))}
     </div>
   )
 }

@@ -126,6 +126,24 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
             qs = qs.filter(work_order_id=work_order_id)
         return qs
 
+    # As with work-order items: the mixin only scopes reads, so check the job's
+    # work order and material belong to the caller's company before saving.
+    def _check_tenant(self, serializer):
+        work_order = serializer.validated_data.get('work_order')
+        if work_order is not None and work_order.tenant_id != self.request.company.id:
+            raise ValidationError({'work_order': 'Work order not found.'})
+        material = serializer.validated_data.get('material')
+        if material is not None and material.tenant_id != self.request.company.id:
+            raise ValidationError({'material': 'Material not found.'})
+
+    def perform_create(self, serializer):
+        self._check_tenant(serializer)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        self._check_tenant(serializer)
+        super().perform_update(serializer)
+
     @action(detail=True, methods=['post'])
     def optimize(self, request, pk=None):
         job = self.get_object()

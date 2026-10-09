@@ -1487,7 +1487,7 @@
     "chequeBounced": "BOUNCED"
   },
   "cuttingOptimizer": {
-    "errSelectAll": "Select a work order, material, and thickness.",
+    "errSelectAll": "Select a work order and add at least one part.",
     "errCreateJob": "Failed to create cutting job",
     "errOptimizeJob": "Failed to optimize cutting job",
     "errSelectWorkOrder": "Select a work order first.",
@@ -1500,7 +1500,7 @@
     "workOrder": "Work Order",
     "select": "Select...",
     "materialThickness": "Material / Thickness",
-    "materialOption": "Material #{{id}} - {{thickness}}mm ({{width}}x{{height}})",
+    "materialOption": "{{sku}} — {{name}} · {{thickness}}mm ({{width}}×{{height}})",
     "kerfMm": "Kerf (mm)",
     "parts": "Parts",
     "labelPlaceholder": "Label",
@@ -1525,7 +1525,13 @@
     "colY": "Y",
     "colRotated": "Rotated",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "errGroupNoMaterial": "Pick a board material for {{group}}.",
+    "noMaterial": "No material set",
+    "materialForGroup": "Material for {{group}}",
+    "skuNotInInventory": "{{sku}} isn't in Inventory — add it there or pick a board here.",
+    "groupTab": "{{group}} · {{count}} pcs",
+    "createOptimizeAll": "Create & Optimize ({{count}} materials)"
   },
   "extras": {
     "countertopInstalled": "Countertop (installed)",

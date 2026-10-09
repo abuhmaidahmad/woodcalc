@@ -170,10 +170,20 @@ def optimize_job(job_id):
     """
     from manufacturing.models import CuttingJob, StockSheet, CuttingLayout, PartPlacement
 
-    job = CuttingJob.objects.get(id=job_id)
+    job = CuttingJob.objects.select_related('material', 'work_order').get(id=job_id)
     sheet_def = StockSheet.objects.filter(material=job.material, thickness=job.thickness).first()
     if sheet_def is None:
-        raise ValueError(f"No StockSheet defined for material={job.material} thickness={job.thickness}")
+        # Materials picked in the planner carry their own board size, so a stock
+        # sheet is just that board -- create it rather than make the user set one
+        # up in admin before the material can be optimized.
+        mat = job.material
+        if not mat.board_width or not mat.board_height:
+            raise ValueError(f"{mat.sku} has no board size set -- add its board width and height in Inventory.")
+        sheet_def = StockSheet.objects.create(
+            tenant=job.work_order.tenant, material=mat, thickness=job.thickness,
+            width=mat.board_width, height=mat.board_height,
+            grain_direction='length' if mat.has_grain else 'none',
+        )
 
     grain_dir = sheet_def.grain_direction
     pack_sheet_w, pack_sheet_h = sheet_def.width, sheet_def.height
