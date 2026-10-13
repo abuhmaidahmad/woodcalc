@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -37,18 +37,31 @@ class PaymentSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 
-class RoomSerializer(serializers.ModelSerializer):
+ROOM_LOCK_FIELDS = ['is_locked', 'locked_at', 'locked_by', 'unlock_reason', 'revision_number', 'parent_revision', 'revision_status',
+                    'rejection_reason', 'approval_override_reason', 'is_variant', 'source_room']
+
+
+class SourceRoomFieldsMixin(serializers.Serializer):
+    source_room_name = serializers.CharField(source='source_room.name', read_only=True, default=None)
+    source_room_revision = serializers.IntegerField(source='source_room.revision_number', read_only=True,
+                                                    default=None)
+
+
+class RoomSerializer(SourceRoomFieldsMixin, serializers.ModelSerializer):
     class Meta:
         model = Room
         fields = '__all__'
+        read_only_fields = ROOM_LOCK_FIELDS
 
 
-class RoomLiteSerializer(serializers.ModelSerializer):
+class RoomLiteSerializer(SourceRoomFieldsMixin, serializers.ModelSerializer):
     """Room without planner_data — for lists and nesting. The full design JSON
     is only sent when the Kitchen Planner fetches a single room."""
     class Meta:
         model = Room
-        fields = ['id', 'project', 'name', 'room_type', 'grand_total', 'notes', 'created_at', 'updated_at']
+        fields = ['id', 'project', 'name', 'room_type', 'grand_total', 'notes', 'created_at', 'updated_at',
+                  'source_room_name', 'source_room_revision'] + ROOM_LOCK_FIELDS
+        read_only_fields = ROOM_LOCK_FIELDS
 
 
 class ProjectSerializer(serializers.ModelSerializer):
@@ -101,3 +114,17 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentTransaction
         fields = '__all__'
+
+
+class RoomChangeLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RoomChangeLog
+        fields = ['id', 'room', 'user', 'user_name', 'timestamp', 'action', 'field_path', 'old_value', 'new_value',
+                  'reason']
+
+    def get_user_name(self, obj):
+        if obj.user is None:
+            return ''
+        return f'{obj.user.first_name} {obj.user.last_name}'.strip() or obj.user.email

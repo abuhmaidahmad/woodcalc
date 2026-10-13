@@ -137,6 +137,9 @@ export default function ProductionBoard() {
                 </div>
                 <div style={{ fontSize: 12, color: '#666' }}>{o.product_name}</div>
                 <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{o.customer_name} · {o.quantity} {t('productionBoard.cabinets')}</div>
+                {o.revision_changed_after_start && (
+                  <div style={{ fontSize: 10, fontWeight: 700, color: '#C62828', marginTop: 6 }}>{t('productionBoard.revisionChangedFlag')}</div>
+                )}
               </div>
             ))
           )}
@@ -157,6 +160,12 @@ export default function ProductionBoard() {
                     <div style={{ fontSize: 20, fontWeight: 800, color: DARK }}>{selected.order_number}</div>
                     <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{selected.product_name}</div>
                     <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('productionBoard.customer')} <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
+                    {selected.revision_changed_after_start && (
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#C62828', background: '#FDECEA', padding: '6px 10px', borderRadius: 6, marginTop: 8 }}>{t('productionBoard.revisionChangedFlag')}</div>
+                    )}
+                    {selected.status_reason && (
+                      <div style={{ fontSize: 11, color: '#888', marginTop: 6 }}>{selected.status_reason}</div>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
                     <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)} disabled={readOnly}

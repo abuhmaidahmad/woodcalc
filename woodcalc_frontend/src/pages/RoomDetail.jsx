@@ -61,6 +61,14 @@ export default function RoomDetail() {
     setShareBusy(false)
   }
 
+  const roomAction = async (name, body = {}) => {
+    const res = await authFetch(API + `/api/crm/rooms/${id}/${name}/`, { method: 'POST', body: JSON.stringify(body) })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && name === 'request_change') navigate(`/rooms/${data.id}`)
+    else if (res.ok) setRoom(r => ({ ...r, ...data }))
+    return { ok: res.ok, status: res.status, data }
+  }
+
   const revokeShareView = async () => {
     if (!window.confirm(t('roomDetail.shareViewRevokeConfirm'))) return
     try {
@@ -84,6 +92,7 @@ export default function RoomDetail() {
 
   return (
     <KitchenPlannerModule
+      key={room.id}
       roomId={id}
       roomName={room.name}
       roomType={room.room_type}
@@ -95,6 +104,17 @@ export default function RoomDetail() {
       shareMsg={shareMsg}
       onShare={shareView}
       onRevokeShare={revokeShareView}
+      lock={{
+        isLocked: room.is_locked,
+        revisionNumber: room.revision_number,
+        revisionStatus: room.revision_status,
+        parentRevision: room.parent_revision,
+        rejectionReason: room.rejection_reason,
+        isVariant: room.is_variant,
+        sourceRoomName: room.source_room_name,
+        sourceRoomRevision: room.source_room_revision,
+      }}
+      onRoomAction={roomAction}
     />
   )
 }

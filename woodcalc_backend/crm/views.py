@@ -1,19 +1,26 @@
 import uuid
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
 from tenants.utils import get_company_by_slug
-from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .changelog import log_room_action, log_room_edit, snapshot
+from .locking import RoomNotLocked
+from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
+                        started_work_orders)
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 from .serializers import (
     PaymentTransactionSerializer,
     ClientSerializer, ClientDetailSerializer,
     LeadSerializer, QuotationSerializer, QuotationItemSerializer,
-    ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer
+    ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer,
+    RoomChangeLogSerializer,
 )
 
 
@@ -146,11 +153,186 @@ class ProjectViewSet(TenantScopedMixin, ModelViewSet):
         return Response(serializer.data)
 
 
+def require_role(request, *roles):
+    if request.membership.role not in roles:
+        raise PermissionDenied(f"Only {' or '.join(roles)} can do this.")
+
+
 class RoomViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'project__client__tenant'
-    queryset = Room.objects.all().order_by('-created_at')
+    queryset = Room.objects.select_related('source_room').order_by('-created_at')
     serializer_class = RoomSerializer
-    permission_classes = [IsAuthenticated, HasActiveCompany]
+    permission_classes = [IsAuthenticated, HasActiveCompany, RoomNotLocked]
+    lock_exempt_actions = (
+        'share_link', 'revoke_share_link', 'duplicate', 'confirm_lock', 'unlock',
+        'request_change', 'submit_revision', 'approve_revision', 'reject_revision', 'history',
+    )
+
+    def perform_update(self, serializer):
+        before = snapshot(serializer.instance)
+        room = serializer.save()
+        log_room_edit(room, self.request.user, before)
+
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        require_role(request, 'owner', 'admin', 'auditor')
+        room = self.get_object()
+        logs = room.change_logs.select_related('user')[:500]
+        return Response(RoomChangeLogSerializer(logs, many=True).data)
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data.get('project')
+        if project is None or project.client.tenant_id != self.request.company.id:
+            raise ValidationError({'project': 'Project not found.'})
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        if instance.child_revisions.exists():
+            raise ValidationError({'detail': 'This room has revisions and cannot be deleted.'})
+        instance.delete()
+
+    def _lock(self, room, user):
+        room.is_locked = True
+        room.locked_at = timezone.now()
+        room.locked_by = user
+
+    @action(detail=True, methods=['post'])
+    def request_change(self, request, pk=None):
+        require_role(request, 'owner', 'admin', 'staff')
+        room = self.get_object()
+        if not room.is_locked or room.revision_status != Room.RevisionStatus.APPROVED:
+            return Response({'detail': 'Only the confirmed, active revision can be changed.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        chain = revision_chain(room)
+        open_revision = next((r for r in chain if r.parent_revision_id and r.revision_status in OPEN_STATUSES), None)
+        if open_revision:
+            return Response({'detail': f'Revision {open_revision.revision_number} is already open for this kitchen.',
+                             'id': open_revision.id}, status=status.HTTP_400_BAD_REQUEST)
+        revision = Room.objects.create(
+            project=room.project,
+            name=room.name,
+            room_type=room.room_type,
+            planner_data=room.planner_data,
+            grand_total=room.grand_total,
+            notes=room.notes,
+            revision_number=max(r.revision_number for r in chain) + 1,
+            parent_revision=room,
+            is_variant=room.is_variant,
+            source_room=room.source_room,
+        )
+        log_room_action(revision, request.user, RoomChangeLog.Action.REVISION_CREATED,
+                        old_value={'revision_number': room.revision_number, 'room': room.id},
+                        new_value={'revision_number': revision.revision_number})
+        return Response(RoomSerializer(revision).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'])
+    def submit_revision(self, request, pk=None):
+        require_role(request, 'owner', 'admin', 'staff')
+        room = self.get_object()
+        if not room.parent_revision_id or room.is_locked or room.revision_status not in (
+                Room.RevisionStatus.DRAFT, Room.RevisionStatus.REJECTED):
+            return Response({'detail': 'Only a draft revision can be submitted for approval.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        self._lock(room, request.user)
+        room.revision_status = Room.RevisionStatus.PENDING_APPROVAL
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_SUBMITTED)
+        return Response(RoomSerializer(room).data)
+
+    @action(detail=True, methods=['post'])
+    def approve_revision(self, request, pk=None):
+        require_role(request, 'owner')
+        room = self.get_object()
+        if room.revision_status != Room.RevisionStatus.PENDING_APPROVAL:
+            return Response({'detail': 'Only a revision pending approval can be approved.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        chain = revision_chain(room)
+        started = list(started_work_orders(chain, request.company.id).values_list('order_number', flat=True))
+        override_reason = (request.data.get('override_reason') or '').strip()
+        if started and not override_reason:
+            return Response({
+                'detail': f"Production has already started for this kitchen ({', '.join(started)}). "
+                          f"Approve with an override reason to continue.",
+                'started_work_orders': started,
+            }, status=status.HTTP_409_CONFLICT)
+        for previous in chain:
+            if previous.id != room.id and previous.revision_status == Room.RevisionStatus.APPROVED:
+                previous.revision_status = Room.RevisionStatus.SUPERSEDED
+                previous.is_locked = True
+                previous.save(update_fields=['revision_status', 'is_locked', 'updated_at'])
+                log_room_action(previous, request.user, RoomChangeLog.Action.REVISION_SUPERSEDED,
+                                new_value={'superseded_by': room.id, 'revision_number': room.revision_number})
+        self._lock(room, request.user)
+        room.revision_status = Room.RevisionStatus.APPROVED
+        room.approval_override_reason = override_reason if started else ''
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status',
+                                 'approval_override_reason', 'updated_at'])
+        recompute_project_total(room.project)
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_APPROVED, reason=room.approval_override_reason,
+                        new_value={'started_work_orders': started} if started else None)
+        cancelled, flagged = retire_earlier_work_orders(room, chain, request.company.id, request.user,
+                                                        override_reason)
+        return Response({**RoomSerializer(room).data, 'cancelled_work_orders': cancelled,
+                         'flagged_work_orders': flagged})
+
+    @action(detail=True, methods=['post'])
+    def reject_revision(self, request, pk=None):
+        require_role(request, 'owner')
+        room = self.get_object()
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'A reason is required to reject.'}, status=status.HTTP_400_BAD_REQUEST)
+        if room.revision_status != Room.RevisionStatus.PENDING_APPROVAL:
+            return Response({'detail': 'Only a revision pending approval can be rejected.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        room.is_locked = False
+        room.revision_status = Room.RevisionStatus.REJECTED
+        room.rejection_reason = reason
+        room.save(update_fields=['is_locked', 'revision_status', 'rejection_reason', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_REJECTED, reason=reason)
+        return Response(RoomSerializer(room).data)
+
+    @action(detail=True, methods=['post'])
+    def confirm_lock(self, request, pk=None):
+        require_role(request, 'owner', 'admin')
+        room = self.get_object()
+        if room.is_locked:
+            return Response({'detail': 'Room is already locked.'}, status=status.HTTP_400_BAD_REQUEST)
+        if room.parent_revision_id:
+            return Response({'detail': 'Revisions are confirmed by submitting them for approval.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        reason = ''
+        if room.is_variant:
+            require_role(request, 'owner')
+            reason = (request.data.get('reason') or '').strip()
+            if not reason:
+                return Response({'detail': 'A reason is required to confirm a design variant.'},
+                                status=status.HTTP_400_BAD_REQUEST)
+        room.is_locked = True
+        room.locked_at = timezone.now()
+        room.locked_by = request.user
+        room.revision_status = Room.RevisionStatus.APPROVED
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.LOCK, reason=reason,
+                        new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant})
+        return Response(RoomSerializer(room).data)
+
+    @action(detail=True, methods=['post'])
+    def unlock(self, request, pk=None):
+        require_role(request, 'owner')
+        room = self.get_object()
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'A reason is required to unlock.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not room.is_locked or room.revision_status != Room.RevisionStatus.APPROVED:
+            return Response({'detail': 'Only a confirmed, active room can be unlocked.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        room.is_locked = False
+        room.unlock_reason = reason
+        room.revision_status = Room.RevisionStatus.DRAFT
+        room.save(update_fields=['is_locked', 'unlock_reason', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.UNLOCK, reason=reason)
+        return Response(RoomSerializer(room).data)
 
     def get_serializer_class(self):
         if self.action == 'list':
@@ -188,6 +370,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         multiple design options to pick from for the same location."""
         room = self.get_object()
         name = (request.data.get('name') or '').strip() or f'{room.name} (Copy)'
+        has_history = room.parent_revision_id is not None or room.child_revisions.exists()
+        is_variant = room.is_locked or room.is_variant or has_history
         copy = Room.objects.create(
             project=room.project,
             name=name,
@@ -195,6 +379,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             planner_data=room.planner_data,
             grand_total=room.grand_total,
             notes=room.notes,
+            is_variant=is_variant,
+            source_room=room if is_variant else None,
         )
         return Response(RoomSerializer(copy).data, status=status.HTTP_201_CREATED)
 

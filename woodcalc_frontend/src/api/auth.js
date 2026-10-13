@@ -95,6 +95,10 @@ export function isReadOnly() {
   return getCompany()?.role === 'auditor';
 }
 
+export function getRole() {
+  return getCompany()?.role || null;
+}
+
 export function getToken() {
   return localStorage.getItem('access_token');
 }
@@ -144,7 +148,8 @@ export async function authFetch(url, options = {}) {
     try {
       const body = await res.clone().json()
       isPermissionDenied = typeof body?.detail === 'string' &&
-        (body.detail.startsWith('Missing permission:') || body.detail.startsWith('Read-only access:'))
+        (body.detail.startsWith('Missing permission:') || body.detail.startsWith('Read-only access:') ||
+          body.detail.startsWith('Locked:'))
     } catch {}
     if (!isPermissionDenied) {
       window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))

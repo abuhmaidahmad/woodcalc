@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from tenants.models import Company
 
@@ -98,6 +99,28 @@ class Room(models.Model):
     # null means no public link exists. Used to look the room up anonymously
     # at /view/:token without exposing the sequential primary key.
     share_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+
+    class RevisionStatus(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PENDING_APPROVAL = 'pending_approval', 'Pending approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        SUPERSEDED = 'superseded', 'Superseded'
+
+    is_locked = models.BooleanField(default=False)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.SET_NULL, related_name='+')
+    unlock_reason = models.TextField(blank=True)
+    revision_number = models.PositiveIntegerField(default=1)
+    parent_revision = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL,
+                                        related_name='child_revisions')
+    revision_status = models.CharField(max_length=20, choices=RevisionStatus.choices,
+                                       default=RevisionStatus.DRAFT)
+    rejection_reason = models.TextField(blank=True)
+    approval_override_reason = models.TextField(blank=True)
+    is_variant = models.BooleanField(default=False)
+    source_room = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='variants')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -195,3 +218,36 @@ class PaymentTransaction(models.Model):
             inst.status = 'PENDING'
             inst.paid_date = None
             inst.save(update_fields=['status', 'paid_date'])
+
+
+class RoomChangeLog(models.Model):
+    class Action(models.TextChoices):
+        EDIT = 'edit', 'Edit'
+        CABINET_ADDED = 'cabinet_added', 'Cabinet added'
+        CABINET_REMOVED = 'cabinet_removed', 'Cabinet removed'
+        CABINET_CHANGED = 'cabinet_changed', 'Cabinet changed'
+        LOCK = 'lock', 'Lock'
+        UNLOCK = 'unlock', 'Unlock'
+        REVISION_CREATED = 'revision_created', 'Revision created'
+        REVISION_SUBMITTED = 'revision_submitted', 'Revision submitted'
+        REVISION_APPROVED = 'revision_approved', 'Revision approved'
+        REVISION_REJECTED = 'revision_rejected', 'Revision rejected'
+        REVISION_SUPERSEDED = 'revision_superseded', 'Revision superseded'
+        WORK_ORDER_CANCELLED = 'work_order_cancelled', 'Work order cancelled'
+        WORK_ORDER_FLAGGED = 'work_order_flagged', 'Work order flagged'
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='change_logs')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name='+')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    action = models.CharField(max_length=30, choices=Action.choices)
+    field_path = models.CharField(max_length=255, blank=True)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-timestamp', '-id']
+
+    def __str__(self):
+        return f'{self.room_id} {self.action} {self.field_path}'

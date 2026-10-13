@@ -3,6 +3,7 @@ import Logo from '../components/Logo'
 import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
+import { revisionChains } from '../features/kitchen_planner/revisions'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -179,6 +180,8 @@ export default function ProjectDetail() {
     if (res.ok) fetchData()
   }
 
+  const chains = revisionChains(rooms)
+
   const totalCollected = transactions.filter(t => t.is_collected).reduce((s, t) => s + parseFloat(t.amount || 0), 0)
   const totalPaid = payments.filter(p => p.status === 'PAID').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
   const totalPending = payments.filter(p => p.status === 'PENDING').reduce((s, p) => s + parseFloat(p.amount || 0), 0)
@@ -272,7 +275,7 @@ export default function ProjectDetail() {
         {activeTab === 'rooms' && (
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length === 1 ? t('projectDetail.roomCount', { count: rooms.length }) : t('projectDetail.roomCountPlural', { count: rooms.length })}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{chains.length === 1 ? t('projectDetail.roomCount', { count: chains.length }) : t('projectDetail.roomCountPlural', { count: chains.length })}</div>
               {!readOnly && (
                 <button onClick={() => setShowAddRoom(true)}
                   style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
@@ -288,7 +291,7 @@ export default function ProjectDetail() {
               </div>
             ) : (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
-                {rooms.map(room => (
+                {chains.map(({ active: room, revisions }) => (
                   <div key={room.id}
                     style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', cursor: 'pointer', border: '1.5px solid transparent', transition: 'all 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = ACCENT; e.currentTarget.style.background = '#FDFAF6' }}
@@ -303,12 +306,12 @@ export default function ProjectDetail() {
                           style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#888', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
                           {t('projectDetail.duplicateRoom')}
                         </button>
-                        <button
+                        {!room.is_locked && revisions.length === 1 && <button
                           onClick={e => { e.stopPropagation(); deleteRoom(room) }}
                           title={t('projectDetail.deleteRoom')}
                           style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#E74C3C', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
                           {t('projectDetail.deleteRoom')}
-                        </button>
+                        </button>}
                       </div>}
                     </div>
                     {editingRoomId === room.id ? (
@@ -317,12 +320,31 @@ export default function ProjectDetail() {
                         onBlur={() => saveRoomName(room.id)} onKeyDown={e => e.key === 'Enter' && saveRoomName(room.id)}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box', width: '100%' }} />
                     ) : (
-                      <div onClick={e => { if (readOnly) return; e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
+                      <div onClick={e => { if (readOnly || room.is_locked) return; e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {room.name} {!readOnly && <span style={{ color: '#888', fontSize: 11 }}>✎</span>}
+                        {room.name} {!readOnly && !room.is_locked && <span style={{ color: '#888', fontSize: 11 }}>✎</span>}
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
+                    {room.is_variant && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#8A2AC8', marginTop: 4 }}>{t('projectDetail.variantBadge', { name: room.source_room_name || '—', rev: room.source_room_revision || 1 })}</div>
+                    )}
+                    {room.is_locked && room.revision_status === 'approved' && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#2AC87A', marginTop: 4 }}>{t('projectDetail.lockedBadge', { rev: room.revision_number })}</div>
+                    )}
+                    {revisions.length > 1 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 8 }} onClick={e => e.stopPropagation()}>
+                        <span style={{ fontSize: 10, color: '#888', alignSelf: 'center' }}>{t('projectDetail.revisionHistory')}</span>
+                        {revisions.map(r => (
+                          <button key={r.id} onClick={() => navigate(`/rooms/${r.id}`)}
+                            style={{ fontSize: 10, padding: '2px 7px', borderRadius: 10, cursor: 'pointer',
+                              border: `1px solid ${r.id === room.id ? ACCENT : '#E0DAD4'}`, background: r.id === room.id ? ACCENT + '15' : '#fff',
+                              color: r.revision_status === 'superseded' ? '#aaa' : DARK }}>
+                            {t('projectDetail.revisionChip', { rev: r.revision_number, status: t(`projectDetail.status_${r.revision_status}`) })}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{parseFloat(room.grand_total).toFixed(2)} JD</span>
                       <span style={{ fontSize: 11, color: '#888' }}>{new Date(room.updated_at).toLocaleDateString(locale)}</span>

@@ -31,6 +31,7 @@ class WorkOrderSerializer(serializers.ModelSerializer):
         model = WorkOrder
         fields = '__all__'
         extra_kwargs = {'tenant': {'read_only': True}}
+        read_only_fields = ['revision_changed_after_start', 'status_reason']
 
 
 class StationLogSerializer(serializers.ModelSerializer):
