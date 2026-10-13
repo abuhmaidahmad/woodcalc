@@ -3,7 +3,56 @@
 // Units: mm
 
 const T = 18; // panel thickness mm
-const BACK_T = 8; // HDF back panel thickness mm
+// Standard HDF back panel thickness (mm). The company sets its back panel on
+// the Settings page -- a stock material (back_panel_material_sku, whose board
+// thickness is used) or a plain thickness -- and it applies to every room's cut
+// list; the bottom, top and shelf depths shrink/grow with it since they stop at
+// the back's front face.
+const BACK_T = 8;
+export const BACK_PANEL_THICKNESS_OPTIONS = [3, 4, 5, 6, 8];
+
+const positiveOr = (v, fallback) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+};
+
+let companyBack = { thickness: BACK_T, materialCode: null };
+export function getCompanyBackPanel() {
+  return companyBack;
+}
+export function setCompanyBackPanel({ thickness, materialCode } = {}) {
+  companyBack = { thickness: positiveOr(thickness, BACK_T), materialCode: materialCode || null };
+}
+
+// Materials that can be a back panel: the catalog's 'back' type, or any HDF board.
+export function isBackPanelMaterial(m) {
+  return m?.material_type === 'back' || m?.core_material === 'hdf';
+}
+
+// A single cabinet can override the company back panel (backPanelOverride):
+//   'material' -- another stock material (backPanelMaterialCode, with its board
+//                 thickness stamped as backPanelThickness when it was picked)
+//   'carcass'  -- cut from the same 18mm board as its sides/top/bottom (typical
+//                 for an open box, whose back is on show)
+//   a number   -- a plain HDF thickness with no stock material
+// Anything else follows the company setting. materialCode is the stock SKU the
+// back is priced at and cut from (null = generic HDF rate).
+export function resolveBackPanel(c) {
+  const o = c?.backPanelOverride;
+  if (o === 'carcass') return { thickness: T, isBoard: true, materialCode: null };
+  if (o === 'material' && c.backPanelMaterialCode) {
+    return { thickness: positiveOr(c.backPanelThickness, BACK_T), isBoard: false, materialCode: c.backPanelMaterialCode };
+  }
+  if (o != null && o !== '' && positiveOr(o, null)) return { thickness: Number(o), isBoard: false, materialCode: null };
+  return { ...companyBack, isBoard: false };
+}
+
+// The HDF back (main carcass back or a stepped filler's) -- tagged by kind, not
+// matched by thickness, since the thickness is configurable. A carcass-board
+// back and the 'Back rail' are 18mm carcass board, so they don't match.
+export function isBackPanel(p) {
+  return p.kind === 'hdf_back';
+}
 const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
 // Gola milled channel/reveal height (mm) -- matches GOLA_CH in KitchenPlanner3D.jsx.
@@ -31,7 +80,9 @@ export function isShelfEligible(cab) {
 // carcass (sides/bottom/top/back, priced and cut like any tall cabinet) that just
 // houses a purchased oven, so they're excluded from this list but stay in
 // APPLIANCE_SUBTYPES below (the oven unit itself still isn't a manufactured part).
-export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Open Shelf', 'Fridge', 'Appliance'];
+// 'Open Shelf' (the open box) is NOT here: it's a real box cut by
+// calculateCabinet's open-box branch (see openBoxPanels).
+export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Fridge', 'Appliance'];
 // A Double Oven's lower oven sits this far off the cabinet bottom (not at countertop
 // height like a single Oven Tower) so the stacked pair stays within reach and leaves
 // a usable door above. Shared with OvenTowerAppliance in KitchenPlanner3D.jsx.
@@ -86,6 +137,10 @@ export function cabinetConfig(c) {
     drawerSystem: c.drawerSystem,
     drawerBoxConstruction: c.drawerBoxConstruction,
     baseHeight: c.baseHeight,
+    openBoxMaterialSource: c.openBoxMaterialSource,
+    backPanelOverride: c.backPanelOverride,
+    backPanelMaterialCode: c.backPanelMaterialCode,
+    backPanelThickness: c.backPanelThickness,
   };
 }
 
@@ -252,16 +307,51 @@ export function resolveSteppedCabinetProfile(cab, stairProfile, minHeightMm = 30
 // the (shorter, uniform) main carcass, filling the gap up to what that
 // segment's own stair clearance allows. Closed box, no door -- the filler is
 // bonus storage above the unit's normal front, not a redesigned zone.
-export function stairFillerPanels(seg, effectiveH, depth) {
+export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPanel(null)) {
   const fillerH = round2(seg.availableH - effectiveH);
   if (fillerH <= 1) return [];
   const w = round2(seg.x1 - seg.x0);
-  const innerDepth = round2(depth - 30 - 8);
+  const innerDepth = round2(depth - 30 - back.thickness);
   return [
     { name: 'Stepped filler side panel', qty: 2, width: fillerH, depth, thickness: T, notes: 'Follows stair above' },
     { name: 'Stepped filler top panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
     { name: 'Stepped filler bottom panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
-    { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: BACK_T, notes: 'Follows stair above' },
+    back.isBoard
+      ? { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: T, notes: 'Follows stair above' }
+      : { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: back.thickness, kind: 'hdf_back', materialCode: back.materialCode, notes: 'Follows stair above' },
+  ];
+}
+
+export const isOpenBox = (c) => c?.subtype === 'Open Shelf';
+
+// Which board a carcass panel is cut from: 'back' (the HDF back, its own stock
+// material), 'front' (fixed front panels, or an open box whose Box Color is the
+// front material) or 'carcass'.
+export function panelFace(p) {
+  if (isBackPanel(p)) return 'back';
+  if (p.faceMaterial === 'front' || p.name.includes('Front panel')) return 'front';
+  return 'carcass';
+}
+
+// Banded front edges of a carcass (mm): both sides, plus the bottom -- and the
+// top on an open box, whose top is on show too. Doors/fronts are added by callers.
+export function carcassFrontEdgeMm(cab, height = cab.height) {
+  return 2 * height + (isOpenBox(cab) ? 2 : 1) * (cab.width - 36);
+}
+
+// An open box is on show inside and out, so every piece -- back included -- is
+// the same board as the box (carcass, or the front material when the cabinet's
+// Box Color is set to front). No grooves and no setback: the top and bottom run
+// the full depth between the sides, and the back sits exactly between the sides
+// and between the top and bottom. Front edges of sides/top/bottom are banded.
+export function openBoxPanels(W, H, D, faceMaterial) {
+  const innerW = round2(W - 2 * T);
+  const piece = (p) => ({ thickness: T, faceMaterial, ...p });
+  return [
+    piece({ name: 'Side panel', qty: 2, width: H, depth: D, edgeFront: true, notes: 'Open box side' }),
+    piece({ name: 'Top panel', qty: 1, width: innerW, depth: D, edgeFront: true, notes: '(W - 2T) × D, between sides' }),
+    piece({ name: 'Bottom panel', qty: 1, width: innerW, depth: D, edgeFront: true, notes: '(W - 2T) × D, between sides' }),
+    piece({ name: 'Back panel (box board)', qty: 1, width: innerW, depth: round2(H - 2 * T), notes: '(W - 2T) × (H - 2T), between sides and top/bottom, no groove' }),
   ];
 }
 
@@ -274,7 +364,9 @@ export function calculateCabinet(config) {
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
-  const shelves = Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  const openBox = isOpenBox(config);
+  // Open boxes get glass shelves (counted from shelfCount by the master cut list).
+  const shelves = openBox ? 0 : Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -285,6 +377,7 @@ export function calculateCabinet(config) {
     : /legrabox|tandembox|integrated/i.test(drawerSystem);
   const isDrawerCab = config.subtype === 'Drawers' || config.subtype === '2Drw+Door';
   const cabinetType = config.cabinetType || config.category || 'base';
+  const { thickness: backT, isBoard: backIsBoard, materialCode: backMaterialCode } = resolveBackPanel(config);
 
   // Wall and tall cabinets don't sit on the floor with a toe kick + legs
   const hasFloorBase = cabinetType === 'base';
@@ -292,7 +385,11 @@ export function calculateCabinet(config) {
     ? chooseToeKickAndLegs(H)
     : { toeKickH: 0, legH: 0, preset: cabinetType === 'wall' ? 'WALL' : 'TALL' };
 
+  const bottomW = round2(W - 2 * T);
   const panels = [];
+  if (openBox) {
+    panels.push(...openBoxPanels(W, H, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
+  } else {
   panels.push({
     name: 'Side panel',
     qty: 2,
@@ -302,15 +399,14 @@ export function calculateCabinet(config) {
     notes: 'Vertical sides',
   });
 
-  const bottomW = round2(W - 2 * T);
-  const bottomD = round2(D - 30 - 8);
+  const bottomD = round2(D - 30 - backT);
   panels.push({
     name: 'Bottom panel',
     qty: 1,
     width: bottomW,
     depth: bottomD,
     thickness: T,
-    notes: '(W - 2T) × (D - 30 - 8)',
+    notes: `(W - 2T) × (D - 30 - ${backT})`,
   });
 
   // Wall and tall cabinets (incl. pantry) don't get front/back rails —
@@ -324,7 +420,7 @@ export function calculateCabinet(config) {
       width: bottomW,
       depth: bottomD,
       thickness: T,
-      notes: '(W - 2T) × (D - 30 - 8), same as bottom panel',
+      notes: `(W - 2T) × (D - 30 - ${backT}), same as bottom panel`,
     });
   } else {
     const railW = bottomW;
@@ -346,19 +442,36 @@ export function calculateCabinet(config) {
     });
   }
 
-  const backW = round2(bottomW + 16);
-  const backH = round2(H - T - 3);
-  panels.push({
-    name: 'Back panel (HDF)',
-    qty: 1,
-    width: backW,
-    depth: backH,
-    thickness: BACK_T,
-    notes: '8mm HDF',
-  });
+  if (backIsBoard) {
+    // An 18mm board can't sit in the sides' HDF groove -- it's fixed between the
+    // sides, running the full carcass height behind the top/bottom.
+    panels.push({
+      name: 'Back panel (carcass board)',
+      qty: 1,
+      width: bottomW,
+      depth: H,
+      thickness: T,
+      notes: 'Same board as carcass, between sides',
+    });
+  } else {
+    const backW = round2(bottomW + 16);
+    const backH = round2(H - T - 3);
+    panels.push({
+      name: 'Back panel (HDF)',
+      qty: 1,
+      width: backW,
+      depth: backH,
+      thickness: backT,
+      kind: 'hdf_back',
+      materialCode: backMaterialCode,
+      notes: `${backT}mm HDF`,
+    });
+  }
+
+  }
 
   const shelfW = round2(bottomW - 2);
-  const shelfD = round2(D - 38);
+  const shelfD = round2(D - 30 - backT);
   if (shelves > 0) {
     panels.push({
       name: 'Shelf (18mm)',
@@ -381,7 +494,7 @@ export function calculateCabinet(config) {
   const twoDoorWidthEach = round2((W - 3) / 2);
 
   const defaultDoorCount = getDefaultDoorCount(W);
-  const doorCount = isBlind ? 1 : isHobOven ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
+  const doorCount = isBlind ? 1 : (isHobOven || openBox) ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
   const isTallSplit = !isOvenTower && config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;
@@ -524,7 +637,7 @@ export function calculateCabinet(config) {
   const numGolaChannels = isDrawerCab
     ? zonesForGola.reduce((n, _, i) => n + (golaNeedsChannelAbove(zonesForGola, i) ? 1 : 0), 0)
     : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
-  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower) ? {
+  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !openBox) ? {
     // Tall units have no top L-profile; their base-level channel is a C.
     L_meters: config.cabinetType === 'tall' ? 0 : round2(W / 1000 * 100) / 100,
     C_meters: round2(numGolaChannels * W / 1000 * 100) / 100,
@@ -536,7 +649,8 @@ export function calculateCabinet(config) {
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
-  hardware.back_screws = Math.ceil((W - 2 * T) / 100) * 2;
+  // An open box's back is board fixed between the panels, not a screwed-on HDF sheet.
+  hardware.back_screws = openBox ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
@@ -636,7 +750,7 @@ export function calculateCabinet(config) {
   }));
 
   return {
-    constants: { T, BACK_T, CONFIRMAT, EDGE_BANDING },
+    constants: { T, BACK_T: backT, CONFIRMAT, EDGE_BANDING },
     panels: panelsDetailed,
     hardware,
     edgeBanding,

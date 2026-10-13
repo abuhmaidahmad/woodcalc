@@ -8,8 +8,10 @@ const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
-const TYPE_KEYS = { front: 'materialCatalog.typeFront', worktop: 'materialCatalog.typeWorktop', carcass: 'materialCatalog.typeCarcass' }
-const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A' }
+const TYPE_KEYS = { front: 'materialCatalog.typeFront', worktop: 'materialCatalog.typeWorktop', carcass: 'materialCatalog.typeCarcass', back: 'materialCatalog.typeBack' }
+const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A', back: '#7A5A3A' }
+// Back panels (HDF) are never rendered with a texture, so they need no photo.
+const needsPhoto = (form) => form.material_type !== 'back'
 const FINISH_OPTIONS = ['matt', 'gloss', 'wood', 'metal', 'other']
 const FINISH_KEYS = {
   matt: 'materialCatalog.finishMatt', gloss: 'materialCatalog.finishGloss', wood: 'materialCatalog.finishWood',
@@ -209,7 +211,7 @@ export default function MaterialCatalog() {
   const save = async () => {
     if (!form.name.trim()) return
     if (!form.core_material) return
-    if (!editing && !imageFile) return
+    if (!editing && !imageFile && needsPhoto(form)) return
     setSaving(true)
     setSaveError('')
     try {
@@ -343,7 +345,7 @@ export default function MaterialCatalog() {
           {/* Filters + Search */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 4 }}>
-              {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')]].map(([val, label]) => (
+              {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')], ['back', t('materialCatalog.filterBack')]].map(([val, label]) => (
                 <button key={val} onClick={() => setFilter(val)}
                   style={{ padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                     background: filter === val ? ACCENT : '#fff',
@@ -498,11 +500,17 @@ export default function MaterialCatalog() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.typeLabel')}</div>
-                <select value={form.material_type} onChange={e => setForm(f => ({ ...f, material_type: e.target.value }))}
+                <select value={form.material_type} onChange={e => {
+                  const type = e.target.value
+                  setForm(f => type === 'back' && !editing
+                    ? { ...f, material_type: type, core_material: f.core_material || 'hdf', board_thickness: f.board_thickness === 18 ? 3 : f.board_thickness }
+                    : { ...f, material_type: type })
+                }}
                   style={selectStyle}>
                   <option value="front">{t('materialCatalog.typeFront')}</option>
                   <option value="worktop">{t('materialCatalog.typeWorktop')}</option>
                   <option value="carcass">{t('materialCatalog.typeCarcass')}</option>
+                  <option value="back">{t('materialCatalog.typeBack')}</option>
                 </select>
               </div>
               <div>
@@ -616,8 +624,8 @@ export default function MaterialCatalog() {
                 {t('materialCatalog.cancel')}
               </button>
               <button onClick={save}
-                disabled={saving || !form.name.trim() || !form.core_material || (!editing && !imageFile)}
-                style={{ flex: 2, padding: '11px', background: (form.name.trim() && form.core_material && (editing || imageFile)) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                disabled={saving || !form.name.trim() || !form.core_material || (!editing && !imageFile && needsPhoto(form))}
+                style={{ flex: 2, padding: '11px', background: (form.name.trim() && form.core_material && (editing || imageFile || !needsPhoto(form))) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                 {saving ? t('materialCatalog.saving') : editing ? t('materialCatalog.saveChanges') : t('materialCatalog.addMaterial')}
               </button>
             </div>

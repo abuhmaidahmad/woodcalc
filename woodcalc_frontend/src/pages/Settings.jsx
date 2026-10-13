@@ -8,6 +8,8 @@ import { useTranslation } from '../i18n/LanguageContext'
 import TeamCard from '../components/TeamCard'
 import CabinetTemplateApprovalQueue from '../components/CabinetTemplateApprovalQueue'
 import { ONBOARDING_MODULES } from '../onboardingSteps'
+import { getCompanySettings, updateCompanySettings } from '../api/companySettings'
+import { BACK_PANEL_THICKNESS_OPTIONS, isBackPanelMaterial } from '../features/kitchen_planner/formulaEngine'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -22,6 +24,109 @@ const PLANS = [
   { id: 'pro', label: 'Pro', priceJod: 600 },
   { id: 'enterprise', label: 'Enterprise', priceJod: 1200 },
 ]
+
+function ManufacturingStandardsCard() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const readOnly = isReadOnly()
+  const [saved, setSaved] = useState(null) // { sku, mm }
+  const [sku, setSku] = useState('')
+  const [mm, setMm] = useState(8)
+  const [materials, setMaterials] = useState([])
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
+
+  useEffect(() => {
+    getCompanySettings()
+      .then(flags => {
+        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8 }
+        setSaved(v); setSku(v.sku); setMm(v.mm)
+      })
+      .catch(() => { setSaved({ sku: '', mm: 8 }) })
+    const fetchAll = async (url, acc = []) => {
+      const data = await (await authFetch(url)).json()
+      const list = acc.concat(data.results || data || [])
+      return data.next ? fetchAll(data.next.replace(/^https?:/, new URL(API).protocol), list) : list
+    }
+    fetchAll(API + '/api/inventory/materials/')
+      .then(list => setMaterials(list.filter(isBackPanelMaterial)))
+      .catch(() => {})
+  }, [])
+
+  const selectedMat = materials.find(m => m.sku === sku)
+  const effectiveMm = sku ? (selectedMat?.board_thickness || saved?.mm) : mm
+
+  const save = async () => {
+    setSaving(true); setMessage('')
+    try {
+      const flags = await updateCompanySettings(sku
+        ? { back_panel_material_sku: sku }
+        : { back_panel_material_sku: null, back_panel_thickness_mm: mm })
+      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8 }
+      setSaved(v); setSku(v.sku); setMm(v.mm)
+      setMessage(t('settings.standardsSaved'))
+    } catch (e) {
+      setMessage(`${t('settings.standardsError')}: ${e.message}`)
+    }
+    setSaving(false)
+  }
+
+  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm))
+  const labelStyle = { fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 500 }
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.standardsTitle')}</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>{t('settings.standardsDesc')}</div>
+      {saved == null ? (
+        <div style={{ color: '#bbb', fontSize: 13 }}>{t('common.loading')}</div>
+      ) : (
+        <>
+          <div style={labelStyle}>{t('settings.backPanelMaterial')}</div>
+          <select value={sku} disabled={readOnly} onChange={e => { setSku(e.target.value); setMessage('') }}
+            style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#fff', marginBottom: 6, boxSizing: 'border-box' }}>
+            <option value="">{t('settings.backPanelNoMaterial')}</option>
+            {materials.map(m => (
+              <option key={m.sku} value={m.sku}>{m.name} · {m.sku} ({m.board_thickness || '?'}mm)</option>
+            ))}
+            {sku && !selectedMat && <option value={sku}>{sku}</option>}
+          </select>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>
+            {sku ? t('settings.backPanelMaterialHint') : (
+              <>
+                {t('settings.backPanelNoMaterialsHint')}{' '}
+                <span onClick={() => navigate('/catalog')} style={{ color: ACCENT, cursor: 'pointer', fontWeight: 600 }}>→</span>
+              </>
+            )}
+          </div>
+
+          <div style={labelStyle}>{t('settings.backPanelThickness')}</div>
+          {sku ? (
+            <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 6 }}>{effectiveMm}mm</div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+              {BACK_PANEL_THICKNESS_OPTIONS.map(th => (
+                <button key={th} onClick={() => { setMm(th); setMessage('') }} disabled={readOnly}
+                  style={{ flex: 1, padding: '10px 6px', border: `2px solid ${mm === th ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: readOnly ? 'default' : 'pointer', background: mm === th ? ACCENT + '10' : '#FAFAFA', color: mm === th ? ACCENT : DARK, fontSize: 13, fontWeight: 700 }}>
+                  {th}mm
+                </button>
+              ))}
+            </div>
+          )}
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.backPanelHint')}</div>
+          {message && (
+            <div style={{ fontSize: 12, color: message === t('settings.standardsSaved') ? '#3a3' : '#c33', marginBottom: 12 }}>{message}</div>
+          )}
+          {!readOnly && (
+            <button onClick={save} disabled={saving || !dirty}
+              style={{ padding: '10px 20px', background: dirty ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: dirty ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+              {saving ? t('settings.standardsSaving') : t('settings.standardsSave')}
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 function ShareCatalogCard() {
   const { t } = useTranslation()
@@ -328,6 +433,7 @@ export default function Settings() {
           )}
         </div>
 
+        <ManufacturingStandardsCard />
         <ShareCatalogCard />
         <BillingCard />
         <TeamCard />

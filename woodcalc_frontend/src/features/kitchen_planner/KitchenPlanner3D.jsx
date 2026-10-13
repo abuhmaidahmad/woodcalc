@@ -112,10 +112,15 @@ function configureTextureQuality(texture, gl) {
 export function useMaterialTextureMap(companySlug) {
   const [textureMap, setTextureMap] = useState({})
   useEffect(() => {
-    authFetch(withCompanyParam(API_BASE + '/api/inventory/materials/', companySlug))
-      .then(r => r.json())
-      .then(data => {
-        const results = data.results || data
+    // The API pages its results (50 per page) -- follow every page so a catalog
+    // bigger than one page still prices/renders all of its materials.
+    const fetchAll = async (url, acc = []) => {
+      const data = await (await authFetch(url)).json()
+      const list = acc.concat(data.results || data || [])
+      return data.next ? fetchAll(data.next.replace(/^https?:/, new URL(API_BASE).protocol), list) : list
+    }
+    fetchAll(withCompanyParam(API_BASE + '/api/inventory/materials/', companySlug))
+      .then(results => {
         const map = {}
         results.forEach(t => {
           if (t.sku) map[t.sku] = { ...t, texture_image: forceHttps(t.texture_image) }

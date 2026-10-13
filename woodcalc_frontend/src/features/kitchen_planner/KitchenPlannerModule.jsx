@@ -2,7 +2,8 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, carcassFrontEdgeMm } from './formulaEngine'
+import { useCompanyBackPanel } from '../../api/companySettings'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
@@ -95,6 +96,22 @@ function getRoomDropPoint(walls) {
 
 
 // ─── Edge banding helper ────────────────────────────────────────────
+// Workshop label for an HDF back: its stock material when it has one.
+function backPanelMaterialLabel(p) {
+  return p.materialCode ? `${p.materialCode} (HDF ${p.thickness}mm)` : `HDF ${p.thickness}mm`
+}
+
+// Material label + edge banding for one carcass panel. An open box's pieces are
+// all the box board, front edges banded in it (edgeFront).
+function panelMaterialAndBanding(p, c, carcassMat, frontMat) {
+  const face = panelFace(p)
+  const mat = face === 'back' ? backPanelMaterialLabel(p) : face === 'front' ? frontMat : carcassMat
+  const eb = p.edgeFront
+    ? { T: 'None', B: 'None', L: 'None', R: mat }
+    : getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+  return { mat, eb }
+}
+
 function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat) {
   const cc = carcassMat || carcassColor || 'Carcass'
   const fc = frontMat || frontColor || 'Front'
@@ -173,15 +190,15 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = 
                   </thead>
                   <tbody>
                     {panels.map((p, pi) => {
-                      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      const { mat: panelMat, eb } = panelMaterialAndBanding(p, c, carcassMat, frontMat)
                       return (
                         <tr key={pi} style={{ borderBottom: '1px solid #F7F4F0' }}>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{p.name}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{p.qty}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.depth}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.thickness}mm{p.thickness===8?' HDF':''}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.thickness}mm{isBackPanel(p)?' HDF':''}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{panelMat}</td>
                           <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
                         </tr>
                       )
@@ -360,8 +377,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     }
 
     result.panels.forEach(p => {
-      const mat = p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
-      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+      const { mat, eb } = panelMaterialAndBanding(p, c, carcassMat, frontMat)
       const key = `${p.width}×${p.depth}×${p.thickness}|${mat}|${JSON.stringify(eb)}`
       if (!masterMap[key]) masterMap[key] = { ...p, material: mat, eb, qty: 0, name: p.name }
       masterMap[key].qty += p.qty
@@ -539,7 +555,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                     <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness}mm{r.thickness===8?' HDF':''}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness}mm{isBackPanel(r)?' HDF':''}</td>
                     <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.material}</td>
                     <td style={{ padding: '8px 12px', fontSize: 14, fontWeight: 800, color: ACCENT }}>{r.qty}</td>
                     <td style={{ padding: '8px 12px' }}><EBCell eb={r.eb} /></td>
@@ -566,7 +582,7 @@ function resolveStairSteppedCabinet(cab, stairs) {
   const hit = findOverlappingStairProfile(cab, stairs)
   if (!hit) return null
   const resolved = resolveSteppedCabinetProfile(cab, hit.profile)
-  const extraPanels = resolved.segments.flatMap(seg => stairFillerPanels(seg, resolved.effectiveH, cab.depth))
+  const extraPanels = resolved.segments.flatMap(seg => stairFillerPanels(seg, resolved.effectiveH, cab.depth, resolveBackPanel(cab)))
   return { effectiveH: resolved.effectiveH, extraPanels }
 }
 
@@ -580,9 +596,9 @@ function aggregateBOM(cabinets, stairs = []) {
       const r = calculateCabinet(cfg)
       const allPanels = stepped ? [...r.panels, ...stepped.extraPanels] : r.panels
       const effectiveHeight = stepped ? stepped.effectiveH : cab.height
-      totals.sheet18    += allPanels.filter(p => p.thickness === 18).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.hdf8       += allPanels.filter(p => p.thickness === 8).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.edgeM      += (2 * effectiveHeight + (cab.width - 36) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+      totals.sheet18    += allPanels.filter(p => p.thickness === 18 && !isBackPanel(p)).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
+      totals.hdf8       += allPanels.filter(isBackPanel).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
+      totals.edgeM      += (carcassFrontEdgeMm(cab, effectiveHeight) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
       totals.hinges     += r.doors.reduce((s, d) => s + d.hinges, 0)
       totals.legs       += r.hardware.legs
       totals.confirmats += r.hardware.confirmats
@@ -838,6 +854,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // resetting to hardcoded defaults every time the project is reopened.
   const [proposalSettings, setProposalSettings] = useState(null)
   const textureMap = useMaterialTextureMap(publicCompanySlug)
+  // Company back panel (Settings page) -- the cut list helpers read it from
+  // formulaEngine; listing it in memo deps recomputes once it has loaded.
+  const companyBack = useCompanyBackPanel(!publicCompanySlug)
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -1040,7 +1059,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     materialsMap: textureMap,
     drawerSystemsCatalog: availableDrawerSystems,
     countertopMat, backsplashLm, backsplashHeight, t,
-  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t])
+  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyBack])
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
@@ -1158,7 +1177,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
           const frontMat = c.frontMaterialName || 'Front'
           result.panels.forEach(p => {
-            const mat = p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
+            const { mat } = panelMaterialAndBanding(p, c, carcassMat, frontMat)
             const key = `${p.name}|${p.width}x${p.depth}x${p.thickness}|${mat}`
             if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${p.thickness}mm (${mat})`, qty: 0, unit: 'pcs' }
             masterMap[key].qty += p.qty
@@ -2010,6 +2029,54 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                             }}>{src === 'carcass' ? t('kitchenPlannerModule.boxColorCarcass') : t('kitchenPlannerModule.boxColorFront')}</button>
                         ))}
                       </div>
+                    </div>
+                  )
+                })()}
+                {isCarcassCabinet(selCab) && !isOpenBox(selCab) && (() => {
+                  // An open box's back is always its own box board (openBoxPanels).
+                  // Overrides the company back panel (Settings page) for this cabinet
+                  // only -- a different HDF thickness, or a back cut from the same
+                  // board as the carcass (e.g. an open box, whose back is on show).
+                  const o = selCab.backPanelOverride
+                  const value = o === 'carcass' ? 'carcass'
+                    : o === 'material' && selCab.backPanelMaterialCode ? `mat:${selCab.backPanelMaterialCode}`
+                    : (o != null && o !== '' ? `mm:${o}` : '')
+                  const backMaterials = Object.values(textureMap).filter(isBackPanelMaterial)
+                  const companyMat = companyBack.materialCode ? textureMap[companyBack.materialCode] : null
+                  const setBack = (v) => {
+                    if (v.startsWith('mat:')) {
+                      const m = textureMap[v.slice(4)]
+                      setCabinets(prev => prev.map(c => c.id === selCab.id ? { ...c, backPanelOverride: 'material', backPanelMaterialCode: m.sku, backPanelThickness: m.board_thickness || 8 } : c))
+                    } else {
+                      setCabinets(prev => prev.map(c => c.id === selCab.id ? {
+                        ...c,
+                        backPanelOverride: v === '' ? null : v === 'carcass' ? 'carcass' : Number(v.slice(3)),
+                        backPanelMaterialCode: null, backPanelThickness: null,
+                      } : c))
+                    }
+                  }
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.backPanel')}</div>
+                      <select value={value} disabled={readOnly} onChange={e => setBack(e.target.value)}
+                        style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1.5px solid #E0DAD4', fontSize: 12, color: '#444', background: '#fff' }}>
+                        <option value="">{companyMat
+                          ? t('kitchenPlannerModule.backPanelCompanyMaterial', { name: companyMat.name, mm: companyBack.thickness })
+                          : t('kitchenPlannerModule.backPanelCompany', { mm: companyBack.thickness })}</option>
+                        {backMaterials.length > 0 && (
+                          <optgroup label={t('kitchenPlannerModule.backPanelFromStock')}>
+                            {backMaterials.map(m => (
+                              <option key={m.sku} value={`mat:${m.sku}`}>{m.name} · {m.sku} ({m.board_thickness || '?'}mm)</option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup label={t('kitchenPlannerModule.backPanelThicknessOnly')}>
+                          {BACK_PANEL_THICKNESS_OPTIONS.map(mm => (
+                            <option key={mm} value={`mm:${mm}`}>{t('kitchenPlannerModule.backPanelHdf', { mm })}</option>
+                          ))}
+                        </optgroup>
+                        <option value="carcass">{t('kitchenPlannerModule.backPanelCarcass')}</option>
+                      </select>
                     </div>
                   )
                 })()}

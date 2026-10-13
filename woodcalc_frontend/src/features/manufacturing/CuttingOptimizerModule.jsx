@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet } from '../kitchen_planner/formulaEngine'
+import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
+import { useCompanyBackPanel } from '../../api/companySettings'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -16,9 +17,11 @@ function emptyPart() {
 export function bomPanelsToGroups(cabinets, group) {
   const groups = new Map()
 
-  function addPart(sku, label, width, height, grainLocked, qty) {
-    const groupKey = sku || ''
-    if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, merged: new Map() })
+  function addPart(sku, label, width, height, grainLocked, qty, thickness = '') {
+    // A back panel with no stock material is grouped by its thickness, so 3mm
+    // and 8mm backs never end up on the same sheet.
+    const groupKey = sku || (thickness ? `t${thickness}` : '')
+    if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, thickness: sku ? '' : String(thickness || ''), merged: new Map() })
     const merged = groups.get(groupKey).merged
     const key = `${label}|${width}|${height}|${grainLocked}`
     if (merged.has(key)) {
@@ -39,15 +42,17 @@ export function bomPanelsToGroups(cabinets, group) {
 
     if (group === 'carcass') {
       result.panels.forEach(p => {
-        if (p.name.includes('Back panel')) return
-        addPart(cab.carcassMaterialCode, p.name, p.width, p.depth, false, p.qty)
+        if (isBackPanel(p)) return
+        // An open box can be cut from the front material (its Box Color).
+        const sku = panelFace(p) === 'front' ? cab.frontMaterialCode : cab.carcassMaterialCode
+        addPart(sku, p.name, p.width, p.depth, false, p.qty)
       })
     }
 
     if (group === 'back') {
       result.panels.forEach(p => {
-        if (!p.name.includes('Back panel')) return
-        addPart(null, p.name, p.width, p.depth, false, p.qty)
+        if (!isBackPanel(p)) return
+        addPart(p.materialCode, p.name, p.width, p.depth, false, p.qty, p.thickness)
       })
     }
 
@@ -60,6 +65,7 @@ export function bomPanelsToGroups(cabinets, group) {
 
   return Array.from(groups.values()).map(g => newGroup({
     sku: g.sku,
+    thickness: g.thickness || '',
     parts: Array.from(g.merged.values()).map(p => ({
       label: p.label,
       width: String(p.width),
@@ -93,6 +99,8 @@ function CuttingOptimizerModule() {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
+  // Loads the company back panel the BOM import's panel sizes and material depend on.
+  useCompanyBackPanel()
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
   const readOnly = isReadOnly()
@@ -136,7 +144,7 @@ function CuttingOptimizerModule() {
   // a stock sheet set up (e.g. back-panel MDF) or is selected right now.
   const sheetMaterialIds = new Set(stockSheets.map(s => String(s.material)))
   const materialOptions = materials.filter(m =>
-    m.material_type === 'front' || m.material_type === 'carcass' || sheetMaterialIds.has(String(m.id))
+    m.material_type === 'front' || m.material_type === 'carcass' || isBackPanelMaterial(m) || sheetMaterialIds.has(String(m.id))
     || groups.some(g => String(groupMaterial(g)?.id) === String(m.id)))
 
   function materialOptionLabel(m) {

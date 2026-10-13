@@ -106,3 +106,58 @@ class CaseInsensitiveLoginTests(TestCase):
     def test_wrong_password_still_rejected(self):
         res = APIClient().post('/api/auth/login/', {'email': 'omar@gmail.com', 'password': 'nope'}, format='json')
         self.assertEqual(res.status_code, 401)
+
+
+class BackPanelThicknessSettingTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='B', slug='b', status=Company.Status.ACTIVE)
+        self.owner = make_member(self.company, 'owner-b@x.com', CompanyMembership.Role.OWNER)
+        self.api = APIClient()
+        self.api.force_authenticate(self.owner)
+
+    def test_set_back_panel_thickness(self):
+        res = self.api.patch('/api/tenants/settings/', {'back_panel_thickness_mm': 3}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['back_panel_thickness_mm'], 3)
+        self.assertEqual(self.api.get('/api/tenants/settings/').json()['back_panel_thickness_mm'], 3)
+
+    def test_rejects_unsupported_thickness(self):
+        for bad in (0, 7, -3, 'thin', None):
+            res = self.api.patch('/api/tenants/settings/', {'back_panel_thickness_mm': bad}, format='json')
+            self.assertEqual(res.status_code, 400, bad)
+        self.assertNotIn('back_panel_thickness_mm', self.api.get('/api/tenants/settings/').json())
+
+    def test_other_flags_are_kept(self):
+        self.api.patch('/api/tenants/settings/', {'cadcam_min_offcut_width_mm': 200}, format='json')
+        self.api.patch('/api/tenants/settings/', {'back_panel_thickness_mm': 5}, format='json')
+        flags = self.api.get('/api/tenants/settings/').json()
+        self.assertEqual(flags['cadcam_min_offcut_width_mm'], 200)
+        self.assertEqual(flags['back_panel_thickness_mm'], 5)
+
+    def test_back_panel_material_sets_thickness(self):
+        from inventory.models import Material
+        mat = Material.objects.create(tenant=self.company, sku='HDF3', name='HDF 3mm', material_type='back',
+                                      core_material='hdf', board_thickness=3)
+        res = self.api.patch('/api/tenants/settings/', {'back_panel_material_sku': 'HDF3'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()['back_panel_thickness_mm'], 3)
+        # The thickness follows the material when it's edited in the catalog.
+        mat.board_thickness = 4
+        mat.save()
+        flags = self.api.get('/api/tenants/settings/').json()
+        self.assertEqual((flags['back_panel_material_sku'], flags['back_panel_thickness_mm']), ('HDF3', 4))
+
+    def test_back_panel_material_must_belong_to_company(self):
+        from inventory.models import Material
+        other = Company.objects.create(name='O', slug='o', status=Company.Status.ACTIVE)
+        Material.objects.create(tenant=other, sku='HDF3', name='HDF', board_thickness=3)
+        res = self.api.patch('/api/tenants/settings/', {'back_panel_material_sku': 'HDF3'}, format='json')
+        self.assertEqual(res.status_code, 400)
+
+    def test_plain_thickness_clears_material(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='HDF3', name='HDF', board_thickness=3)
+        self.api.patch('/api/tenants/settings/', {'back_panel_material_sku': 'HDF3'}, format='json')
+        res = self.api.patch('/api/tenants/settings/', {'back_panel_material_sku': None, 'back_panel_thickness_mm': 8}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual((res.json()['back_panel_material_sku'], res.json()['back_panel_thickness_mm']), (None, 8))

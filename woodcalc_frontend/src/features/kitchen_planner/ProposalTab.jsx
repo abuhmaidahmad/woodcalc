@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, carcassFrontEdgeMm } from './formulaEngine'
+import { useCompanyBackPanel } from '../../api/companySettings'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -219,13 +220,13 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
 
   // Material cost -- split three ways: carcass panels price by the selected carcass
   // material, front-facing panels (doors, drawer fronts, and any fixed "Front panel"
-  // pieces -- visible, not structural) price by the selected front material, and the 8mm HDF back stays its own generic category (no per-cabinet
-  // material picker for it).
+  // pieces -- visible, not structural) price by the selected front material, and the HDF back prices by
+  // its own stock material (company default or the cabinet's override), falling back to the generic HDF rate.
   const carcassPricePerM2 = materialPricePerM2(cab.carcassMaterialCode, materialsMap, prices, cab.material)
   const frontPricePerM2   = materialPricePerM2(cab.frontMaterialCode, materialsMap, prices, cab.material)
-  const panels18 = result.panels.filter(p => p.thickness === 18 && !p.name.includes('Front panel'))
-  const frontPanels18 = result.panels.filter(p => p.thickness === 18 && p.name.includes('Front panel'))
-  const panels8  = result.panels.filter(p => p.thickness === 8)
+  const panels18 = result.panels.filter(p => p.thickness === 18 && panelFace(p) === 'carcass')
+  const frontPanels18 = result.panels.filter(p => p.thickness === 18 && panelFace(p) === 'front')
+  const panels8  = result.panels.filter(isBackPanel)
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const m2_8  = panels8.reduce((s,  p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const frontPanelM2 = frontPanels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
@@ -233,10 +234,12 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const drawerFrontM2 = result.drawerFronts.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
 
   const boardCost   = parseFloat((m2_18 * carcassPricePerM2).toFixed(3))
-  const hdfCost     = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
+  const hdfCost     = parseFloat(panels8.reduce((s, p) => s
+    + (p.width * p.depth * p.qty / 1e6) * materialPricePerM2(p.materialCode, materialsMap, prices, 'hdf', 'hdf8_m2'), 0).toFixed(3))
+  const hdfUnit     = m2_8 > 0 ? parseFloat((hdfCost / m2_8).toFixed(3)) : prices.hdf8_m2
   const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
-  const edgeM = (2 * cab.height + (cab.width - 36)
+  const edgeM = (carcassFrontEdgeMm(cab)
     + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
     + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
@@ -245,7 +248,7 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
 
   const materialCost = boardCost + hdfCost + doorMatCost + edgeCost + drawerBoxCost
   breakdown.push({ label: t('proposalTab.breakdownCarcassBoard'), qty: m2_18.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: carcassPricePerM2, cost: boardCost })
-  breakdown.push({ label: t('proposalTab.breakdownHdf8'),    qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: prices.hdf8_m2, cost: hdfCost })
+  breakdown.push({ label: t('proposalTab.breakdownHdf8'),    qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: hdfUnit, cost: hdfCost })
   breakdown.push({ label: t('proposalTab.breakdownDoorPanel'), qty: (doorM2 + drawerFrontM2 + frontPanelM2).toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: frontPricePerM2, cost: doorMatCost })
   breakdown.push({ label: t('proposalTab.breakdownEdgeBand'),  qty: edgeM.toFixed(2)  + ' ' + t('proposalTab.unitM'),  unit: prices.edge_banding_m, cost: edgeCost })
   drawerBoxRows.forEach(r => breakdown.push(r))
@@ -405,6 +408,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
     if (onSettingsChange) onSettingsChange({ prices, margin, usdRate, extras, customer })
   }, [prices, margin, usdRate, extras, customer])
 
+  const companyBack = useCompanyBackPanel()
   const updatePrice = (key, val) => setPrices(p => ({ ...p, [key]: val }))
   const updateExtra = (id, data) => setExtras(p => p.map(e => e.id === id ? data : e))
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
@@ -416,7 +420,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
     cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
   } = useMemo(() => computeProposalTotals({
     cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
-  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t])
+  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyBack])
   const grandTotalUSD    = grandTotal / usdRate
 
 
