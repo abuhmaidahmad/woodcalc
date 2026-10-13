@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace } from '../kitchen_planner/formulaEngine'
+import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, glassShelfSpec, isGlassMaterial } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
-import { useCompanyBackPanel } from '../../api/companySettings'
+import { useCompanyStandards } from '../../api/companySettings'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -56,8 +56,14 @@ export function bomPanelsToGroups(cabinets, group) {
       })
     }
 
+    if (group === 'glass') {
+      const glass = glassShelfSpec(cab)
+      if (glass) addPart(glass.materialCode, 'Glass shelf', glass.width, glass.depth, false, glass.qty, glass.thickness)
+    }
+
     if (group === 'front') {
       result.doors.forEach(d => {
+        if (d.glassDoor) return // bought in from the glass supplier
         addPart(cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
       })
     }
@@ -99,8 +105,8 @@ function CuttingOptimizerModule() {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
-  // Loads the company back panel the BOM import's panel sizes and material depend on.
-  useCompanyBackPanel()
+  // Loads the company back panel + glass standards the BOM import depends on.
+  useCompanyStandards()
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
   const readOnly = isReadOnly()
@@ -144,7 +150,7 @@ function CuttingOptimizerModule() {
   // a stock sheet set up (e.g. back-panel MDF) or is selected right now.
   const sheetMaterialIds = new Set(stockSheets.map(s => String(s.material)))
   const materialOptions = materials.filter(m =>
-    m.material_type === 'front' || m.material_type === 'carcass' || isBackPanelMaterial(m) || sheetMaterialIds.has(String(m.id))
+    m.material_type === 'front' || m.material_type === 'carcass' || isBackPanelMaterial(m) || isGlassMaterial(m) || sheetMaterialIds.has(String(m.id))
     || groups.some(g => String(groupMaterial(g)?.id) === String(m.id)))
 
   function materialOptionLabel(m) {
@@ -449,6 +455,9 @@ function CuttingOptimizerModule() {
         </button>
         <button onClick={() => loadFromBOM('back')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
           {t('cuttingOptimizer.loadBackPanels')}
+        </button>
+        <button onClick={() => loadFromBOM('glass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16, marginInlineStart: 8 }}>
+          {t('cuttingOptimizer.loadGlassShelves')}
         </button>
 
         <div>

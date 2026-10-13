@@ -161,3 +161,24 @@ class BackPanelThicknessSettingTests(TestCase):
         res = self.api.patch('/api/tenants/settings/', {'back_panel_material_sku': None, 'back_panel_thickness_mm': 8}, format='json')
         self.assertEqual(res.status_code, 200, res.content)
         self.assertEqual((res.json()['back_panel_material_sku'], res.json()['back_panel_thickness_mm']), (None, 8))
+
+    def test_glass_shelf_material_sets_thickness(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='GL6', name='Clear glass 6mm', material_type='glass',
+                                unit='M2', board_thickness=6)
+        res = self.api.patch('/api/tenants/settings/', {'glass_shelf_material_sku': 'GL6'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual((res.json()['glass_shelf_material_sku'], res.json()['glass_shelf_thickness_mm']), ('GL6', 6))
+        # Picking a glass material leaves the back panel standard alone, and vice versa.
+        self.assertNotIn('back_panel_material_sku', res.json())
+        res = self.api.patch('/api/tenants/settings/', {'glass_shelf_material_sku': None, 'glass_shelf_thickness_mm': 10}, format='json')
+        self.assertEqual((res.json()['glass_shelf_material_sku'], res.json()['glass_shelf_thickness_mm']), (None, None))
+
+    def test_glass_door_material(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='ALU', name='Alu glass door', material_type='glass_door',
+                                board_thickness=None)
+        res = self.api.patch('/api/tenants/settings/', {'glass_door_material_sku': 'ALU'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json()['glass_door_material_sku'], 'ALU')
+        self.assertNotIn('glass_door_thickness_mm', res.json())

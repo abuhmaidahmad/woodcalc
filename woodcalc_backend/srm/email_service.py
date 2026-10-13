@@ -31,6 +31,8 @@ def build_po_email_body(purchase_order):
             f"{item.material.sku} - {item.material.name}: "
             f"{item.quantity_ordered} {item.material.unit} @ {item.unit_price}/unit"
         )
+        if item.notes:
+            lines.append(f"    {item.notes}")
     lines.append("-" * 50)
     if purchase_order.notes:
         lines.append("")

@@ -8,10 +8,12 @@ const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
-const TYPE_KEYS = { front: 'materialCatalog.typeFront', worktop: 'materialCatalog.typeWorktop', carcass: 'materialCatalog.typeCarcass', back: 'materialCatalog.typeBack' }
-const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A', back: '#7A5A3A' }
-// Back panels (HDF) are never rendered with a texture, so they need no photo.
-const needsPhoto = (form) => form.material_type !== 'back'
+const TYPE_KEYS = { front: 'materialCatalog.typeFront', worktop: 'materialCatalog.typeWorktop', carcass: 'materialCatalog.typeCarcass', back: 'materialCatalog.typeBack', glass: 'materialCatalog.typeGlass', glass_door: 'materialCatalog.typeGlassDoor' }
+const TYPE_COLORS = { front: '#C8902A', worktop: '#2A7AC8', carcass: '#2A8A4A', back: '#7A5A3A', glass: '#4A9AB0', glass_door: '#5A6A80' }
+// Back panels (HDF) and glass are never rendered with a texture, so they need no
+// photo; glass isn't a board, so it has no core material either.
+const needsPhoto = (form) => !['back', 'glass', 'glass_door'].includes(form.material_type)
+const needsCore = (form) => !['glass', 'glass_door'].includes(form.material_type)
 const FINISH_OPTIONS = ['matt', 'gloss', 'wood', 'metal', 'other']
 const FINISH_KEYS = {
   matt: 'materialCatalog.finishMatt', gloss: 'materialCatalog.finishGloss', wood: 'materialCatalog.finishWood',
@@ -210,7 +212,7 @@ export default function MaterialCatalog() {
 
   const save = async () => {
     if (!form.name.trim()) return
-    if (!form.core_material) return
+    if (!form.core_material && needsCore(form)) return
     if (!editing && !imageFile && needsPhoto(form)) return
     setSaving(true)
     setSaveError('')
@@ -220,6 +222,8 @@ export default function MaterialCatalog() {
         if (v !== '' && v !== null && v !== undefined) fd.append(k, v)
       })
       if (imageFile) fd.append('texture_image', imageFile)
+      // Glass has no board core -- send it blank so the backend's particleboard default doesn't apply.
+      if (!needsCore(form)) fd.set('core_material', '')
 
       const url = editing
         ? API + `/api/inventory/materials/${editing.id}/`
@@ -345,7 +349,7 @@ export default function MaterialCatalog() {
           {/* Filters + Search */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', gap: 4 }}>
-              {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')], ['back', t('materialCatalog.filterBack')]].map(([val, label]) => (
+              {[['all', t('materialCatalog.filterAll')], ['front', t('materialCatalog.filterFront')], ['worktop', t('materialCatalog.filterWorktop')], ['carcass', t('materialCatalog.filterCarcass')], ['back', t('materialCatalog.filterBack')], ['glass', t('materialCatalog.filterGlass')], ['glass_door', t('materialCatalog.filterGlassDoor')]].map(([val, label]) => (
                 <button key={val} onClick={() => setFilter(val)}
                   style={{ padding: '7px 14px', borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                     background: filter === val ? ACCENT : '#fff',
@@ -504,13 +508,19 @@ export default function MaterialCatalog() {
                   const type = e.target.value
                   setForm(f => type === 'back' && !editing
                     ? { ...f, material_type: type, core_material: f.core_material || 'hdf', board_thickness: f.board_thickness === 18 ? 3 : f.board_thickness }
-                    : { ...f, material_type: type })
+                    : type === 'glass' && !editing
+                      ? { ...f, material_type: type, core_material: '', board_thickness: f.board_thickness === 18 ? 8 : f.board_thickness, price_unit: 'm2' }
+                    : type === 'glass_door' && !editing
+                      ? { ...f, material_type: type, core_material: '', price_unit: 'm2' }
+                      : { ...f, material_type: type })
                 }}
                   style={selectStyle}>
                   <option value="front">{t('materialCatalog.typeFront')}</option>
                   <option value="worktop">{t('materialCatalog.typeWorktop')}</option>
                   <option value="carcass">{t('materialCatalog.typeCarcass')}</option>
                   <option value="back">{t('materialCatalog.typeBack')}</option>
+                  <option value="glass">{t('materialCatalog.typeGlass')}</option>
+                  <option value="glass_door">{t('materialCatalog.typeGlassDoor')}</option>
                 </select>
               </div>
               <div>
@@ -525,6 +535,7 @@ export default function MaterialCatalog() {
             {/* Core material -- drives which board price rate (particleboard/plywood/MDF/...)
                 this material is priced at in proposals, so it has no default: the person
                 cataloging the board must pick it explicitly. */}
+            {needsCore(form) && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.coreMaterialLabel')}</div>
               <select value={form.core_material} onChange={e => setForm(f => ({ ...f, core_material: e.target.value }))}
@@ -533,6 +544,7 @@ export default function MaterialCatalog() {
                 {CORE_MATERIAL_OPTIONS.map(o => <option key={o} value={o}>{t(CORE_MATERIAL_KEYS[o])}</option>)}
               </select>
             </div>
+            )}
 
             {/* Supplier */}
             <div style={{ marginBottom: 12 }}>
@@ -624,8 +636,8 @@ export default function MaterialCatalog() {
                 {t('materialCatalog.cancel')}
               </button>
               <button onClick={save}
-                disabled={saving || !form.name.trim() || !form.core_material || (!editing && !imageFile && needsPhoto(form))}
-                style={{ flex: 2, padding: '11px', background: (form.name.trim() && form.core_material && (editing || imageFile || !needsPhoto(form))) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                disabled={saving || !form.name.trim() || (!form.core_material && needsCore(form)) || (!editing && !imageFile && needsPhoto(form))}
+                style={{ flex: 2, padding: '11px', background: (form.name.trim() && (form.core_material || !needsCore(form)) && (editing || imageFile || !needsPhoto(form))) ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
                 {saving ? t('materialCatalog.saving') : editing ? t('materialCatalog.saveChanges') : t('materialCatalog.addMaterial')}
               </button>
             </div>

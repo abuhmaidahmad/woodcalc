@@ -9,7 +9,7 @@ import TeamCard from '../components/TeamCard'
 import CabinetTemplateApprovalQueue from '../components/CabinetTemplateApprovalQueue'
 import { ONBOARDING_MODULES } from '../onboardingSteps'
 import { getCompanySettings, updateCompanySettings } from '../api/companySettings'
-import { BACK_PANEL_THICKNESS_OPTIONS, isBackPanelMaterial } from '../features/kitchen_planner/formulaEngine'
+import { BACK_PANEL_THICKNESS_OPTIONS, isBackPanelMaterial, isGlassMaterial, isGlassDoorMaterial } from '../features/kitchen_planner/formulaEngine'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -29,8 +29,12 @@ function ManufacturingStandardsCard() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const readOnly = isReadOnly()
-  const [saved, setSaved] = useState(null) // { sku, mm }
+  const [saved, setSaved] = useState(null) // { sku, mm, glassSku }
   const [sku, setSku] = useState('')
+  const [glassSku, setGlassSku] = useState('')
+  const [glassMaterials, setGlassMaterials] = useState([])
+  const [doorSku, setDoorSku] = useState('')
+  const [doorMaterials, setDoorMaterials] = useState([])
   const [mm, setMm] = useState(8)
   const [materials, setMaterials] = useState([])
   const [saving, setSaving] = useState(false)
@@ -39,17 +43,17 @@ function ManufacturingStandardsCard() {
   useEffect(() => {
     getCompanySettings()
       .then(flags => {
-        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8 }
-        setSaved(v); setSku(v.sku); setMm(v.mm)
+        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '' }
+        setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku)
       })
-      .catch(() => { setSaved({ sku: '', mm: 8 }) })
+      .catch(() => { setSaved({ sku: '', mm: 8, glassSku: '', doorSku: '' }) })
     const fetchAll = async (url, acc = []) => {
       const data = await (await authFetch(url)).json()
       const list = acc.concat(data.results || data || [])
       return data.next ? fetchAll(data.next.replace(/^https?:/, new URL(API).protocol), list) : list
     }
     fetchAll(API + '/api/inventory/materials/')
-      .then(list => setMaterials(list.filter(isBackPanelMaterial)))
+      .then(list => { setMaterials(list.filter(isBackPanelMaterial)); setGlassMaterials(list.filter(isGlassMaterial)); setDoorMaterials(list.filter(isGlassDoorMaterial)) })
       .catch(() => {})
   }, [])
 
@@ -59,11 +63,13 @@ function ManufacturingStandardsCard() {
   const save = async () => {
     setSaving(true); setMessage('')
     try {
-      const flags = await updateCompanySettings(sku
-        ? { back_panel_material_sku: sku }
-        : { back_panel_material_sku: null, back_panel_thickness_mm: mm })
-      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8 }
-      setSaved(v); setSku(v.sku); setMm(v.mm)
+      const flags = await updateCompanySettings({
+        ...(sku ? { back_panel_material_sku: sku } : { back_panel_material_sku: null, back_panel_thickness_mm: mm }),
+        glass_shelf_material_sku: glassSku || null,
+        glass_door_material_sku: doorSku || null,
+      })
+      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '' }
+      setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku)
       setMessage(t('settings.standardsSaved'))
     } catch (e) {
       setMessage(`${t('settings.standardsError')}: ${e.message}`)
@@ -71,7 +77,8 @@ function ManufacturingStandardsCard() {
     setSaving(false)
   }
 
-  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm))
+  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm) || glassSku !== saved.glassSku || doorSku !== saved.doorSku)
+  const selectedGlass = glassMaterials.find(m => m.sku === glassSku)
   const labelStyle = { fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 500 }
   return (
     <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 20 }}>
@@ -113,6 +120,28 @@ function ManufacturingStandardsCard() {
             </div>
           )}
           <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.backPanelHint')}</div>
+
+          <div style={labelStyle}>{t('settings.glassShelfMaterial')}</div>
+          <select value={glassSku} disabled={readOnly} onChange={e => { setGlassSku(e.target.value); setMessage('') }}
+            style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#fff', marginBottom: 6, boxSizing: 'border-box' }}>
+            <option value="">{t('settings.glassShelfNoMaterial')}</option>
+            {glassMaterials.map(m => (
+              <option key={m.sku} value={m.sku}>{m.name} · {m.sku} ({m.board_thickness || '?'}mm)</option>
+            ))}
+            {glassSku && !selectedGlass && <option value={glassSku}>{glassSku}</option>}
+          </select>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.glassShelfHint')}</div>
+
+          <div style={labelStyle}>{t('settings.glassDoorMaterial')}</div>
+          <select value={doorSku} disabled={readOnly} onChange={e => { setDoorSku(e.target.value); setMessage('') }}
+            style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#fff', marginBottom: 6, boxSizing: 'border-box' }}>
+            <option value="">{t('settings.glassDoorNoMaterial')}</option>
+            {doorMaterials.map(m => (
+              <option key={m.sku} value={m.sku}>{m.name} · {m.sku}</option>
+            ))}
+            {doorSku && !doorMaterials.some(m => m.sku === doorSku) && <option value={doorSku}>{doorSku}</option>}
+          </select>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.glassDoorHint')}</div>
           {message && (
             <div style={{ fontSize: 12, color: message === t('settings.standardsSaved') ? '#3a3' : '#c33', marginBottom: 12 }}>{message}</div>
           )}

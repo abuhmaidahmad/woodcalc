@@ -259,6 +259,7 @@ export default function PurchaseOrderDetail() {
                     <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
                       {li.quantity_received} / {li.quantity_ordered} {t('purchaseOrderDetail.receivedOf')} {li.unit_price ? `· ${li.unit_price}/unit` : ''}
                     </div>
+                    {li.notes && <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>{li.notes}</div>}
                   </div>
                   {readOnly && !li.is_fully_received ? null : li.is_fully_received ? (
                     <span style={{ fontSize: 11, color: '#3a3', background: '#eef7ee', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>{t('purchaseOrderDetail.complete')}</span>

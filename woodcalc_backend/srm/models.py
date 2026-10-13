@@ -22,6 +22,8 @@ class PurchaseOrder(models.Model):
     expected_delivery_date = models.DateField(null=True, blank=True)
     actual_delivery_date = models.DateField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    # What generated this PO (e.g. 'room:22:glass'), so the same room's glass isn't ordered twice.
+    source_ref = models.CharField(max_length=100, blank=True, default='', db_index=True)
     payment_terms = models.CharField(max_length=10, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -78,6 +80,9 @@ class PurchaseOrderLineItem(models.Model):
     quantity_received = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     unit_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     notes = models.CharField(max_length=300, blank=True)
+    # Cut/made to size for one job (glass shelves, aluminium glass doors): goes
+    # straight into that job when received, so it never adds to free stock.
+    made_to_order = models.BooleanField(default=False)
 
     @property
     def is_fully_received(self):
@@ -105,6 +110,16 @@ class PurchaseOrderLineItem(models.Model):
             reference=self.purchase_order.po_number,
             note=f'Received against {self.purchase_order.po_number}',
         )
+        if self.made_to_order:
+            self.material.quantity_on_hand -= quantity
+            self.material.save(update_fields=['quantity_on_hand'])
+            StockMovement.objects.create(
+                material=self.material,
+                movement_type='OUT',
+                quantity=quantity,
+                reference=self.purchase_order.po_number,
+                note=f'Made to order -- used by {self.purchase_order.source_ref or self.purchase_order.po_number}',
+            )
 
         po = self.purchase_order
         line_items = po.line_items.all()

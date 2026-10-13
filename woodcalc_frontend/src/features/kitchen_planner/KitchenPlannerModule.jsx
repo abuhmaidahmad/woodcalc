@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, carcassFrontEdgeMm } from './formulaEngine'
-import { useCompanyBackPanel } from '../../api/companySettings'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, carcassFrontEdgeMm, glassShelfSpec, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { useCompanyStandards } from '../../api/companySettings'
+import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
@@ -96,6 +97,13 @@ function getRoomDropPoint(walls) {
 
 
 // ─── Edge banding helper ────────────────────────────────────────────
+// Label for a bought-in aluminium glass door: the company's door material + finish.
+function glassDoorLabel(c) {
+  const finish = `${c.frameColor || 'black'} frame, ${c.glassType || 'clear'} glass`
+  const code = getCompanyGlassDoor().materialCode
+  return code ? `${code} (${finish})` : `Aluminium glass door (${finish})`
+}
+
 // Workshop label for an HDF back: its stock material when it has one.
 function backPanelMaterialLabel(p) {
   return p.materialCode ? `${p.materialCode} (HDF ${p.thickness}mm)` : `HDF ${p.thickness}mm`
@@ -204,15 +212,15 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = 
                       )
                     })}
                     {result.doors.map((d, di) => {
-                      const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      const eb = d.glassDoor ? {} : getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
                       return (
                         <tr key={'d'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.door', { n: di+1 })}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>18mm</td>
-                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{frontMat}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{d.glassDoor ? '—' : '18mm'}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{d.glassDoor ? glassDoorLabel(c) : frontMat}</td>
                           <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
                         </tr>
                       )
@@ -318,12 +326,11 @@ function computeMasterCutList(cabinets, calculateCabinet) {
 
     if (isShelfEligible(c) && (c.shelfCount ?? c.glassShelfCount ?? 1) > 0) {
       const shelfQty = c.shelfCount ?? c.glassShelfCount ?? 1
-      const isGlassShelf = c.category === 'wall' || c.subtype === 'Open Shelf'
-      const shelfW = Math.round(c.width - 40)
-      const shelfD = Math.round(c.depth - 28)
-      if (isGlassShelf) {
-        const key = `${shelfW}×${shelfD}×8|Glass|glassshelf`
-        if (!masterMap[key]) masterMap[key] = { name: 'Glass Shelf (8mm Tempered)', width: shelfW, depth: shelfD, thickness: 8, material: 'Clear Glass', eb: {}, qty: 0 }
+      const glass = glassShelfSpec(c)
+      if (glass) {
+        const mat = glass.materialCode || 'Clear Glass'
+        const key = `${glass.width}×${glass.depth}×${glass.thickness}|${mat}|glassshelf`
+        if (!masterMap[key]) masterMap[key] = { name: `Glass Shelf (${glass.thickness}mm Tempered)`, width: glass.width, depth: glass.depth, thickness: glass.thickness, material: mat, eb: {}, qty: 0 }
         masterMap[key].qty += shelfQty
         shelfPinsRubber += shelfQty * 4
       } else {
@@ -384,6 +391,14 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     })
 
     result.doors.forEach(d => {
+      if (d.glassDoor) {
+        // Bought in from the glass supplier at this outer size -- not cut here.
+        const mat = glassDoorLabel(c)
+        const key = `${d.width}×${d.height}|${mat}|glassdoor`
+        if (!masterMap[key]) masterMap[key] = { name: 'Aluminium Glass Door (supplier)', width: d.width, depth: d.height, thickness: 0, material: mat, eb: {}, qty: 0 }
+        masterMap[key].qty += 1
+        return
+      }
       const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
       const mat = c.frontMaterialName || 'Front material'
       const key = `${d.width}×${d.height}×18|${mat}|door`
@@ -555,7 +570,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                     <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness}mm{isBackPanel(r)?' HDF':''}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness ? `${r.thickness}mm` : '—'}{isBackPanel(r)?' HDF':''}</td>
                     <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.material}</td>
                     <td style={{ padding: '8px 12px', fontSize: 14, fontWeight: 800, color: ACCENT }}>{r.qty}</td>
                     <td style={{ padding: '8px 12px' }}><EBCell eb={r.eb} /></td>
@@ -598,7 +613,7 @@ function aggregateBOM(cabinets, stairs = []) {
       const effectiveHeight = stepped ? stepped.effectiveH : cab.height
       totals.sheet18    += allPanels.filter(p => p.thickness === 18 && !isBackPanel(p)).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.hdf8       += allPanels.filter(isBackPanel).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.edgeM      += (carcassFrontEdgeMm(cab, effectiveHeight) + r.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+      totals.edgeM      += (carcassFrontEdgeMm(cab, effectiveHeight) + r.doors.filter(d => !d.glassDoor).reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
       totals.hinges     += r.doors.reduce((s, d) => s + d.hinges, 0)
       totals.legs       += r.hardware.legs
       totals.confirmats += r.hardware.confirmats
@@ -795,6 +810,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // backend rejects their writes, so Save/Share/Send are swapped for a badge.
   const readOnly = !publicCompanySlug && isReadOnly()
   const [roomId, setRoomId] = useState(initialRoomId)
+  const [showGlassOrder, setShowGlassOrder] = useState(false)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
@@ -854,9 +870,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // resetting to hardcoded defaults every time the project is reopened.
   const [proposalSettings, setProposalSettings] = useState(null)
   const textureMap = useMaterialTextureMap(publicCompanySlug)
-  // Company back panel (Settings page) -- the cut list helpers read it from
-  // formulaEngine; listing it in memo deps recomputes once it has loaded.
-  const companyBack = useCompanyBackPanel(!publicCompanySlug)
+  // Company back panel + glass standards (Settings page) -- the cut list helpers
+  // read them from formulaEngine; listing them in memo deps recomputes once loaded.
+  const companyStandards = useCompanyStandards(!publicCompanySlug)
+  const companyBack = companyStandards.back
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -1059,7 +1076,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     materialsMap: textureMap,
     drawerSystemsCatalog: availableDrawerSystems,
     countertopMat, backsplashLm, backsplashHeight, t,
-  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyBack])
+  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyStandards])
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
@@ -1183,6 +1200,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             masterMap[key].qty += p.qty
           })
           result.doors.forEach(d => {
+            if (d.glassDoor) {
+              const mat = glassDoorLabel(c)
+              const key = `GlassDoor|${d.width}x${d.height}|${mat}`
+              if (!masterMap[key]) masterMap[key] = { desc: `Aluminium glass door ${d.width}x${d.height}mm (${mat})`, qty: 0, unit: 'pcs' }
+              masterMap[key].qty += 1
+              return
+            }
             const key = `Door|${d.width}x${d.height}x18|${frontMat}`
             if (!masterMap[key]) masterMap[key] = { desc: `Door/Front ${d.width}x${d.height}x18mm (${frontMat})`, qty: 0, unit: 'pcs' }
             masterMap[key].qty += 1
@@ -1992,7 +2016,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   const usableH = selCab.height - 36
                   const maxShelves = Math.max(0, Math.floor(usableH / 250) - 1)
                   const current = Math.min(selCab.shelfCount ?? selCab.glassShelfCount ?? 1, maxShelves)
-                  const isGlassMaterial = selCab.category === 'wall' || selCab.subtype === 'Open Shelf'
+                  const isGlassMaterial = selCab.category === 'wall' || selCab.subtype === 'Open Shelf' || selCab.subtype === 'Glass Door'
                   return (
                     <div style={{ marginBottom: 10 }}>
                       <div style={s.propLabel}>{isGlassMaterial ? t('kitchenPlannerModule.shelvesGlass') : t('kitchenPlannerModule.shelvesWood')}</div>
@@ -2289,10 +2313,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: DARK }}>{projectName}</h2>
                   <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('kitchenPlannerModule.cabinetsBom', { count: cabinets.length })}</div>
                 </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                {!publicCompanySlug && !readOnly && glassOrderItems(cabinets).length > 0 && (
+                  <button onClick={() => setShowGlassOrder(true)} style={{ ...s.erpBtn, background: '#fff', color: DARK, border: '1.5px solid #E0DAD4' }}>
+                    {t('glassOrder.button')}
+                  </button>
+                )}
                 {!publicCompanySlug && !readOnly && (
                   <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? t('kitchenPlannerModule.sending') : t('kitchenPlannerModule.sendToManufacturing')}</button>
                 )}
+                </div>
               </div>
+              {showGlassOrder && (
+                <GlassOrderModal cabinets={cabinets} roomId={roomId} projectName={projectName} materialsMap={textureMap} onClose={() => setShowGlassOrder(false)} />
+              )}
               {sentMsg && <div style={{ ...s.toast, background: sentMsg.startsWith('✓') ? '#2AC87A' : '#e74c3c' }}>{sentMsg}</div>}
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginBottom: 24 }}>
                 {[[t('kitchenPlannerModule.bomSheet18'), bom.sheet18+' '+t('kitchenPlannerModule.unitM2'), ACCENT], [t('kitchenPlannerModule.bomHdf8'), bom.hdf8+' '+t('kitchenPlannerModule.unitM2'), '#E8A020'],

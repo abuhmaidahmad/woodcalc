@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, carcassFrontEdgeMm } from './formulaEngine'
-import { useCompanyBackPanel } from '../../api/companySettings'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, carcassFrontEdgeMm, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
+import { useCompanyStandards } from '../../api/companySettings'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -12,6 +12,8 @@ const DEFAULT_PRICES = {
   sheet18_ply_m2:   18.00,  // 18mm plywood per m² -- fallback
   sheet18_mdf_m2:   14.00,  // 18mm MDF per m² -- fallback
   hdf8_m2:           4.50,  // 8mm HDF back panel per m² (generic -- no per-material picker for this piece)
+  glass_m2:         18.00,
+  glass_door_m2:    60.00,  // aluminium-framed glass door per m² of outer size -- fallback when the company's door material has no catalog price  // tempered glass shelf per m² -- fallback when the company's glass material has no catalog price
   board12_m2:       13.00,  // 12mm drawer box board (sides/back) per m² -- fallback
   worktop_m2:       45.00,  // worktop/backsplash slab per m² -- fallback when no specific countertop material is priced
   drawer_runner_pc: 8.00,   // fallback per drawer-set when the selected drawer system has no catalog price
@@ -230,7 +232,9 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const m2_18 = panels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const m2_8  = panels8.reduce((s,  p) => s + (p.width * p.depth * p.qty / 1e6), 0)
   const frontPanelM2 = frontPanels18.reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
-  const doorM2 = result.doors.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
+  const woodDoors = result.doors.filter(d => !d.glassDoor)
+  const glassDoors = result.doors.filter(d => d.glassDoor)
+  const doorM2 = woodDoors.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
   const drawerFrontM2 = result.drawerFronts.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
 
   const boardCost   = parseFloat((m2_18 * carcassPricePerM2).toFixed(3))
@@ -240,18 +244,35 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
   const edgeM = (carcassFrontEdgeMm(cab)
-    + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
+    + woodDoors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
     + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
 
   const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)
 
-  const materialCost = boardCost + hdfCost + doorMatCost + edgeCost + drawerBoxCost
+  // Glass shelves (wall cabinets / open boxes) -- priced by the company's glass
+  // material, same pieces the master cut list lists. Rooms saved before glass
+  // had a price carry no glass_m2, so fall back to the default rate.
+  const glass = glassShelfSpec(cab)
+  const glassM2 = glass ? glass.qty * glass.width * glass.depth / 1e6 : 0
+  const glassPricePerM2 = materialPricePerM2(glass?.materialCode, materialsMap,
+    { glass_m2: prices.glass_m2 ?? DEFAULT_PRICES.glass_m2 }, 'glass', 'glass_m2')
+  const glassCost = parseFloat((glassM2 * glassPricePerM2).toFixed(3))
+
+  // Aluminium glass doors: the supplier quotes per m² of outer door size, profile included.
+  const glassDoorM2 = glassDoors.reduce((s, d) => s + (d.width * d.height / 1e6), 0)
+  const glassDoorPricePerM2 = materialPricePerM2(getCompanyGlassDoor().materialCode, materialsMap,
+    { glass_door_m2: prices.glass_door_m2 ?? DEFAULT_PRICES.glass_door_m2 }, 'glass', 'glass_door_m2')
+  const glassDoorCost = parseFloat((glassDoorM2 * glassDoorPricePerM2).toFixed(3))
+
+  const materialCost = boardCost + hdfCost + doorMatCost + edgeCost + drawerBoxCost + glassCost + glassDoorCost
   breakdown.push({ label: t('proposalTab.breakdownCarcassBoard'), qty: m2_18.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: carcassPricePerM2, cost: boardCost })
   breakdown.push({ label: t('proposalTab.breakdownHdf8'),    qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: hdfUnit, cost: hdfCost })
   breakdown.push({ label: t('proposalTab.breakdownDoorPanel'), qty: (doorM2 + drawerFrontM2 + frontPanelM2).toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: frontPricePerM2, cost: doorMatCost })
   breakdown.push({ label: t('proposalTab.breakdownEdgeBand'),  qty: edgeM.toFixed(2)  + ' ' + t('proposalTab.unitM'),  unit: prices.edge_banding_m, cost: edgeCost })
   drawerBoxRows.forEach(r => breakdown.push(r))
+  if (glassDoors.length) breakdown.push({ label: t('proposalTab.breakdownGlassDoors', { count: glassDoors.length }), qty: glassDoorM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: glassDoorPricePerM2, cost: glassDoorCost })
+  if (glass) breakdown.push({ label: t('proposalTab.breakdownGlassShelves', { count: glass.qty }), qty: glassM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: glassPricePerM2, cost: glassCost })
 
   // Hardware cost
   const h = result.hardware
@@ -408,7 +429,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
     if (onSettingsChange) onSettingsChange({ prices, margin, usdRate, extras, customer })
   }, [prices, margin, usdRate, extras, customer])
 
-  const companyBack = useCompanyBackPanel()
+  const companyStandards = useCompanyStandards()
   const updatePrice = (key, val) => setPrices(p => ({ ...p, [key]: val }))
   const updateExtra = (id, data) => setExtras(p => p.map(e => e.id === id ? data : e))
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
@@ -420,7 +441,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
     cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
   } = useMemo(() => computeProposalTotals({
     cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
-  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyBack])
+  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyStandards])
   const grandTotalUSD    = grandTotal / usdRate
 
 
@@ -450,6 +471,8 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.plywood18')}        value={prices.sheet18_ply_m2} onChange={v => updatePrice('sheet18_ply_m2', v)} />
           <PriceRow label={t('proposalTab.mdf18')}            value={prices.sheet18_mdf_m2} onChange={v => updatePrice('sheet18_mdf_m2', v)} />
           <PriceRow label={t('proposalTab.hdf8')}             value={prices.hdf8_m2}        onChange={v => updatePrice('hdf8_m2', v)} />
+          <PriceRow label={t('proposalTab.glassM2')}          value={prices.glass_m2 ?? DEFAULT_PRICES.glass_m2} onChange={v => updatePrice('glass_m2', v)} />
+          <PriceRow label={t('proposalTab.glassDoorM2')}      value={prices.glass_door_m2 ?? DEFAULT_PRICES.glass_door_m2} onChange={v => updatePrice('glass_door_m2', v)} />
           <PriceRow label={t('proposalTab.board12')}          value={prices.board12_m2}     onChange={v => updatePrice('board12_m2', v)} />
           <PriceRow label={t('proposalTab.worktopFallback')}  value={prices.worktop_m2}     onChange={v => updatePrice('worktop_m2', v)} />
           <PriceRow label={t('proposalTab.countertopLmFallback')} value={prices.countertop_lm} onChange={v => updatePrice('countertop_lm', v)} unit="JD/m" />

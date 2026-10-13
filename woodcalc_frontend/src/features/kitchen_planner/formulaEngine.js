@@ -24,6 +24,81 @@ export function setCompanyBackPanel({ thickness, materialCode } = {}) {
   companyBack = { thickness: positiveOr(thickness, BACK_T), materialCode: materialCode || null };
 }
 
+// Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
+// sets their thickness and price; without one they're 8mm tempered at the generic rate.
+const GLASS_T = 8;
+let companyGlass = { thickness: GLASS_T, materialCode: null };
+export function getCompanyGlass() {
+  return companyGlass;
+}
+export function setCompanyGlass({ thickness, materialCode } = {}) {
+  companyGlass = { thickness: positiveOr(thickness, GLASS_T), materialCode: materialCode || null };
+}
+export function isGlassMaterial(m) {
+  return m?.material_type === 'glass';
+}
+
+// Aluminium-framed glass doors (Glass Door cabinets): the company's door material
+// (Settings page, glass_door_material_sku) prices them per m² of outer size.
+let companyGlassDoor = { materialCode: null };
+export function getCompanyGlassDoor() {
+  return companyGlassDoor;
+}
+export function setCompanyGlassDoor({ materialCode } = {}) {
+  companyGlassDoor = { materialCode: materialCode || null };
+}
+export function isGlassDoorMaterial(m) {
+  return m?.material_type === 'glass_door';
+}
+export const isGlassDoorCabinet = (c) => c?.subtype === 'Glass Door';
+
+// The glass shelves one cabinet needs (wall cabinets and open boxes), or null.
+// Single source for the master cut list, the proposal and the cutting optimizer.
+export function glassShelfSpec(c) {
+  if (!isShelfEligible(c) || !(c.category === 'wall' || isOpenBox(c) || isGlassDoorCabinet(c))) return null;
+  const qty = c.shelfCount ?? c.glassShelfCount ?? 1;
+  if (qty <= 0) return null;
+  return {
+    qty,
+    width: Math.round(c.width - 40),
+    depth: Math.round(c.depth - 28),
+    thickness: companyGlass.thickness,
+    materialCode: companyGlass.materialCode,
+  };
+}
+
+// Everything made to size by the glass suppliers for these cabinets: glass
+// shelves and aluminium glass doors, merged by material + size + finish. Each
+// item: { kind: 'shelf'|'door', materialCode, width, height, thickness?, qty,
+// description }. Doors are sent at their outer size -- the supplier works out
+// the glass inside the profile.
+export function glassOrderItems(cabinets) {
+  const merged = new Map();
+  const add = (item) => {
+    const key = [item.kind, item.materialCode, item.width, item.height, item.description].join('|');
+    if (merged.has(key)) merged.get(key).qty += item.qty;
+    else merged.set(key, { ...item });
+  };
+  cabinets.forEach(c => {
+    if (!isCarcassCabinet(c)) return;
+    const shelf = glassShelfSpec(c);
+    if (shelf) {
+      add({ kind: 'shelf', materialCode: shelf.materialCode, width: shelf.width, height: shelf.depth,
+        thickness: shelf.thickness, qty: shelf.qty, description: `Glass shelf ${shelf.thickness}mm tempered` });
+    }
+    if (isGlassDoorCabinet(c)) {
+      let result;
+      try { result = calculateCabinet(cabinetConfig(c)); } catch { return; }
+      const finish = `${c.frameColor || 'black'} frame, ${c.glassType || 'clear'} glass`;
+      result.doors.filter(d => d.glassDoor).forEach(d => add({
+        kind: 'door', materialCode: companyGlassDoor.materialCode, width: d.width, height: d.height,
+        qty: 1, description: `Aluminium glass door, ${finish}`,
+      }));
+    }
+  });
+  return Array.from(merged.values());
+}
+
 // Materials that can be a back panel: the catalog's 'back' type, or any HDF board.
 export function isBackPanelMaterial(m) {
   return m?.material_type === 'back' || m?.core_material === 'hdf';
@@ -365,8 +440,8 @@ export function calculateCabinet(config) {
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
-  // Open boxes get glass shelves (counted from shelfCount by the master cut list).
-  const shelves = openBox ? 0 : Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
+  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -625,6 +700,12 @@ export function calculateCabinet(config) {
         });
       }
     });
+  }
+  // A Glass Door cabinet's fronts are bought-in aluminium-framed glass doors
+  // (priced per m² of the door's outer size, the supplier sizes the glass) --
+  // not cut from the front board.
+  if (isGlassDoorCabinet(config)) {
+    doors.forEach(d => { d.glassDoor = true; d.notes = 'Aluminium glass door'; });
   }
   const drawerCount = drawerFronts.length;
 

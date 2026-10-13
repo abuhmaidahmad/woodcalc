@@ -10,6 +10,8 @@ class SupplierSerializer(serializers.ModelSerializer):
 
 
 class MaterialSerializer(serializers.ModelSerializer):
+    supplier_name = serializers.CharField(source='supplier.name', read_only=True, default=None)
+
     class Meta:
         model = Material
         fields = '__all__'

@@ -54,8 +54,8 @@ class Material(models.Model):
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='materials')
     has_grain = models.BooleanField(default=False, help_text='Whether this material has visible directional grain (e.g. wood-look laminate)')
     material_type = models.CharField(
-        max_length=10, blank=True, null=True,
-        choices=[('front', 'Front/Door'), ('worktop', 'Worktop/Countertop'), ('carcass', 'Carcass/Interior'), ('back', 'Back Panel')],
+        max_length=12, blank=True, null=True,
+        choices=[('front', 'Front/Door'), ('worktop', 'Worktop/Countertop'), ('carcass', 'Carcass/Interior'), ('back', 'Back Panel'), ('glass', 'Glass'), ('glass_door', 'Aluminium Glass Door')],
     )
     finish = models.CharField(
         max_length=10, blank=True, null=True, default='matt',
