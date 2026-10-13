@@ -449,6 +449,8 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
     return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: fc } : { ...none, R: fc }
   }
   if (['Top panel', 'Bottom panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
+  // A sink's bottom rail has its exposed long edge banded in carcass color.
+  if (partName === 'Bottom rail') return { ...none, R: cc }
   // Loose wood shelves are banded all round in carcass color.
   if (partName === 'Shelf (18mm)') return { T: cc, B: cc, L: cc, R: cc }
   if (partName.includes('Shelf') || partName.includes('Bottom')) {
@@ -575,7 +577,16 @@ export function calculateCabinet(config) {
   }
 
   if (isSink) {
-    // Sink cabinets are left open at the back for the plumbing -- no back at all.
+    // Sink cabinets are left open at the back for the plumbing -- no back at all,
+    // just a rail standing at the back end of the bottom panel.
+    panels.push({
+      name: 'Bottom rail',
+      qty: 1,
+      width: bottomW,
+      depth: 100,
+      thickness: T,
+      notes: 'Sink rail at back of bottom panel',
+    });
   } else {
     const backW = round2(bottomW + 16);
     // The HDF back runs the carcass height less 2mm.
@@ -782,7 +793,8 @@ export function calculateCabinet(config) {
 
   const hardware = {};
   hardware.legs = 4;
-  hardware.confirmats = 10;
+  // A sink's bottom rail takes two more confirmats.
+  hardware.confirmats = isSink && !openBox ? 12 : 10;
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
