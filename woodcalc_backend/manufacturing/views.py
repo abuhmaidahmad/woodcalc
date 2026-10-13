@@ -4,6 +4,7 @@ from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
 from crm.locking import RoomNotLocked, ensure_room_unlocked, room_for_ref
 from crm.models import Room
+from crm.revisions import revision_chain
 from .models import ProductionStation, WorkOrder, WorkOrderItem, StationLog, MaterialConsumption
 from .models import StockSheet, CuttingJob
 from .serializers import (
@@ -35,6 +36,12 @@ class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
         room_id = self.request.query_params.get('room_id_ref')
         if room_id:
             qs = qs.filter(room_id_ref=room_id)
+        chain_ref = self.request.query_params.get('room_chain')
+        if chain_ref:
+            chain_room = room_for_ref(chain_ref, self.request.company)
+            if chain_room is None:
+                return qs.none()
+            qs = qs.filter(room_id_ref__in=[r.id for r in revision_chain(chain_room)])
         return qs
 
     def perform_create(self, serializer):

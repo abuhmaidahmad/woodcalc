@@ -167,3 +167,125 @@ class TenantIsolationTests(RoomLockTestBase):
         res = self.api(user=self.other_owner).post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'x'},
                                                    format='json')
         self.assertEqual(res.status_code, 404)
+
+
+class RevisionFlowTests(RoomLockTestBase):
+    def setUp(self):
+        super().setUp()
+        self.room.grand_total = 100
+        self.room.save()
+        self.lock()
+
+    def post(self, role, room_id, action, data=None):
+        return self.api(role).post(f'/api/crm/rooms/{room_id}/{action}/', data or {}, format='json')
+
+    def request_change(self, role='staff'):
+        res = self.post(role, self.room.id, 'request_change')
+        self.assertEqual(res.status_code, 201, res.content)
+        return Room.objects.get(id=res.json()['id'])
+
+    def test_end_to_end(self):
+        rev2 = self.request_change()
+        self.assertEqual((rev2.revision_number, rev2.parent_revision_id), (2, self.room.id))
+        self.assertEqual(rev2.revision_status, Room.RevisionStatus.DRAFT)
+        self.assertFalse(rev2.is_locked)
+        self.assertEqual(self.post('staff', self.room.id, 'request_change').status_code, 400)
+
+        res = self.api('staff').patch(f'/api/crm/rooms/{rev2.id}/', {
+            'planner_data': {'cabinets': [{**CABINET, 'width': 900}]}, 'grand_total': '150.00'}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.room.refresh_from_db()
+        self.assertTrue(self.room.is_locked)
+        self.assertEqual(self.room.planner_data['cabinets'][0]['width'], 600)
+
+        self.assertEqual(self.post('staff', rev2.id, 'submit_revision').status_code, 200)
+        rev2.refresh_from_db()
+        self.assertEqual(rev2.revision_status, Room.RevisionStatus.PENDING_APPROVAL)
+        self.assertEqual(self.api('staff').patch(f'/api/crm/rooms/{rev2.id}/', {'name': 'X'},
+                                                 format='json').status_code, 403)
+
+        self.assertEqual(self.post('admin', rev2.id, 'approve_revision').status_code, 403)
+        self.assertEqual(self.post('owner', rev2.id, 'reject_revision').status_code, 400)
+        self.assertEqual(self.post('owner', rev2.id, 'reject_revision', {'reason': 'Wrong handle'}).status_code, 200)
+        rev2.refresh_from_db()
+        self.assertEqual((rev2.revision_status, rev2.is_locked, rev2.rejection_reason),
+                         (Room.RevisionStatus.REJECTED, False, 'Wrong handle'))
+
+        self.assertEqual(self.post('staff', rev2.id, 'submit_revision').status_code, 200)
+        self.assertEqual(self.post('owner', rev2.id, 'approve_revision').status_code, 200)
+        rev2.refresh_from_db()
+        self.room.refresh_from_db()
+        self.assertEqual((rev2.revision_status, rev2.is_locked), (Room.RevisionStatus.APPROVED, True))
+        self.assertEqual((self.room.revision_status, self.room.is_locked), (Room.RevisionStatus.SUPERSEDED, True))
+        self.project.refresh_from_db()
+        self.assertEqual(self.project.total_value, 150)
+
+        self.assertEqual(self.post('staff', self.room.id, 'request_change').status_code, 400)
+        self.assertEqual(self.post('owner', self.room.id, 'unlock', {'reason': 'x'}).status_code, 400)
+        self.assertEqual(self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'name': 'X'},
+                                                 format='json').status_code, 403)
+        rev3 = Room.objects.get(id=self.post('staff', rev2.id, 'request_change').json()['id'])
+        self.assertEqual((rev3.revision_number, rev3.parent_revision_id), (3, rev2.id))
+
+    def test_root_revision_cannot_be_submitted(self):
+        self.assertEqual(self.post('owner', self.other_room.id, 'submit_revision').status_code, 404)
+        self.post('owner', self.room.id, 'unlock', {'reason': 'x'})
+        self.assertEqual(self.post('owner', self.room.id, 'submit_revision').status_code, 400)
+
+    def test_revision_cannot_bypass_approval_with_confirm_lock(self):
+        rev2 = self.request_change()
+        self.assertEqual(self.post('owner', rev2.id, 'confirm_lock').status_code, 400)
+
+    def test_approval_blocked_when_work_order_started_unless_override(self):
+        wo = WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K',
+                                      room_id_ref=self.room.id, status='IN_PROGRESS')
+        rev2 = self.request_change()
+        self.post('staff', rev2.id, 'submit_revision')
+        res = self.post('owner', rev2.id, 'approve_revision')
+        self.assertEqual(res.status_code, 409)
+        self.assertEqual(res.json()['started_work_orders'], [wo.order_number])
+        res = self.post('owner', rev2.id, 'approve_revision', {'override_reason': 'Cabinets not cut yet'})
+        self.assertEqual(res.status_code, 200)
+        rev2.refresh_from_db()
+        self.assertEqual(rev2.approval_override_reason, 'Cabinets not cut yet')
+
+    def test_station_start_counts_as_started(self):
+        from manufacturing.models import ProductionStation, StationLog
+        from django.utils import timezone
+        wo = WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K',
+                                      room_id_ref=self.room.id)
+        station = ProductionStation.objects.create(tenant=self.company, name='Saw', code='SAW')
+        StationLog.objects.create(work_order=wo, station=station, started_at=timezone.now())
+        rev2 = self.request_change()
+        self.post('staff', rev2.id, 'submit_revision')
+        self.assertEqual(self.post('owner', rev2.id, 'approve_revision').status_code, 409)
+
+    def test_new_work_order_not_started_does_not_block(self):
+        WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K', room_id_ref=self.room.id)
+        rev2 = self.request_change()
+        self.post('staff', rev2.id, 'submit_revision')
+        self.assertEqual(self.post('owner', rev2.id, 'approve_revision').status_code, 200)
+
+    def test_work_orders_listed_across_revision_chain(self):
+        WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K', room_id_ref=self.room.id)
+        rev2 = self.request_change()
+        res = self.api('staff').get(f'/api/manufacturing/work-orders/?room_chain={rev2.id}')
+        self.assertEqual([w['order_number'] for w in res.json()['results']], ['WO-1'])
+        res = self.api(user=self.other_owner).get(f'/api/manufacturing/work-orders/?room_chain={rev2.id}')
+        self.assertEqual(res.json()['results'], [])
+
+    def test_room_with_revisions_cannot_be_deleted(self):
+        self.request_change()
+        self.post('owner', self.room.id, 'unlock', {'reason': 'x'})
+        self.assertEqual(self.api('owner').delete(f'/api/crm/rooms/{self.room.id}/').status_code, 400)
+
+    def test_auditor_and_other_tenant_cannot_drive_revisions(self):
+        res = self.post('auditor', self.room.id, 'request_change')
+        self.assertEqual(res.status_code, 403)
+        self.assertTrue(res.json()['detail'].startswith('Read-only access:'))
+        res = self.api(user=self.other_owner).post(f'/api/crm/rooms/{self.room.id}/request_change/')
+        self.assertEqual(res.status_code, 404)
+        rev2 = self.request_change()
+        self.post('staff', rev2.id, 'submit_revision')
+        res = self.api(user=self.other_owner).post(f'/api/crm/rooms/{rev2.id}/approve_revision/')
+        self.assertEqual(res.status_code, 404)

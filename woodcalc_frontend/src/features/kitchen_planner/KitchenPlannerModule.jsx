@@ -4,6 +4,7 @@ import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
+import { activeTotal } from './revisions'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
@@ -782,6 +783,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const locked = !!lock?.isLocked
   const readOnly = auditor || locked
   const canSend = !auditor && locked && lock?.revisionStatus === 'approved'
+  const isRevision = !!lock?.parentRevision
   const [roomId, setRoomId] = useState(initialRoomId)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -1064,10 +1066,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const roomsRes = await authFetch(API + `/api/crm/rooms/?project=${projectId}`, {})
           const roomsData = await roomsRes.json()
           const rooms = Array.isArray(roomsData) ? roomsData : (roomsData.results || [])
-          // sum all rooms except current one, then add current grandTotal
-          const totalValue = rooms
-            .filter(r => String(r.id) !== String(roomId))
-            .reduce((s, r) => s + parseFloat(r.grand_total || 0), 0) + grandTotal
+          const totalValue = activeTotal(rooms.map(r => String(r.id) === String(roomId) ? { ...r, grand_total: grandTotal } : r))
           await authFetch(API + `/api/crm/projects/${projectId}/`, {
             method: 'PATCH',
             body: JSON.stringify({ total_value: totalValue.toFixed(2) })
@@ -1099,16 +1098,48 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setRoomId(newRoomId)
   }
 
+  const runRoomAction = async (name, body) => {
+    const result = await onRoomAction(name, body)
+    if (!result.ok && result.status !== 409) window.alert(result.data.detail || t('roomDetail.actionFailed'))
+    return result
+  }
+
   const confirmAndLock = async () => {
     if (!window.confirm(t('kitchenPlannerModule.confirmLockPrompt'))) return
     if (!(await saveProject())) return
-    await onRoomAction('confirm_lock')
+    await runRoomAction('confirm_lock')
   }
 
   const unlockRoom = async () => {
     const reason = (window.prompt(t('kitchenPlannerModule.unlockPrompt')) || '').trim()
     if (!reason) return
-    await onRoomAction('unlock', { reason })
+    await runRoomAction('unlock', { reason })
+  }
+
+  const requestChange = async () => {
+    if (!window.confirm(t('kitchenPlannerModule.requestChangePrompt', { rev: lock.revisionNumber + 1 }))) return
+    await runRoomAction('request_change')
+  }
+
+  const submitRevision = async () => {
+    if (!window.confirm(t('kitchenPlannerModule.submitPrompt'))) return
+    if (!(await saveProject())) return
+    await runRoomAction('submit_revision')
+  }
+
+  const approveRevision = async () => {
+    if (!window.confirm(t('kitchenPlannerModule.approvePrompt', { rev: lock.revisionNumber }))) return
+    const result = await runRoomAction('approve_revision')
+    if (result.status !== 409) return
+    const reason = (window.prompt(t('kitchenPlannerModule.overridePrompt', { detail: result.data.detail })) || '').trim()
+    if (!reason) return
+    await runRoomAction('approve_revision', { override_reason: reason })
+  }
+
+  const rejectRevision = async () => {
+    const reason = (window.prompt(t('kitchenPlannerModule.rejectPrompt')) || '').trim()
+    if (!reason) return
+    await runRoomAction('reject_revision', { reason })
   }
 
   const sendToERP = async () => {
@@ -1133,7 +1164,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       let isBackOrder = false
       if (roomId) {
         try {
-          const priorRes = await authFetch(API + `/api/manufacturing/work-orders/?room_id_ref=${roomId}`)
+          const priorRes = await authFetch(API + `/api/manufacturing/work-orders/?room_chain=${roomId}`)
           if (priorRes.ok) {
             const priorData = await priorRes.json()
             const priorOrders = Array.isArray(priorData) ? priorData : (priorData.results || [])
@@ -1248,6 +1279,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               H{baseHeight}
             </span>
           )}
+          {lock && isRevision && !locked && (
+            <span title={lock.rejectionReason || ''} style={{ fontSize: 10, color: lock.revisionStatus === 'rejected' ? '#E74C3C' : ACCENT, background: 'rgba(255,255,255,0.08)', padding: '2px 7px', borderRadius: 4 }}>
+              {lock.revisionStatus === 'rejected'
+                ? t('kitchenPlannerModule.revisionRejected', { rev: lock.revisionNumber, reason: lock.rejectionReason })
+                : t('kitchenPlannerModule.revisionDraft', { rev: lock.revisionNumber })}
+            </span>
+          )}
         </div>
         <div id="onboarding-configurator-tabs" style={s.tabs}>
           {[
@@ -1296,6 +1334,26 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {t('kitchenPlannerModule.unlock')}
             </button>
           )}
+          {locked && lock.revisionStatus === 'approved' && !auditor && (
+            <button onClick={requestChange} style={{ ...s.saveBtn, color: ACCENT, borderColor: ACCENT }}>
+              {t('kitchenPlannerModule.requestChange')}
+            </button>
+          )}
+          {lock && isRevision && !locked && !auditor && (
+            <button onClick={submitRevision} disabled={saving} style={{ ...s.saveBtn, color: ACCENT, borderColor: ACCENT }}>
+              {t('kitchenPlannerModule.submitForApproval')}
+            </button>
+          )}
+          {lock?.revisionStatus === 'pending_approval' && role === 'owner' && (
+            <>
+              <button onClick={approveRevision} style={{ ...s.saveBtn, color: '#2AC87A', borderColor: '#2AC87A' }}>
+                {t('kitchenPlannerModule.approve')}
+              </button>
+              <button onClick={rejectRevision} style={{ ...s.saveBtn, color: '#E74C3C' }}>
+                {t('kitchenPlannerModule.reject')}
+              </button>
+            </>
+          )}
           {onShare && !auditor && (
             <>
               <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
@@ -1313,8 +1371,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {t('kitchenPlannerModule.saveMyDesign')}
             </button>
           ) : locked ? (
-            <span title={t('kitchenPlannerModule.lockedTip')} style={{ ...s.saveBtn, cursor: 'default', color: '#2AC87A', borderColor: '#2AC87A' }}>
-              {t('kitchenPlannerModule.lockedBadge', { rev: lock.revisionNumber })}
+            <span title={t('kitchenPlannerModule.lockedTip')} style={{ ...s.saveBtn, cursor: 'default', color: lock.revisionStatus === 'approved' ? '#2AC87A' : '#888', borderColor: lock.revisionStatus === 'approved' ? '#2AC87A' : '#888' }}>
+              {t(`kitchenPlannerModule.badge_${lock.revisionStatus}`, { rev: lock.revisionNumber })}
             </span>
           ) : readOnly ? (
             <span title={t('kitchenPlannerModule.viewOnlyTip')} style={{ ...s.saveBtn, cursor: 'default', color: ACCENT, borderColor: ACCENT }}>

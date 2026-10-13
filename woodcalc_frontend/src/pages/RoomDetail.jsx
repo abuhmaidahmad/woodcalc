@@ -64,12 +64,9 @@ export default function RoomDetail() {
   const roomAction = async (name, body = {}) => {
     const res = await authFetch(API + `/api/crm/rooms/${id}/${name}/`, { method: 'POST', body: JSON.stringify(body) })
     const data = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      window.alert(data.detail || t('roomDetail.actionFailed'))
-      return null
-    }
-    setRoom(r => ({ ...r, ...data }))
-    return data
+    if (res.ok && name === 'request_change') navigate(`/rooms/${data.id}`)
+    else if (res.ok) setRoom(r => ({ ...r, ...data }))
+    return { ok: res.ok, status: res.status, data }
   }
 
   const revokeShareView = async () => {
@@ -95,6 +92,7 @@ export default function RoomDetail() {
 
   return (
     <KitchenPlannerModule
+      key={room.id}
       roomId={id}
       roomName={room.name}
       roomType={room.room_type}
@@ -111,6 +109,7 @@ export default function RoomDetail() {
         revisionNumber: room.revision_number,
         revisionStatus: room.revision_status,
         parentRevision: room.parent_revision,
+        rejectionReason: room.rejection_reason,
       }}
       onRoomAction={roomAction}
     />
