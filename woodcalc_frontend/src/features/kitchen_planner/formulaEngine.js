@@ -386,16 +386,20 @@ export function calculateCabinet(config) {
     });
   }
 
-  const backW = round2(bottomW + 16);
-  const backH = round2(H - T - 3);
-  panels.push({
-    name: 'Back panel (HDF)',
-    qty: 1,
-    width: backW,
-    depth: backH,
-    thickness: BACK_T,
-    notes: '8mm HDF',
-  });
+  // Sink cabinets are left open at the back for the plumbing -- no HDF back.
+  const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
+  if (!isSink) {
+    const backW = round2(bottomW + 16);
+    const backH = round2(H - T - 3);
+    panels.push({
+      name: 'Back panel (HDF)',
+      qty: 1,
+      width: backW,
+      depth: backH,
+      thickness: BACK_T,
+      notes: '8mm HDF',
+    });
+  }
 
   const shelfW = round2(bottomW - 2);
   const shelfD = round2(D - 38);
@@ -580,7 +584,7 @@ export function calculateCabinet(config) {
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
-  hardware.back_screws = Math.ceil((W - 2 * T) / 100) * 2;
+  hardware.back_screws = isSink ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;

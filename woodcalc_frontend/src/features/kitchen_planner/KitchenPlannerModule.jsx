@@ -161,7 +161,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = 
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.depth}</td>
                           <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.thickness}mm{p.thickness===8?' HDF':''}</td>
-                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{p.thickness === 8 ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat}</td>
                           <td style={{ padding: '8px 12px' }}><EBCell eb={eb} /></td>
                         </tr>
                       )
@@ -340,7 +340,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     }
 
     result.panels.forEach(p => {
-      const mat = p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
+      const mat = p.thickness === 8 ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
       const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat, c.doorStyle)
       const key = `${p.width}×${p.depth}×${p.thickness}|${mat}|${JSON.stringify(eb)}`
       if (!masterMap[key]) masterMap[key] = { ...p, material: mat, eb, qty: 0, name: p.name }
@@ -1205,7 +1205,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
           const frontMat = c.frontMaterialName || 'Front'
           result.panels.forEach(p => {
-            const mat = p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
+            const mat = p.thickness === 8 ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
             const key = `${p.name}|${p.width}x${p.depth}x${p.thickness}|${mat}`
             if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${p.thickness}mm (${mat})`, qty: 0, unit: 'pcs' }
             masterMap[key].qty += p.qty
