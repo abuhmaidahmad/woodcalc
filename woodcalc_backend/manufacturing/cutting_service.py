@@ -233,4 +233,88 @@ def optimize_job(job_id):
 
     job.status = "OPTIMIZED"
     job.save(update_fields=["status"])
+    sync_job_stock(job, len(created_layouts), sheet_def)
     return created_layouts
+
+
+def job_stock_reference(job):
+    return f"CuttingJob #{job.id}"
+
+
+def _stock_quantity_for_sheets(material, sheet_count, sheet_def):
+    """Stock is counted in boards (PCS) or m² -- any other unit (meters, kg, ...)
+    isn't a sheet good, so the optimizer leaves its stock alone."""
+    if material.unit == "PCS":
+        return Decimal(sheet_count)
+    if material.unit == "M2":
+        area = Decimal(sheet_def.width) * Decimal(sheet_def.height) / Decimal(1_000_000)
+        return (area * sheet_count).quantize(Decimal("0.01"))
+    return None
+
+
+def _book_stock(material_id, delta, reference, note):
+    """Takes `delta` out of stock (a negative delta puts it back) and logs the
+    StockMovement; saving the material re-checks its low-stock alert."""
+    from inventory.models import Material, StockMovement
+
+    if delta == 0:
+        return
+    material = Material.objects.select_for_update().get(id=material_id)
+    material.quantity_on_hand -= delta
+    material.save(update_fields=["quantity_on_hand"])
+    StockMovement.objects.create(
+        material=material,
+        movement_type="OUT" if delta > 0 else "IN",
+        quantity=abs(delta),
+        reference=reference,
+        note=note,
+    )
+
+
+def booked_by_job(reference):
+    """Net quantity already taken out of stock per material for this job."""
+    from inventory.models import StockMovement
+
+    booked = {}
+    for mv in StockMovement.objects.filter(reference=reference):
+        sign = 1 if mv.movement_type == "OUT" else -1 if mv.movement_type == "IN" else 0
+        booked[mv.material_id] = booked.get(mv.material_id, Decimal(0)) + sign * mv.quantity
+    return booked
+
+
+def sync_job_stock(job, sheet_count, sheet_def):
+    """Takes the sheets this job's layout uses out of stock. Re-optimizing only
+    books the difference against what the job already took (and returns stock
+    for a material the job no longer uses), so stock is never deducted twice.
+    The optimizer page creates a fresh job on every run, so an earlier job for
+    the same work order and material is a superseded re-run: its stock goes
+    back before this one's is taken."""
+    from django.db import transaction
+    from manufacturing.models import CuttingJob
+
+    reference = job_stock_reference(job)
+    with transaction.atomic():
+        earlier = CuttingJob.objects.filter(work_order=job.work_order, material=job.material).exclude(id=job.id)
+        for old in earlier:
+            old_ref = job_stock_reference(old)
+            for material_id, qty in booked_by_job(old_ref).items():
+                _book_stock(material_id, -qty, old_ref, f"Superseded by {reference} (work order {job.work_order.order_number})")
+        booked = booked_by_job(reference)
+        target = {}
+        qty = _stock_quantity_for_sheets(job.material, sheet_count, sheet_def)
+        if qty is not None:
+            target[job.material_id] = qty
+        for material_id in set(booked) | set(target):
+            delta = target.get(material_id, Decimal(0)) - booked.get(material_id, Decimal(0))
+            _book_stock(material_id, delta, reference,
+                        f"{sheet_count} sheet(s) for work order {job.work_order.order_number}")
+
+
+def release_job_stock(job):
+    """Puts back everything a cutting job took out of stock (job deleted)."""
+    from django.db import transaction
+
+    reference = job_stock_reference(job)
+    with transaction.atomic():
+        for material_id, qty in booked_by_job(reference).items():
+            _book_stock(material_id, -qty, reference, f"Cutting job deleted (work order {job.work_order.order_number})")

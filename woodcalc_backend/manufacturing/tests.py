@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
@@ -94,3 +96,106 @@ class CuttingJobMaterialTests(TestCase):
         res = self._job(foreign.id)
         self.assertEqual(res.status_code, 400)
         self.assertIn('material', res.json())
+
+
+class CuttingJobStockTests(TestCase):
+    """Optimizing a cutting job takes the sheets its layout uses out of stock."""
+
+    def setUp(self):
+        from inventory.models import Material
+        self.company = Company.objects.create(name='A', slug='a')
+        user = get_user_model().objects.create_user(username='u', email='u@example.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.client = APIClient()
+        self.client.force_authenticate(user)
+        self.wo = WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K')
+        self.hdf = Material.objects.create(tenant=self.company, sku='HDF3', name='HDF 3mm', unit='PCS',
+                                           material_type='back', core_material='hdf',
+                                           board_width=2440, board_height=1220, board_thickness=3,
+                                           quantity_on_hand=10, reorder_level=5)
+
+    def _job(self, qty, material=None):
+        res = self.client.post('/api/manufacturing/cutting-jobs/', {
+            'work_order': self.wo.id, 'material': (material or self.hdf).id, 'thickness': '3', 'kerf': '4',
+            'parts': [{'label': 'Back', 'width': '1100', 'height': '1100', 'quantity': qty, 'grain_locked': False}],
+        }, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        return res.json()['id']
+
+    def _optimize(self, job_id):
+        res = self.client.post(f'/api/manufacturing/cutting-jobs/{job_id}/optimize/')
+        self.assertEqual(res.status_code, 200, res.content)
+        return res.json()
+
+    def _set_qty(self, job_id, qty):
+        from .models import CuttingPart
+        CuttingPart.objects.filter(job_id=job_id).update(quantity=qty)
+
+    def test_optimize_deducts_sheets_and_logs_movement(self):
+        from inventory.models import StockMovement
+        data = self._optimize(self._job(4))  # 2 backs per 2440x1220 sheet -> 2 sheets
+        self.assertEqual(len(data['layouts']), 2)
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 8)
+        mv = StockMovement.objects.get(material=self.hdf)
+        self.assertEqual((mv.movement_type, mv.quantity), ('OUT', 2))
+        self.assertEqual(data['stock']['used_by_job'], '2.00')
+        self.assertEqual(data['stock']['quantity_on_hand'], '8.00')
+
+    def test_reoptimize_books_only_the_difference(self):
+        job_id = self._job(4)
+        self._optimize(job_id)
+        self._optimize(job_id)
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 8)
+        self._set_qty(job_id, 6)  # 3 sheets
+        self._optimize(job_id)
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 7)
+        self._set_qty(job_id, 2)  # 1 sheet -> 2 come back
+        self._optimize(job_id)
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 9)
+
+    def test_deleting_job_returns_stock(self):
+        job_id = self._job(4)
+        self._optimize(job_id)
+        self.assertEqual(self.client.delete(f'/api/manufacturing/cutting-jobs/{job_id}/').status_code, 204)
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 10)
+
+    def test_dropping_below_reorder_level_raises_alert(self):
+        self.assertFalse(self.hdf.alerts.filter(resolved=False).exists())
+        data = self._optimize(self._job(12))  # 6 sheets -> 4 left, reorder at 5
+        self.assertTrue(data['stock']['below_reorder_level'])
+        self.assertTrue(self.hdf.alerts.filter(resolved=False).exists())
+
+    def test_m2_stock_is_deducted_by_sheet_area(self):
+        self.hdf.unit = 'M2'
+        self.hdf.quantity_on_hand = 30
+        self.hdf.save()
+        self._optimize(self._job(4))  # 2 sheets x 2.9768 m2
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, Decimal('24.05'))
+
+    def test_non_sheet_unit_is_left_alone(self):
+        self.hdf.unit = 'KG'
+        self.hdf.save()
+        self._optimize(self._job(4))
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 10)
+
+    def test_new_run_for_same_work_order_replaces_earlier_job(self):
+        # The optimizer page creates a new job on every run.
+        self._optimize(self._job(4))   # 2 sheets
+        self._optimize(self._job(6))   # 3 sheets, replaces the first run
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 7)
+
+    def test_other_work_orders_are_not_affected(self):
+        self._optimize(self._job(4))
+        other_wo = WorkOrder.objects.create(tenant=self.company, order_number='WO-2', product_name='K2')
+        self.wo = other_wo
+        self._optimize(self._job(4))
+        self.hdf.refresh_from_db()
+        self.assertEqual(self.hdf.quantity_on_hand, 6)

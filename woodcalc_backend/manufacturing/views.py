@@ -9,7 +9,7 @@ from .serializers import (
     StationLogSerializer, MaterialConsumptionSerializer,
 )
 from .serializers import StockSheetSerializer, CuttingJobSerializer
-from .cutting_service import optimize_job
+from .cutting_service import optimize_job, release_job_stock, job_stock_reference, booked_by_job
 from .cutting_export import export_csv, export_pdf
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -144,6 +144,10 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
         self._check_tenant(serializer)
         super().perform_update(serializer)
 
+    def perform_destroy(self, instance):
+        release_job_stock(instance)
+        super().perform_destroy(instance)
+
     @action(detail=True, methods=['post'])
     def optimize(self, request, pk=None):
         job = self.get_object()
@@ -152,7 +156,19 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
         except ValueError as e:
             return Response({'detail': str(e)}, status=400)
         job.refresh_from_db()
-        return Response(self.get_serializer(job).data)
+        data = self.get_serializer(job).data
+        # What this job has taken out of stock so far, so the optimizer can show it.
+        mat = job.material
+        mat.refresh_from_db()
+        data['stock'] = {
+            'material_sku': mat.sku,
+            'unit': mat.unit,
+            'used_by_job': str(booked_by_job(job_stock_reference(job)).get(mat.id, 0)),
+            'quantity_on_hand': str(mat.quantity_on_hand),
+            'reorder_level': str(mat.reorder_level),
+            'below_reorder_level': mat.quantity_on_hand < mat.reorder_level,
+        }
+        return Response(data)
 
     @action(detail=True, methods=['get'], url_path='export-csv')
     def export_csv_action(self, request, pk=None):

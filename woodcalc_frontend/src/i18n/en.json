@@ -1513,6 +1513,8 @@
     "errSelectAll": "Select a work order and add at least one part.",
     "errCreateJob": "Failed to create cutting job",
     "errOptimizeJob": "Failed to optimize cutting job",
+    "stockTaken": "Took {{used}} {{unit}} of {{sku}} from stock · {{left}} left",
+    "stockBelowReorder": "below reorder level ({{level}}) — reorder from the supplier",
     "errSelectWorkOrder": "Select a work order first.",
     "errNoLinkedRoom": "This work order has no linked room to load a BOM from.",
     "errLoadBom": "Failed to load room BOM",

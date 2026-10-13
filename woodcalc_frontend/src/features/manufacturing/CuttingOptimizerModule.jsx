@@ -477,6 +477,15 @@ function CuttingOptimizerModule() {
               <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>
                 {t('cuttingOptimizer.jobHeader', { id: job.id, count: job.layouts.length })}
               </h2>
+              {job.stock && (
+                <div style={{ fontSize: 12, marginTop: 4, color: job.stock.below_reorder_level ? '#e74c3c' : '#27ae60' }}>
+                  {t('cuttingOptimizer.stockTaken', {
+                    used: Number(job.stock.used_by_job), unit: job.stock.unit, sku: job.stock.material_sku,
+                    left: Number(job.stock.quantity_on_hand),
+                  })}
+                  {job.stock.below_reorder_level && ` · ${t('cuttingOptimizer.stockBelowReorder', { level: Number(job.stock.reorder_level) })}`}
+                </div>
+              )}
             </div>
             <div>
               <button onClick={() => downloadExport(job, 'csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
