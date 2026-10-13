@@ -2019,11 +2019,14 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         // enough to clear the sink basin's depth, leaving genuine open space.
         const isSinkCab = cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'
         const sinkDropH = isSinkCab ? Math.min(H * 0.6, 0.20) : 0
-        const carcassH = H - sinkDropH
+        // Gola wall cabinets: the carcass is cut GOLA_CH short at the bottom so the
+        // full-height door overhangs it as the finger pull (formulaEngine.js isWallGola).
+        const golaWallLift = isWall && doorStyle === 'Gola' ? GOLA_CH : 0
+        const carcassH = H - sinkDropH - golaWallLift
         return (
           <SmartBox
             args={[W, carcassH, D]}
-            position={[0, carcassH / 2, 0]}
+            position={[0, golaWallLift + carcassH / 2, 0]}
             castShadow receiveShadow
             color={carcassColor}
             materialName={carcassMaterial}

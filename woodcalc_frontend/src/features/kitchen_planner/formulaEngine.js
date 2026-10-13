@@ -506,6 +506,10 @@ export function calculateCabinet(config) {
     : { toeKickH: 0, legH: 0, preset: cabinetType === 'wall' ? 'WALL' : 'TALL' };
 
   const bottomW = round2(W - 2 * T);
+  // A Gola wall cabinet's finger pull is the door itself overhanging the carcass:
+  // the door stays full height (H - 3) and the carcass is cut 25mm short instead.
+  const isWallGola = cabinetType === 'wall' && doorStyle === 'Gola' && !openBox;
+  const carcassH = isWallGola ? round2(H - GOLA_CHANNEL_MM) : H;
   const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
   const panels = [];
   if (openBox) {
@@ -514,10 +518,10 @@ export function calculateCabinet(config) {
   panels.push({
     name: 'Side panel',
     qty: 2,
-    width: H,
+    width: carcassH,
     depth: D,
     thickness: T,
-    notes: 'Vertical sides',
+    notes: isWallGola ? `Vertical sides (H - ${GOLA_CHANNEL_MM}, Gola finger pull)` : 'Vertical sides',
   });
 
   const bottomD = round2(D - 30 - backT);
@@ -572,13 +576,14 @@ export function calculateCabinet(config) {
       name: 'Back panel (carcass board)',
       qty: 1,
       width: bottomW,
-      depth: H,
+      depth: carcassH,
       thickness: T,
       notes: 'Same board as carcass, between sides',
     });
   } else {
     const backW = round2(bottomW + 16);
-    const backH = round2(H - T - 3);
+    // The HDF back runs the carcass height less 2mm.
+    const backH = round2(carcassH - 2);
     panels.push({
       name: 'Back panel (HDF)',
       qty: 1,
@@ -608,7 +613,8 @@ export function calculateCabinet(config) {
 
   // Gola doors sit under the 25mm milled channel plus clearance (30mm off the
   // height); Handle and Push doors cover the whole carcass front less a 3mm gap.
-  const golaDoorHeight = round2(H - GOLA_FRONT_REDUCTION_MM);
+  // Wall Gola doors are full height too -- their carcass is the part cut short.
+  const golaDoorHeight = isWallGola ? round2(H - 3) : round2(H - GOLA_FRONT_REDUCTION_MM);
   const fullDoorHeight = round2(H - 3);
   const isBlind = config.subtype === 'Blind';
   // The built-in oven's own fascia/door covers this cabinet's whole front —
@@ -771,8 +777,9 @@ export function calculateCabinet(config) {
     ? zonesForGola.reduce((n, _, i) => n + (golaNeedsChannelAbove(zonesForGola, i) ? 1 : 0), 0)
     : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
   const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !openBox) ? {
-    // Tall units have no top L-profile; their base-level channel is a C.
-    L_meters: config.cabinetType === 'tall' ? 0 : round2(W / 1000 * 100) / 100,
+    // Tall units have no top L-profile; their base-level channel is a C. Wall
+    // units have none either -- the door overhanging the short carcass is the pull.
+    L_meters: (config.cabinetType === 'tall' || isWallGola) ? 0 : round2(W / 1000 * 100) / 100,
     C_meters: round2(numGolaChannels * W / 1000 * 100) / 100,
   } : null;
 
