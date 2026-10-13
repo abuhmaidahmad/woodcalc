@@ -433,6 +433,7 @@
     "saveCustomer": "Save Changes"
   },
   "roomDetail": {
+    "actionFailed": "Action failed.",
     "loading": "Loading room...",
     "notFound": "Room not found",
     "shareView": "Share 3D View",
@@ -1041,6 +1042,13 @@
     "addressPlaceholder": "Address"
   },
   "kitchenPlannerModule": {
+    "lockedBadge": "🔒 Confirmed — Rev {{rev}}",
+    "lockedTip": "This kitchen is confirmed and locked. Request a change to edit it as a new revision.",
+    "confirmLock": "🔒 Confirm & Lock",
+    "confirmLockPrompt": "Confirm this kitchen with the customer and lock it? It will be saved first, and nobody can edit it afterwards without a revision.",
+    "unlock": "Unlock",
+    "unlockPrompt": "Why are you unlocking this confirmed kitchen?",
+    "sendNeedsLock": "Confirm & lock the kitchen before sending it to manufacturing.",
     "linkTitle": "Link this design to save it",
     "linkDesc": "Select or create a Customer → Project → Room before saving.",
     "newCustomer": "+ New Customer",
@@ -1407,6 +1415,7 @@
     "notSigned": "Not signed"
   },
   "projectDetail": {
+    "lockedBadge": "🔒 Confirmed — Rev {{rev}}",
     "loading": "Loading...",
     "notFound": "Project not found",
     "customers": "Customers",

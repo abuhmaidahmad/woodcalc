@@ -1,13 +1,16 @@
 import uuid
 
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
 from tenants.utils import get_company_by_slug
+from .locking import RoomNotLocked
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
 from .serializers import (
     PaymentTransactionSerializer,
@@ -146,11 +149,58 @@ class ProjectViewSet(TenantScopedMixin, ModelViewSet):
         return Response(serializer.data)
 
 
+def require_role(request, *roles):
+    if request.membership.role not in roles:
+        raise PermissionDenied(f"Only {' or '.join(roles)} can do this.")
+
+
 class RoomViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'project__client__tenant'
     queryset = Room.objects.all().order_by('-created_at')
     serializer_class = RoomSerializer
-    permission_classes = [IsAuthenticated, HasActiveCompany]
+    permission_classes = [IsAuthenticated, HasActiveCompany, RoomNotLocked]
+    lock_exempt_actions = (
+        'share_link', 'revoke_share_link', 'duplicate', 'confirm_lock', 'unlock',
+        'request_change', 'submit_revision', 'approve_revision', 'reject_revision',
+    )
+
+    def perform_create(self, serializer):
+        project = serializer.validated_data.get('project')
+        if project is None or project.client.tenant_id != self.request.company.id:
+            raise ValidationError({'project': 'Project not found.'})
+        serializer.save()
+
+    @action(detail=True, methods=['post'])
+    def confirm_lock(self, request, pk=None):
+        require_role(request, 'owner', 'admin')
+        room = self.get_object()
+        if room.is_locked:
+            return Response({'detail': 'Room is already locked.'}, status=status.HTTP_400_BAD_REQUEST)
+        if room.parent_revision_id:
+            return Response({'detail': 'Revisions are confirmed by submitting them for approval.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        room.is_locked = True
+        room.locked_at = timezone.now()
+        room.locked_by = request.user
+        room.revision_status = Room.RevisionStatus.APPROVED
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        return Response(RoomSerializer(room).data)
+
+    @action(detail=True, methods=['post'])
+    def unlock(self, request, pk=None):
+        require_role(request, 'owner')
+        room = self.get_object()
+        reason = (request.data.get('reason') or '').strip()
+        if not reason:
+            return Response({'detail': 'A reason is required to unlock.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not room.is_locked or room.revision_status != Room.RevisionStatus.APPROVED:
+            return Response({'detail': 'Only a confirmed, active room can be unlocked.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        room.is_locked = False
+        room.unlock_reason = reason
+        room.revision_status = Room.RevisionStatus.DRAFT
+        room.save(update_fields=['is_locked', 'unlock_reason', 'revision_status', 'updated_at'])
+        return Response(RoomSerializer(room).data)
 
     def get_serializer_class(self):
         if self.action == 'list':

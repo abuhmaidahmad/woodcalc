@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 from tenants.models import Company
 
@@ -98,6 +99,24 @@ class Room(models.Model):
     # null means no public link exists. Used to look the room up anonymously
     # at /view/:token without exposing the sequential primary key.
     share_token = models.UUIDField(null=True, blank=True, unique=True, editable=False)
+
+    class RevisionStatus(models.TextChoices):
+        DRAFT = 'draft', 'Draft'
+        PENDING_APPROVAL = 'pending_approval', 'Pending approval'
+        APPROVED = 'approved', 'Approved'
+        REJECTED = 'rejected', 'Rejected'
+        SUPERSEDED = 'superseded', 'Superseded'
+
+    is_locked = models.BooleanField(default=False)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    locked_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                  on_delete=models.SET_NULL, related_name='+')
+    unlock_reason = models.TextField(blank=True)
+    revision_number = models.PositiveIntegerField(default=1)
+    parent_revision = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL,
+                                        related_name='child_revisions')
+    revision_status = models.CharField(max_length=20, choices=RevisionStatus.choices,
+                                       default=RevisionStatus.DRAFT)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

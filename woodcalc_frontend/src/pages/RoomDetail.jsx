@@ -61,6 +61,17 @@ export default function RoomDetail() {
     setShareBusy(false)
   }
 
+  const roomAction = async (name, body = {}) => {
+    const res = await authFetch(API + `/api/crm/rooms/${id}/${name}/`, { method: 'POST', body: JSON.stringify(body) })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      window.alert(data.detail || t('roomDetail.actionFailed'))
+      return null
+    }
+    setRoom(r => ({ ...r, ...data }))
+    return data
+  }
+
   const revokeShareView = async () => {
     if (!window.confirm(t('roomDetail.shareViewRevokeConfirm'))) return
     try {
@@ -95,6 +106,13 @@ export default function RoomDetail() {
       shareMsg={shareMsg}
       onShare={shareView}
       onRevokeShare={revokeShareView}
+      lock={{
+        isLocked: room.is_locked,
+        revisionNumber: room.revision_number,
+        revisionStatus: room.revision_status,
+        parentRevision: room.parent_revision,
+      }}
+      onRoomAction={roomAction}
     />
   )
 }

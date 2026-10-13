@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authFetch, withCompanyParam, isReadOnly } from '../../api/auth'
+import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -771,13 +771,17 @@ function LinkProjectModal({ onClose, onLinked }) {
   )
 }
 
-export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare } = {}) {
+export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: initialRoomName, roomType, projectId: initialProjectId, initialData, onBack, publicCompanySlug, shareToken, shareBusy, shareMsg, onShare, onRevokeShare, lock, onRoomAction } = {}) {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   // Auditor accounts can explore the design freely, but nothing persists — the
   // backend rejects their writes, so Save/Share/Send are swapped for a badge.
-  const readOnly = !publicCompanySlug && isReadOnly()
+  const auditor = !publicCompanySlug && isReadOnly()
+  const role = getRole()
+  const locked = !!lock?.isLocked
+  const readOnly = auditor || locked
+  const canSend = !auditor && locked && lock?.revisionStatus === 'approved'
   const [roomId, setRoomId] = useState(initialRoomId)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -1045,6 +1049,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
   const saveProject = async () => {
+    let ok = false
     setSaving(true); setSavedMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
     try {
@@ -1068,15 +1073,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             body: JSON.stringify({ total_value: totalValue.toFixed(2) })
           })
         }
+        ok = res.ok
         setSavedMsg(res.ok ? t('kitchenPlannerModule.saved') : t('kitchenPlannerModule.saveFailed'))
       } else {
         setSaving(false)
         setShowLinkModal(true)
-        return
+        return false
       }
     } catch(err) { console.error('SAVE ERROR:', err); setSavedMsg(t('kitchenPlannerModule.saveNoConnection')) }
     setSaving(false)
     setTimeout(() => setSavedMsg(''), 3000)
+    return ok
   }
 
   // After the link-to-project modal creates a Room, auto-run the save once roomId lands
@@ -1090,6 +1097,18 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setShowLinkModal(false)
     setPendingSave(true)
     setRoomId(newRoomId)
+  }
+
+  const confirmAndLock = async () => {
+    if (!window.confirm(t('kitchenPlannerModule.confirmLockPrompt'))) return
+    if (!(await saveProject())) return
+    await onRoomAction('confirm_lock')
+  }
+
+  const unlockRoom = async () => {
+    const reason = (window.prompt(t('kitchenPlannerModule.unlockPrompt')) || '').trim()
+    if (!reason) return
+    await onRoomAction('unlock', { reason })
   }
 
   const sendToERP = async () => {
@@ -1189,16 +1208,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
         // One request for the whole cut list -- posting each line separately took
         // 100+ sequential round trips on a full kitchen. Falls back to parallel
         // single-item posts if the bulk endpoint isn't available (404).
-        const bulkRes = await authFetch(API + `/api/manufacturing/work-orders/${wo.id}/items/`, {
+        await authFetch(API + `/api/manufacturing/work-orders/${wo.id}/items/`, {
           method: 'POST',
           body: JSON.stringify({ items }),
         })
-        if (bulkRes.status === 404) {
-          await Promise.all(items.map(item => authFetch(API + '/api/manufacturing/work-order-items/', {
-            method: 'POST',
-            body: JSON.stringify({ work_order: wo.id, ...item }),
-          }).catch(() => {})))
-        }
 
         setSentMsg(isBackOrder
           ? t('kitchenPlannerModule.backOrderSent', { orderNumber, count: newCabinets.length })
@@ -1273,7 +1286,17 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
           )}
-          {onShare && !readOnly && (
+          {lock && !locked && !lock.parentRevision && !auditor && (role === 'owner' || role === 'admin') && (
+            <button onClick={confirmAndLock} disabled={saving} style={{ ...s.saveBtn, color: ACCENT, borderColor: ACCENT }}>
+              {t('kitchenPlannerModule.confirmLock')}
+            </button>
+          )}
+          {locked && lock.revisionStatus === 'approved' && role === 'owner' && (
+            <button onClick={unlockRoom} style={{ ...s.saveBtn, color: '#E74C3C' }}>
+              {t('kitchenPlannerModule.unlock')}
+            </button>
+          )}
+          {onShare && !auditor && (
             <>
               <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
                 {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
@@ -1289,6 +1312,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
               {t('kitchenPlannerModule.saveMyDesign')}
             </button>
+          ) : locked ? (
+            <span title={t('kitchenPlannerModule.lockedTip')} style={{ ...s.saveBtn, cursor: 'default', color: '#2AC87A', borderColor: '#2AC87A' }}>
+              {t('kitchenPlannerModule.lockedBadge', { rev: lock.revisionNumber })}
+            </span>
           ) : readOnly ? (
             <span title={t('kitchenPlannerModule.viewOnlyTip')} style={{ ...s.saveBtn, cursor: 'default', color: ACCENT, borderColor: ACCENT }}>
               {t('kitchenPlannerModule.viewOnly')}
@@ -2222,7 +2249,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: DARK }}>{projectName}</h2>
                   <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('kitchenPlannerModule.cabinetsBom', { count: cabinets.length })}</div>
                 </div>
-                {!publicCompanySlug && !readOnly && (
+                {!publicCompanySlug && !auditor && !canSend && (
+                  <span style={{ fontSize: 12, color: '#888' }}>{t('kitchenPlannerModule.sendNeedsLock')}</span>
+                )}
+                {!publicCompanySlug && canSend && (
                   <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? t('kitchenPlannerModule.sending') : t('kitchenPlannerModule.sendToManufacturing')}</button>
                 )}
               </div>

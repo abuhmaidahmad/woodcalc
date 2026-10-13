@@ -2,6 +2,8 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
+from crm.locking import RoomNotLocked, ensure_room_unlocked, room_for_ref
+from crm.models import Room
 from .models import ProductionStation, WorkOrder, WorkOrderItem, StationLog, MaterialConsumption
 from .models import StockSheet, CuttingJob
 from .serializers import (
@@ -35,12 +37,20 @@ class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
             qs = qs.filter(room_id_ref=room_id)
         return qs
 
+    def perform_create(self, serializer):
+        room = room_for_ref(serializer.validated_data.get('room_id_ref'), self.request.company)
+        if room is None or not room.is_locked or room.revision_status != Room.RevisionStatus.APPROVED:
+            raise ValidationError({'room_id_ref': 'Only a confirmed (locked) room can be sent to manufacturing.'})
+        serializer.save(tenant=self.request.company)
+
     @action(detail=True, methods=['post'], url_path='items')
     def add_items(self, request, pk=None):
         """Create a work order's whole cut list in one request. The planner used to
         POST one work-order-item per distinct part (100+ sequential round trips on a
         full kitchen); get_object() scopes the order to the caller's tenant."""
         work_order = self.get_object()
+        if work_order.items.exists():
+            ensure_room_unlocked(room_for_ref(work_order.room_id_ref, request.company))
         serializer = WorkOrderItemBulkSerializer(data=request.data.get('items', []), many=True)
         serializer.is_valid(raise_exception=True)
         WorkOrderItem.objects.bulk_create([
@@ -54,7 +64,10 @@ class WorkOrderItemViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'work_order__tenant'
     queryset = WorkOrderItem.objects.all()
     serializer_class = WorkOrderItemSerializer
-    permission_classes = [IsAuthenticated, HasActiveCompany]
+    permission_classes = [IsAuthenticated, HasActiveCompany, RoomNotLocked]
+
+    def get_lock_room(self, obj):
+        return room_for_ref(obj.work_order.room_id_ref, self.request.company)
 
     # The mixin only scopes reads; without this a caller could attach items to (or
     # move items onto) another company's work order just by passing its id.
@@ -65,6 +78,8 @@ class WorkOrderItemViewSet(TenantScopedMixin, ModelViewSet):
 
     def perform_create(self, serializer):
         self._check_work_order(serializer)
+        work_order = serializer.validated_data.get('work_order')
+        ensure_room_unlocked(room_for_ref(work_order.room_id_ref, self.request.company))
         super().perform_create(serializer)
 
     def perform_update(self, serializer):

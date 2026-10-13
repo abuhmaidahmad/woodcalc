@@ -303,12 +303,12 @@ export default function ProjectDetail() {
                           style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#888', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
                           {t('projectDetail.duplicateRoom')}
                         </button>
-                        <button
+                        {!room.is_locked && <button
                           onClick={e => { e.stopPropagation(); deleteRoom(room) }}
                           title={t('projectDetail.deleteRoom')}
                           style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#E74C3C', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
                           {t('projectDetail.deleteRoom')}
-                        </button>
+                        </button>}
                       </div>}
                     </div>
                     {editingRoomId === room.id ? (
@@ -317,12 +317,15 @@ export default function ProjectDetail() {
                         onBlur={() => saveRoomName(room.id)} onKeyDown={e => e.key === 'Enter' && saveRoomName(room.id)}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box', width: '100%' }} />
                     ) : (
-                      <div onClick={e => { if (readOnly) return; e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
+                      <div onClick={e => { if (readOnly || room.is_locked) return; e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {room.name} {!readOnly && <span style={{ color: '#888', fontSize: 11 }}>✎</span>}
+                        {room.name} {!readOnly && !room.is_locked && <span style={{ color: '#888', fontSize: 11 }}>✎</span>}
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
+                    {room.is_locked && room.revision_status === 'approved' && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#2AC87A', marginTop: 4 }}>{t('projectDetail.lockedBadge', { rev: room.revision_number })}</div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: ACCENT }}>{parseFloat(room.grand_total).toFixed(2)} JD</span>
                       <span style={{ fontSize: 11, color: '#888' }}>{new Date(room.updated_at).toLocaleDateString(locale)}</span>
