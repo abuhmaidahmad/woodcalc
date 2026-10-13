@@ -540,13 +540,21 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
         // legible on narrow fillers/panels too. This is the same position number shown
         // in the Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal
         // tabs, so a number seen in any of those lists can be matched back to this cabinet.
-        // Elevated (wall-level) items sit on the back edge and floor-standing ones on the front
-        // edge, so a wall cabinet's badge never covers the base cabinet's below it. Centered
-        // along the edge so a narrow filler/side panel's badge clears its neighbour's; a Top
-        // Panel shares its footprint with the cabinet under it, so it takes the back-right corner.
+        // Elevated (wall-level) items sit on the back edge and floor-standing ones toward the
+        // front, so a wall cabinet's badge never covers the base cabinet's below it. Floor
+        // badges sit just below the item's own dimension text (which is drawn under its
+        // centerline) rather than on the front edge, so they stay clear of a toe kick's label
+        // under the cabinet front; items too shallow for that fall back to the front edge.
+        // Centered so a narrow filler/side panel's badge clears its neighbour's; a Top Panel
+        // shares its footprint with the cabinet under it, so it takes the back-right corner.
+        // An item shallower than the badge (a toe kick, a thin panel) can't hold it at all, so
+        // its badge sits just outside on the room side: past the front strip and the dimension text.
         <PositionBadge num={posNum} rot={rot}
           cx={cab.subtype === 'Top Panel' ? Math.max(7, w - 7) : w / 2}
-          cy={cab.category === 'wall' || (cab.elevation || 0) > 0 ? 7 : Math.max(7, h - 7)}
+          cy={h < 14
+            ? Math.max(h + (isFrontPanel ? 0 : (cab.frontMaterialThickness || 18) * scale), h / 2 + 12) + 9
+            : cab.category === 'wall' || (cab.elevation || 0) > 0 ? 7
+            : h / 2 + 28 <= h ? h / 2 + 21 : Math.max(7, h - 7)}
           fill={isCarcassCabinet(cab) ? ACCENT : '#888'} />
       )}
     </g>
