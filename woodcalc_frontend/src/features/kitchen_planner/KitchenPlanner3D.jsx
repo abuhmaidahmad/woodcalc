@@ -522,6 +522,10 @@ const GOLA_L_NOTCH_H   = 0.0565  // top notch for L profile (56.5mm)
 const GOLA_C_NOTCH_H   = 0.073   // mid notch for C profile (73mm)
 const GOLA_C_RECESS    = 0.026   // C profile recess from front plane (26mm)
 const GOLA_CH          = 0.025   // channel opening / door height reduction (25mm)
+// Gola fronts sit 2mm further below the channel than its own opening, so with
+// DoorPanel's 3mm reveal the front reads 30mm short -- matches
+// GOLA_FRONT_REDUCTION_MM in formulaEngine.js's cut sizes.
+const GOLA_FRONT_DROP  = GOLA_CH + 0.002
 
 // Shared drawer-stack layout so door fronts, C channels and side panel notches
 // always agree (single source of truth) — driven by the cabinet's own interior-
@@ -543,7 +547,7 @@ function computeGolaDrawerLayout(H, zones) {
   zones.forEach((zone, i) => {
     const slot = zone.h / 1000
     const hasChannel = i === 0 || golaNeedsChannelAbove(zones, i)
-    const gap = hasChannel ? CH : 0
+    const gap = hasChannel ? GOLA_FRONT_DROP : 0
     const frontH = slot - gap
     const frontCenter = yTop - gap - frontH / 2
     positions.push({ h: frontH, yCenter: frontCenter, type: zone.type })
@@ -740,7 +744,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
-  const GOLA_RECESS = (effectiveDoorStyle === 'Gola' && !isTall) ? 0.025 : 0
+  const GOLA_RECESS = (effectiveDoorStyle === 'Gola' && !isTall) ? GOLA_FRONT_DROP : 0
   const doorH = H - GOLA_RECESS
   const BLIND_PANEL_W_M = BLIND_PANEL_WIDTH / 1000
   const doorW = isBlind ? Math.max(0.05, W - BLIND_PANEL_W_M - 0.003) : W / numDoors
@@ -796,10 +800,9 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
     // Tall units: lower + upper door split at base-cabinet-top level (all styles). Excludes broom/linen units, which use one continuous door.
     const isGolaTall = effectiveDoorStyle === 'Gola'
     const baseH = (baseHeight || 800) / 1000
-    const CH = 0.025
     const GAP = 0.003
     const yChan = baseH - H / 2
-    const lowerH = isGolaTall ? baseH - CH - GAP : baseH - GAP
+    const lowerH = isGolaTall ? baseH - GOLA_FRONT_DROP - GAP : baseH - GAP
     const upperH = H - baseH - GAP
     if (isGolaTall) drawerChannels.push({ y: yChan })
     for (let i = 0; i < numDoors; i++) {

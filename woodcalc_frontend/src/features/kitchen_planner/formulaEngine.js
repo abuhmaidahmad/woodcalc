@@ -132,6 +132,9 @@ const CONFIRMAT = '7x50mm';
 const EDGE_BANDING = '1mm ABS';
 // Gola milled channel/reveal height (mm) -- matches GOLA_CH in KitchenPlanner3D.jsx.
 const GOLA_CHANNEL_MM = 25;
+// A Gola front sitting under a channel is cut this much short in total (the 25mm
+// channel plus clearance) -- same 30mm for doors and drawer fronts.
+const GOLA_FRONT_REDUCTION_MM = 30;
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
 
 // Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
@@ -408,12 +411,6 @@ export function panelFace(p) {
   return 'carcass';
 }
 
-// Banded front edges of a carcass (mm): both sides, plus the bottom -- and the
-// top on an open box, whose top is on show too. Doors/fronts are added by callers.
-export function carcassFrontEdgeMm(cab, height = cab.height) {
-  return 2 * height + (isOpenBox(cab) ? 2 : 1) * (cab.width - 36);
-}
-
 // An open box is on show inside and out, so every piece -- back included -- is
 // the same board as the box (carcass, or the front material when the cabinet's
 // Box Color is set to front). No grooves and no setback: the top and bottom run
@@ -428,6 +425,54 @@ export function openBoxPanels(W, H, D, faceMaterial) {
     piece({ name: 'Bottom panel', qty: 1, width: innerW, depth: D, edgeFront: true, notes: '(W - 2T) × D, between sides' }),
     piece({ name: 'Back panel (box board)', qty: 1, width: innerW, depth: round2(H - 2 * T), notes: '(W - 2T) × (H - 2T), between sides and top/bottom, no groove' }),
   ];
+}
+
+// Edge banding per part side, R being the part's front edge. Any carcass edge
+// that sits directly behind a door/drawer front when the cabinet is closed is
+// banded in the front's own color, so opening the front shows a carcass edge
+// that matches it. Push cabinets additionally band the sides' top/bottom
+// edges in carcass color.
+export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat, doorStyle) {
+  const cc = carcassMat || carcassColor || 'Carcass'
+  const fc = frontMat || frontColor || 'Front'
+  const none = { T: 'None', B: 'None', L: 'None', R: 'None' }
+  if (partName.includes('Back') || partName.includes('HDF')) return none
+  if (partName.includes('Door') || partName.includes('Front panel') || partName.includes('Drawer front')) {
+    return { T: fc, B: fc, L: fc, R: fc }
+  }
+  if (partName === 'Side panel') {
+    return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: fc } : { ...none, R: fc }
+  }
+  if (['Top panel', 'Bottom panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
+  if (partName.includes('Shelf') || partName.includes('Bottom')) {
+    return { ...none, R: cc }
+  }
+  if (partName.includes('Toe')) return { ...none, T: cc }
+  return none
+}
+
+// Edge banding for one calculateCabinet() panel. An open box has no fronts to
+// match, so its sides/top/bottom (edgeFront) are banded in the box board itself.
+export function panelEdgeBanding(p, carcassColor, frontColor, carcassMat, frontMat, doorStyle) {
+  if (p.edgeFront) {
+    const box = p.faceMaterial === 'front' ? (frontMat || frontColor || 'Front') : (carcassMat || carcassColor || 'Carcass')
+    return { T: 'None', B: 'None', L: 'None', R: box }
+  }
+  return getEdgeBanding(p.name, carcassColor, frontColor, carcassMat, frontMat, doorStyle)
+}
+
+// Total banded length (mm) of a calculateCabinet() result. L/R run along a
+// panel's width, T/B along its depth; doors/drawer fronts are banded all round
+// (bought-in aluminium glass doors aren't banded).
+export function edgeBandingLengthMm(result, doorStyle) {
+  const panels = result.panels.reduce((sum, p) => {
+    const eb = panelEdgeBanding(p, null, null, null, null, doorStyle)
+    const len = ['L', 'R'].filter(k => eb[k] !== 'None').length * p.width
+      + ['T', 'B'].filter(k => eb[k] !== 'None').length * p.depth
+    return sum + len * p.qty
+  }, 0)
+  const fronts = [...result.doors.filter(d => !d.glassDoor), ...result.drawerFronts].reduce((s, d) => s + 2 * (d.width + d.height), 0)
+  return panels + fronts
 }
 
 export function calculateCabinet(config) {
@@ -558,15 +603,19 @@ export function calculateCabinet(config) {
     });
   }
 
-  const opening = round2(H - T - 100);
-  const golaDoorHeight = round2(H - 25 - 3);
-  const handlePushDoorHeight = round2(opening - 3 - 3);
+  // Gola doors sit under the 25mm milled channel plus clearance (30mm off the
+  // height); Handle and Push doors cover the whole carcass front less a 3mm gap.
+  const golaDoorHeight = round2(H - GOLA_FRONT_REDUCTION_MM);
+  const fullDoorHeight = round2(H - 3);
   const isBlind = config.subtype === 'Blind';
   // The built-in oven's own fascia/door covers this cabinet's whole front —
   // there's no room left for a manufactured wood door.
   const isHobOven = config.subtype === 'Hob + Oven';
   const oneDoorWidth = isBlind ? round2(W - BLIND_PANEL_WIDTH - 3) : round2(W - 3);
-  const twoDoorWidthEach = round2((W - 3) / 2);
+  // Every door takes its own 3mm gap off its own slot (e.g. 800 wide x2 -> 397
+  // each) instead of splitting a single 3mm gap between them.
+  const splitDoorWidth = (n) => round2(W / n - 3);
+  const twoDoorWidthEach = splitDoorWidth(2);
 
   const defaultDoorCount = getDefaultDoorCount(W);
   const doorCount = isBlind ? 1 : (isHobOven || openBox) ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
@@ -581,7 +630,7 @@ export function calculateCabinet(config) {
   } else if (columnCount === 2) {
     doorWidths.push(twoDoorWidthEach, twoDoorWidthEach);
   } else {
-    const each = round2((W - 3) / columnCount);
+    const each = splitDoorWidth(columnCount);
     for (let i = 0; i < columnCount; i++) doorWidths.push(each);
   }
 
@@ -616,7 +665,7 @@ export function calculateCabinet(config) {
     // Tall Gola: C-channel at base-cabinet-top level splits into lower + upper door.
     // Lower door is cut-identical to a base cabinet Gola door so fronts align.
     const bh = config.baseHeight || 800;
-    const lowerH = round2(bh - 25 - 3);   // 772 (H800) / 692 (H720) — aligns with base run
+    const lowerH = round2(bh - GOLA_FRONT_REDUCTION_MM); // 770 (H800) / 690 (H720) — aligns with base run
     const upperH = round2(H - bh - 3);    // e.g. 2220 tall H800 -> 1417; 2000 -> 1197
     doorWidths.forEach((dw) => {
       doors.push({
@@ -632,7 +681,7 @@ export function calculateCabinet(config) {
     });
   } else {
   doorWidths.forEach((dw) => {
-    const doorH = config.cabinetType === 'tall' ? round2(H - 3) : (doorStyle === 'Gola' ? golaDoorHeight : handlePushDoorHeight);
+    const doorH = config.cabinetType === 'tall' ? round2(H - 3) : (doorStyle === 'Gola' ? golaDoorHeight : fullDoorHeight);
     const hinges = getHingeCount(doorH);
     doors.push({
       width: round2(dw),
@@ -670,7 +719,7 @@ export function calculateCabinet(config) {
       // channel, or none at all when golaNeedsChannelAbove skips it) plus the
       // usual 3mm edge clearance every front gets — matching the 3D render's
       // computeGolaDrawerLayout, which shrinks each front by the same amount.
-      const zoneReduction = doorStyle === 'Gola' ? (golaChannelGapMm(zoneList, zoneIdx) + 3) : 3;
+      const zoneReduction = (doorStyle === 'Gola' && golaChannelGapMm(zoneList, zoneIdx) > 0) ? GOLA_FRONT_REDUCTION_MM : 3;
       if (zone.type === 'door') {
         const widths = zonePreset.doorCount === 2 ? [twoDoorWidthEach, twoDoorWidthEach] : [oneDoorWidth];
         const dh = round2(zone.h - zoneReduction);

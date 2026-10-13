@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, carcassFrontEdgeMm, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingLengthMm, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -243,9 +243,7 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const hdfUnit     = m2_8 > 0 ? parseFloat((hdfCost / m2_8).toFixed(3)) : prices.hdf8_m2
   const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
-  const edgeM = (carcassFrontEdgeMm(cab)
-    + woodDoors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
-    + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+  const edgeM = edgeBandingLengthMm(result, cab.doorStyle) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
 
   const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)

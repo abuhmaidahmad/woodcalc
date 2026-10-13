@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, carcassFrontEdgeMm, glassShelfSpec, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -98,7 +98,6 @@ function getRoomDropPoint(walls) {
 }
 
 
-// ─── Edge banding helper ────────────────────────────────────────────
 // Label for a bought-in aluminium glass door: the company's door material + finish.
 function glassDoorLabel(c) {
   const finish = `${c.frameColor || 'black'} frame, ${c.glassType || 'clear'} glass`
@@ -116,31 +115,8 @@ function backPanelMaterialLabel(p) {
 function panelMaterialAndBanding(p, c, carcassMat, frontMat) {
   const face = panelFace(p)
   const mat = face === 'back' ? backPanelMaterialLabel(p) : face === 'front' ? frontMat : carcassMat
-  const eb = p.edgeFront
-    ? { T: 'None', B: 'None', L: 'None', R: mat }
-    : getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+  const eb = panelEdgeBanding(p, c.carcassColor, c.frontColor, carcassMat, frontMat, c.doorStyle)
   return { mat, eb }
-}
-
-function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat) {
-  const cc = carcassMat || carcassColor || 'Carcass'
-  const fc = frontMat || frontColor || 'Front'
-  if (partName.includes('Back')) {
-    return { T: 'None', B: 'None', L: 'None', R: 'None' }
-  }
-  if (partName.includes('Door') || partName.includes('Front')) {
-    return { T: fc, B: fc, L: fc, R: fc }
-  }
-  if (partName.includes('Side')) {
-    return { T: 'None', B: 'None', L: 'None', R: cc }
-  }
-  if (partName.includes('Bottom') || partName.includes('Rail') || partName.includes('Shelf')) {
-    return { T: 'None', B: 'None', L: 'None', R: cc }
-  }
-  if (partName.includes('Toe')) {
-    return { T: cc, B: 'None', L: 'None', R: 'None' }
-  }
-  return { T: 'None', B: 'None', L: 'None', R: 'None' }
 }
 
 function EBCell({ eb }) {
@@ -615,7 +591,7 @@ function aggregateBOM(cabinets, stairs = []) {
       const effectiveHeight = stepped ? stepped.effectiveH : cab.height
       totals.sheet18    += allPanels.filter(p => p.thickness === 18 && !isBackPanel(p)).reduce((s, p) => s + (p.width * p.depth * p.qty / 1e6), 0)
       totals.hdf8       += allPanels.filter(isBackPanel).reduce((s, p)  => s + (p.width * p.depth * p.qty / 1e6), 0)
-      totals.edgeM      += (carcassFrontEdgeMm(cab, effectiveHeight) + r.doors.filter(d => !d.glassDoor).reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+      totals.edgeM      += edgeBandingLengthMm({ ...r, panels: allPanels }, cab.doorStyle) / 1000
       totals.hinges     += r.doors.reduce((s, d) => s + d.hinges, 0)
       totals.legs       += r.hardware.legs
       totals.confirmats += r.hardware.confirmats
