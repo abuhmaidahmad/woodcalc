@@ -442,6 +442,16 @@ const APPLIANCE_2D_COLORS = {
   'Hob + Oven': '#2b2b2b',
 }
 
+// Counter-rotated about its own center so the number always reads upright.
+function PositionBadge({ num, rot, cx, cy, fill }) {
+  return (
+    <g style={{ pointerEvents: 'none' }} transform={`rotate(${-rot}, ${cx}, ${cy})`}>
+      <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#fff" strokeWidth={1} />
+      <text x={cx} y={cy + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{num}</text>
+    </g>
+  )
+}
+
 // Memoized: with 50+ cabinets on the plan, this whole SVG list used to get
 // rebuilt from scratch on every drag-position commit and every property-panel
 // edit, since it all lived inline in RoomCanvas's own render — moving or
@@ -530,10 +540,14 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
         // legible on narrow fillers/panels too. This is the same position number shown
         // in the Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal
         // tabs, so a number seen in any of those lists can be matched back to this cabinet.
-        <g style={{ pointerEvents: 'none' }} transform={`rotate(${-rot}, 7, 7)`}>
-          <circle cx={7} cy={7} r={7} fill={isCarcassCabinet(cab) ? ACCENT : '#888'} stroke="#fff" strokeWidth={1} />
-          <text x={7} y={9.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{posNum}</text>
-        </g>
+        // Elevated (wall-level) items sit on the back edge and floor-standing ones on the front
+        // edge, so a wall cabinet's badge never covers the base cabinet's below it. Centered
+        // along the edge so a narrow filler/side panel's badge clears its neighbour's; a Top
+        // Panel shares its footprint with the cabinet under it, so it takes the back-right corner.
+        <PositionBadge num={posNum} rot={rot}
+          cx={cab.subtype === 'Top Panel' ? Math.max(7, w - 7) : w / 2}
+          cy={cab.category === 'wall' || (cab.elevation || 0) > 0 ? 7 : Math.max(7, h - 7)}
+          fill={isCarcassCabinet(cab) ? ACCENT : '#888'} />
       )}
     </g>
   )
