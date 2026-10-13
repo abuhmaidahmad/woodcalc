@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { BLIND_PANEL_WIDTH } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
   computeWallBodies, getWallThickness, getWallLength, makeWallId,
@@ -442,6 +442,16 @@ const APPLIANCE_2D_COLORS = {
   'Hob + Oven': '#2b2b2b',
 }
 
+// Counter-rotated about its own center so the number always reads upright.
+function PositionBadge({ num, rot, cx, cy, fill }) {
+  return (
+    <g style={{ pointerEvents: 'none' }} transform={`rotate(${-rot}, ${cx}, ${cy})`}>
+      <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#fff" strokeWidth={1} />
+      <text x={cx} y={cy + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{num}</text>
+    </g>
+  )
+}
+
 // Memoized: with 50+ cabinets on the plan, this whole SVG list used to get
 // rebuilt from scratch on every drag-position commit and every property-panel
 // edit, since it all lived inline in RoomCanvas's own render — moving or
@@ -464,7 +474,7 @@ const APPLIANCE_2D_COLORS = {
 // rotates around the LOCAL center (w/2,h/2) first, which lands on the same
 // absolute center point as the old rotate(rot, cx, cy) did -- purely a
 // coordinate-system change, not a behavior change.)
-const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
+const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown, posNum }) {
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
   const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
@@ -525,6 +535,28 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
       {!isFrontPanel && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
       <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
       {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
+      {posNum != null && (
+        // Fixed pixel size regardless of the cabinet's own scale, so the badge stays
+        // legible on narrow fillers/panels too. This is the same position number shown
+        // in the Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal
+        // tabs, so a number seen in any of those lists can be matched back to this cabinet.
+        // Elevated (wall-level) items sit on the back edge and floor-standing ones toward the
+        // front, so a wall cabinet's badge never covers the base cabinet's below it. Floor
+        // badges sit just below the item's own dimension text (which is drawn under its
+        // centerline) rather than on the front edge, so they stay clear of a toe kick's label
+        // under the cabinet front; items too shallow for that fall back to the front edge.
+        // Centered so a narrow filler/side panel's badge clears its neighbour's; a Top Panel
+        // shares its footprint with the cabinet under it, so it takes the back-right corner.
+        // An item shallower than the badge (a toe kick, a thin panel) can't hold it at all, so
+        // its badge sits just outside on the room side: past the front strip and the dimension text.
+        <PositionBadge num={posNum} rot={rot}
+          cx={cab.subtype === 'Top Panel' ? Math.max(7, w - 7) : w / 2}
+          cy={h < 14
+            ? Math.max(h + (isFrontPanel ? 0 : (cab.frontMaterialThickness || 18) * scale), h / 2 + 12) + 9
+            : cab.category === 'wall' || (cab.elevation || 0) > 0 ? 7
+            : h / 2 + 28 <= h ? h / 2 + 21 : Math.max(7, h - 7)}
+          fill={isCarcassCabinet(cab) ? ACCENT : '#888'} />
+      )}
     </g>
   )
 })
@@ -674,6 +706,14 @@ export default function RoomCanvas({
   // Stale bulk-selected ids (e.g. a cabinet deleted after being shift-selected)
   // must not inflate the displayed count.
   const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
+  // Position number shown as a badge on each cabinet — must stay in the same order as the
+  // `cabinets` array so it lines up with the "#" column in the Cabinet List / Fillers & Panels
+  // BOM tables and the Contract/Proposal tabs, all of which number off that same array.
+  const posNumById = useMemo(() => {
+    const m = new Map()
+    cabinets.forEach((c, i) => m.set(c.id, i + 1))
+    return m
+  }, [cabinets])
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -1896,6 +1936,7 @@ export default function RoomCanvas({
               isSelected={selected === cab.id && selectedType === 'cabinet'}
               isBulkSelected={bulkIds.has(cab.id)}
               isColliding={collidingIds.has(cab.id)}
+              posNum={posNumById.get(cab.id)}
               scale={scale}
               showDimensions={showDimensions}
               onMouseDown={handleCabinetMouseDown}
