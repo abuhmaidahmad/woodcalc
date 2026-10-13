@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
+import { cabTextLayout, placeBadges, needsFlip, BADGE_R } from './badgeLayout'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
   computeWallBodies, getWallThickness, getWallLength, makeWallId,
@@ -425,6 +426,7 @@ function EmbeddedElement({ el, scale, selected, onMouseDown }) {
           stroke={selected ? ACCENT : el.color} strokeWidth={1} fill={el.color + '22'} strokeDasharray="3,2" />
       </>}
       <text x={0} y={h/2 + 10} textAnchor="middle" fontSize={7}
+        transform={needsFlip(angle) ? `rotate(180, 0, ${h/2 + 8})` : undefined}
         fill={selected ? ACCENT : '#555'} fontFamily="Inter,sans-serif"
         style={{ pointerEvents: 'none', userSelect: 'none' }}>{el.w}mm</text>
     </g>
@@ -440,16 +442,6 @@ const APPLIANCE_2D_COLORS = {
   'Oven Tower': '#2b2b2b',
   'Double Oven': '#2b2b2b',
   'Hob + Oven': '#2b2b2b',
-}
-
-// Counter-rotated about its own center so the number always reads upright.
-function PositionBadge({ num, rot, cx, cy, fill }) {
-  return (
-    <g style={{ pointerEvents: 'none' }} transform={`rotate(${-rot}, ${cx}, ${cy})`}>
-      <circle cx={cx} cy={cy} r={7} fill={fill} stroke="#fff" strokeWidth={1} />
-      <text x={cx} y={cy + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{num}</text>
-    </g>
-  )
 }
 
 // Memoized: with 50+ cabinets on the plan, this whole SVG list used to get
@@ -474,7 +466,7 @@ function PositionBadge({ num, rot, cx, cy, fill }) {
 // rotates around the LOCAL center (w/2,h/2) first, which lands on the same
 // absolute center point as the old rotate(rot, cx, cy) did -- purely a
 // coordinate-system change, not a behavior change.)
-const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown, posNum }) {
+const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
   const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
@@ -487,6 +479,7 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
     : null
   const isFrontPanel = cab.subtype === 'Side Panel' || cab.subtype === 'Top Panel'
   const fill = applianceFill || (isFrontPanel ? cab.frontColor : cab.carcassColor)
+  const textLayout = cabTextLayout(cab, scale, showDimensions)
   return (
     <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
       onMouseDown={e => onMouseDown(e, cab.id)}
@@ -533,30 +526,15 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
         <rect x={0} y={0} width={w} height={h} fill="url(#collisionHatch)" stroke="#DC3232" strokeWidth={2} rx={2} style={{ pointerEvents: 'none' }} />
       )}
       {!isFrontPanel && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
-      <text x={w / 2} y={h / 2} textAnchor="middle" fontSize={8} fontWeight={700} fill="#333" style={{ userSelect: 'none', pointerEvents: 'none' }}>{cab.label}</text>
-      {showDimensions && <text x={w / 2} y={h / 2 + 10} textAnchor="middle" fontSize={7} fill="#666" style={{ pointerEvents: 'none' }}>{cab.width}mm</text>}
-      {posNum != null && (
-        // Fixed pixel size regardless of the cabinet's own scale, so the badge stays
-        // legible on narrow fillers/panels too. This is the same position number shown
-        // in the Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal
-        // tabs, so a number seen in any of those lists can be matched back to this cabinet.
-        // Elevated (wall-level) items sit on the back edge and floor-standing ones toward the
-        // front, so a wall cabinet's badge never covers the base cabinet's below it. Floor
-        // badges sit just below the item's own dimension text (which is drawn under its
-        // centerline) rather than on the front edge, so they stay clear of a toe kick's label
-        // under the cabinet front; items too shallow for that fall back to the front edge.
-        // Centered so a narrow filler/side panel's badge clears its neighbour's; a Top Panel
-        // shares its footprint with the cabinet under it, so it takes the back-right corner.
-        // An item shallower than the badge (a toe kick, a thin panel) can't hold it at all, so
-        // its badge sits just outside on the room side: past the front strip and the dimension text.
-        <PositionBadge num={posNum} rot={rot}
-          cx={cab.subtype === 'Top Panel' ? Math.max(7, w - 7) : w / 2}
-          cy={h < 14
-            ? Math.max(h + (isFrontPanel ? 0 : (cab.frontMaterialThickness || 18) * scale), h / 2 + 12) + 9
-            : cab.category === 'wall' || (cab.elevation || 0) > 0 ? 7
-            : h / 2 + 28 <= h ? h / 2 + 21 : Math.max(7, h - 7)}
-          fill={isCarcassCabinet(cab) ? ACCENT : '#888'} />
-      )}
+      {/* Label (+ width) from cabTextLayout: flipped so it never reads upside down, run
+          along the depth on narrow items, and shrunk/dropped rather than spilling onto a
+          neighbour. The position badge is drawn separately, in RoomCanvas's top layer. */}
+      <g transform={textLayout.transform} style={{ userSelect: 'none', pointerEvents: 'none' }}>
+        {textLayout.lines.map((ln, i) => (
+          <text key={i} x={0} y={ln.y} textAnchor="middle" fontSize={ln.size} fontWeight={ln.weight} fill={ln.fill}>{ln.text}</text>
+        ))}
+      </g>
+      {textLayout.omitted && <title>{cab.label}</title>}
     </g>
   )
 })
@@ -677,6 +655,7 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
         <path d={`M ${arrowEndX} ${midY} L ${arrowEndX - 10} ${midY - 5} L ${arrowEndX - 10} ${midY + 5} Z`} />
       </g>
       <text x={(arrowStartX + arrowEndX) / 2} y={midY - 6} textAnchor="middle" fontSize={10} fontWeight={700}
+        transform={needsFlip(rot) ? `rotate(180, ${(arrowStartX + arrowEndX) / 2}, ${midY - 9.5})` : undefined}
         fill={color} style={{ pointerEvents: 'none', userSelect: 'none' }}>{t('roomCanvas.stairUpLabel')}</text>
 
       <circle cx={0} cy={0} r={4} fill="#2AC87A" stroke="#fff" strokeWidth={1.5} style={{ pointerEvents: 'none' }} />
@@ -706,14 +685,6 @@ export default function RoomCanvas({
   // Stale bulk-selected ids (e.g. a cabinet deleted after being shift-selected)
   // must not inflate the displayed count.
   const bulkCount = useMemo(() => cabinets.filter(c => bulkIds.has(c.id)).length, [cabinets, bulkIds])
-  // Position number shown as a badge on each cabinet — must stay in the same order as the
-  // `cabinets` array so it lines up with the "#" column in the Cabinet List / Fillers & Panels
-  // BOM tables and the Contract/Proposal tabs, all of which number off that same array.
-  const posNumById = useMemo(() => {
-    const m = new Map()
-    cabinets.forEach((c, i) => m.set(c.id, i + 1))
-    return m
-  }, [cabinets])
   const [mode, setMode] = useState('select')
   const [startPoint, setStartPoint] = useState(null)
   const [mousePos, setMousePos] = useState(null)
@@ -789,6 +760,11 @@ export default function RoomCanvas({
   const W = room.width * scale
   const H = room.depth * scale
   const wallBodies = useMemo(() => computeWallBodies(walls, scale), [walls, scale])
+  // Where each cabinet's position badge goes, worked out across the whole plan at once so
+  // no badge lands on another badge, a label/dimension text or a wall (see placeBadges).
+  const badgePlacement = useMemo(() => placeBadges(cabinets, scale, showDimensions,
+    wallBodies.map(b => [b.faceStart, b.faceEnd, b.outerEnd, b.outerStart].map(p => [p.x, p.y]))),
+  [cabinets, scale, showDimensions, wallBodies])
 
   const cvw = vw ?? W
   const cvh = vh ?? H
@@ -1936,7 +1912,6 @@ export default function RoomCanvas({
               isSelected={selected === cab.id && selectedType === 'cabinet'}
               isBulkSelected={bulkIds.has(cab.id)}
               isColliding={collidingIds.has(cab.id)}
-              posNum={posNumById.get(cab.id)}
               scale={scale}
               showDimensions={showDimensions}
               onMouseDown={handleCabinetMouseDown}
@@ -1991,6 +1966,25 @@ export default function RoomCanvas({
               onLengthConfirm={confirmWallEdit}
             />
           ))}
+          {/* Position badges, drawn after every cabinet, panel and label so nothing covers
+              them. The number is the cabinet's 1-based index in `cabinets`, the same "#" the
+              Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal tabs show. */}
+          <g style={{ pointerEvents: 'none' }}>
+            {cabinets.map((cab, i) => {
+              const p = badgePlacement.get(cab.id)
+              if (!p) return null
+              return (
+                <g key={cab.id} data-badge={i + 1}>
+                  {p.leader && <>
+                    <line x1={p.leader[0]} y1={p.leader[1]} x2={p.x} y2={p.y} stroke="#888" strokeWidth={0.75} />
+                    <circle cx={p.leader[0]} cy={p.leader[1]} r={1.5} fill="#888" />
+                  </>}
+                  <circle cx={p.x} cy={p.y} r={BADGE_R} fill={isCarcassCabinet(cab) ? ACCENT : '#888'} stroke="#fff" strokeWidth={1} />
+                  <text x={p.x} y={p.y + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{i + 1}</text>
+                </g>
+              )
+            })}
+          </g>
           {mode === 'measure' && measureSnap && <circle cx={measureSnap.x} cy={measureSnap.y} r={10} fill="#3B82F633" stroke="#3B82F6" strokeWidth={2} style={{ pointerEvents: 'none' }} />}
           {mode === 'measure' && measureStart && !measureEnd && mousePos && (() => {
             const end = measureSnap || mousePos
