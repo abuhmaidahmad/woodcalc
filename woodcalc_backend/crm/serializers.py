@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 
 
 class ClientSerializer(serializers.ModelSerializer):
@@ -107,3 +107,17 @@ class PaymentTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentTransaction
         fields = '__all__'
+
+
+class RoomChangeLogSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = RoomChangeLog
+        fields = ['id', 'room', 'user', 'user_name', 'timestamp', 'action', 'field_path', 'old_value', 'new_value',
+                  'reason']
+
+    def get_user_name(self, obj):
+        if obj.user is None:
+            return ''
+        return f'{obj.user.first_name} {obj.user.last_name}'.strip() or obj.user.email

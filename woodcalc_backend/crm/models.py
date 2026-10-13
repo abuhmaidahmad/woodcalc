@@ -216,3 +216,34 @@ class PaymentTransaction(models.Model):
             inst.status = 'PENDING'
             inst.paid_date = None
             inst.save(update_fields=['status', 'paid_date'])
+
+
+class RoomChangeLog(models.Model):
+    class Action(models.TextChoices):
+        EDIT = 'edit', 'Edit'
+        CABINET_ADDED = 'cabinet_added', 'Cabinet added'
+        CABINET_REMOVED = 'cabinet_removed', 'Cabinet removed'
+        CABINET_CHANGED = 'cabinet_changed', 'Cabinet changed'
+        LOCK = 'lock', 'Lock'
+        UNLOCK = 'unlock', 'Unlock'
+        REVISION_CREATED = 'revision_created', 'Revision created'
+        REVISION_SUBMITTED = 'revision_submitted', 'Revision submitted'
+        REVISION_APPROVED = 'revision_approved', 'Revision approved'
+        REVISION_REJECTED = 'revision_rejected', 'Revision rejected'
+        REVISION_SUPERSEDED = 'revision_superseded', 'Revision superseded'
+
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='change_logs')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,
+                             related_name='+')
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True)
+    action = models.CharField(max_length=30, choices=Action.choices)
+    field_path = models.CharField(max_length=255, blank=True)
+    old_value = models.JSONField(null=True, blank=True)
+    new_value = models.JSONField(null=True, blank=True)
+    reason = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-timestamp', '-id']
+
+    def __str__(self):
+        return f'{self.room_id} {self.action} {self.field_path}'

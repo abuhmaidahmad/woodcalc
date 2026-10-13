@@ -1858,5 +1858,29 @@
     "approve": "اعتماد",
     "reject": "رفض",
     "rejectPrompt": "ملاحظة اختيارية للمصمم (سبب الرفض):"
+  },
+  "roomHistory": {
+    "open": "📜 السجل",
+    "title": "سجل التغييرات",
+    "loading": "جارٍ التحميل…",
+    "empty": "لا توجد تغييرات مسجلة بعد.",
+    "loadFailed": "تعذّر تحميل السجل.",
+    "colWhen": "الوقت",
+    "colWho": "المستخدم",
+    "colAction": "الإجراء",
+    "colField": "الحقل",
+    "colChange": "القديم ← الجديد",
+    "colReason": "السبب",
+    "action_edit": "تعديل",
+    "action_cabinet_added": "إضافة خزانة",
+    "action_cabinet_removed": "حذف خزانة",
+    "action_cabinet_changed": "تعديل خزانة",
+    "action_lock": "تأكيد وقفل",
+    "action_unlock": "فتح القفل",
+    "action_revision_created": "إنشاء مراجعة",
+    "action_revision_submitted": "إرسال للموافقة",
+    "action_revision_approved": "الموافقة على المراجعة",
+    "action_revision_rejected": "رفض المراجعة",
+    "action_revision_superseded": "مستبدلة"
   }
 }

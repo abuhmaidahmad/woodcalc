@@ -1858,5 +1858,29 @@
     "approve": "Approve",
     "reject": "Reject",
     "rejectPrompt": "Optional note for the designer (why this was rejected):"
+  },
+  "roomHistory": {
+    "open": "📜 History",
+    "title": "Change history",
+    "loading": "Loading…",
+    "empty": "No changes recorded yet.",
+    "loadFailed": "Could not load the history.",
+    "colWhen": "When",
+    "colWho": "Who",
+    "colAction": "Action",
+    "colField": "Field",
+    "colChange": "Old → New",
+    "colReason": "Reason",
+    "action_edit": "Edited",
+    "action_cabinet_added": "Cabinet added",
+    "action_cabinet_removed": "Cabinet removed",
+    "action_cabinet_changed": "Cabinet changed",
+    "action_lock": "Confirmed & locked",
+    "action_unlock": "Unlocked",
+    "action_revision_created": "Revision created",
+    "action_revision_submitted": "Submitted for approval",
+    "action_revision_approved": "Revision approved",
+    "action_revision_rejected": "Revision rejected",
+    "action_revision_superseded": "Superseded"
   }
 }

@@ -5,6 +5,7 @@ import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import { activeTotal } from './revisions'
+import RoomHistoryPanel from './RoomHistoryPanel'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
@@ -784,6 +785,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const readOnly = auditor || locked
   const canSend = !auditor && locked && lock?.revisionStatus === 'approved'
   const isRevision = !!lock?.parentRevision
+  const canSeeHistory = !!lock && ['owner', 'admin', 'auditor'].includes(role)
+  const [showHistory, setShowHistory] = useState(false)
   const [roomId, setRoomId] = useState(initialRoomId)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -1354,6 +1357,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               </button>
             </>
           )}
+          {canSeeHistory && (
+            <button onClick={() => setShowHistory(true)} style={s.saveBtn}>
+              {t('roomHistory.open')}
+            </button>
+          )}
           {onShare && !auditor && (
             <>
               <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
@@ -1385,6 +1393,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           )}
         </div>
       </div>
+
+      {showHistory && <RoomHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />}
 
       {showLinkModal && (
         <LinkProjectModal

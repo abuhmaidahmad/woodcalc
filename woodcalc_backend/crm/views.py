@@ -10,14 +10,16 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
 from tenants.utils import get_company_by_slug
+from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
 from .revisions import OPEN_STATUSES, recompute_project_total, revision_chain, started_work_orders
-from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment
+from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 from .serializers import (
     PaymentTransactionSerializer,
     ClientSerializer, ClientDetailSerializer,
     LeadSerializer, QuotationSerializer, QuotationItemSerializer,
-    ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer
+    ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer,
+    RoomChangeLogSerializer,
 )
 
 
@@ -162,8 +164,20 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
     permission_classes = [IsAuthenticated, HasActiveCompany, RoomNotLocked]
     lock_exempt_actions = (
         'share_link', 'revoke_share_link', 'duplicate', 'confirm_lock', 'unlock',
-        'request_change', 'submit_revision', 'approve_revision', 'reject_revision',
+        'request_change', 'submit_revision', 'approve_revision', 'reject_revision', 'history',
     )
+
+    def perform_update(self, serializer):
+        before = snapshot(serializer.instance)
+        room = serializer.save()
+        log_room_edit(room, self.request.user, before)
+
+    @action(detail=True, methods=['get'])
+    def history(self, request, pk=None):
+        require_role(request, 'owner', 'admin', 'auditor')
+        room = self.get_object()
+        logs = room.change_logs.select_related('user')[:500]
+        return Response(RoomChangeLogSerializer(logs, many=True).data)
 
     def perform_create(self, serializer):
         project = serializer.validated_data.get('project')
@@ -203,6 +217,9 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             revision_number=max(r.revision_number for r in chain) + 1,
             parent_revision=room,
         )
+        log_room_action(revision, request.user, RoomChangeLog.Action.REVISION_CREATED,
+                        old_value={'revision_number': room.revision_number, 'room': room.id},
+                        new_value={'revision_number': revision.revision_number})
         return Response(RoomSerializer(revision).data, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
@@ -216,6 +233,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         self._lock(room, request.user)
         room.revision_status = Room.RevisionStatus.PENDING_APPROVAL
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_SUBMITTED)
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -239,12 +257,16 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
                 previous.revision_status = Room.RevisionStatus.SUPERSEDED
                 previous.is_locked = True
                 previous.save(update_fields=['revision_status', 'is_locked', 'updated_at'])
+                log_room_action(previous, request.user, RoomChangeLog.Action.REVISION_SUPERSEDED,
+                                new_value={'superseded_by': room.id, 'revision_number': room.revision_number})
         self._lock(room, request.user)
         room.revision_status = Room.RevisionStatus.APPROVED
         room.approval_override_reason = override_reason if started else ''
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status',
                                  'approval_override_reason', 'updated_at'])
         recompute_project_total(room.project)
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_APPROVED, reason=room.approval_override_reason,
+                        new_value={'started_work_orders': started} if started else None)
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -261,6 +283,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.revision_status = Room.RevisionStatus.REJECTED
         room.rejection_reason = reason
         room.save(update_fields=['is_locked', 'revision_status', 'rejection_reason', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_REJECTED, reason=reason)
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -277,6 +300,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.locked_by = request.user
         room.revision_status = Room.RevisionStatus.APPROVED
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.LOCK, new_value={'revision_number': room.revision_number})
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -293,6 +317,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.unlock_reason = reason
         room.revision_status = Room.RevisionStatus.DRAFT
         room.save(update_fields=['is_locked', 'unlock_reason', 'revision_status', 'updated_at'])
+        log_room_action(room, request.user, RoomChangeLog.Action.UNLOCK, reason=reason)
         return Response(RoomSerializer(room).data)
 
     def get_serializer_class(self):

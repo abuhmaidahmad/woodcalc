@@ -289,3 +289,81 @@ class RevisionFlowTests(RoomLockTestBase):
         self.post('staff', rev2.id, 'submit_revision')
         res = self.api(user=self.other_owner).post(f'/api/crm/rooms/{rev2.id}/approve_revision/')
         self.assertEqual(res.status_code, 404)
+
+
+class ChangeLogTests(RoomLockTestBase):
+    def history(self, role='owner', room=None):
+        return self.api(role).get(f'/api/crm/rooms/{(room or self.room).id}/history/')
+
+    def entries(self, room=None):
+        return list((room or self.room).change_logs.order_by('id').values_list('action', 'field_path', 'old_value',
+                                                                                'new_value', 'reason'))
+
+    def test_planner_edit_is_diffed_per_cabinet(self):
+        added = {'id': 2, 'category': 'wall', 'subtype': 'Wall', 'width': 400, 'height': 720, 'depth': 300}
+        changed = {**CABINET, 'width': 900, 'frontMaterialName': 'Walnut', 'subtype': 'Sink'}
+        self.api('staff').patch(f'/api/crm/rooms/{self.room.id}/', {
+            'name': 'Main kitchen',
+            'planner_data': {'cabinets': [changed, added], 'walls': [{'id': 'w1'}]},
+        }, format='json')
+        logs = self.entries()
+        self.assertIn(('edit', 'name', 'Kitchen', 'Main kitchen', ''), logs)
+        self.assertIn(('cabinet_changed', 'cabinets[1].width', 600, 900, ''), logs)
+        self.assertIn(('cabinet_changed', 'cabinets[1].frontMaterialName', 'Oak', 'Walnut', ''), logs)
+        self.assertIn(('cabinet_changed', 'cabinets[1].subtype', 'Base', 'Sink', ''), logs)
+        self.assertIn(('cabinet_added', 'cabinets[2]', None,
+                       {'category': 'wall', 'subtype': 'Wall', 'width': 400, 'height': 720, 'depth': 300}, ''), logs)
+        self.assertIn(('edit', 'planner_data.walls', None, [{'id': 'w1'}], ''), logs)
+        self.assertEqual(len(logs), 6)
+        self.assertTrue(all(log.user == self.users['staff'] for log in self.room.change_logs.all()))
+
+    def test_cabinet_removal_logged_and_unchanged_save_logs_nothing(self):
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'planner_data': {'cabinets': [CABINET]}},
+                                format='json')
+        self.assertEqual(self.entries(), [])
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'planner_data': {'cabinets': []}}, format='json')
+        self.assertEqual(self.entries()[0][:2], ('cabinet_removed', 'cabinets[1]'))
+
+    def test_large_values_are_summarised(self):
+        walls = [{'id': i, 'points': list(range(50))} for i in range(40)]
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/',
+                                {'planner_data': {'cabinets': [CABINET], 'walls': walls}}, format='json')
+        log = self.room.change_logs.get(field_path='planner_data.walls')
+        self.assertEqual(log.new_value['size'], 40)
+
+    def test_lifecycle_actions_logged_with_reasons(self):
+        self.lock()
+        self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'Typo'}, format='json')
+        self.lock()
+        rev2_id = self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/').json()['id']
+        rev2 = Room.objects.get(id=rev2_id)
+        url = f'/api/crm/rooms/{rev2_id}/'
+        self.api('staff').post(url + 'submit_revision/')
+        self.api('owner').post(url + 'reject_revision/', {'reason': 'Too wide'}, format='json')
+        self.api('staff').post(url + 'submit_revision/')
+        WorkOrder.objects.create(tenant=self.company, order_number='WO-9', product_name='K',
+                                 room_id_ref=self.room.id, status='IN_PROGRESS')
+        self.api('owner').post(url + 'approve_revision/', {'override_reason': 'Not cut yet'}, format='json')
+
+        self.assertEqual([(a, r) for a, _, _, _, r in self.entries()],
+                         [('lock', ''), ('unlock', 'Typo'), ('lock', ''), ('revision_superseded', '')])
+        self.assertEqual([(a, r) for a, _, _, _, r in self.entries(rev2)], [
+            ('revision_created', ''), ('revision_submitted', ''), ('revision_rejected', 'Too wide'),
+            ('revision_submitted', ''), ('revision_approved', 'Not cut yet'),
+        ])
+        self.assertEqual(rev2.change_logs.get(action='revision_approved').new_value, {'started_work_orders': ['WO-9']})
+
+    def test_history_visible_to_owner_admin_auditor_only(self):
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'name': 'X'}, format='json')
+        for role in ('owner', 'admin', 'auditor'):
+            res = self.history(role)
+            self.assertEqual(res.status_code, 200, role)
+            self.assertEqual(res.json()[0]['field_path'], 'name')
+            self.assertEqual(res.json()[0]['user_name'], 'owner@a.com')
+        self.assertEqual(self.history('staff').status_code, 403)
+        res = self.api(user=self.other_owner).get(f'/api/crm/rooms/{self.room.id}/history/')
+        self.assertEqual(res.status_code, 404)
+
+    def test_history_readable_on_locked_room(self):
+        self.lock()
+        self.assertEqual(self.history('auditor').status_code, 200)
