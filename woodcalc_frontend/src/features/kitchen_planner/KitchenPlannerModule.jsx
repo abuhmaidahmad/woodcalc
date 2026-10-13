@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, resolveBackPanel, isBackPanelMaterial, BACK_PANEL_THICKNESS_OPTIONS, isOpenBox, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -575,7 +575,7 @@ function resolveStairSteppedCabinet(cab, stairs) {
   const hit = findOverlappingStairProfile(cab, stairs)
   if (!hit) return null
   const resolved = resolveSteppedCabinetProfile(cab, hit.profile)
-  const extraPanels = resolved.segments.flatMap(seg => stairFillerPanels(seg, resolved.effectiveH, cab.depth, resolveBackPanel(cab)))
+  const extraPanels = resolved.segments.flatMap(seg => stairFillerPanels(seg, resolved.effectiveH, cab.depth))
   return { effectiveH: resolved.effectiveH, extraPanels }
 }
 
@@ -861,7 +861,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // Company back panel + glass standards (Settings page) -- the cut list helpers
   // read them from formulaEngine; listing them in memo deps recomputes once loaded.
   const companyStandards = useCompanyStandards(!publicCompanySlug)
-  const companyBack = companyStandards.back
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -2159,54 +2158,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                             }}>{src === 'carcass' ? t('kitchenPlannerModule.boxColorCarcass') : t('kitchenPlannerModule.boxColorFront')}</button>
                         ))}
                       </div>
-                    </div>
-                  )
-                })()}
-                {isCarcassCabinet(selCab) && !isOpenBox(selCab) && !['Sink', 'Single Sink', 'Double Sink'].includes(selCab.subtype) && (() => {
-                  // An open box's back is always its own box board (openBoxPanels).
-                  // Overrides the company back panel (Settings page) for this cabinet
-                  // only -- a different HDF thickness, or a back cut from the same
-                  // board as the carcass (e.g. an open box, whose back is on show).
-                  const o = selCab.backPanelOverride
-                  const value = o === 'carcass' ? 'carcass'
-                    : o === 'material' && selCab.backPanelMaterialCode ? `mat:${selCab.backPanelMaterialCode}`
-                    : (o != null && o !== '' ? `mm:${o}` : '')
-                  const backMaterials = Object.values(textureMap).filter(isBackPanelMaterial)
-                  const companyMat = companyBack.materialCode ? textureMap[companyBack.materialCode] : null
-                  const setBack = (v) => {
-                    if (v.startsWith('mat:')) {
-                      const m = textureMap[v.slice(4)]
-                      setCabinets(prev => prev.map(c => c.id === selCab.id ? { ...c, backPanelOverride: 'material', backPanelMaterialCode: m.sku, backPanelThickness: m.board_thickness || 8 } : c))
-                    } else {
-                      setCabinets(prev => prev.map(c => c.id === selCab.id ? {
-                        ...c,
-                        backPanelOverride: v === '' ? null : v === 'carcass' ? 'carcass' : Number(v.slice(3)),
-                        backPanelMaterialCode: null, backPanelThickness: null,
-                      } : c))
-                    }
-                  }
-                  return (
-                    <div style={{ marginBottom: 10 }}>
-                      <div style={s.propLabel}>{t('kitchenPlannerModule.backPanel')}</div>
-                      <select value={value} disabled={readOnly} onChange={e => setBack(e.target.value)}
-                        style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1.5px solid #E0DAD4', fontSize: 12, color: '#444', background: '#fff' }}>
-                        <option value="">{companyMat
-                          ? t('kitchenPlannerModule.backPanelCompanyMaterial', { name: companyMat.name, mm: companyBack.thickness })
-                          : t('kitchenPlannerModule.backPanelCompany', { mm: companyBack.thickness })}</option>
-                        {backMaterials.length > 0 && (
-                          <optgroup label={t('kitchenPlannerModule.backPanelFromStock')}>
-                            {backMaterials.map(m => (
-                              <option key={m.sku} value={`mat:${m.sku}`}>{m.name} · {m.sku} ({m.board_thickness || '?'}mm)</option>
-                            ))}
-                          </optgroup>
-                        )}
-                        <optgroup label={t('kitchenPlannerModule.backPanelThicknessOnly')}>
-                          {BACK_PANEL_THICKNESS_OPTIONS.map(mm => (
-                            <option key={mm} value={`mm:${mm}`}>{t('kitchenPlannerModule.backPanelHdf', { mm })}</option>
-                          ))}
-                        </optgroup>
-                        <option value="carcass">{t('kitchenPlannerModule.backPanelCarcass')}</option>
-                      </select>
                     </div>
                   )
                 })()}

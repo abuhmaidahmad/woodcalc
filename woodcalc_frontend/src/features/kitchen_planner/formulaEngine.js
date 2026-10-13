@@ -104,26 +104,16 @@ export function isBackPanelMaterial(m) {
   return m?.material_type === 'back' || m?.core_material === 'hdf';
 }
 
-// A single cabinet can override the company back panel (backPanelOverride):
-//   'material' -- another stock material (backPanelMaterialCode, with its board
-//                 thickness stamped as backPanelThickness when it was picked)
-//   'carcass'  -- cut from the same 18mm board as its sides/top/bottom (typical
-//                 for an open box, whose back is on show)
-//   a number   -- a plain HDF thickness with no stock material
-// Anything else follows the company setting. materialCode is the stock SKU the
-// back is priced at and cut from (null = generic HDF rate).
-export function resolveBackPanel(c) {
-  const o = c?.backPanelOverride;
-  if (o === 'carcass') return { thickness: T, isBoard: true, materialCode: null };
-  if (o === 'material' && c.backPanelMaterialCode) {
-    return { thickness: positiveOr(c.backPanelThickness, BACK_T), isBoard: false, materialCode: c.backPanelMaterialCode };
-  }
-  if (o != null && o !== '' && positiveOr(o, null)) return { thickness: Number(o), isBoard: false, materialCode: null };
-  return { ...companyBack, isBoard: false };
+// The back panel every cabinet is cut with: the company standard set on the
+// Settings page -- there's no per-cabinet choice. materialCode is the stock SKU
+// it's priced at and cut from (null = generic HDF rate). Open boxes (board back)
+// and sink cabinets (no back) have their own fixed rules in calculateCabinet.
+export function resolveBackPanel() {
+  return { ...companyBack };
 }
 
 // The HDF back (main carcass back or a stepped filler's) -- tagged by kind, not
-// matched by thickness, since the thickness is configurable. A carcass-board
+// matched by thickness, since the thickness is configurable. An open box's board
 // back and the 'Back rail' are 18mm carcass board, so they don't match.
 export function isBackPanel(p) {
   return p.kind === 'hdf_back';
@@ -216,9 +206,6 @@ export function cabinetConfig(c) {
     drawerBoxConstruction: c.drawerBoxConstruction,
     baseHeight: c.baseHeight,
     openBoxMaterialSource: c.openBoxMaterialSource,
-    backPanelOverride: c.backPanelOverride,
-    backPanelMaterialCode: c.backPanelMaterialCode,
-    backPanelThickness: c.backPanelThickness,
   };
 }
 
@@ -385,7 +372,7 @@ export function resolveSteppedCabinetProfile(cab, stairProfile, minHeightMm = 30
 // the (shorter, uniform) main carcass, filling the gap up to what that
 // segment's own stair clearance allows. Closed box, no door -- the filler is
 // bonus storage above the unit's normal front, not a redesigned zone.
-export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPanel(null)) {
+export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPanel()) {
   const fillerH = round2(seg.availableH - effectiveH);
   if (fillerH <= 1) return [];
   const w = round2(seg.x1 - seg.x0);
@@ -394,9 +381,7 @@ export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPane
     { name: 'Stepped filler side panel', qty: 2, width: fillerH, depth, thickness: T, notes: 'Follows stair above' },
     { name: 'Stepped filler top panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
     { name: 'Stepped filler bottom panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
-    back.isBoard
-      ? { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: T, notes: 'Follows stair above' }
-      : { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: back.thickness, kind: 'hdf_back', materialCode: back.materialCode, notes: 'Follows stair above' },
+    { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: back.thickness, kind: 'hdf_back', materialCode: back.materialCode, notes: 'Follows stair above' },
   ];
 }
 
@@ -497,7 +482,7 @@ export function calculateCabinet(config) {
     : /legrabox|tandembox|integrated/i.test(drawerSystem);
   const isDrawerCab = config.subtype === 'Drawers' || config.subtype === '2Drw+Door';
   const cabinetType = config.cabinetType || config.category || 'base';
-  const { thickness: backT, isBoard: backIsBoard, materialCode: backMaterialCode } = resolveBackPanel(config);
+  const { thickness: backT, materialCode: backMaterialCode } = resolveBackPanel();
 
   // Wall and tall cabinets don't sit on the floor with a toe kick + legs
   const hasFloorBase = cabinetType === 'base';
@@ -565,17 +550,6 @@ export function calculateCabinet(config) {
 
   if (isSink) {
     // Sink cabinets are left open at the back for the plumbing -- no back at all.
-  } else if (backIsBoard) {
-    // An 18mm board can't sit in the sides' HDF groove -- it's fixed between the
-    // sides, running the full carcass height behind the top/bottom.
-    panels.push({
-      name: 'Back panel (carcass board)',
-      qty: 1,
-      width: bottomW,
-      depth: H,
-      thickness: T,
-      notes: 'Same board as carcass, between sides',
-    });
   } else {
     const backW = round2(bottomW + 16);
     const backH = round2(H - T - 3);
@@ -782,9 +756,9 @@ export function calculateCabinet(config) {
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
-  // No screwed-on HDF back: an open box's (or a carcass-board) back is board fixed
-  // between the panels, and a sink cabinet has no back.
-  hardware.back_screws = (openBox || isSink || backIsBoard) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
+  // No screwed-on HDF back: an open box's back is board fixed between the panels,
+  // and a sink cabinet has no back.
+  hardware.back_screws = (openBox || isSink) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
