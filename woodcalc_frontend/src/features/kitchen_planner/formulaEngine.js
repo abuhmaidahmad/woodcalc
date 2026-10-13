@@ -506,6 +506,7 @@ export function calculateCabinet(config) {
     : { toeKickH: 0, legH: 0, preset: cabinetType === 'wall' ? 'WALL' : 'TALL' };
 
   const bottomW = round2(W - 2 * T);
+  const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
   const panels = [];
   if (openBox) {
     panels.push(...openBoxPanels(W, H, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
@@ -562,7 +563,9 @@ export function calculateCabinet(config) {
     });
   }
 
-  if (backIsBoard) {
+  if (isSink) {
+    // Sink cabinets are left open at the back for the plumbing -- no back at all.
+  } else if (backIsBoard) {
     // An 18mm board can't sit in the sides' HDF groove -- it's fixed between the
     // sides, running the full carcass height behind the top/bottom.
     panels.push({
@@ -779,8 +782,9 @@ export function calculateCabinet(config) {
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
-  // An open box's back is board fixed between the panels, not a screwed-on HDF sheet.
-  hardware.back_screws = openBox ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
+  // No screwed-on HDF back: an open box's (or a carcass-board) back is board fixed
+  // between the panels, and a sink cabinet has no back.
+  hardware.back_screws = (openBox || isSink || backIsBoard) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;

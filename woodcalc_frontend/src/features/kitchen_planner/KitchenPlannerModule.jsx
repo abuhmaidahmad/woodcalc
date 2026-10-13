@@ -2148,7 +2148,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {isCarcassCabinet(selCab) && !isOpenBox(selCab) && (() => {
+                {isCarcassCabinet(selCab) && !isOpenBox(selCab) && !['Sink', 'Single Sink', 'Double Sink'].includes(selCab.subtype) && (() => {
                   // An open box's back is always its own box board (openBoxPanels).
                   // Overrides the company back panel (Settings page) for this cabinet
                   // only -- a different HDF thickness, or a back cut from the same
