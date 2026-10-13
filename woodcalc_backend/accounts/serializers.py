@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from .models import ArchitectProfile, ManufacturerProfile, SupplierProfile, EmailAccount
 
@@ -182,3 +183,17 @@ class PasswordResetRequestSerializer(serializers.Serializer):
 class PasswordResetConfirmSerializer(serializers.Serializer):
     token = serializers.CharField()
     new_password = serializers.CharField(write_only=True, min_length=8)
+
+
+class EmailTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """Login with the email in any letter case. Emails are stored as typed at
+    signup (e.g. "Omar@gmail.com"), and the stock serializer matches exactly,
+    so "omar@gmail.com" used to fail as a wrong password. An exact match wins
+    in case two accounts differ only by case."""
+
+    def validate(self, attrs):
+        email = (attrs.get(self.username_field) or '').strip()
+        user = (User.objects.filter(email=email).first()
+                or User.objects.filter(email__iexact=email).first())
+        attrs[self.username_field] = user.email if user else email
+        return super().validate(attrs)

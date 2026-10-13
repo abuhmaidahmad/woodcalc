@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
 import { useNavigate } from 'react-router-dom'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -19,6 +19,7 @@ const STATUS_KEYS = {
 export default function ProductionBoard() {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
+  const readOnly = isReadOnly()
   const [orders, setOrders] = useState([])
   const [stations, setStations] = useState([])
   const [loading, setLoading] = useState(true)
@@ -158,7 +159,7 @@ export default function ProductionBoard() {
                     <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('productionBoard.customer')} <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                    <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)}
+                    <select value={selected.status} onChange={e => updateStatus(selected.id, e.target.value)} disabled={readOnly}
                       style={{ padding: '6px 12px', border: `2px solid ${STATUS_COLORS[selected.status]}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[selected.status], background: STATUS_COLORS[selected.status] + '15', outline: 'none', cursor: 'pointer' }}>
                       {['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
                     </select>
@@ -184,13 +185,13 @@ export default function ProductionBoard() {
                           <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{st.name}</div>
                           {log?.started_at && <div style={{ fontSize: 10, color: '#888' }}>{t('productionBoard.started')} {new Date(log.started_at).toLocaleString('en-GB')}{log.ended_at ? ` ${t('productionBoard.ended')} ${new Date(log.ended_at).toLocaleString('en-GB')}` : ''}</div>}
                         </div>
-                        {status === 'pending' && (
+                        {status === 'pending' && !readOnly && (
                           <button onClick={() => startStation(st.id)}
                             style={{ padding: '6px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                             {t('productionBoard.start')}
                           </button>
                         )}
-                        {status === 'active' && (
+                        {status === 'active' && !readOnly && (
                           <button onClick={() => endStation(log.id)}
                             style={{ padding: '6px 14px', background: '#2AC87A', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                             {t('productionBoard.complete')}

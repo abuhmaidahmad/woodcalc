@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -27,6 +27,7 @@ export default function SupplierList() {
   const [saving, setSaving] = useState(false)
   const [editing, setEditing] = useState(null)
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
   const fetchSuppliers = async () => {
     setLoading(true)
@@ -66,6 +67,7 @@ export default function SupplierList() {
   }
 
   const openEdit = (s) => {
+    if (readOnly) return
     setEditing(s.id)
     setForm({
       name: s.name || '', contact_name: s.contact_name || '', phone: s.phone || '',
@@ -105,10 +107,12 @@ export default function SupplierList() {
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('supplierList.title')}</h1>
             <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{suppliers.length} total</div>
           </div>
-          <button onClick={() => setShowAdd(true)}
-            style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            + {t('supplierList.newSupplier')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAdd(true)}
+              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              + {t('supplierList.newSupplier')}
+            </button>
+          )}
         </div>
 
         <input value={search} onChange={e => setSearch(e.target.value)}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { calculateCabinet, cabinetConfig, isCarcassCabinet } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { isReadOnly } from '../../api/auth'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -94,6 +95,7 @@ function CuttingOptimizerModule() {
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
+  const readOnly = isReadOnly()
 
   const [workOrders, setWorkOrders] = useState([])
   const [stockSheets, setStockSheets] = useState([])
@@ -273,6 +275,29 @@ function CuttingOptimizerModule() {
     fetchAllPages(`${API}/api/manufacturing/stock-sheets/`, authHeaders).then(setStockSheets).catch(() => {})
   }
 
+  // Auditors can't create jobs, so instead of optimizing they review the
+  // layouts already produced for the work order.
+  async function loadSavedJobs() {
+    setError('')
+    if (!workOrderId) {
+      setError(t('cuttingOptimizer.errSelectWorkOrder'))
+      return
+    }
+    setLoading(true)
+    try {
+      const jobs = await fetchAllPages(`${API}/api/manufacturing/cutting-jobs/?work_order=${workOrderId}`, authHeaders)
+      const optimized = jobs.filter(j => j.layouts?.length)
+      setResults(optimized.map(job => {
+        const m = materialsById.get(String(job.material))
+        return { job, title: m ? (m.name ? `${m.sku} — ${m.name}` : m.sku) : '' }
+      }))
+      if (optimized.length === 0) setError(t('cuttingOptimizer.noSavedJobs'))
+    } catch {
+      setError(t('cuttingOptimizer.errLoadSavedJobs'))
+    }
+    setLoading(false)
+  }
+
   async function loadFromBOM(group) {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
@@ -420,11 +445,13 @@ function CuttingOptimizerModule() {
 
         <div>
           <button
-            onClick={createAndOptimize}
+            onClick={readOnly ? loadSavedJobs : createAndOptimize}
             disabled={loading}
             style={{ padding: '10px 20px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           >
-            {loading
+            {readOnly
+              ? t('cuttingOptimizer.viewSavedJobs')
+              : loading
               ? t('cuttingOptimizer.optimizing')
               : groups.length > 1
                 ? t('cuttingOptimizer.createOptimizeAll', { count: groups.length })

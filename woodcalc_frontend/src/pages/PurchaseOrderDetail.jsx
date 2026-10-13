@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -42,6 +42,7 @@ export default function PurchaseOrderDetail() {
   const [payingSubmitting, setPayingSubmitting] = useState(false)
   const [paymentError, setPaymentError] = useState('')
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
   const fetchAll = async () => {
     setLoading(true)
@@ -185,14 +186,16 @@ export default function PurchaseOrderDetail() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
               {po.is_late && <span style={{ fontSize: 11, color: '#c33', background: '#fee', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>{t('purchaseOrderList.late')}</span>}
-              <select value={po.status} onChange={e => changeStatus(e.target.value)}
+              <select value={po.status} onChange={e => changeStatus(e.target.value)} disabled={readOnly}
                 style={{ fontSize: 12, color: st.color, background: st.bg, padding: '6px 12px', borderRadius: 20, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
                 {STATUS_OPTIONS.map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
               </select>
-              <button onClick={sendToSupplier} disabled={sendingEmail}
-                style={{ padding: '8px 16px', background: DARK, color: '#fff', border: 'none', borderRadius: 8, cursor: sendingEmail ? 'default' : 'pointer', fontSize: 12, fontWeight: 700 }}>
-                {sendingEmail ? t('purchaseOrderDetail.sending') : t('purchaseOrderDetail.sendToSupplier')}
-              </button>
+              {!readOnly && (
+                <button onClick={sendToSupplier} disabled={sendingEmail}
+                  style={{ padding: '8px 16px', background: DARK, color: '#fff', border: 'none', borderRadius: 8, cursor: sendingEmail ? 'default' : 'pointer', fontSize: 12, fontWeight: 700 }}>
+                  {sendingEmail ? t('purchaseOrderDetail.sending') : t('purchaseOrderDetail.sendToSupplier')}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -223,7 +226,7 @@ export default function PurchaseOrderDetail() {
                 </div>
               )}
             </div>
-            {po.balance_due > 0 && (
+            {po.balance_due > 0 && !readOnly && (
               <button onClick={() => setShowPayment(true)}
                 style={{ padding: '8px 16px', background: DARK, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
                 {t('purchaseOrderDetail.recordPayment')}
@@ -234,10 +237,12 @@ export default function PurchaseOrderDetail() {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: DARK }}>{t('purchaseOrderDetail.lineItems')}</h2>
-          <button onClick={() => setShowAddItem(true)}
-            style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-            + {t('purchaseOrderDetail.addItem')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAddItem(true)}
+              style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+              + {t('purchaseOrderDetail.addItem')}
+            </button>
+          )}
         </div>
 
         {(!po.line_items || po.line_items.length === 0) ? (
@@ -255,7 +260,7 @@ export default function PurchaseOrderDetail() {
                       {li.quantity_received} / {li.quantity_ordered} {t('purchaseOrderDetail.receivedOf')} {li.unit_price ? `· ${li.unit_price}/unit` : ''}
                     </div>
                   </div>
-                  {li.is_fully_received ? (
+                  {readOnly && !li.is_fully_received ? null : li.is_fully_received ? (
                     <span style={{ fontSize: 11, color: '#3a3', background: '#eef7ee', padding: '3px 10px', borderRadius: 20, fontWeight: 600 }}>{t('purchaseOrderDetail.complete')}</span>
                   ) : (
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

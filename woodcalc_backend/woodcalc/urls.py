@@ -2,12 +2,13 @@ from django.contrib import admin
 from django.conf import settings
 from django.conf.urls.static import static
 from django.urls import path, include
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from rest_framework_simplejwt.views import TokenRefreshView
+from accounts.views import EmailTokenObtainPairView
 
 urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('admin/', admin.site.urls),
-    path('api/auth/login/', TokenObtainPairView.as_view()),
+    path('api/auth/login/', EmailTokenObtainPairView.as_view()),
     path('api/auth/refresh/', TokenRefreshView.as_view()),
     path('api/inventory/', include('inventory.urls')),
     path('api/manufacturing/', include('manufacturing.urls')),

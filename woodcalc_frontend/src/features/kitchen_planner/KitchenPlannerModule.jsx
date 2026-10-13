@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { authFetch, withCompanyParam } from '../../api/auth'
+import { authFetch, withCompanyParam, isReadOnly } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -775,6 +775,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
+  // Auditor accounts can explore the design freely, but nothing persists — the
+  // backend rejects their writes, so Save/Share/Send are swapped for a badge.
+  const readOnly = !publicCompanySlug && isReadOnly()
   const [roomId, setRoomId] = useState(initialRoomId)
   const [projectId, setProjectId] = useState(initialProjectId)
   const [showLinkModal, setShowLinkModal] = useState(false)
@@ -1270,7 +1273,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
           )}
-          {onShare && (
+          {onShare && !readOnly && (
             <>
               <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
                 {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
@@ -1286,6 +1289,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
               {t('kitchenPlannerModule.saveMyDesign')}
             </button>
+          ) : readOnly ? (
+            <span title={t('kitchenPlannerModule.viewOnlyTip')} style={{ ...s.saveBtn, cursor: 'default', color: ACCENT, borderColor: ACCENT }}>
+              {t('kitchenPlannerModule.viewOnly')}
+            </span>
           ) : (
             <button onClick={saveProject} disabled={saving} style={s.saveBtn}>
               {saving ? t('kitchenPlannerModule.saving') : savedMsg || t('kitchenPlannerModule.save')}
@@ -1782,7 +1789,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       {tab === 'planner' && (
         <div style={s.workspace}>
           <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
-            {baseHeight && projectDefaults && (
+            {baseHeight && projectDefaults && !readOnly && (
               <div style={{ display: 'flex', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
                 <button onClick={() => setLeftPanelMode('catalog')}
                   style={{ flex: 1, padding: '8px 4px', border: 'none', borderBottom: `2px solid ${leftPanelMode === 'catalog' ? ACCENT : 'transparent'}`,
@@ -1798,7 +1805,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 </button>
               </div>
             )}
-            {leftPanelMode === 'designerAgent' && baseHeight && projectDefaults ? (
+            {leftPanelMode === 'designerAgent' && baseHeight && projectDefaults && !readOnly ? (
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <DesignerAgentChat onAddCabinet={addCabinet} companySlug={publicCompanySlug} />
               </div>
@@ -2215,7 +2222,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, color: DARK }}>{projectName}</h2>
                   <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('kitchenPlannerModule.cabinetsBom', { count: cabinets.length })}</div>
                 </div>
-                {!publicCompanySlug && (
+                {!publicCompanySlug && !readOnly && (
                   <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? t('kitchenPlannerModule.sending') : t('kitchenPlannerModule.sendToManufacturing')}</button>
                 )}
               </div>

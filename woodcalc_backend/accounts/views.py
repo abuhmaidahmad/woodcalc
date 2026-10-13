@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from django.contrib.auth import get_user_model
 from .serializers import (
     CustomerRegisterSerializer,
@@ -13,6 +14,7 @@ from .serializers import (
     UserMeSerializer,
     PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer,
+    EmailTokenObtainPairSerializer,
 )
 from .models import ManufacturerProfile, SupplierProfile
 from django.db import transaction
@@ -239,3 +241,7 @@ def confirm_password_reset(request):
         return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response({'message': 'Password updated successfully.'})
+
+
+class EmailTokenObtainPairView(TokenObtainPairView):
+    serializer_class = EmailTokenObtainPairSerializer

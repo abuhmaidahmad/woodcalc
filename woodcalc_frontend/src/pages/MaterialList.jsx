@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -34,6 +34,7 @@ export default function MaterialList() {
   const [addingCategory, setAddingCategory] = useState(false)
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
   const fetchAll = async () => {
     setLoading(true)
@@ -120,10 +121,12 @@ export default function MaterialList() {
               {lowStockCount > 0 && <span style={{ color: '#c33', fontWeight: 600 }}> · {lowStockCount} {t('materialList.lowStock')}</span>}
             </div>
           </div>
-          <button onClick={() => setShowAdd(true)}
-            style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            + {t('materialList.newMaterial')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAdd(true)}
+              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              + {t('materialList.newMaterial')}
+            </button>
+          )}
         </div>
 
         <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>

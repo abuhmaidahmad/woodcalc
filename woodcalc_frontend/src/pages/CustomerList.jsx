@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -22,6 +22,7 @@ export default function CustomerList() {
   const [form, setForm] = useState({ name: '', phone: '', email: '', address: '', company: '' })
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
 const fetchCustomers = async () => {
   setLoading(true)
@@ -94,10 +95,12 @@ setCustomers(Array.isArray(data) ? data : (data.results || []))
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('customerList.title')}</h1>
             <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{customers.length} total</div>
           </div>
-          <button onClick={() => setShowAdd(true)}
-            style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-            + {t('customerList.newCustomer')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAdd(true)}
+              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+              + {t('customerList.newCustomer')}
+            </button>
+          )}
         </div>
 
         {/* Search */}

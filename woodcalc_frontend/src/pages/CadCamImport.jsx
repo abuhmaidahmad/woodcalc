@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isReadOnly } from '../api/auth'
 import Logo from '../components/Logo'
 import { useTranslation } from '../i18n/LanguageContext'
 import {
@@ -22,6 +23,7 @@ export default function CadCamImport() {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
   const [platform, setPlatform] = useState('bsolid')
   const [method, setMethod] = useState('csv')
@@ -158,14 +160,16 @@ export default function CadCamImport() {
               onChange={v => setThresholds(s => ({ ...s, cadcam_min_offcut_height_mm: v }))} />
             <MiniField label={t('cadcamImport.minArea')} value={thresholds.cadcam_min_offcut_area_m2}
               onChange={v => setThresholds(s => ({ ...s, cadcam_min_offcut_area_m2: v }))} step="0.01" />
-            <button onClick={saveThresholds} disabled={savingThresholds}
-              style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700, height: 34 }}>
-              {savingThresholds ? t('cadcamImport.saving') : t('cadcamImport.save')}
-            </button>
+            {!readOnly && (
+              <button onClick={saveThresholds} disabled={savingThresholds}
+                style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700, height: 34 }}>
+                {savingThresholds ? t('cadcamImport.saving') : t('cadcamImport.save')}
+              </button>
+            )}
           </div>
         </div>
 
-        {!job && (
+        {!job && !readOnly && (
           <div style={{ background: '#fff', borderRadius: 12, padding: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>{t('cadcamImport.sourcePlatform')}</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
@@ -287,7 +291,7 @@ export default function CadCamImport() {
                         </div>
                         {o.added_to_stock ? (
                           <span style={{ fontSize: 11, color: '#2AC87A', fontWeight: 700 }}>✓ {t('cadcamImport.inStock')}</span>
-                        ) : o.is_usable ? (
+                        ) : o.is_usable && readOnly ? null : o.is_usable ? (
                           <button onClick={() => markUsable(o.id)}
                             style={{ padding: '7px 12px', border: '1.5px solid #2AC87A', color: '#2AC87A', background: '#fff', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                             {t('cadcamImport.addToStock')}

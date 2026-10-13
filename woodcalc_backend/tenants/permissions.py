@@ -1,5 +1,24 @@
-from rest_framework.permissions import BasePermission
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 from .utils import get_membership_for_user
+
+# Prefix the frontend's authFetch keys on to tell "read-only account" apart from
+# "trial expired" — only the latter should raise the billing banner.
+READ_ONLY_MESSAGE = "Read-only access: auditors can view but not change data."
+
+
+def deny_auditor_writes(request, view):
+    """AUDITOR members can read everything their company can, but never write.
+    A view opts a harmless write back in with `allow_auditor_writes = True`
+    (e.g. sending product feedback), or lists POST actions that only compute
+    and return data in `auditor_safe_actions`."""
+    if request.method in SAFE_METHODS or getattr(view, "allow_auditor_writes", False):
+        return
+    if getattr(view, "action", None) in getattr(view, "auditor_safe_actions", ()):
+        return
+    membership = getattr(request, "membership", None) or get_membership_for_user(request.user)
+    if membership is not None and membership.role == membership.Role.AUDITOR:
+        raise PermissionDenied(READ_ONLY_MESSAGE)
 
 
 class HasActiveCompany(BasePermission):
@@ -11,7 +30,20 @@ class HasActiveCompany(BasePermission):
             return False
         request.company = membership.company
         request.membership = membership
-        return membership.company.is_in_good_standing
+        if not membership.company.is_in_good_standing:
+            return False
+        deny_auditor_writes(request, view)
+        return True
+
+
+class BlocksAuditorWrites(BasePermission):
+    """For views that don't run HasActiveCompany (public-catalog viewsets using
+    IsAuthenticatedOrReadOnly, billing checkout) but must still be read-only
+    for auditors."""
+
+    def has_permission(self, request, view):
+        deny_auditor_writes(request, view)
+        return True
 
 
 def user_has_permission(request, code):

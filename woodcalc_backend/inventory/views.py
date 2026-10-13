@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnl
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from tenants.mixins import TenantScopedMixin, PublicOrTenantScopedMixin
-from tenants.permissions import HasActiveCompany
+from tenants.permissions import BlocksAuditorWrites, HasActiveCompany
 from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
 from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer, CabinetTemplateSerializer
 
@@ -17,7 +17,7 @@ class MaterialViewSet(PublicOrTenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'tenant'
     queryset = Material.objects.all().order_by('sku')
     serializer_class = MaterialSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, BlocksAuditorWrites]
 
     def get_queryset(self):
         qs = super().get_queryset()
@@ -83,7 +83,7 @@ class StockAlertViewSet(TenantScopedMixin, ModelViewSet):
 
 class DrawerSystemViewSet(PublicOrTenantScopedMixin, ModelViewSet):
     serializer_class = DrawerSystemSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, BlocksAuditorWrites]
     queryset = DrawerSystem.objects.filter(is_active=True)
 
 
@@ -92,7 +92,7 @@ class SinkViewSet(PublicOrTenantScopedMixin, ModelViewSet):
     # sink catalog via ?company=<slug>. Create/update/delete require an
     # authenticated, active-subscription company (see PublicOrTenantScopedMixin).
     serializer_class = SinkSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticatedOrReadOnly, BlocksAuditorWrites]
     queryset = Sink.objects.filter(is_active=True)
 
 

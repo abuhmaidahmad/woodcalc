@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -32,6 +32,7 @@ export default function PurchaseOrderList() {
   const [form, setForm] = useState({ supplier: '', expected_delivery_date: '', notes: '' })
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
 
   const fetchAll = async () => {
     setLoading(true)
@@ -96,10 +97,12 @@ export default function PurchaseOrderList() {
             <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('purchaseOrderList.title')}</h1>
             <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{orders.length} total</div>
           </div>
-          <button onClick={() => setShowAdd(true)} disabled={suppliers.length === 0}
-            style={{ padding: '10px 20px', background: suppliers.length ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: suppliers.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
-            + {t('purchaseOrderList.newPO')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAdd(true)} disabled={suppliers.length === 0}
+              style={{ padding: '10px 20px', background: suppliers.length ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 8, cursor: suppliers.length ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 700 }}>
+              + {t('purchaseOrderList.newPO')}
+            </button>
+          )}
         </div>
 
         {loading ? (

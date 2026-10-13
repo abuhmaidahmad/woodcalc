@@ -11,6 +11,8 @@ class FeedbackViewSet(TenantScopedMixin, ModelViewSet):
     queryset = Feedback.objects.all().order_by('-created_at')
     serializer_class = FeedbackSerializer
     permission_classes = [IsAuthenticated, HasActiveCompany]
+    # Auditors are read-only everywhere else, but should still be able to report problems.
+    allow_auditor_writes = True
 
     def perform_create(self, serializer):
         company = getattr(self.request, "company", None) or get_company_for_user(self.request.user)

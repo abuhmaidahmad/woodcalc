@@ -40,12 +40,13 @@ class MembershipCreateSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150, required=False, allow_blank=True)
     password = serializers.CharField(write_only=True, min_length=8)
-    role = serializers.ChoiceField(choices=[CompanyMembership.Role.ADMIN, CompanyMembership.Role.STAFF],
+    role = serializers.ChoiceField(choices=[CompanyMembership.Role.ADMIN, CompanyMembership.Role.STAFF,
+                                             CompanyMembership.Role.AUDITOR],
                                     default=CompanyMembership.Role.STAFF)
     permissions = serializers.ListField(child=serializers.CharField(), required=False, default=list)
 
     def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
+        if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("A user with this email already exists.")
         return value
 

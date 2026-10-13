@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -42,6 +42,7 @@ export default function ProjectDetail() {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
+  const readOnly = isReadOnly()
   const [project, setProject] = useState(null)
   const [rooms, setRooms] = useState([])
   const [payments, setPayments] = useState([])
@@ -215,9 +216,9 @@ export default function ProjectDetail() {
                   onBlur={saveProjectName} onKeyDown={e => e.key === 'Enter' && saveProjectName()}
                   style={{ fontSize: 22, fontWeight: 800, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box' }} />
               ) : (
-                <div onClick={() => { setProjectNameDraft(project.name); setEditingProjectName(true) }}
-                  style={{ fontSize: 22, fontWeight: 800, color: DARK, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  {project.name} <span style={{ color: '#888', fontSize: 13 }}>✎</span>
+                <div onClick={() => { if (readOnly) return; setProjectNameDraft(project.name); setEditingProjectName(true) }}
+                  style={{ fontSize: 22, fontWeight: 800, color: DARK, cursor: readOnly ? 'default' : 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  {project.name} {!readOnly && <span style={{ color: '#888', fontSize: 13 }}>✎</span>}
                 </div>
               )}
               <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>
@@ -230,7 +231,7 @@ export default function ProjectDetail() {
             </div>
             <div style={{ textAlign: 'end' }}>
               <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{parseFloat(project.total_value).toFixed(2)} JD</div>
-              <select value={project.status} onChange={e => updateStatus(e.target.value)}
+              <select value={project.status} onChange={e => updateStatus(e.target.value)} disabled={readOnly}
                 style={{ marginTop: 8, padding: '5px 10px', border: `2px solid ${STATUS_COLORS[project.status] || '#888'}`, borderRadius: 6, fontSize: 11, fontWeight: 700, color: STATUS_COLORS[project.status] || '#888', background: (STATUS_COLORS[project.status] || '#888') + '15', outline: 'none', cursor: 'pointer' }}>
                 {['DRAFT', 'ACTIVE', 'ON_HOLD', 'COMPLETED', 'CANCELLED'].map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
               </select>
@@ -272,10 +273,12 @@ export default function ProjectDetail() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{rooms.length === 1 ? t('projectDetail.roomCount', { count: rooms.length }) : t('projectDetail.roomCountPlural', { count: rooms.length })}</div>
-              <button onClick={() => setShowAddRoom(true)}
-                style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                {t('projectDetail.newRoom')}
-              </button>
+              {!readOnly && (
+                <button onClick={() => setShowAddRoom(true)}
+                  style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                  {t('projectDetail.newRoom')}
+                </button>
+              )}
             </div>
             {rooms.length === 0 ? (
               <div style={{ background: '#fff', borderRadius: 12, padding: 40, textAlign: 'center', color: '#bbb', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -293,7 +296,7 @@ export default function ProjectDetail() {
                     onClick={() => editingRoomId !== room.id && navigate(`/rooms/${room.id}`)}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                       <div style={{ fontSize: 28, marginBottom: 8 }}>{ROOM_ICONS[room.room_type] || '📦'}</div>
-                      <div style={{ display: 'flex', gap: 6 }}>
+                      {!readOnly && <div style={{ display: 'flex', gap: 6 }}>
                         <button
                           onClick={e => { e.stopPropagation(); duplicateRoom(room) }}
                           title={t('projectDetail.duplicateRoom')}
@@ -306,7 +309,7 @@ export default function ProjectDetail() {
                           style={{ background: 'transparent', border: '1px solid #E0DAD4', borderRadius: 6, color: '#E74C3C', fontSize: 11, padding: '3px 8px', cursor: 'pointer' }}>
                           {t('projectDetail.deleteRoom')}
                         </button>
-                      </div>
+                      </div>}
                     </div>
                     {editingRoomId === room.id ? (
                       <input autoFocus value={roomNameDraft} onChange={e => setRoomNameDraft(e.target.value)}
@@ -314,9 +317,9 @@ export default function ProjectDetail() {
                         onBlur={() => saveRoomName(room.id)} onKeyDown={e => e.key === 'Enter' && saveRoomName(room.id)}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, border: '1.5px solid ' + ACCENT, borderRadius: 6, padding: '2px 6px', outline: 'none', boxSizing: 'border-box', width: '100%' }} />
                     ) : (
-                      <div onClick={e => { e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
+                      <div onClick={e => { if (readOnly) return; e.stopPropagation(); setRoomNameDraft(room.name); setEditingRoomId(room.id) }}
                         style={{ fontWeight: 700, fontSize: 14, color: DARK, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                        {room.name} <span style={{ color: '#888', fontSize: 11 }}>✎</span>
+                        {room.name} {!readOnly && <span style={{ color: '#888', fontSize: 11 }}>✎</span>}
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
@@ -377,10 +380,12 @@ export default function ProjectDetail() {
                   {' · '}{t('projectDetail.outstanding')} <b style={{ color: '#C62828' }}>{(parseFloat(project?.total_value || 0) - totalCollected).toFixed(2)} JD</b>
                 </div>
               </div>
-              <button onClick={() => setShowPay(true)}
-                style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-                {t('projectDetail.recordPayment')}
-              </button>
+              {!readOnly && (
+                <button onClick={() => setShowPay(true)}
+                  style={{ padding: '8px 14px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                  {t('projectDetail.recordPayment')}
+                </button>
+              )}
             </div>
             {transactions.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: '#bbb', fontSize: 12 }}>{t('projectDetail.noTransactionsYet')}</div>
@@ -403,7 +408,7 @@ export default function ProjectDetail() {
                       <td style={{ padding: '10px 16px', fontSize: 12, color: '#888' }}>{tx.method === 'CHEQUE' ? `${tx.cheque_number || ''} ${tx.cheque_bank || ''}`.trim() || '\u2014' : (tx.reference || '\u2014')}</td>
                       <td style={{ padding: '10px 16px' }}>
                         {tx.method === 'CHEQUE' ? (
-                          <select value={tx.cheque_status} onChange={e => setChequeStatus(tx, e.target.value)}
+                          <select value={tx.cheque_status} onChange={e => setChequeStatus(tx, e.target.value)} disabled={readOnly}
                             style={{ fontSize: 11, fontWeight: 700, padding: '3px 6px', borderRadius: 4, border: '1px solid #E0DAD4', background: '#fff',
                               color: tx.cheque_status === 'CLEARED' ? '#2E7D32' : tx.cheque_status === 'BOUNCED' ? '#C62828' : '#B8860B' }}>
                             {['RECEIVED', 'DEPOSITED', 'CLEARED', 'BOUNCED'].map(s => <option key={s} value={s}>{t(CHEQUE_STATUS_KEYS[s])}</option>)}

@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from tenants.models import Company
+from tenants.permissions import BlocksAuditorWrites
 from tenants.utils import get_company_for_user
 
 from .crypto import encrypt_token
@@ -16,7 +17,7 @@ from .pricing import PLAN_PRICES_JOD
 
 
 @api_view(["POST"])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, BlocksAuditorWrites])
 def checkout(request):
     company = get_company_for_user(request.user)
     if company is None:

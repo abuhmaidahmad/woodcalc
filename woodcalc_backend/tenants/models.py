@@ -52,6 +52,7 @@ class CompanyMembership(models.Model):
         OWNER = "owner", "Owner"
         ADMIN = "admin", "Admin"
         STAFF = "staff", "Staff"
+        AUDITOR = "auditor", "Auditor"
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="memberships")
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="company_membership")

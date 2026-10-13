@@ -32,6 +32,8 @@ class CadCamImportJobViewSet(TenantScopedMixin, ModelViewSet):
     queryset = CadCamImportJob.objects.all().order_by('-imported_at')
     serializer_class = CadCamImportJobSerializer
     permission_classes = [IsAuthenticated, HasActiveCompany]
+    # Groups the imported parts for the optimizer without saving anything.
+    auditor_safe_actions = ('send_to_optimizer',)
 
     def create(self, request, *args, **kwargs):
         platform = request.data.get('platform')

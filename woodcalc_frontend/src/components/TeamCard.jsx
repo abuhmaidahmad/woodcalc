@@ -6,7 +6,7 @@ import { useTranslation } from '../i18n/LanguageContext'
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 
-const ROLE_KEYS = { owner: 'team.roleOwner', admin: 'team.roleAdmin', staff: 'team.roleStaff' }
+const ROLE_KEYS = { owner: 'team.roleOwner', admin: 'team.roleAdmin', staff: 'team.roleStaff', auditor: 'team.roleAuditor' }
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', role: 'staff', permissions: [] }
 
@@ -48,9 +48,12 @@ export default function TeamCard() {
     await updateMember(member.id, { permissions: next })
   }
 
+  // Auditors are view-only, so switching someone to auditor drops any HR/team
+  // permissions they held rather than leaving them granted-but-unusable.
   const changeRole = async (member, role) => {
-    setMembers(prev => prev.map(m => m.id === member.id ? { ...m, role } : m))
-    await updateMember(member.id, { role })
+    const patch = role === 'auditor' ? { role, permissions: [] } : { role }
+    setMembers(prev => prev.map(m => m.id === member.id ? { ...m, ...patch } : m))
+    await updateMember(member.id, patch)
   }
 
   const doRemove = async (member) => {
@@ -114,6 +117,7 @@ export default function TeamCard() {
                       style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: DARK, cursor: 'pointer' }}>
                       <option value="admin">{t('team.roleAdmin')}</option>
                       <option value="staff">{t('team.roleStaff')}</option>
+                      <option value="auditor">{t('team.roleAuditor')}</option>
                     </select>
                   )}
                   {m.role !== 'owner' && (
@@ -124,7 +128,10 @@ export default function TeamCard() {
                   )}
                 </div>
               </div>
-              {m.role !== 'owner' && (
+              {m.role === 'auditor' && (
+                <div style={{ fontSize: 11, color: '#888' }}>{t('team.auditorHint')}</div>
+              )}
+              {m.role !== 'owner' && m.role !== 'auditor' && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {permissions.map(p => {
                     const codeKey = p.code.replace(/\./g, '_')
@@ -169,12 +176,17 @@ export default function TeamCard() {
               <div style={{ fontSize: 10, color: '#999', marginTop: 4, marginBottom: 8 }}>{t('team.passwordHint')}</div>
 
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('team.role')}</div>
-              <select value={form.role} onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
+              <select value={form.role}
+                onChange={e => { const role = e.target.value; setForm(f => ({ ...f, role, permissions: role === 'auditor' ? [] : f.permissions })) }}
                 style={{ padding: '6px 10px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, marginBottom: 10 }}>
                 <option value="admin">{t('team.roleAdmin')}</option>
                 <option value="staff">{t('team.roleStaff')}</option>
+                <option value="auditor">{t('team.roleAuditor')}</option>
               </select>
 
+              {form.role === 'auditor' ? (
+                <div style={{ fontSize: 11, color: '#888', marginBottom: 12 }}>{t('team.auditorHint')}</div>
+              ) : (<>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('team.permissions')}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                 {permissions.map(p => {
@@ -192,6 +204,7 @@ export default function TeamCard() {
                   )
                 })}
               </div>
+              </>)}
 
               {error && <div style={{ fontSize: 11, color: '#c33', marginBottom: 8 }}>{error}</div>}
 

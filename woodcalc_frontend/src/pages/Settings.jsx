@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch, getCompany } from '../api/auth'
+import { authFetch, getCompany, isReadOnly } from '../api/auth'
 import { createCheckout } from '../api/billing'
 import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
@@ -64,7 +64,8 @@ function BillingCard() {
   const [activating, setActivating] = useState(null)
   const [error, setError] = useState('')
 
-  if (!company) return null
+  // Auditors can't change the subscription, so there's nothing for them here.
+  if (!company || isReadOnly()) return null
 
   const isActive = company.status === 'active'
   const arrow = language === 'ar' ? '←' : '→'

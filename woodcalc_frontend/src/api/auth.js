@@ -89,6 +89,12 @@ export function hasPermission(code) {
   return company.role === 'owner' || (company.permissions || []).includes(code);
 }
 
+// Auditors can view everything their company can but the backend rejects any
+// write, so screens hide Save/Send controls instead of letting them fail.
+export function isReadOnly() {
+  return getCompany()?.role === 'auditor';
+}
+
 export function getToken() {
   return localStorage.getItem('access_token');
 }
@@ -132,11 +138,13 @@ export async function authFetch(url, options = {}) {
   if (res.status === 403) {
     // Distinguish "company access blocked" (trial expired/suspended, HasActiveCompany)
     // from "missing a granular permission" (RequirePermission('hr.view_salary') etc.)
-    // — only the former should trigger the global trial/billing banner.
+    // — only the former should trigger the global trial/billing banner. Same for an
+    // auditor's blocked write ("Read-only access: ...").
     let isPermissionDenied = false
     try {
       const body = await res.clone().json()
-      isPermissionDenied = typeof body?.detail === 'string' && body.detail.startsWith('Missing permission:')
+      isPermissionDenied = typeof body?.detail === 'string' &&
+        (body.detail.startsWith('Missing permission:') || body.detail.startsWith('Read-only access:'))
     } catch {}
     if (!isPermissionDenied) {
       window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))

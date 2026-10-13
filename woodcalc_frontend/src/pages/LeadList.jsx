@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -22,6 +22,7 @@ export default function LeadList() {
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const navigate = useNavigate()
+  const readOnly = isReadOnly()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
 
@@ -104,7 +105,7 @@ export default function LeadList() {
                       {t('leadList.viewDesign')}
                     </button>
                   )}
-                  <select value={l.status} onChange={e => updateStatus(l, e.target.value)}
+                  <select value={l.status} onChange={e => updateStatus(l, e.target.value)} disabled={readOnly}
                     style={{ padding: '6px 10px', borderRadius: 6, border: `1.5px solid ${STATUS_COLORS[l.status]}`, color: STATUS_COLORS[l.status], fontSize: 11, fontWeight: 700, background: '#fff', cursor: 'pointer' }}>
                     {STATUS_OPTIONS.map(s => <option key={s} value={s}>{t(STATUS_KEYS[s])}</option>)}
                   </select>

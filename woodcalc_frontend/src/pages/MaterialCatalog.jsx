@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import Logo from '../components/Logo'
 import { useNavigate } from 'react-router-dom'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -50,6 +50,7 @@ function forceHttps(url) {
 export default function MaterialCatalog() {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
+  const readOnly = isReadOnly()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const [textures, setTextures] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -331,10 +332,12 @@ export default function MaterialCatalog() {
                   : t('materialCatalog.materialCountPlural', { count: textures.length })}
               </div>
             </div>
-            <button onClick={openAdd}
-              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-              {t('materialCatalog.addMaterial')}
-            </button>
+            {!readOnly && (
+              <button onClick={openAdd}
+                style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                {t('materialCatalog.addMaterial')}
+              </button>
+            )}
           </div>
 
           {/* Filters + Search */}
@@ -369,7 +372,7 @@ export default function MaterialCatalog() {
               {filtered.map(tex => (
                 <MaterialCard
                   key={tex.id} texture={tex}
-                  onEdit={() => openEdit(tex)}
+                  onEdit={readOnly ? null : () => openEdit(tex)}
                   onDelete={() => deleteMaterial(tex.id)}
                   deleting={deleting === tex.id}
                   t={t} dir={dir}
@@ -390,10 +393,12 @@ export default function MaterialCatalog() {
                   : t('materialCatalog.drawerSystemCountPlural', { count: drawerSystems.length })}
               </div>
             </div>
-            <button onClick={openAddDs}
-              style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
-              {t('materialCatalog.addDrawerSystem')}
-            </button>
+            {!readOnly && (
+              <button onClick={openAddDs}
+                style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                {t('materialCatalog.addDrawerSystem')}
+              </button>
+            )}
           </div>
 
           {loading ? (
@@ -409,7 +414,7 @@ export default function MaterialCatalog() {
               {drawerSystems.map(sys => (
                 <DrawerSystemCard
                   key={sys.id} sys={sys}
-                  onEdit={() => openEditDs(sys)}
+                  onEdit={readOnly ? null : () => openEditDs(sys)}
                   onDelete={() => deleteDs(sys.id)}
                   deleting={deletingDs === sys.id}
                   t={t} dir={dir}
@@ -718,7 +723,7 @@ function DrawerSystemCard({ sys, onEdit, onDelete, deleting, t, dir }) {
           <Chip label={sys.price_per_set != null ? `${parseFloat(sys.price_per_set).toFixed(2)} JD` : '—'} />
         </div>
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        {onEdit && <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={onEdit}
             style={{ flex: 1, padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#555' }}>
             {t('materialCatalog.edit')}
@@ -727,7 +732,7 @@ function DrawerSystemCard({ sys, onEdit, onDelete, deleting, t, dir }) {
             style={{ padding: '7px 12px', background: '#FFF0F0', border: '1.5px solid #FFCCCC', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#E74C3C' }}>
             {deleting ? t('materialCatalog.deleting') : t('materialCatalog.delete')}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )
@@ -776,7 +781,7 @@ function MaterialCard({ texture, onEdit, onDelete, deleting, t, dir }) {
           <div style={{ fontSize: 11, color: '#888', marginBottom: 10 }}>{t('materialCatalog.supplierLabelInline')} <strong style={{ color: DARK }}>{texture.supplier_name}</strong></div>
         )}
 
-        <div style={{ display: 'flex', gap: 8 }}>
+        {onEdit && <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={onEdit}
             style={{ flex: 1, padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#555' }}>
             {t('materialCatalog.edit')}
@@ -785,7 +790,7 @@ function MaterialCard({ texture, onEdit, onDelete, deleting, t, dir }) {
             style={{ padding: '7px 12px', background: '#FFF0F0', border: '1.5px solid #FFCCCC', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#E74C3C' }}>
             {deleting ? t('materialCatalog.deleting') : t('materialCatalog.delete')}
           </button>
-        </div>
+        </div>}
       </div>
     </div>
   )

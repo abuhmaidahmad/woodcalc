@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch } from '../api/auth'
+import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -27,6 +27,7 @@ export default function CustomerDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { t, language } = useTranslation()
+  const readOnly = isReadOnly()
   const [customer, setCustomer] = useState(null)
   const [projects, setProjects] = useState([])
   const [loading, setLoading] = useState(true)
@@ -134,10 +135,12 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
             </div>
           </div>
           <div style={{ textAlign: 'end' }}>
-            <button onClick={openEditCustomer}
-              style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 10 }}>
-              ✎ {t('customerDetail.editCustomer')}
-            </button>
+            {!readOnly && (
+              <button onClick={openEditCustomer}
+                style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 10 }}>
+                ✎ {t('customerDetail.editCustomer')}
+              </button>
+            )}
             <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{t('customerDetail.totalValue')}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{totalValue.toFixed(2)} JD</div>
             <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{projects.length} {projects.length !== 1 ? t('customerDetail.projects_plural') : t('customerDetail.project')}</div>
@@ -147,10 +150,12 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
         {/* Projects */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
           <div style={{ fontSize: 16, fontWeight: 700, color: DARK }}>{t('customerDetail.projectsTitle')}</div>
-          <button onClick={() => setShowAddProject(true)}
-            style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
-            + {t('customerDetail.newProject')}
-          </button>
+          {!readOnly && (
+            <button onClick={() => setShowAddProject(true)}
+              style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+              + {t('customerDetail.newProject')}
+            </button>
+          )}
         </div>
 
         {projects.length === 0 ? (
