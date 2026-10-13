@@ -26,6 +26,20 @@ class MaterialViewSet(PublicOrTenantScopedMixin, ModelViewSet):
             qs = qs.filter(material_type=material_type)
         return qs
 
+    def perform_update(self, serializer):
+        # A hand-edited stock count is logged as an adjustment, so the stock
+        # history still adds up (receipts and cutting jobs log their own moves).
+        old_qty = serializer.instance.quantity_on_hand
+        super().perform_update(serializer)
+        material = serializer.instance
+        delta = material.quantity_on_hand - old_qty
+        if delta:
+            StockMovement.objects.create(
+                material=material, movement_type='ADJUST', quantity=delta,
+                reference='Stock count',
+                note=f'Set from {old_qty} to {material.quantity_on_hand} by {self.request.user.email or self.request.user.username}',
+            )
+
 
 class SupplierViewSet(TenantScopedMixin, ModelViewSet):
     queryset = Supplier.objects.all().order_by('name')

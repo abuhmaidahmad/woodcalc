@@ -29,27 +29,50 @@ export default function MaterialList() {
   const [search, setSearch] = useState('')
   const [lowStockOnly, setLowStockOnly] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ sku: '', name: '', category: '', unit: 'PCS', quantity_on_hand: '0', reorder_level: '0', unit_cost: '0', supplier: '' })
+  // The material being edited (null = adding a new one).
+  const [editing, setEditing] = useState(null)
+  const EMPTY_FORM = { sku: '', name: '', category: '', unit: 'PCS', quantity_on_hand: '0', reorder_level: '0', unit_cost: '0', supplier: '' }
+  const [form, setForm] = useState(EMPTY_FORM)
   const [customCategory, setCustomCategory] = useState('')
   const [addingCategory, setAddingCategory] = useState(false)
   const [saving, setSaving] = useState(false)
   const navigate = useNavigate()
   const readOnly = isReadOnly()
 
+  // The API pages its results (50 per page) -- follow every page.
+  const fetchPages = async (url, acc = []) => {
+    const res = await authFetch(url)
+    if (res.status === 401) throw new Error('unauthorized')
+    const data = await res.json()
+    const list = acc.concat(Array.isArray(data) ? data : (data.results || []))
+    return data.next ? fetchPages(data.next.replace(/^https?:/, new URL(API).protocol), list) : list
+  }
+
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [mRes, sRes] = await Promise.all([
-        authFetch(API + '/api/inventory/materials/'),
+      const [mList, sRes] = await Promise.all([
+        fetchPages(API + '/api/inventory/materials/'),
         authFetch(API + '/api/inventory/suppliers/'),
       ])
-      if (mRes.status === 401) { navigate('/login'); return }
-      const mData = await mRes.json()
       const sData = await sRes.json()
-      setMaterials(Array.isArray(mData) ? mData : (mData.results || []))
+      setMaterials(mList)
       setSuppliers(Array.isArray(sData) ? sData : (sData.results || []))
-    } catch {}
+    } catch (e) {
+      if (e.message === 'unauthorized') { navigate('/login'); return }
+    }
     setLoading(false)
+  }
+
+  const openAdd = () => { setEditing(null); setForm(EMPTY_FORM); setShowAdd(true) }
+  const openEdit = (m) => {
+    setEditing(m)
+    setForm({
+      sku: m.sku, name: m.name, category: m.category || '', unit: m.unit || 'PCS',
+      quantity_on_hand: String(m.quantity_on_hand ?? 0), reorder_level: String(m.reorder_level ?? 0),
+      unit_cost: String(m.unit_cost ?? 0), supplier: m.supplier ? String(m.supplier) : '',
+    })
+    setShowAdd(true)
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -75,9 +98,14 @@ export default function MaterialList() {
         unit_cost: form.unit_cost || 0,
         supplier: form.supplier || null,
       }
-      const res = await authFetch(API + '/api/inventory/materials/', { method: 'POST', body: JSON.stringify(payload) })
+      // The SKU can't change on edit -- rooms and Settings find the material by it.
+      if (editing) delete payload.sku
+      const res = editing
+        ? await authFetch(API + `/api/inventory/materials/${editing.id}/`, { method: 'PATCH', body: JSON.stringify(payload) })
+        : await authFetch(API + '/api/inventory/materials/', { method: 'POST', body: JSON.stringify(payload) })
       if (res.ok) {
-        setForm({ sku: '', name: '', category: '', unit: 'PCS', quantity_on_hand: '0', reorder_level: '0', unit_cost: '0', supplier: '' })
+        setForm(EMPTY_FORM)
+        setEditing(null)
         setShowAdd(false)
         fetchAll()
       } else {
@@ -122,7 +150,7 @@ export default function MaterialList() {
             </div>
           </div>
           {!readOnly && (
-            <button onClick={() => setShowAdd(true)}
+            <button onClick={openAdd}
               style={{ padding: '10px 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
               + {t('materialList.newMaterial')}
             </button>
@@ -151,8 +179,8 @@ export default function MaterialList() {
         ) : (
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             {filtered.map((m, i) => (
-              <div key={m.id}
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none' }}>
+              <div key={m.id} onClick={readOnly ? undefined : () => openEdit(m)} title={readOnly ? undefined : t('materialList.clickToEdit')}
+                style={{ cursor: readOnly ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 20px', borderBottom: i < filtered.length - 1 ? '1px solid #F7F4F0' : 'none' }}>
                 <div>
                   <div style={{ fontWeight: 700, fontSize: 14, color: DARK }}>{m.sku} — {m.name}</div>
                   <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
@@ -174,14 +202,15 @@ export default function MaterialList() {
       {showAdd && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
           <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 420, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
-            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('materialList.modalTitle')}</div>
-            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('materialList.modalDesc')}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{editing ? t('materialList.editTitle') : t('materialList.modalTitle')}</div>
+            <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{editing ? t('materialList.editDesc') : t('materialList.modalDesc')}</div>
 
             {[['sku', t('materialList.fieldSku')], ['name', t('materialList.fieldName')]].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{label}</div>
                 <input value={form[key]} onChange={e => setForm(f => ({ ...f, [key]: e.target.value }))}
-                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK }} />
+                  disabled={editing && key === 'sku'}
+                  style={{ width: '100%', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 12, outline: 'none', boxSizing: 'border-box', color: DARK, background: editing && key === 'sku' ? '#F7F4F0' : '#fff' }} />
               </div>
             ))}
 
@@ -255,7 +284,7 @@ export default function MaterialList() {
             </div>
 
             <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={() => setShowAdd(false)}
+              <button onClick={() => { setShowAdd(false); setEditing(null) }}
                 style={{ flex: 1, padding: '10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#666' }}>
                 {t('common.cancel')}
               </button>
