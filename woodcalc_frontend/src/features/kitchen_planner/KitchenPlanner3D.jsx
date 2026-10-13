@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM, shelfCountFor } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -2003,7 +2003,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         )
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps} texEntry={boxTexEntry}
-          shelfCount={cab.shelfCount ?? cab.glassShelfCount ?? 1}
+          shelfCount={shelfCountFor(cab)}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf} />
       ) : isPanel ? (

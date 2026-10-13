@@ -52,11 +52,30 @@ export function isGlassDoorMaterial(m) {
 }
 export const isGlassDoorCabinet = (c) => c?.subtype === 'Glass Door';
 
-// The glass shelves one cabinet needs (wall cabinets and open boxes), or null.
+// Cabinets whose shelves are glass (open boxes and glass-door cabinets); every
+// other shelf-eligible cabinet gets 18mm wood shelves cut by calculateCabinet.
+export const hasGlassShelves = (c) => isOpenBox(c) || isGlassDoorCabinet(c);
+
+// Shelf spacing standard: shelves start ~300mm apart and can't be added closer
+// than 250mm (clear gap between 18mm shelves, inside the 36mm of top + bottom).
+const SHELF_STD_GAP = 300;
+const SHELF_MIN_GAP = 250;
+const shelvesForGap = (c, gap) => Math.max(0, Math.floor((c.height - 36 - gap) / (gap + T)));
+export const maxShelvesFor = (c) => (isShelfEligible(c) ? shelvesForGap(c, SHELF_MIN_GAP) : 0);
+
+// Shelves a cabinet gets: its own count, else the standard (4 in a tall cabinet,
+// otherwise as many as the 300mm gap allows), never more than fit at 250mm.
+export function shelfCountFor(c) {
+  if (!isShelfEligible(c)) return 0;
+  const standard = c.category === 'tall' ? 4 : shelvesForGap(c, SHELF_STD_GAP);
+  return Math.min(c.shelfCount ?? c.glassShelfCount ?? standard, maxShelvesFor(c));
+}
+
+// The glass shelves one cabinet needs (open boxes and glass-door cabinets), or null.
 // Single source for the master cut list, the proposal and the cutting optimizer.
 export function glassShelfSpec(c) {
-  if (!isShelfEligible(c) || !(c.category === 'wall' || isOpenBox(c) || isGlassDoorCabinet(c))) return null;
-  const qty = c.shelfCount ?? c.glassShelfCount ?? 1;
+  if (!hasGlassShelves(c)) return null;
+  const qty = shelfCountFor(c);
   if (qty <= 0) return null;
   return {
     qty,
@@ -196,7 +215,8 @@ export function fillerCleatDims(c) {
 export function cabinetConfig(c) {
   return {
     width: c.width, height: c.height, depth: c.depth,
-    material: c.material, doorStyle: c.doorStyle, shelves: 0,
+    material: c.material, doorStyle: c.doorStyle,
+    shelves: hasGlassShelves(c) ? 0 : shelfCountFor(c),
     cabinetType: c.category,
     doorCount: c.doorCount,
     subtype: c.subtype,
@@ -429,6 +449,8 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
     return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: fc } : { ...none, R: fc }
   }
   if (['Top panel', 'Bottom panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
+  // Loose wood shelves are banded all round in carcass color.
+  if (partName === 'Shelf (18mm)') return { T: cc, B: cc, L: cc, R: cc }
   if (partName.includes('Shelf') || partName.includes('Bottom')) {
     return { ...none, R: cc }
   }
@@ -471,7 +493,7 @@ export function calculateCabinet(config) {
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
   // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
-  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves || (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -572,7 +594,8 @@ export function calculateCabinet(config) {
 
   }
 
-  const shelfW = round2(bottomW - 2);
+  // 1mm narrower than the bottom panel so the shelf drops in between the sides.
+  const shelfW = round2(bottomW - 1);
   const shelfD = round2(D - 30 - backT);
   if (shelves > 0) {
     panels.push({

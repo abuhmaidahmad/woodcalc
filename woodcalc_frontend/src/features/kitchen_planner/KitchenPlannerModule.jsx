@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -302,8 +302,8 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     let result
     try { result = calculateCabinet(cabinetConfig(c)) } catch { return }
 
-    if (isShelfEligible(c) && (c.shelfCount ?? c.glassShelfCount ?? 1) > 0) {
-      const shelfQty = c.shelfCount ?? c.glassShelfCount ?? 1
+    if (shelfCountFor(c) > 0) {
+      const shelfQty = shelfCountFor(c)
       const glass = glassShelfSpec(c)
       if (glass) {
         const mat = glass.materialCode || 'Clear Glass'
@@ -2118,10 +2118,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   </div>
                 )}
                 {isShelfEligible(selCab) && (() => {
-                  const usableH = selCab.height - 36
-                  const maxShelves = Math.max(0, Math.floor(usableH / 250) - 1)
-                  const current = Math.min(selCab.shelfCount ?? selCab.glassShelfCount ?? 1, maxShelves)
-                  const isGlassMaterial = selCab.category === 'wall' || selCab.subtype === 'Open Shelf' || selCab.subtype === 'Glass Door'
+                  const maxShelves = maxShelvesFor(selCab)
+                  const current = shelfCountFor(selCab)
+                  const isGlassMaterial = hasGlassShelves(selCab)
                   return (
                     <div style={{ marginBottom: 10 }}>
                       <div style={s.propLabel}>{isGlassMaterial ? t('kitchenPlannerModule.shelvesGlass') : t('kitchenPlannerModule.shelvesWood')}</div>
