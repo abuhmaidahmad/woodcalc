@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
-import { cabTextLayout, placeBadges, needsFlip, BADGE_R } from './badgeLayout'
+import { cabTextLayout, layoutPlan, needsFlip, isDarkFill, labelColors, BADGE_R } from './badgeLayout'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
   computeWallBodies, getWallThickness, getWallLength, makeWallId,
@@ -372,8 +372,11 @@ function WallLabel({ body, selected, lengthMm, onLabelClick, editingLength, onLe
   const ocx = (o1.x + o2.x) / 2, ocy = (o1.y + o2.y) / 2
   const labelX = cx + (ocx - cx) * 0.5
   const labelY = cy + (ocy - cy) * 0.5
+  // Turned another 180° when the wall runs right-to-left or downward, so the length
+  // never reads upside down (same rule as cabinet labels, see needsFlip).
+  const textAngle = needsFlip(angle) ? angle + 180 : angle
   return (
-    <g transform={`translate(${labelX},${labelY}) rotate(${angle})`}
+    <g transform={`translate(${labelX},${labelY}) rotate(${textAngle})`}
       onClick={e => { e.stopPropagation(); onLabelClick() }}
       style={{ cursor: 'text' }}>
       <rect x={editingLength ? -46 : -30} y={-11} width={editingLength ? 92 : 60} height={18} rx={4}
@@ -466,7 +469,7 @@ const APPLIANCE_2D_COLORS = {
 // rotates around the LOCAL center (w/2,h/2) first, which lands on the same
 // absolute center point as the old rotate(rot, cx, cy) did -- purely a
 // coordinate-system change, not a behavior change.)
-const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown }) {
+const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isBulkSelected, isColliding, scale, showDimensions, onMouseDown, labelX, labelY, labelScale = 1, labelOnItem = true }) {
   const x = cab.x * scale, y = cab.y * scale, w = cab.width * scale, h = cab.depth * scale
   const rot = cab.rotation || 0
   const outlineColor = isBulkSelected ? BULK_ACCENT : (isSelected ? ACCENT : '#888')
@@ -479,7 +482,10 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
     : null
   const isFrontPanel = cab.subtype === 'Side Panel' || cab.subtype === 'Top Panel'
   const fill = applianceFill || (isFrontPanel ? cab.frontColor : cab.carcassColor)
-  const textLayout = cabTextLayout(cab, scale, showDimensions)
+  const textLayout = cabTextLayout(cab, scale, showDimensions, labelX != null ? [labelX, labelY] : null, labelScale)
+  // Light text on a dark fill (e.g. the black oven tower); a label moved off the item
+  // sits on the light canvas, so it always gets dark text.
+  const textColors = labelColors(labelOnItem && isDarkFill(fill))
   return (
     <g transform={`translate(${x},${y}) rotate(${rot}, ${w / 2}, ${h / 2})`}
       onMouseDown={e => onMouseDown(e, cab.id)}
@@ -527,11 +533,12 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
       )}
       {!isFrontPanel && <rect x={0} y={h} width={w} height={(cab.frontMaterialThickness || 18) * scale} fill={cab.frontColor} stroke={outlineColor} strokeWidth={0.75} />}
       {/* Label (+ width) from cabTextLayout: flipped so it never reads upside down, run
-          along the depth on narrow items, and shrunk/dropped rather than spilling onto a
-          neighbour. The position badge is drawn separately, in RoomCanvas's top layer. */}
+          along the depth on narrow items, shrunk/dropped rather than spilling onto a
+          neighbour, and moved (labelX/labelY, from layoutPlan) when it would land on a
+          stacked item's label. The position badge is drawn in RoomCanvas's top layer. */}
       <g transform={textLayout.transform} style={{ userSelect: 'none', pointerEvents: 'none' }}>
         {textLayout.lines.map((ln, i) => (
-          <text key={i} x={0} y={ln.y} textAnchor="middle" fontSize={ln.size} fontWeight={ln.weight} fill={ln.fill}>{ln.text}</text>
+          <text key={i} x={0} y={ln.y} textAnchor="middle" fontSize={ln.size} fontWeight={ln.weight} fill={ln.weight === 700 ? textColors.label : textColors.dims}>{ln.text}</text>
         ))}
       </g>
       {textLayout.omitted && <title>{cab.label}</title>}
@@ -760,11 +767,12 @@ export default function RoomCanvas({
   const W = room.width * scale
   const H = room.depth * scale
   const wallBodies = useMemo(() => computeWallBodies(walls, scale), [walls, scale])
-  // Where each cabinet's position badge goes, worked out across the whole plan at once so
-  // no badge lands on another badge, a label/dimension text or a wall (see placeBadges).
-  const badgePlacement = useMemo(() => placeBadges(cabinets, scale, showDimensions,
-    wallBodies.map(b => [b.faceStart, b.faceEnd, b.outerEnd, b.outerStart].map(p => [p.x, p.y]))),
-  [cabinets, scale, showDimensions, wallBodies])
+  // Where each cabinet's label and position badge go, worked out across the whole plan at
+  // once so labels of stacked items don't collide and no badge lands on another badge, a
+  // label or a wall (see layoutPlan).
+  const plan = useMemo(() => layoutPlan(cabinets, scale, showDimensions,
+    wallBodies.map(b => [b.faceStart, b.faceEnd, b.outerEnd, b.outerStart].map(p => [p.x, p.y])), [0, 0, W, H]),
+  [cabinets, scale, showDimensions, wallBodies, W, H])
 
   const cvw = vw ?? W
   const cvh = vh ?? H
@@ -1912,6 +1920,10 @@ export default function RoomCanvas({
               isSelected={selected === cab.id && selectedType === 'cabinet'}
               isBulkSelected={bulkIds.has(cab.id)}
               isColliding={collidingIds.has(cab.id)}
+              labelX={plan.labels.get(cab.id)?.pivot[0]}
+              labelY={plan.labels.get(cab.id)?.pivot[1]}
+              labelScale={plan.labels.get(cab.id)?.fontScale}
+              labelOnItem={plan.labels.get(cab.id)?.onItem}
               scale={scale}
               showDimensions={showDimensions}
               onMouseDown={handleCabinetMouseDown}
@@ -1971,7 +1983,7 @@ export default function RoomCanvas({
               Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal tabs show. */}
           <g style={{ pointerEvents: 'none' }}>
             {cabinets.map((cab, i) => {
-              const p = badgePlacement.get(cab.id)
+              const p = plan.badges.get(cab.id)
               if (!p) return null
               return (
                 <g key={cab.id} data-badge={i + 1}>

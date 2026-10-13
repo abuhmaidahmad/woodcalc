@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { needsFlip, cabTextLayout, placeBadges, cabLocalToWorld, circleHitsPoly, BADGE_R } from './badgeLayout'
+import { needsFlip, cabTextLayout, placeBadges, layoutPlan, cabLocalToWorld, circleHitsPoly, isDarkFill, BADGE_R } from './badgeLayout'
 
 const SCALE = 0.16
 
@@ -35,6 +35,19 @@ function rotated(deg) {
   })
   const walls = cornerWalls().map(P => P.map(p => rot(p)).map(([x, y]) => [(x + 3000) * SCALE, (y + 3000) * SCALE]))
   return { cabs, walls }
+}
+
+// Every label line's box in canvas coords, at the position layoutPlan gave it.
+const labelPolys = (cabs, plan) => cabs.flatMap(c => cabTextLayout(c, SCALE, true, plan.labels.get(c.id).pivot, plan.labels.get(c.id).fontScale).boxes
+  .map(b => b.map(([x, y]) => cabLocalToWorld(c, SCALE, x, y))))
+// Separating-axis overlap test for two convex quads.
+function quadsOverlap(A, B) {
+  for (const P of [A, B]) for (let i = 0; i < 4; i++) {
+    const [x1, y1] = P[i], [x2, y2] = P[(i + 1) % 4], nx = y1 - y2, ny = x2 - x1
+    const pa = A.map(([x, y]) => x * nx + y * ny), pb = B.map(([x, y]) => x * nx + y * ny)
+    if (Math.max(...pa) <= Math.min(...pb) || Math.max(...pb) <= Math.min(...pa)) return false
+  }
+  return true
 }
 
 describe('needsFlip', () => {
@@ -74,15 +87,17 @@ describe('placeBadges', () => {
   for (const deg of [0, 90, 180, 270, 30, 210]) {
     it(`gives every item a badge clear of other badges, all text and walls at ${deg}°`, () => {
       const { cabs, walls } = rotated(deg)
-      const placed = placeBadges(cabs, SCALE, true, walls)
-      expect(placed.size).toBe(cabs.length)
-      const pts = cabs.map(c => placed.get(c.id))
+      const plan = layoutPlan(cabs, SCALE, true, walls)
+      expect(plan.badges.size).toBe(cabs.length)
+      const pts = cabs.map(c => plan.badges.get(c.id))
       pts.forEach((p, i) => pts.slice(i + 1).forEach(q => {
         expect(Math.hypot(p.x - q.x, p.y - q.y)).toBeGreaterThanOrEqual(2 * BADGE_R)
       }))
-      const texts = cabs.flatMap(c => cabTextLayout(c, SCALE, true).boxes.map(b => b.map(([x, y]) => cabLocalToWorld(c, SCALE, x, y))))
+      const texts = labelPolys(cabs, plan)
       pts.forEach(p => texts.forEach(P => expect(circleHitsPoly([p.x, p.y], BADGE_R, P)).toBe(false)))
       pts.forEach(p => walls.forEach(P => expect(circleHitsPoly([p.x, p.y], BADGE_R - 2, P)).toBe(false)))
+      const byCab = cabs.map(c => labelPolys([c], plan))
+      byCab.forEach((A, i) => byCab.slice(i + 1).forEach(B => A.forEach(a => B.forEach(b => expect(quadsOverlap(a, b)).toBe(false)))))
     })
   }
   it('falls back to a leader line when every spot near an item is taken', () => {
@@ -99,5 +114,34 @@ describe('placeBadges', () => {
     const placed = placeBadges(cornerKitchen(), SCALE, true, cornerWalls().map(P => P.map(([x, y]) => [x * SCALE, y * SCALE])))
     const fridge = placed.get(5), wall = placed.get(7)
     expect(Math.hypot(fridge.x - wall.x, fridge.y - wall.y)).toBeGreaterThanOrEqual(2 * BADGE_R)
+  })
+})
+
+describe('stacked labels', () => {
+  // A base cabinet with a wall cabinet over it and a top panel over that, all on one footprint.
+  const stack = rotation => [
+    { id: 1, label: 'Base 600', subtype: 'Standard', category: 'base', width: 600, depth: 560, x: 0, y: 0, elevation: 0 },
+    { id: 2, label: 'Wall 600', subtype: 'Standard', category: 'wall', width: 600, depth: 300, x: 0, y: 0, elevation: 1450 },
+    { id: 3, label: 'Top Panel Wall', subtype: 'Top Panel', category: 'accessories', width: 600, depth: 321, x: 0, y: 0, elevation: 2170 },
+  ].map(c => ({ ...c, rotation, frontMaterialThickness: 18 }))
+  for (const rotation of [0, 210]) {
+    it(`moves the upper items' labels clear of the ones below at ${rotation}°`, () => {
+      const cabs = stack(rotation)
+      const plan = layoutPlan(cabs, SCALE, true, [])
+      expect(plan.labels.get(1).pivot).toEqual(cabTextLayout(cabs[0], SCALE, true).defaultPivot)
+      const boxes = cabs.map(c => cabTextLayout(c, SCALE, true, plan.labels.get(c.id).pivot, plan.labels.get(c.id).fontScale).boxes
+        .map(b => b.map(([x, y]) => cabLocalToWorld(c, SCALE, x, y))))
+      for (let a = 0; a < 3; a++) for (let b = a + 1; b < 3; b++) {
+        for (const A of boxes[a]) for (const B of boxes[b]) expect(quadsOverlap(A, B)).toBe(false)
+      }
+      for (const p of plan.badges.values()) for (const P of boxes.flat()) expect(circleHitsPoly([p.x, p.y], BADGE_R, P)).toBe(false)
+    })
+  }
+})
+
+describe('isDarkFill', () => {
+  it('picks out dark fills for light label text', () => {
+    expect(['#2b2b2b', '#000', 'rgb(20, 20, 20)', '#1f3a5f'].map(isDarkFill)).toEqual([true, true, true, true])
+    expect(['#FFFFFF', '#d7dadd', '#c9cccf', '#f0e6d2', 'url(#hatch)', undefined].map(isDarkFill)).toEqual([false, false, false, false, false, false])
   })
 })
