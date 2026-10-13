@@ -796,6 +796,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const isRevision = !!lock?.parentRevision
   const canSeeHistory = !!lock && ['owner', 'admin', 'auditor'].includes(role)
   const [showHistory, setShowHistory] = useState(false)
+  const [showMore, setShowMore] = useState(false)
   const [roomId, setRoomId] = useState(initialRoomId)
   const [showGlassOrder, setShowGlassOrder] = useState(false)
   const [projectId, setProjectId] = useState(initialProjectId)
@@ -1372,11 +1373,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               {t('kitchenPlannerModule.confirmLock')}
             </button>
           )}
-          {locked && lock.revisionStatus === 'approved' && role === 'owner' && (
-            <button onClick={unlockRoom} style={{ ...s.saveBtn, color: '#E74C3C' }}>
-              {t('kitchenPlannerModule.unlock')}
-            </button>
-          )}
           {locked && lock.revisionStatus === 'approved' && !auditor && (
             <button onClick={requestChange} style={{ ...s.saveBtn, color: ACCENT, borderColor: ACCENT }}>
               {t('kitchenPlannerModule.requestChange')}
@@ -1397,22 +1393,40 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               </button>
             </>
           )}
-          {canSeeHistory && (
-            <button onClick={() => setShowHistory(true)} style={s.saveBtn}>
-              {t('roomHistory.open')}
-            </button>
-          )}
-          {onShare && !auditor && (
-            <>
-              <button onClick={onShare} disabled={shareBusy} style={shareToken ? { ...s.saveBtn, color: ACCENT } : s.saveBtn}>
-                {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
+          {(canSeeHistory || (onShare && !auditor) || (locked && lock.revisionStatus === 'approved' && role === 'owner')) && (
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setShowMore(v => !v)} title={t('kitchenPlannerModule.moreActions')}
+                style={{ ...s.saveBtn, color: shareMsg ? ACCENT : s.saveBtn.color, padding: '7px 10px' }}>
+                {shareMsg || '⋯'}
               </button>
-              {shareToken && (
-                <button onClick={onRevokeShare} style={{ ...s.saveBtn, color: '#E74C3C' }}>
-                  {t('roomDetail.shareViewRevoke')}
-                </button>
+              {showMore && (
+                <>
+                  <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 50 }} />
+                  <div style={s.moreMenu}>
+                    {canSeeHistory && (
+                      <button onClick={() => { setShowMore(false); setShowHistory(true) }} style={s.moreItem}>
+                        {t('roomHistory.open')}
+                      </button>
+                    )}
+                    {onShare && !auditor && (
+                      <button onClick={() => { setShowMore(false); onShare() }} disabled={shareBusy} style={{ ...s.moreItem, color: shareToken ? ACCENT : DARK }}>
+                        {shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView')}
+                      </button>
+                    )}
+                    {onShare && !auditor && shareToken && (
+                      <button onClick={() => { setShowMore(false); onRevokeShare() }} style={{ ...s.moreItem, color: '#E74C3C' }}>
+                        {t('roomDetail.shareViewRevoke')}
+                      </button>
+                    )}
+                    {locked && lock.revisionStatus === 'approved' && role === 'owner' && (
+                      <button onClick={() => { setShowMore(false); unlockRoom() }} style={{ ...s.moreItem, color: '#E74C3C' }}>
+                        {t('kitchenPlannerModule.unlock')}
+                      </button>
+                    )}
+                  </div>
+                </>
               )}
-            </>
+            </div>
           )}
           {publicCompanySlug ? (
             <button onClick={() => setShowLeadModal(true)} style={s.saveBtn}>
@@ -2584,7 +2598,9 @@ const s = {
   tab:         { padding: '7px 14px', background: 'transparent', border: 'none', color: '#888', borderRadius: 6, cursor: 'pointer', fontSize: 13, fontWeight: 500 },
   tabActive:   { background: ACCENT, color: '#fff', fontWeight: 700 },
   topRight:    { display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, minWidth: 200, justifyContent: 'flex-end' },
-  saveBtn:     { padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 },
+  saveBtn:     { padding: '7px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' },
+  moreMenu:    { position: 'absolute', top: 'calc(100% + 6px)', insetInlineEnd: 0, zIndex: 51, background: '#fff', borderRadius: 8, boxShadow: '0 6px 24px rgba(0,0,0,0.18)', padding: 6, minWidth: 190, display: 'flex', flexDirection: 'column' },
+  moreItem:    { textAlign: 'start', padding: '9px 12px', background: 'transparent', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: DARK, whiteSpace: 'nowrap' },
   workspace:   { flex: 1, display: 'flex', overflow: 'hidden' },
   leftPanel:   { width: 180, background: '#fff', borderRight: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },
   rightPanel:  { width: 280, background: '#fff', borderLeft: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 12 },

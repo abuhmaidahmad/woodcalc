@@ -1074,6 +1074,7 @@
     "addressPlaceholder": "Address"
   },
   "kitchenPlannerModule": {
+    "moreActions": "More actions",
     "variantBadge": "Variant of {{name}} Rev {{rev}}",
     "variantConfirmPrompt": "This is a design variant of a confirmed kitchen. Why are you confirming it?",
     "sendVariantOwnerOnly": "Only the owner can send a design variant to manufacturing.",

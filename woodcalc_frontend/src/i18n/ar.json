@@ -1074,6 +1074,7 @@
     "addressPlaceholder": "العنوان"
   },
   "kitchenPlannerModule": {
+    "moreActions": "إجراءات أخرى",
     "variantBadge": "نسخة بديلة من {{name}} مراجعة {{rev}}",
     "variantConfirmPrompt": "هذه نسخة بديلة من مطبخ مؤكد. لماذا تؤكدها؟",
     "sendVariantOwnerOnly": "المالك فقط يمكنه إرسال نسخة بديلة إلى التصنيع.",
