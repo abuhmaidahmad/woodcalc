@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, edgeBandingLengthMm } from './formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -236,9 +236,7 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const hdfCost     = parseFloat((m2_8  * prices.hdf8_m2).toFixed(3))
   const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
-  const edgeM = (2 * cab.height + (cab.width - 36)
-    + result.doors.reduce((s, d) => s + 2 * (d.width + d.height), 0)
-    + result.drawerFronts.reduce((s, d) => s + 2 * (d.width + d.height), 0)) / 1000
+  const edgeM = edgeBandingLengthMm(result, cab.doorStyle) / 1000
   const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
 
   const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)

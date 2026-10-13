@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, getEdgeBanding } from './formulaEngine'
 import ZonePresetPicker from './ZonePresetPicker'
 import { activeTotal } from './revisions'
 import RoomHistoryPanel from './RoomHistoryPanel'
@@ -96,28 +96,6 @@ function getRoomDropPoint(walls) {
 }
 
 
-// ─── Edge banding helper ────────────────────────────────────────────
-function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat) {
-  const cc = carcassMat || carcassColor || 'Carcass'
-  const fc = frontMat || frontColor || 'Front'
-  if (partName.includes('Back')) {
-    return { T: 'None', B: 'None', L: 'None', R: 'None' }
-  }
-  if (partName.includes('Door') || partName.includes('Front')) {
-    return { T: fc, B: fc, L: fc, R: fc }
-  }
-  if (partName.includes('Side')) {
-    return { T: 'None', B: 'None', L: 'None', R: cc }
-  }
-  if (partName.includes('Bottom') || partName.includes('Rail') || partName.includes('Shelf')) {
-    return { T: 'None', B: 'None', L: 'None', R: cc }
-  }
-  if (partName.includes('Toe')) {
-    return { T: cc, B: 'None', L: 'None', R: 'None' }
-  }
-  return { T: 'None', B: 'None', L: 'None', R: 'None' }
-}
-
 function EBCell({ eb }) {
   const sides = [['T', eb.T], ['B', eb.B], ['L', eb.L], ['R', eb.R]]
   return (
@@ -175,7 +153,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = 
                   </thead>
                   <tbody>
                     {panels.map((p, pi) => {
-                      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+                      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat, c.doorStyle)
                       return (
                         <tr key={pi} style={{ borderBottom: '1px solid #F7F4F0' }}>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{p.name}</td>
@@ -363,7 +341,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
 
     result.panels.forEach(p => {
       const mat = p.name.includes('Back') ? 'HDF 8mm' : p.name.includes('Front panel') ? frontMat : carcassMat
-      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat)
+      const eb = getEdgeBanding(p.name, c.carcassColor, c.frontColor, carcassMat, frontMat, c.doorStyle)
       const key = `${p.width}×${p.depth}×${p.thickness}|${mat}|${JSON.stringify(eb)}`
       if (!masterMap[key]) masterMap[key] = { ...p, material: mat, eb, qty: 0, name: p.name }
       masterMap[key].qty += p.qty
