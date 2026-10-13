@@ -48,6 +48,8 @@ class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
         room = room_for_ref(serializer.validated_data.get('room_id_ref'), self.request.company)
         if room is None or not room.is_locked or room.revision_status != Room.RevisionStatus.APPROVED:
             raise ValidationError({'room_id_ref': 'Only a confirmed (locked) room can be sent to manufacturing.'})
+        if room.is_variant and self.request.membership.role != 'owner':
+            raise ValidationError({'room_id_ref': 'Only the owner can send a design variant to manufacturing.'})
         serializer.save(tenant=self.request.company)
 
     @action(detail=True, methods=['post'], url_path='items')

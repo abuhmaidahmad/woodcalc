@@ -613,6 +613,7 @@
     "categoryAppliance": "جهاز"
   },
   "productionBoard": {
+    "revisionChangedFlag": "⚠ تغيرت المراجعة بعد البدء",
     "title": "لوحة الإنتاج",
     "workOrders": "أوامر التشغيل",
     "emptyOrders": "لا توجد أوامر تشغيل بعد",
@@ -1042,6 +1043,13 @@
     "addressPlaceholder": "العنوان"
   },
   "kitchenPlannerModule": {
+    "variantBadge": "نسخة بديلة من {{name}} مراجعة {{rev}}",
+    "variantConfirmPrompt": "هذه نسخة بديلة من مطبخ مؤكد. لماذا تؤكدها؟",
+    "sendVariantOwnerOnly": "المالك فقط يمكنه إرسال نسخة بديلة إلى التصنيع.",
+    "approvedNotice": "تمت الموافقة على المراجعة {{rev}}.",
+    "cancelledNotice": "أوامر العمل الملغاة من المراجعة القديمة: {{orders}}.",
+    "flaggedNotice": "بدأ تنفيذها بالفعل، وتم تعليمها \"تغيرت المراجعة بعد البدء\": {{orders}}.",
+    "sendNewRevisionNotice": "أرسل هذه المراجعة إلى التصنيع من تبويب جدول المواد.",
     "badge_approved": "🔒 مؤكد — مراجعة {{rev}}",
     "badge_pending_approval": "⏳ مراجعة {{rev}} — بانتظار الموافقة",
     "badge_superseded": "مراجعة {{rev}} — مستبدلة (عرض فقط)",
@@ -1428,6 +1436,7 @@
     "notSigned": "لم يتم التوقيع"
   },
   "projectDetail": {
+    "variantBadge": "نسخة بديلة من {{name}} مراجعة {{rev}}",
     "revisionHistory": "المراجعات:",
     "revisionChip": "مراجعة {{rev}} · {{status}}",
     "status_draft": "مسودة",

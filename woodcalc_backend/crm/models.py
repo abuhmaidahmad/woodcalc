@@ -119,6 +119,8 @@ class Room(models.Model):
                                        default=RevisionStatus.DRAFT)
     rejection_reason = models.TextField(blank=True)
     approval_override_reason = models.TextField(blank=True)
+    is_variant = models.BooleanField(default=False)
+    source_room = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='variants')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -231,6 +233,8 @@ class RoomChangeLog(models.Model):
         REVISION_APPROVED = 'revision_approved', 'Revision approved'
         REVISION_REJECTED = 'revision_rejected', 'Revision rejected'
         REVISION_SUPERSEDED = 'revision_superseded', 'Revision superseded'
+        WORK_ORDER_CANCELLED = 'work_order_cancelled', 'Work order cancelled'
+        WORK_ORDER_FLAGGED = 'work_order_flagged', 'Work order flagged'
 
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='change_logs')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL,

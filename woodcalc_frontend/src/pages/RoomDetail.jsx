@@ -110,6 +110,9 @@ export default function RoomDetail() {
         revisionStatus: room.revision_status,
         parentRevision: room.parent_revision,
         rejectionReason: room.rejection_reason,
+        isVariant: room.is_variant,
+        sourceRoomName: room.source_room_name,
+        sourceRoomRevision: room.source_room_revision,
       }}
       onRoomAction={roomAction}
     />

@@ -346,7 +346,8 @@ class ChangeLogTests(RoomLockTestBase):
         self.api('owner').post(url + 'approve_revision/', {'override_reason': 'Not cut yet'}, format='json')
 
         self.assertEqual([(a, r) for a, _, _, _, r in self.entries()],
-                         [('lock', ''), ('unlock', 'Typo'), ('lock', ''), ('revision_superseded', '')])
+                         [('lock', ''), ('unlock', 'Typo'), ('lock', ''), ('revision_superseded', ''),
+                          ('work_order_flagged', 'Revision changed after start: Rev 2 approved. Not cut yet')])
         self.assertEqual([(a, r) for a, _, _, _, r in self.entries(rev2)], [
             ('revision_created', ''), ('revision_submitted', ''), ('revision_rejected', 'Too wide'),
             ('revision_submitted', ''), ('revision_approved', 'Not cut yet'),
@@ -367,3 +368,140 @@ class ChangeLogTests(RoomLockTestBase):
     def test_history_readable_on_locked_room(self):
         self.lock()
         self.assertEqual(self.history('auditor').status_code, 200)
+
+
+class VariantTests(RoomLockTestBase):
+    def duplicate(self, room=None, role='staff'):
+        res = self.api(role).post(f'/api/crm/rooms/{(room or self.room).id}/duplicate/', {}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        return Room.objects.get(id=res.json()['id']), res.json()
+
+    def test_plain_room_duplicate_is_not_a_variant(self):
+        copy, _ = self.duplicate()
+        self.assertFalse(copy.is_variant)
+        self.assertIsNone(copy.source_room)
+
+    def test_locked_room_duplicate_is_a_variant(self):
+        self.lock()
+        copy, data = self.duplicate()
+        self.assertTrue(copy.is_variant)
+        self.assertEqual(copy.source_room, self.room)
+        self.assertFalse(copy.is_locked)
+        self.assertEqual((data['source_room_name'], data['source_room_revision']), ('Kitchen', 1))
+
+    def test_room_with_revision_history_duplicate_is_a_variant(self):
+        self.lock()
+        rev2_id = self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/').json()['id']
+        self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'x'}, format='json')
+        copy, _ = self.duplicate(self.room)
+        self.assertTrue(copy.is_variant)
+        copy2, _ = self.duplicate(Room.objects.get(id=rev2_id))
+        self.assertTrue(copy2.is_variant)
+
+    def test_duplicate_of_a_variant_stays_a_variant(self):
+        self.lock()
+        variant, _ = self.duplicate()
+        copy, _ = self.duplicate(variant)
+        self.assertTrue(copy.is_variant)
+        self.assertEqual(copy.source_room, variant)
+
+    def test_only_owner_confirms_variant_with_reason(self):
+        self.lock()
+        variant, _ = self.duplicate()
+        url = f'/api/crm/rooms/{variant.id}/confirm_lock/'
+        self.assertEqual(self.api('admin').post(url, {'reason': 'x'}, format='json').status_code, 403)
+        self.assertEqual(self.api('staff').post(url, {'reason': 'x'}, format='json').status_code, 403)
+        self.assertEqual(self.api('owner').post(url, {}, format='json').status_code, 400)
+        res = self.api('owner').post(url, {'reason': 'Customer chose option B'}, format='json')
+        self.assertEqual(res.status_code, 200)
+        log = variant.change_logs.get(action='lock')
+        self.assertEqual(log.reason, 'Customer chose option B')
+        self.assertTrue(log.new_value['is_variant'])
+
+    def test_only_owner_can_send_confirmed_variant_to_manufacturing(self):
+        self.lock()
+        variant, _ = self.duplicate()
+        self.api('owner').post(f'/api/crm/rooms/{variant.id}/confirm_lock/', {'reason': 'B'}, format='json')
+        for role, expected in (('admin', 400), ('staff', 400), ('owner', 201)):
+            res = self.api(role).post('/api/manufacturing/work-orders/', {
+                'order_number': f'WO-{role}', 'product_name': 'K', 'room_id_ref': variant.id}, format='json')
+            self.assertEqual(res.status_code, expected, role)
+
+    def test_revision_of_variant_stays_a_variant(self):
+        self.lock()
+        variant, _ = self.duplicate()
+        self.api('owner').post(f'/api/crm/rooms/{variant.id}/confirm_lock/', {'reason': 'B'}, format='json')
+        rev2 = Room.objects.get(id=self.api('staff').post(f'/api/crm/rooms/{variant.id}/request_change/').json()['id'])
+        self.assertTrue(rev2.is_variant)
+        self.assertEqual(rev2.source_room, self.room)
+
+    def test_variant_fields_not_writable(self):
+        res = self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'is_variant': True}, format='json')
+        self.assertEqual(res.status_code, 200)
+        self.room.refresh_from_db()
+        self.assertFalse(self.room.is_variant)
+
+
+class StaleWorkOrderTests(RoomLockTestBase):
+    def setUp(self):
+        super().setUp()
+        self.lock()
+
+    def approve_new_revision(self, data=None):
+        rev2_id = self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/').json()['id']
+        self.api('staff').post(f'/api/crm/rooms/{rev2_id}/submit_revision/')
+        return self.api('owner').post(f'/api/crm/rooms/{rev2_id}/approve_revision/', data or {}, format='json')
+
+    def wo(self, number, status='NEW', room=None, tenant=None):
+        return WorkOrder.objects.create(tenant=tenant or self.company, order_number=number, product_name='K',
+                                        room_id_ref=(room or self.room).id, status=status)
+
+    def test_pending_work_orders_cancelled_when_revision_approved(self):
+        pending = self.wo('WO-1')
+        done_before = self.wo('WO-0', status='CANCELLED')
+        res = self.approve_new_revision()
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(res.json()['cancelled_work_orders'], ['WO-1'])
+        self.assertEqual(res.json()['flagged_work_orders'], [])
+        pending.refresh_from_db()
+        self.assertEqual((pending.status, pending.status_reason), ('CANCELLED', 'Superseded by Rev 2'))
+        self.assertFalse(pending.revision_changed_after_start)
+        done_before.refresh_from_db()
+        self.assertEqual(done_before.status_reason, '')
+        log = self.room.change_logs.get(action='work_order_cancelled')
+        self.assertEqual((log.reason, log.new_value['work_order']), ('Superseded by Rev 2', 'WO-1'))
+
+    def test_started_work_orders_flagged_not_cancelled_on_override(self):
+        from manufacturing.models import ProductionStation, StationLog
+        from django.utils import timezone
+        in_progress = self.wo('WO-1', status='IN_PROGRESS')
+        new_but_started = self.wo('WO-2')
+        station = ProductionStation.objects.create(tenant=self.company, name='Saw', code='SAW')
+        StationLog.objects.create(work_order=new_but_started, station=station, started_at=timezone.now())
+        pending = self.wo('WO-3')
+        res = self.approve_new_revision({'override_reason': 'Only doors changed'})
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(sorted(res.json()['flagged_work_orders']), ['WO-1', 'WO-2'])
+        self.assertEqual(res.json()['cancelled_work_orders'], ['WO-3'])
+        for wo in (in_progress, new_but_started):
+            wo.refresh_from_db()
+            self.assertTrue(wo.revision_changed_after_start)
+            self.assertNotEqual(wo.status, 'CANCELLED')
+            self.assertIn('Only doors changed', wo.status_reason)
+        res = self.api('staff').get('/api/manufacturing/work-orders/?room_chain=' + str(self.room.id))
+        flags = {w['order_number']: w['revision_changed_after_start'] for w in res.json()['results']}
+        self.assertEqual(flags, {'WO-1': True, 'WO-2': True, 'WO-3': False})
+
+    def test_other_tenants_work_orders_untouched(self):
+        theirs = self.wo('WO-X', tenant=self.other)
+        self.approve_new_revision()
+        theirs.refresh_from_db()
+        self.assertEqual(theirs.status, 'NEW')
+
+    def test_flags_not_writable_through_api(self):
+        wo = self.wo('WO-1')
+        res = self.api('owner').patch(f'/api/manufacturing/work-orders/{wo.id}/',
+                                      {'revision_changed_after_start': True, 'status_reason': 'x'}, format='json')
+        self.assertEqual(res.status_code, 200)
+        wo.refresh_from_db()
+        self.assertEqual((wo.revision_changed_after_start, wo.status_reason), (False, ''))

@@ -12,7 +12,8 @@ from tenants.permissions import HasActiveCompany
 from tenants.utils import get_company_by_slug
 from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
-from .revisions import OPEN_STATUSES, recompute_project_total, revision_chain, started_work_orders
+from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
+                        started_work_orders)
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 from .serializers import (
     PaymentTransactionSerializer,
@@ -159,7 +160,7 @@ def require_role(request, *roles):
 
 class RoomViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'project__client__tenant'
-    queryset = Room.objects.all().order_by('-created_at')
+    queryset = Room.objects.select_related('source_room').order_by('-created_at')
     serializer_class = RoomSerializer
     permission_classes = [IsAuthenticated, HasActiveCompany, RoomNotLocked]
     lock_exempt_actions = (
@@ -216,6 +217,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             notes=room.notes,
             revision_number=max(r.revision_number for r in chain) + 1,
             parent_revision=room,
+            is_variant=room.is_variant,
+            source_room=room.source_room,
         )
         log_room_action(revision, request.user, RoomChangeLog.Action.REVISION_CREATED,
                         old_value={'revision_number': room.revision_number, 'room': room.id},
@@ -267,7 +270,10 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         recompute_project_total(room.project)
         log_room_action(room, request.user, RoomChangeLog.Action.REVISION_APPROVED, reason=room.approval_override_reason,
                         new_value={'started_work_orders': started} if started else None)
-        return Response(RoomSerializer(room).data)
+        cancelled, flagged = retire_earlier_work_orders(room, chain, request.company.id, request.user,
+                                                        override_reason)
+        return Response({**RoomSerializer(room).data, 'cancelled_work_orders': cancelled,
+                         'flagged_work_orders': flagged})
 
     @action(detail=True, methods=['post'])
     def reject_revision(self, request, pk=None):
@@ -295,12 +301,20 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         if room.parent_revision_id:
             return Response({'detail': 'Revisions are confirmed by submitting them for approval.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        reason = ''
+        if room.is_variant:
+            require_role(request, 'owner')
+            reason = (request.data.get('reason') or '').strip()
+            if not reason:
+                return Response({'detail': 'A reason is required to confirm a design variant.'},
+                                status=status.HTTP_400_BAD_REQUEST)
         room.is_locked = True
         room.locked_at = timezone.now()
         room.locked_by = request.user
         room.revision_status = Room.RevisionStatus.APPROVED
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
-        log_room_action(room, request.user, RoomChangeLog.Action.LOCK, new_value={'revision_number': room.revision_number})
+        log_room_action(room, request.user, RoomChangeLog.Action.LOCK, reason=reason,
+                        new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant})
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -356,6 +370,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         multiple design options to pick from for the same location."""
         room = self.get_object()
         name = (request.data.get('name') or '').strip() or f'{room.name} (Copy)'
+        has_history = room.parent_revision_id is not None or room.child_revisions.exists()
+        is_variant = room.is_locked or room.is_variant or has_history
         copy = Room.objects.create(
             project=room.project,
             name=name,
@@ -363,6 +379,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             planner_data=room.planner_data,
             grand_total=room.grand_total,
             notes=room.notes,
+            is_variant=is_variant,
+            source_room=room if is_variant else None,
         )
         return Response(RoomSerializer(copy).data, status=status.HTTP_201_CREATED)
 

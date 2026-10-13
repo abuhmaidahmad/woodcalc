@@ -783,7 +783,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const role = getRole()
   const locked = !!lock?.isLocked
   const readOnly = auditor || locked
-  const canSend = !auditor && locked && lock?.revisionStatus === 'approved'
+  const isVariant = !!lock?.isVariant
+  const canSend = !auditor && locked && lock?.revisionStatus === 'approved' && (!isVariant || role === 'owner')
+  const canConfirm = role === 'owner' || (role === 'admin' && !isVariant)
   const isRevision = !!lock?.parentRevision
   const canSeeHistory = !!lock && ['owner', 'admin', 'auditor'].includes(role)
   const [showHistory, setShowHistory] = useState(false)
@@ -1109,8 +1111,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const confirmAndLock = async () => {
     if (!window.confirm(t('kitchenPlannerModule.confirmLockPrompt'))) return
+    let body = {}
+    if (isVariant) {
+      const reason = (window.prompt(t('kitchenPlannerModule.variantConfirmPrompt')) || '').trim()
+      if (!reason) return
+      body = { reason }
+    }
     if (!(await saveProject())) return
-    await runRoomAction('confirm_lock')
+    await runRoomAction('confirm_lock', body)
   }
 
   const unlockRoom = async () => {
@@ -1132,11 +1140,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const approveRevision = async () => {
     if (!window.confirm(t('kitchenPlannerModule.approvePrompt', { rev: lock.revisionNumber }))) return
-    const result = await runRoomAction('approve_revision')
-    if (result.status !== 409) return
-    const reason = (window.prompt(t('kitchenPlannerModule.overridePrompt', { detail: result.data.detail })) || '').trim()
-    if (!reason) return
-    await runRoomAction('approve_revision', { override_reason: reason })
+    let result = await runRoomAction('approve_revision')
+    if (result.status === 409) {
+      const reason = (window.prompt(t('kitchenPlannerModule.overridePrompt', { detail: result.data.detail })) || '').trim()
+      if (!reason) return
+      result = await runRoomAction('approve_revision', { override_reason: reason })
+    }
+    if (!result.ok) return
+    const { cancelled_work_orders: cancelled = [], flagged_work_orders: flagged = [] } = result.data
+    const notes = [t('kitchenPlannerModule.approvedNotice', { rev: lock.revisionNumber })]
+    if (cancelled.length) notes.push(t('kitchenPlannerModule.cancelledNotice', { orders: cancelled.join(', ') }))
+    if (flagged.length) notes.push(t('kitchenPlannerModule.flaggedNotice', { orders: flagged.join(', ') }))
+    notes.push(t('kitchenPlannerModule.sendNewRevisionNotice'))
+    window.alert(notes.join('\n\n'))
   }
 
   const rejectRevision = async () => {
@@ -1170,7 +1186,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           const priorRes = await authFetch(API + `/api/manufacturing/work-orders/?room_chain=${roomId}`)
           if (priorRes.ok) {
             const priorData = await priorRes.json()
-            const priorOrders = Array.isArray(priorData) ? priorData : (priorData.results || [])
+            const priorOrders = (Array.isArray(priorData) ? priorData : (priorData.results || [])).filter(o => o.status !== 'CANCELLED')
             priorOrders.forEach(o => { alreadySentIds = alreadySentIds.concat(o.sent_cabinet_ids || []) })
             isBackOrder = priorOrders.length > 0
           }
@@ -1282,6 +1298,11 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               H{baseHeight}
             </span>
           )}
+          {isVariant && (
+            <span style={{ fontSize: 10, color: '#8A2AC8', background: 'rgba(255,255,255,0.08)', padding: '2px 7px', borderRadius: 4 }}>
+              {t('kitchenPlannerModule.variantBadge', { name: lock.sourceRoomName || '—', rev: lock.sourceRoomRevision || 1 })}
+            </span>
+          )}
           {lock && isRevision && !locked && (
             <span title={lock.rejectionReason || ''} style={{ fontSize: 10, color: lock.revisionStatus === 'rejected' ? '#E74C3C' : ACCENT, background: 'rgba(255,255,255,0.08)', padding: '2px 7px', borderRadius: 4 }}>
               {lock.revisionStatus === 'rejected'
@@ -1327,7 +1348,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <option value="pvc_silver">{t('kitchenPlannerModule.skirtingPvcSilver')}</option>
             </select>
           )}
-          {lock && !locked && !lock.parentRevision && !auditor && (role === 'owner' || role === 'admin') && (
+          {lock && !locked && !lock.parentRevision && !auditor && canConfirm && (
             <button onClick={confirmAndLock} disabled={saving} style={{ ...s.saveBtn, color: ACCENT, borderColor: ACCENT }}>
               {t('kitchenPlannerModule.confirmLock')}
             </button>
@@ -2318,7 +2339,9 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <div style={{ color: '#888', fontSize: 13, marginTop: 4 }}>{t('kitchenPlannerModule.cabinetsBom', { count: cabinets.length })}</div>
                 </div>
                 {!publicCompanySlug && !auditor && !canSend && (
-                  <span style={{ fontSize: 12, color: '#888' }}>{t('kitchenPlannerModule.sendNeedsLock')}</span>
+                  <span style={{ fontSize: 12, color: '#888' }}>
+                    {locked && isVariant ? t('kitchenPlannerModule.sendVariantOwnerOnly') : t('kitchenPlannerModule.sendNeedsLock')}
+                  </span>
                 )}
                 {!publicCompanySlug && canSend && (
                   <button onClick={sendToERP} disabled={sending} style={s.erpBtn}>{sending ? t('kitchenPlannerModule.sending') : t('kitchenPlannerModule.sendToManufacturing')}</button>

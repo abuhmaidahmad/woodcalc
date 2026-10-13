@@ -613,6 +613,7 @@
     "categoryAppliance": "Appliance"
   },
   "productionBoard": {
+    "revisionChangedFlag": "⚠ Revision changed after start",
     "title": "Production Board",
     "workOrders": "Work Orders",
     "emptyOrders": "No work orders yet",
@@ -1042,6 +1043,13 @@
     "addressPlaceholder": "Address"
   },
   "kitchenPlannerModule": {
+    "variantBadge": "Variant of {{name}} Rev {{rev}}",
+    "variantConfirmPrompt": "This is a design variant of a confirmed kitchen. Why are you confirming it?",
+    "sendVariantOwnerOnly": "Only the owner can send a design variant to manufacturing.",
+    "approvedNotice": "Revision {{rev}} approved.",
+    "cancelledNotice": "Cancelled work orders from the old revision: {{orders}}.",
+    "flaggedNotice": "Already started, flagged \"Revision changed after start\": {{orders}}.",
+    "sendNewRevisionNotice": "Send this revision to manufacturing from the BOM tab.",
     "badge_approved": "🔒 Confirmed — Rev {{rev}}",
     "badge_pending_approval": "⏳ Rev {{rev}} — Pending approval",
     "badge_superseded": "Rev {{rev}} — Superseded (view only)",
@@ -1428,6 +1436,7 @@
     "notSigned": "Not signed"
   },
   "projectDetail": {
+    "variantBadge": "Variant of {{name}} Rev {{rev}}",
     "revisionHistory": "Revisions:",
     "revisionChip": "Rev {{rev}} · {{status}}",
     "status_draft": "draft",

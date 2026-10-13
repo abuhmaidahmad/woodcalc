@@ -326,6 +326,9 @@ export default function ProjectDetail() {
                       </div>
                     )}
                     <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{ROOM_TYPE_KEYS[room.room_type] ? t(ROOM_TYPE_KEYS[room.room_type]) : room.room_type}</div>
+                    {room.is_variant && (
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#8A2AC8', marginTop: 4 }}>{t('projectDetail.variantBadge', { name: room.source_room_name || '—', rev: room.source_room_revision || 1 })}</div>
+                    )}
                     {room.is_locked && room.revision_status === 'approved' && (
                       <div style={{ fontSize: 11, fontWeight: 700, color: '#2AC87A', marginTop: 4 }}>{t('projectDetail.lockedBadge', { rev: room.revision_number })}</div>
                     )}
