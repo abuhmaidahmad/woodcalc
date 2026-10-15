@@ -198,7 +198,7 @@ export function nonCarcassPieceDims(c) {
   }
   const isPanel = c.subtype === 'Side Panel';
   return {
-    width: c.height,
+    width: fillerHeightMm(c),
     depth: isPanel ? (c.depth || 581) : c.width,
     thickness: isPanel ? (c.panelThickness || c.frontMaterialThickness || 18) : 18,
   };
@@ -211,7 +211,18 @@ export function nonCarcassPieceDims(c) {
 // or bottom edge. Shared by the master cut list and the cost proposal so they
 // never disagree on what's actually cut.
 export function fillerCleatDims(c) {
-  return { width: Math.max(0, c.height - 3), depth: 100, thickness: 18 };
+  return { width: Math.max(0, fillerHeightMm(c) - 3), depth: 100, thickness: 18 };
+}
+
+// A base-height Filler on a Gola kitchen sits under the countertop like a door
+// front, so it's cut the same GOLA_FRONT_REDUCTION_MM short to leave the same
+// gap under the countertop for the L-channel (isGolaFiller in KitchenPlanner3D.jsx).
+export function isGolaBaseFiller(c) {
+  return c.subtype === 'Filler' && c.doorStyle === 'Gola' && c.height === c.baseHeight && (c.elevation || 0) === 0;
+}
+
+function fillerHeightMm(c) {
+  return isGolaBaseFiller(c) ? c.height - GOLA_FRONT_REDUCTION_MM : c.height;
 }
 
 // Builds the calculateCabinet() input from a saved cabinet object — shared by the

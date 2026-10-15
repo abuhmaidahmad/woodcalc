@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -290,11 +290,13 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   // rather than along an 18mm-thick Side Panel's depth.
   const grainAlongW = isFiller || cab.subtype === 'Top Panel'
   // A base-height filler sits directly under the countertop just like a door front, so
-  // on Gola kitchens it loses the same GOLA_CH sliver off its top to the milled
-  // L-channel (GolaProfile) -- otherwise the handleless groove running along the rest
-  // of the run would visibly stop dead at the filler (matches HobOvenAppliance's fascia).
-  const isGolaFiller = isFiller && cab.height === cab.baseHeight && (cab.elevation || 0) === 0 && cab.doorStyle === 'Gola'
-  const slabH = isGolaFiller ? H - GOLA_CH : H
+  // on Gola kitchens its top stops at the same line as the neighbouring doors'
+  // (GOLA_FRONT_DROP plus DoorPanel's 2mm gap), leaving the same gap under the
+  // countertop for the milled L-channel (GolaProfile) -- otherwise the handleless
+  // groove running along the rest of the run would visibly stop dead at the filler.
+  // Cut list: isGolaBaseFiller in formulaEngine.js.
+  const isGolaFiller = isGolaBaseFiller(cab)
+  const slabH = isGolaFiller ? H - GOLA_FRONT_DROP - 0.002 : H
   const golaColor = cab.golaColor || 'black'
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const golaCap = isGolaFiller && (
