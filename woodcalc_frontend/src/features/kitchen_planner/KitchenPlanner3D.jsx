@@ -1236,6 +1236,13 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
   )
 }
 
+// A glass door swings like any other door in open fronts mode; outside it the
+// door renders as-is.
+function GlassDoorOpening({ openMode, frontKey, hinge, doorW, frontZ, children }) {
+  if (!openMode) return children
+  return <OpeningFront frontKey={frontKey} hinge={hinge} doorW={doorW} frontZ={frontZ}>{children}</OpeningFront>
+}
+
 function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = false, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black' }) {
   const doorW = W / numDoors
   const GAP = 0.002
@@ -1261,6 +1268,7 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
   const panelH = isGola ? (H - GAP * 2 + 0.025) : (H - GAP * 2)
   const doorGroupY = isGola ? -0.0125 : 0
   const pullY = -panelH / 2 + 0.01 + 0.006
+  const { enabled: openMode } = useContext(CabinetFrontsContext)
 
   return (
     <>
@@ -1268,6 +1276,7 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
         const xOff = -W / 2 + doorW * i + doorW / 2
         return (
           <group key={i} position={[xOff, doorGroupY, 0]}>
+            <GlassDoorOpening openMode={openMode} frontKey={`g-${i}`} hinge={doorHinge(i, numDoors)} doorW={doorW} frontZ={frontZ}>
             <mesh position={[0, panelH / 2 - FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
               <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
@@ -1298,6 +1307,7 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
                 <meshStandardMaterial color="#111" roughness={1} />
               </mesh>
             )}
+            </GlassDoorOpening>
           </group>
         )
       })}
