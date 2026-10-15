@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react'
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
@@ -803,14 +803,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [showLeadModal, setShowLeadModal] = useState(false)
   const [pendingSave, setPendingSave] = useState(false)
-  const [projectName, setProjectName]         = useState(initialRoomName || t('kitchenPlannerModule.untitledKitchen'))
+  const [projectName, setProjectNameState]         = useState(initialRoomName || t('kitchenPlannerModule.untitledKitchen'))
   const [editingName, setEditingName]         = useState(false)
-  const [cabinets, setCabinets]               = useState([])
-  const [elements, setElements]               = useState([])
+  const [cabinets, setCabinetsState]               = useState([])
+  const [elements, setElementsState]               = useState([])
   const [selected, setSelected]               = useState(null)
   const [selectedType, setSelectedType]       = useState(null)
   const [bulkIds, setBulkIds]                 = useState(() => new Set())
-  const [room, setRoom]                       = useState({ width: 4000, depth: 3000 })
+  const [room, setRoomState]                       = useState({ width: 4000, depth: 3000 })
   const [tab, setTab]                         = useState('room')
   const [showGrid, setShowGrid]               = useState(true)
   const [showDimensions, setShowDimensions]   = useState(true)
@@ -818,15 +818,15 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [sentMsg, setSentMsg]                 = useState('')
   const [saving, setSaving]                   = useState(false)
   const [savedMsg, setSavedMsg]               = useState('')
-  const [wallThickness, setWallThickness]     = useState(120)
-  const [walls, setWalls]                     = useState([])
-  const [stairs, setStairs]                   = useState([])
-  const [backsplashSegments, setBacksplashSegments] = useState([])
-  const [backsplashHeight, setBacksplashHeight] = useState(50)
-  const [backsplashThickness, setBacksplashThickness] = useState(20)
+  const [wallThickness, setWallThicknessState]     = useState(120)
+  const [walls, setWallsState]                     = useState([])
+  const [stairs, setStairsState]                   = useState([])
+  const [backsplashSegments, setBacksplashSegmentsState] = useState([])
+  const [backsplashHeight, setBacksplashHeightState] = useState(50)
+  const [backsplashThickness, setBacksplashThicknessState] = useState(20)
   const [floorTile, setFloorTile]             = useState('white_large')
-  const [baseHeight, setBaseHeight]           = useState(null)
-  const [projectDefaults, setProjectDefaults] = useState(null)
+  const [baseHeight, setBaseHeightState]           = useState(null)
+  const [projectDefaults, setProjectDefaultsState] = useState(null)
   const [leftPanelMode, setLeftPanelMode]     = useState('catalog') // 'catalog' | 'designerAgent'
 
   const ensureConfiguratorSetup = () => {
@@ -850,13 +850,40 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       skirtingMaterial: 'match_countertop',
     })
   }
-  const [countertopMat, setCountertopMat]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
-  const [countertopThickness, setCountertopThickness] = useState(30)
+  const [countertopMat, setCountertopMatState]     = useState(COUNTERTOP_MATERIALS.find(m => m.id === 'sil_white_storm') || COUNTERTOP_MATERIALS[0])
+  const [countertopThickness, setCountertopThicknessState] = useState(30)
   // Proposal tab's price overrides/margin/customer/extras -- kept here so the
   // project's own Save button persists them in planner_data like everything
   // else, instead of them living only in ProposalTab's local state and
   // resetting to hardcoded defaults every time the project is reopened.
-  const [proposalSettings, setProposalSettings] = useState(null)
+  const [proposalSettings, setProposalSettingsState] = useState(null)
+  // A confirmed (locked) version is view-only: its edits could never be saved,
+  // so the design setters ignore changes instead of letting the user lose work.
+  // The restore-on-mount effect uses the raw *State setters to load the design.
+  const lockedRef = useRef(locked)
+  lockedRef.current = locked
+  const {
+    setProjectName, setCabinets, setElements, setRoom, setWallThickness, setWalls, setStairs, setBacksplashSegments, setBacksplashHeight, setBacksplashThickness, setBaseHeight, setProjectDefaults, setCountertopMat, setCountertopThickness, setProposalSettings,
+  } = useMemo(() => {
+    const editable = setter => (...args) => { if (!lockedRef.current) setter(...args) }
+    return {
+      setProjectName: editable(setProjectNameState),
+      setCabinets: editable(setCabinetsState),
+      setElements: editable(setElementsState),
+      setRoom: editable(setRoomState),
+      setWallThickness: editable(setWallThicknessState),
+      setWalls: editable(setWallsState),
+      setStairs: editable(setStairsState),
+      setBacksplashSegments: editable(setBacksplashSegmentsState),
+      setBacksplashHeight: editable(setBacksplashHeightState),
+      setBacksplashThickness: editable(setBacksplashThicknessState),
+      setBaseHeight: editable(setBaseHeightState),
+      setProjectDefaults: editable(setProjectDefaultsState),
+      setCountertopMat: editable(setCountertopMatState),
+      setCountertopThickness: editable(setCountertopThicknessState),
+      setProposalSettings: editable(setProposalSettingsState),
+    }
+  }, [])
   const textureMap = useMaterialTextureMap(publicCompanySlug)
   // Company back panel + glass standards (Settings page) -- the cut list helpers
   // read them from formulaEngine; listing them in memo deps recomputes once loaded.
@@ -882,20 +909,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // Restore saved data on mount
   React.useEffect(() => {
     if (initialData && Object.keys(initialData).length > 0) {
-      if (initialData.walls) setWalls(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120, SCALE))
-      if (initialData.stairs) setStairs(initialData.stairs)
-      if (initialData.wallThickness) setWallThickness(initialData.wallThickness)
-      if (initialData.room) setRoom(r => ({ ...r, ...initialData.room }))
-      if (initialData.backsplashSegments) setBacksplashSegments(initialData.backsplashSegments)
-      if (initialData.backsplashHeight) setBacksplashHeight(initialData.backsplashHeight)
-      if (initialData.backsplashThickness) setBacksplashThickness(initialData.backsplashThickness)
-      if (initialData.elements) setElements(initialData.elements)
-      if (initialData.cabinets) setCabinets(initialData.cabinets)
-      if (initialData.baseHeight) setBaseHeight(initialData.baseHeight)
-      if (initialData.projectDefaults) setProjectDefaults(initialData.projectDefaults)
-      if (initialData.countertopMat) setCountertopMat(initialData.countertopMat)
-      if (initialData.countertopThickness) setCountertopThickness(initialData.countertopThickness)
-      if (initialData.proposalSettings) setProposalSettings(initialData.proposalSettings)
+      if (initialData.walls) setWallsState(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120, SCALE))
+      if (initialData.stairs) setStairsState(initialData.stairs)
+      if (initialData.wallThickness) setWallThicknessState(initialData.wallThickness)
+      if (initialData.room) setRoomState(r => ({ ...r, ...initialData.room }))
+      if (initialData.backsplashSegments) setBacksplashSegmentsState(initialData.backsplashSegments)
+      if (initialData.backsplashHeight) setBacksplashHeightState(initialData.backsplashHeight)
+      if (initialData.backsplashThickness) setBacksplashThicknessState(initialData.backsplashThickness)
+      if (initialData.elements) setElementsState(initialData.elements)
+      if (initialData.cabinets) setCabinetsState(initialData.cabinets)
+      if (initialData.baseHeight) setBaseHeightState(initialData.baseHeight)
+      if (initialData.projectDefaults) setProjectDefaultsState(initialData.projectDefaults)
+      if (initialData.countertopMat) setCountertopMatState(initialData.countertopMat)
+      if (initialData.countertopThickness) setCountertopThicknessState(initialData.countertopThickness)
+      if (initialData.proposalSettings) setProposalSettingsState(initialData.proposalSettings)
     }
   }, [initialData])
 
@@ -1141,7 +1168,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   const requestChange = async () => {
     if (!window.confirm(t('kitchenPlannerModule.requestChangePrompt', { rev: lock.revisionNumber + 1 }))) return
-    await runRoomAction('request_change')
+    const result = await onRoomAction('request_change')
+    // A revision is already open: that's where edits belong, so offer to go
+    // there rather than leave the user editing this locked one.
+    if (!result.ok && result.data.id) {
+      if (window.confirm(t('kitchenPlannerModule.openRevisionPrompt', { detail: result.data.detail }))) navigate(`/rooms/${result.data.id}`)
+    } else if (!result.ok) {
+      window.alert(result.data.detail || t('roomDetail.actionFailed'))
+    }
   }
 
   const submitRevision = async () => {
@@ -1446,6 +1480,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           )}
         </div>
       </div>
+
+      {locked && (
+        <div style={{ background: '#FFF6E5', color: '#8A6D3B', borderBottom: '1px solid #F0DDB5', padding: '6px 16px', fontSize: 12, fontWeight: 600, textAlign: 'center' }}>
+          🔒 {t('kitchenPlannerModule.lockedTip')}
+        </div>
+      )}
 
       {showHistory && <RoomHistoryPanel roomId={roomId} onClose={() => setShowHistory(false)} />}
 
@@ -1936,7 +1976,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
       {tab === 'planner' && (
         <div style={s.workspace}>
-          <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
+          {!locked && <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
             {baseHeight && projectDefaults && !readOnly && (
               <div style={{ display: 'flex', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
                 <button onClick={() => setLeftPanelMode('catalog')}
@@ -1966,7 +2006,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               onAddCabinet={addCabinet}
             />
             )}
-          </div>
+          </div>}
           <div id="onboarding-configurator-cabinets-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}

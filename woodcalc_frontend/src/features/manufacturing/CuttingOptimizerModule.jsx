@@ -13,14 +13,20 @@ function emptyPart() {
 
 // Splits the room's BOM into one group per board material -- a kitchen with two
 // front finishes (e.g. a high-gloss and a laminate) is cut from two different
-// boards, so each gets its own cutting job and sheet layout.
+// boards, so each gets its own cutting job and sheet layout. 'all' gathers the
+// carcass, fronts, backs and glass together, so a board used for both open
+// boxes and doors is packed (and its sheets counted) once.
 export function bomPanelsToGroups(cabinets, group) {
   const groups = new Map()
+  const wants = kind => group === 'all' || group === kind
 
-  function addPart(sku, label, width, height, grainLocked, qty, thickness = '') {
+  function addPart(kind, sku, label, width, height, grainLocked, qty, thickness = '') {
+    // Codes typed into the planner can carry stray spaces; " wh.pw.18" is
+    // still the same board as "wh.pw.18".
+    sku = typeof sku === 'string' ? sku.trim() : sku
     // A back panel with no stock material is grouped by its thickness, so 3mm
-    // and 8mm backs never end up on the same sheet.
-    const groupKey = sku || (thickness ? `t${thickness}` : '')
+    // and 8mm backs never end up on the same sheet -- nor a 4mm back with 4mm glass.
+    const groupKey = sku || `${kind}|${thickness}`
     if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, thickness: sku ? '' : String(thickness || ''), merged: new Map() })
     const merged = groups.get(groupKey).merged
     const key = `${label}|${width}|${height}|${grainLocked}`
@@ -40,31 +46,31 @@ export function bomPanelsToGroups(cabinets, group) {
       return
     }
 
-    if (group === 'carcass') {
+    if (wants('carcass')) {
       result.panels.forEach(p => {
         if (isBackPanel(p)) return
         // An open box can be cut from the front material (its Box Color).
         const sku = panelFace(p) === 'front' ? cab.frontMaterialCode : cab.carcassMaterialCode
-        addPart(sku, p.name, p.width, p.depth, false, p.qty)
+        addPart('carcass', sku, p.name, p.width, p.depth, false, p.qty)
       })
     }
 
-    if (group === 'back') {
+    if (wants('back')) {
       result.panels.forEach(p => {
         if (!isBackPanel(p)) return
-        addPart(p.materialCode, p.name, p.width, p.depth, false, p.qty, p.thickness)
+        addPart('back', p.materialCode, p.name, p.width, p.depth, false, p.qty, p.thickness)
       })
     }
 
-    if (group === 'glass') {
+    if (wants('glass')) {
       const glass = glassShelfSpec(cab)
-      if (glass) addPart(glass.materialCode, 'Glass shelf', glass.width, glass.depth, false, glass.qty, glass.thickness)
+      if (glass) addPart('glass', glass.materialCode, 'Glass shelf', glass.width, glass.depth, false, glass.qty, glass.thickness)
     }
 
-    if (group === 'front') {
+    if (wants('front')) {
       result.doors.forEach(d => {
         if (d.glassDoor) return // bought in from the glass supplier
-        addPart(cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
+        addPart('front', cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
       })
     }
   })
@@ -199,7 +205,7 @@ function CuttingOptimizerModule() {
   useEffect(() => {
     if (preselectedFromUrl && !autoLoaded && workOrders.length > 0 && workOrderId) {
       setAutoLoaded(true)
-      loadFromBOM('carcass')
+      loadFromBOM('all')
     }
   }, [preselectedFromUrl, autoLoaded, workOrders, workOrderId])
 
@@ -245,10 +251,20 @@ function CuttingOptimizerModule() {
       return
     }
 
+    // Two tabs that resolve to the same board are one cutting job: separate jobs
+    // would be packed on separate sheets, and the second would treat the first
+    // as a superseded re-run and put its stock back.
+    const byBoard = new Map()
+    toRun.forEach(({ g, parts }) => {
+      const boardKey = `${groupMaterial(g).id}|${groupThickness(g)}`
+      if (byBoard.has(boardKey)) byBoard.get(boardKey).parts.push(...parts)
+      else byBoard.set(boardKey, { g, parts: [...parts] })
+    })
+
     setLoading(true)
     const done = []
     const failures = []
-    for (const { g, parts } of toRun) {
+    for (const { g, parts } of byBoard.values()) {
       const material = groupMaterial(g)
       try {
         const createRes = await fetch(`${API}/api/manufacturing/cutting-jobs/`, {
@@ -279,7 +295,10 @@ function CuttingOptimizerModule() {
         const job = await optimizeRes.json()
         done.push({ job, title: material.name ? `${material.sku} — ${material.name}` : groupLabel(g) })
       } catch (e) {
-        failures.push(`${groupLabel(g)}: ${e.message}`)
+        // fetch only throws a TypeError when no response came back at all
+        // (Safari words it "Load failed"), e.g. the server timed out.
+        const message = e instanceof TypeError ? t('cuttingOptimizer.errNoResponse') : e.message
+        failures.push(`${groupLabel(g)}: ${message}`)
       }
     }
     setResults(done)
@@ -447,6 +466,9 @@ function CuttingOptimizerModule() {
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           {t('cuttingOptimizer.addPart')}
         </button>
+        <button onClick={() => loadFromBOM('all')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #2c3e50', borderRadius: 6, background: '#2c3e50', color: 'white', cursor: 'pointer', marginRight: 8 }}>
+          {t('cuttingOptimizer.loadAll')}
+        </button>
         <button onClick={() => loadFromBOM('carcass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           {t('cuttingOptimizer.loadCarcass')}
         </button>
@@ -477,6 +499,35 @@ function CuttingOptimizerModule() {
           {error && <span style={{ color: '#e74c3c', marginLeft: 12 }}>{error}</span>}
         </div>
       </div>
+
+      {results.length > 1 && (
+        <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
+          <h2 style={{ margin: '0 0 12px', fontSize: 18, color: '#2c3e50' }}>{t('cuttingOptimizer.sheetsSummary')}</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+            <thead>
+              <tr style={{ background: '#ecf0f1' }}>
+                {[t('cuttingOptimizer.colMaterial'), t('cuttingOptimizer.colThickness'), t('cuttingOptimizer.colPieces'), t('cuttingOptimizer.colSheets')].map((h, hi) => (
+                  <th key={hi} style={{ padding: 8, textAlign: 'start' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {results.map(({ job, title }) => (
+                <tr key={job.id} style={{ borderBottom: '1px solid #ecf0f1' }}>
+                  <td style={{ padding: 8 }}>{title}</td>
+                  <td style={{ padding: 8 }}>{Number(job.thickness)}mm</td>
+                  <td style={{ padding: 8 }}>{job.layouts.reduce((n, l) => n + l.placements.length, 0)}</td>
+                  <td style={{ padding: 8, fontWeight: 600 }}>{job.layouts.length}</td>
+                </tr>
+              ))}
+              <tr>
+                <td colSpan={3} style={{ padding: 8, fontWeight: 600 }}>{t('cuttingOptimizer.totalSheets')}</td>
+                <td style={{ padding: 8, fontWeight: 600 }}>{results.reduce((n, { job }) => n + job.layouts.length, 0)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {results.map(({ job, title }) => (
         <div key={job.id} style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
