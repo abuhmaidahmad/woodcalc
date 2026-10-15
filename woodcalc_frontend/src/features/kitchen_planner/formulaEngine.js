@@ -76,12 +76,13 @@ function nicheStandardShelves(c) {
   return Math.max(0, 4 - Math.max(0, Math.ceil((2400 - H) / SHELF_STD_GAP)));
 }
 
-// Clear height (mm) inside an Appliance Niche's lower and upper sections: from
-// the bottom panel up to the lower fixed panel, and from the upper fixed panel
-// up to the top panel (both fixed panels sit flush with the door edges).
+// Height (mm) of an Appliance Niche's lower and upper sections behind the doors:
+// from the bottom panel up to the lower door's top edge, and from the upper
+// door's bottom edge up to the top panel. The opening between them has no
+// fixed panels; its shelves are the movable ones.
 function nicheSectionsClearH(c) {
   const { lower, upper } = nicheDoorHeights(c);
-  return [Math.max(0, lower - 2 * T), Math.max(0, upper + 3 - 2 * T)];
+  return [Math.max(0, lower - T), Math.max(0, upper + 3 - T)];
 }
 
 // How an Appliance Niche's shelves split between its lower and upper sections:
@@ -223,8 +224,8 @@ const NICHE_DEFAULT_OPENING = 600;
 
 // Door heights (mm) of an Appliance Niche and the opening left between them. The
 // lower door sits on the carcass bottom, the upper door stops 3mm under the top
-// (like a tall unit's upper door); the niche's fixed panels sit flush with the
-// two door edges, so the opening is the clear height between them. Unset, the
+// (like a tall unit's upper door); the opening is the height between the two
+// door edges. Unset, the
 // lower door matches the base run's doors and the opening defaults to 600.
 export function nicheDoorHeights(c) {
   const H = Number(c.height);
@@ -710,18 +711,6 @@ export function calculateCabinet(config) {
         notes: `(W - 2T) × ${bottomFormula}, behind the door joint`,
       });
     }
-    // An Appliance Niche's opening is closed off top and bottom by two fixed
-    // panels, flush with the door edges either side of it.
-    if (isNiche) {
-      panels.push({
-        name: 'Fixed panel',
-        qty: 2,
-        width: bottomW,
-        depth: bottomD,
-        thickness: T,
-        notes: `(W - 2T) × ${bottomFormula}, top and bottom of the ${nicheDoorHeights(config).opening}mm opening`,
-      });
-    }
   } else {
     const railW = bottomW;
     panels.push({
@@ -1000,7 +989,6 @@ export function calculateCabinet(config) {
   if (hasBlindPanel) hardware.confirmats += 16;
   // A pantry's fixed panel takes two confirmats per side.
   if (hasPantryFixedPanel) hardware.confirmats += 4;
-  if (isNiche) hardware.confirmats += 8;
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
