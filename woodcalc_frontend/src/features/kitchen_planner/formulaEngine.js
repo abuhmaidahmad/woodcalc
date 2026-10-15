@@ -80,7 +80,12 @@ export function glassShelfSpec(c) {
   return {
     qty,
     width: Math.round(c.width - 40),
-    depth: Math.round(c.depth - 28),
+    // Shelves are 10mm shallower than the space in front of the back: an open
+    // box's full-depth bottom less the gap and its 18mm board back, else the
+    // glass-door cabinet's top/bottom depth.
+    depth: Math.round(!isGlassDoorCabinet(c) ? c.depth - OPEN_BOX_BACK_GAP - T - 10
+      : c.category === 'wall' ? c.depth - 20 - 10
+      : c.depth - 30 - companyBack.thickness - 10),
     thickness: companyGlass.thickness,
     materialCode: companyGlass.materialCode,
   };
@@ -145,6 +150,7 @@ const GOLA_CHANNEL_MM = 25;
 // channel plus clearance) -- same 30mm for doors and drawer fronts.
 const GOLA_FRONT_REDUCTION_MM = 30;
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
+const BLIND_STILE_DEPTH = 75;
 
 // Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
 // sink cabinets, and anything in vanity/specialty/accessories (those aren't real shelf-and-door boxes).
@@ -418,9 +424,11 @@ export function panelFace(p) {
 
 // An open box is on show inside and out, so every piece -- back included -- is
 // the same board as the box (carcass, or the front material when the cabinet's
-// Box Color is set to front). No grooves and no setback: the top and bottom run
-// the full depth between the sides, and the back sits exactly between the sides
-// and between the top and bottom. Front edges of sides/top/bottom are banded.
+// Box Color is set to front). No grooves: the top and bottom run the full depth
+// between the sides, and the back sits between the sides and between the top and
+// bottom, set OPEN_BOX_BACK_GAP in from their rear edge. Front edges of
+// sides/top/bottom are banded.
+export const OPEN_BOX_BACK_GAP = 18;
 export function openBoxPanels(W, H, D, faceMaterial) {
   const innerW = round2(W - 2 * T);
   const piece = (p) => ({ thickness: T, faceMaterial, ...p });
@@ -428,7 +436,7 @@ export function openBoxPanels(W, H, D, faceMaterial) {
     piece({ name: 'Side panel', qty: 2, width: H, depth: D, edgeFront: true, notes: 'Open box side' }),
     piece({ name: 'Top panel', qty: 1, width: innerW, depth: D, edgeFront: true, notes: '(W - 2T) × D, between sides' }),
     piece({ name: 'Bottom panel', qty: 1, width: innerW, depth: D, edgeFront: true, notes: '(W - 2T) × D, between sides' }),
-    piece({ name: 'Back panel (box board)', qty: 1, width: innerW, depth: round2(H - 2 * T), notes: '(W - 2T) × (H - 2T), between sides and top/bottom, no groove' }),
+    piece({ name: 'Back panel (box board)', qty: 1, width: innerW, depth: round2(H - 2 * T), notes: `(W - 2T) × (H - 2T), between sides and top/bottom, ${OPEN_BOX_BACK_GAP}mm in from the rear, no groove` }),
   ];
 }
 
@@ -522,7 +530,13 @@ export function calculateCabinet(config) {
   const isWallGola = cabinetType === 'wall' && doorStyle === 'Gola' && !openBox;
   const carcassH = isWallGola ? round2(H - GOLA_CHANNEL_MM) : H;
   const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
-  const hasBlindPanel = config.subtype === 'Blind' && cabinetType !== 'tall' && cabinetType !== 'wall';
+  const hasBlindPanel = config.subtype === 'Blind' && cabinetType !== 'wall';
+  // Wall cabinets (incl. glass-door ones): top and bottom are 20mm short of the
+  // sides and the back sits right behind them, leaving (20 - back thickness) of
+  // side free at the back. Other cabinets keep 30mm behind the back.
+  const isWallCab = cabinetType === 'wall';
+  const bottomD = isWallCab ? round2(D - 20) : round2(D - 30 - backT);
+  const bottomFormula = isWallCab ? '(D - 20)' : `(D - 30 - ${backT})`;
   const panels = [];
   if (openBox) {
     panels.push(...openBoxPanels(W, H, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
@@ -536,14 +550,13 @@ export function calculateCabinet(config) {
     notes: isWallGola ? `Vertical sides (H - ${GOLA_CHANNEL_MM}, Gola finger pull)` : 'Vertical sides',
   });
 
-  const bottomD = round2(D - 30 - backT);
   panels.push({
     name: 'Bottom panel',
     qty: 1,
     width: bottomW,
     depth: bottomD,
     thickness: T,
-    notes: `(W - 2T) × (D - 30 - ${backT})`,
+    notes: `(W - 2T) × ${bottomFormula}`,
   });
 
   // Wall and tall cabinets (incl. pantry) don't get front/back rails —
@@ -557,7 +570,7 @@ export function calculateCabinet(config) {
       width: bottomW,
       depth: bottomD,
       thickness: T,
-      notes: `(W - 2T) × (D - 30 - ${backT}), same as bottom panel`,
+      notes: `(W - 2T) × ${bottomFormula}, same as bottom panel`,
     });
   } else {
     const railW = bottomW;
@@ -606,12 +619,13 @@ export function calculateCabinet(config) {
     });
   }
 
-  // A base blind corner closes off its blind section with a board panel across the
-  // front, backed at its door-side end by a doubled vertical stile the door hinges
-  // mount on. The panel spans the blind section less the side and the stile; both
-  // run H - 85 under a Gola channel, else H - 2T between the bottom and the rails.
+  // A blind corner (base or tall) closes off its blind section with a board panel
+  // across the front, backed at its door-side end by a doubled vertical stile the
+  // door hinges mount on. The panel spans the blind section less the side and the
+  // stile; both run H - 2T between the bottom and the rails/top panel, or H - 85
+  // under a base unit's Gola channel (tall units have no top channel).
   if (hasBlindPanel) {
-    const blindH = doorStyle === 'Gola' ? round2(H - 85) : round2(H - 2 * T);
+    const blindH = doorStyle === 'Gola' && cabinetType !== 'tall' ? round2(H - 85) : round2(H - 2 * T);
     panels.push({
       name: 'Blind panel',
       qty: 1,
@@ -624,7 +638,7 @@ export function calculateCabinet(config) {
       name: 'Blind stile',
       qty: 2,
       width: blindH,
-      depth: 75,
+      depth: BLIND_STILE_DEPTH,
       thickness: T,
       notes: 'Doubled, at the door end of the blind panel; door hinges mount on it',
     });
@@ -634,7 +648,9 @@ export function calculateCabinet(config) {
 
   // 1mm narrower than the bottom panel so the shelf drops in between the sides.
   const shelfW = round2(bottomW - 1);
-  const shelfD = round2(D - 30 - backT);
+  // Shelves are 10mm shallower than the top/bottom panels; a blind corner's also
+  // clear its 75mm blind stile.
+  const shelfD = round2(bottomD - 10 - (hasBlindPanel ? BLIND_STILE_DEPTH : 0));
   if (shelves > 0) {
     panels.push({
       name: 'Shelf (18mm)',

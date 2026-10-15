@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM, shelfCountFor } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -330,8 +330,11 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
   )
 }
 
-function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null }) {
+// backInset: the back's distance in from the rear edge (open boxes set it 18mm in).
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null, backInset = 0 }) {
   const T = 0.018
+  const shelfD = D - backInset - T - 0.01
+  const shelfZ = backInset / 2 - 0.005
   const common = { color, materialName, matProps, envMapIntensity: 0.5, castShadow: true, receiveShadow: true }
   const shelfT = glassShelf ? 0.008 : T // 8mm clear glass, or standard 18mm wood panel
   const usableH = H - T * 2
@@ -341,20 +344,20 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
     shelves.push(
       glassShelf ? (
         <group key={i}>
-          <mesh position={[0, y, -0.005]} castShadow receiveShadow>
-            <boxGeometry args={[W - T * 2 - 0.004, shelfT, D - T - 0.01]} />
+          <mesh position={[0, y, shelfZ]} castShadow receiveShadow>
+            <boxGeometry args={[W - T * 2 - 0.004, shelfT, shelfD]} />
             <meshPhysicalMaterial color="#eaf6fb" transparent opacity={0.22} roughness={0.02} metalness={0} transmission={0.9} thickness={0.15} envMapIntensity={1.4} reflectivity={0.85} />
           </mesh>
           {/* Slightly darker, more opaque edge band — real glass reads darker at the edge
               (more glass thickness for light to pass through), and it makes the shelf's
               outline easy to see even where the dynamic shadow alone is too subtle. */}
-          <mesh position={[0, y - shelfT / 2 + 0.001, -0.005]}>
-            <boxGeometry args={[W - T * 2 - 0.004, 0.002, D - T - 0.01]} />
+          <mesh position={[0, y - shelfT / 2 + 0.001, shelfZ]}>
+            <boxGeometry args={[W - T * 2 - 0.004, 0.002, shelfD]} />
             <meshPhysicalMaterial color="#cfe4ec" transparent opacity={0.45} roughness={0.05} metalness={0} transmission={0.4} envMapIntensity={1.2} reflectivity={0.7} />
           </mesh>
         </group>
       ) : (
-        <SmartBox key={i} args={[W - T * 2 - 0.004, shelfT, D - T - 0.01]} position={[0, y, -0.005]} {...common} />
+        <SmartBox key={i} args={[W - T * 2 - 0.004, shelfT, shelfD]} position={[0, y, shelfZ]} {...common} />
       )
     )
   }
@@ -388,7 +391,7 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
           <NotchedSidePanel H={sideH} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
           <NotchedSidePanel H={sideH} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
         </group>
-        {!openFront && panel([W - T * 2, sideH, T], [0, T + sideH / 2, -D / 2 + T / 2])}
+        {!openFront && panel([W - T * 2, sideH, T], [0, T + sideH / 2, -D / 2 + backInset + T / 2])}
         {shelves}
       </>
     )
@@ -399,7 +402,7 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
       {panel([W, T, D], [0, H - T / 2, 0])}
       {panel([T, H - T * 2, D], [-W / 2 + T / 2, H / 2, 0])}
       {panel([T, H - T * 2, D], [W / 2 - T / 2, H / 2, 0])}
-      {!openFront && panel([W - T * 2, H - T * 2, T], [0, H / 2, -D / 2 + T / 2])}
+      {!openFront && panel([W - T * 2, H - T * 2, T], [0, H / 2, -D / 2 + backInset + T / 2])}
       {shelves}
     </>
   )
@@ -2005,7 +2008,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps} texEntry={boxTexEntry}
           shelfCount={shelfCountFor(cab)}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
-          isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf} />
+          isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf}
+          backInset={cab.subtype === 'Open Shelf' ? OPEN_BOX_BACK_GAP / 1000 : 0} />
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
       ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
