@@ -843,13 +843,14 @@ function CDrawerChannel({ W, D, y, golaHex }) {
 }
 
 // Doors hang in pairs: the left one of each pair hinges on its left edge, the
-// right one on its right edge; a single door hinges on the left.
-function doorHinge(i, count) {
-  if (count <= 1) return 'left'
+// right one on its right edge; a single door hinges on the cabinet's chosen
+// side (cab.hingeSide, left by default).
+function doorHinge(i, count, singleSide = 'left') {
+  if (count <= 1) return singleSide === 'right' ? 'right' : 'left'
   return i % 2 === 0 ? 'left' : 'right'
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left' }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left', hingeSide = 'left' }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
@@ -886,7 +887,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
               golaHex={golaHex} golaColor={golaColor}
               handlePosition={handlePosition}
               isWallCabinet={isWallCabinet}
-              frontKey={`zd-${i}-${k}`} hinge={doorHinge(k, zoneDoorCount)}
+              frontKey={`zd-${i}-${k}`} hinge={doorHinge(k, zoneDoorCount, hingeSide)}
             />
           )
         }
@@ -925,7 +926,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition="top" isWallCabinet={isWallCabinet}
-          frontKey={`lo-${i}`} hinge={doorHinge(i, numDoors)} />
+          frontKey={`lo-${i}`} hinge={doorHinge(i, numDoors, hingeSide)} />
       )
       doors.push(
         <DoorPanel key={`up-${i}`} x={xOff} y={yChan + upperH / 2} D={D}
@@ -934,7 +935,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
           handlePosition="bottom" isWallCabinet={isWallCabinet} drawerIndex={i}
-          frontKey={`up-${i}`} hinge={doorHinge(i, numDoors)} />
+          frontKey={`up-${i}`} hinge={doorHinge(i, numDoors, hingeSide)} />
       )
     }
   } else {
@@ -954,7 +955,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           isWallCabinet={isWallCabinet}
           frontKey={`d-${i}`}
           // A blind door hinges on the stile beside the blind panel.
-          hinge={isBlind ? (blindSide === 'left' ? 'left' : 'right') : doorHinge(i, numDoors)}
+          hinge={isBlind ? (blindSide === 'left' ? 'left' : 'right') : doorHinge(i, numDoors, hingeSide)}
         />
       )
     }
@@ -1243,7 +1244,7 @@ function GlassDoorOpening({ openMode, frontKey, hinge, doorW, frontZ, children }
   return <OpeningFront frontKey={frontKey} hinge={hinge} doorW={doorW} frontZ={frontZ}>{children}</OpeningFront>
 }
 
-function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = false, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black' }) {
+function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = false, glassType = 'clear', doorStyle = 'Handle', frameColor = 'black', hingeSide = 'left' }) {
   const doorW = W / numDoors
   const GAP = 0.002
   const PROUD = 0.020
@@ -1276,7 +1277,7 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
         const xOff = -W / 2 + doorW * i + doorW / 2
         return (
           <group key={i} position={[xOff, doorGroupY, 0]}>
-            <GlassDoorOpening openMode={openMode} frontKey={`g-${i}`} hinge={doorHinge(i, numDoors)} doorW={doorW} frontZ={frontZ}>
+            <GlassDoorOpening openMode={openMode} frontKey={`g-${i}`} hinge={doorHinge(i, numDoors, hingeSide)} doorW={doorW} frontZ={frontZ}>
             <mesh position={[0, panelH / 2 - FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
               <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
@@ -2269,6 +2270,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               glassType={cab.glassType || 'clear'}
               doorStyle={doorStyle}
               frameColor={cab.frameColor || 'black'}
+              hingeSide={cab.hingeSide || 'left'}
             />
           ) : (
             <CabinetDoors W={W} H={H} D={D}
@@ -2289,6 +2291,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               splitEnabled={requestedDoorCount > 1}
               isBlind={isBlindCab}
               blindSide={cab.blindSide || 'left'}
+              hingeSide={cab.hingeSide || 'left'}
             />
           )}
         </group>

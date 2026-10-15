@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, isCarcassCabinet, hasSingleDoorWidth } from './formulaEngine'
 import { cabTextLayout, layoutPlan, needsFlip, isDarkFill, labelColors, BADGE_R } from './badgeLayout'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
@@ -1815,6 +1815,21 @@ export default function RoomCanvas({
               </button>
             </div>
           )}
+          {mode === 'select' && selected && selectedType === 'cabinet' && (() => {
+            const cab = cabinets.find(c => c.id === selected)
+            if (!cab || !hasSingleDoorWidth(cab)) return null
+            const side = cab.hingeSide === 'right' ? 'right' : 'left'
+            return (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, borderInlineStart: '1px solid #E0DAD4', paddingInlineStart: 12 }}>
+                <span style={{ fontSize: 11, color: '#666', fontWeight: 600 }}>{t('roomCanvas.hingeSide')}</span>
+                <button
+                  onClick={() => setCabinets(p => p.map(c => c.id === selected ? { ...c, hingeSide: side === 'left' ? 'right' : 'left' } : c))}
+                  style={{ padding: '4px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {side === 'left' ? t('roomCanvas.hingeLeft') : t('roomCanvas.hingeRight')}
+                </button>
+              </div>
+            )
+          })()}
         </div>
       )}
       <div style={{ flex: 1, minHeight: 0 }}>

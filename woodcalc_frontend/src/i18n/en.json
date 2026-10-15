@@ -1413,6 +1413,9 @@
     "blindSide": "Blind side",
     "blindLeftDoorRight": "⬅ Blind Left / Door Right",
     "blindRightDoorLeft": "➡ Blind Right / Door Left",
+    "hingeSide": "Door hinge",
+    "hingeLeft": "⬅ Hinge Left",
+    "hingeRight": "Hinge Right ➡",
     "drawStair": "🪜 Draw Stair",
     "stairClickHint": "Click to place the bottom step's start point · Scroll to zoom · Alt+drag to pan",
     "stairUpLabel": "UP"

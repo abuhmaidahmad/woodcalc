@@ -280,6 +280,19 @@ export function getDefaultDoorCount(width) {
   return 2;
 }
 
+// One door across the cabinet's width (a tall unit's stacked lower + upper pair
+// counts as one) -- these get a Hinge Left/Right choice (cab.hingeSide, default
+// left). Two-wide doors always open from the middle, so they don't.
+export function hasSingleDoorWidth(c) {
+  if (!isCarcassCabinet(c) || isOpenBox(c) || APPLIANCE_SUBTYPES.includes(c.subtype)) return false;
+  if (['Blind', 'Hob + Oven'].includes(c.subtype)) return false;
+  const zonePreset = resolveZonePreset(c);
+  if (zonePreset) return zonePreset.zones.some(z => z.type === 'door') && zonePreset.doorCount !== 2;
+  const n = c.doorCount ?? getDefaultDoorCount(c.width);
+  const columns = c.category === 'tall' && n > 1 ? Math.round(n / 2) : n;
+  return columns === 1;
+}
+
 export function getHingeCount(doorHeight) {
   if (doorHeight <= 900) return 2;
   if (doorHeight <= 1400) return 3;

@@ -1413,6 +1413,9 @@
     "blindSide": "جانب العمى",
     "blindLeftDoorRight": "⬅ عمى يسار / باب يمين",
     "blindRightDoorLeft": "➡ عمى يمين / باب يسار",
+    "hingeSide": "مفصلة الباب",
+    "hingeLeft": "⬅ مفصلة يسار",
+    "hingeRight": "مفصلة يمين ➡",
     "drawStair": "🪜 رسم الدرج",
     "stairClickHint": "انقر لتحديد بداية أول درجة · مرر للتكبير · Alt+سحب للتحريك",
     "stairUpLabel": "أعلى"
