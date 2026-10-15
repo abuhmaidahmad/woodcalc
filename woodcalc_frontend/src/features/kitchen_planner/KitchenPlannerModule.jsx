@@ -227,6 +227,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK, stairs = 
                   {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.handles')} <strong>{result.hardware.handles}</strong></span>}
                   {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.tipOn')} <strong>{result.hardware.tip_on}</strong></span>}
                   <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.backScrews')} <strong>{result.hardware.back_screws}</strong></span>
+                  {result.hardware.wood_screws_30 > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.woodScrews30')} <strong>{result.hardware.wood_screws_30}</strong></span>}
                 </div>
               </>
             )}
@@ -580,7 +581,7 @@ function resolveStairSteppedCabinet(cab, stairs) {
 }
 
 function aggregateBOM(cabinets, stairs = []) {
-  const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0, cabinetHangers: 0 }
+  const totals = { sheet18: 0, hdf8: 0, edgeM: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, woodScrews30: 0, handles: 0, cabinetHangers: 0 }
   cabinets.forEach(cab => {
     if (!isCarcassCabinet(cab)) return
     try {
@@ -597,6 +598,7 @@ function aggregateBOM(cabinets, stairs = []) {
       totals.confirmats += r.hardware.confirmats
       totals.dowels     += r.hardware.dowels
       totals.backScrews += r.hardware.back_screws
+      totals.woodScrews30 += (r.hardware.wood_screws_30 || 0)
       totals.handles    += r.hardware.handles
       totals.cabinetHangers += (r.hardware.cabinet_hangers || 0)
     } catch {}
@@ -2395,6 +2397,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   [t('kitchenPlannerModule.bomEdgeBanding'), bom.edgeM+' '+t('kitchenPlannerModule.unitM'), '#9B59B6'], [t('kitchenPlannerModule.bomHinges'), bom.hinges+' '+t('kitchenPlannerModule.unitPcs'), '#2AC87A'],
                   [t('kitchenPlannerModule.bomLegs'), bom.legs+' '+t('kitchenPlannerModule.unitPcs'), '#1ABC9C'], [t('kitchenPlannerModule.bomConfirmats'), bom.confirmats+' '+t('kitchenPlannerModule.unitPcs'), '#E74C3C'],
                   [t('kitchenPlannerModule.bomDowels'), bom.dowels+' '+t('kitchenPlannerModule.unitPcs'), '#F39C12'], [t('kitchenPlannerModule.bomBackScrews'), bom.backScrews+' '+t('kitchenPlannerModule.unitPcs'), '#95A5A6'],
+                  [t('kitchenPlannerModule.bomWoodScrews30'), bom.woodScrews30+' '+t('kitchenPlannerModule.unitPcs'), '#7F8C8D'],
                   [t('kitchenPlannerModule.bomHandles'), bom.handles+' '+t('kitchenPlannerModule.unitPcs'), DARK],
                   [t('kitchenPlannerModule.bomCabinetHangers'), bom.cabinetHangers+' '+t('kitchenPlannerModule.unitPcs'), '#3498DB'],
                   [t('kitchenPlannerModule.bomBacksplash'), parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' '+t('kitchenPlannerModule.unitM'), '#8B5E3C'],

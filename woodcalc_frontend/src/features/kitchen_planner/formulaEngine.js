@@ -451,6 +451,8 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
   if (['Top panel', 'Bottom panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
   // A sink's bottom rail has its exposed long edge banded in carcass color.
   if (partName === 'Bottom rail') return { ...none, R: cc }
+  // A blind stile's front edge shows beside the door; its back edge is carcass.
+  if (partName === 'Blind stile') return { ...none, R: fc, L: cc }
   // Loose wood shelves are banded all round in carcass color.
   if (partName === 'Shelf (18mm)') return { T: cc, B: cc, L: cc, R: cc }
   if (partName.includes('Shelf') || partName.includes('Bottom')) {
@@ -520,6 +522,7 @@ export function calculateCabinet(config) {
   const isWallGola = cabinetType === 'wall' && doorStyle === 'Gola' && !openBox;
   const carcassH = isWallGola ? round2(H - GOLA_CHANNEL_MM) : H;
   const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
+  const hasBlindPanel = config.subtype === 'Blind' && cabinetType !== 'tall' && cabinetType !== 'wall';
   const panels = [];
   if (openBox) {
     panels.push(...openBoxPanels(W, H, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
@@ -600,6 +603,30 @@ export function calculateCabinet(config) {
       kind: 'hdf_back',
       materialCode: backMaterialCode,
       notes: `${backT}mm HDF`,
+    });
+  }
+
+  // A base blind corner closes off its blind section with a board panel across the
+  // front, backed at its door-side end by a doubled vertical stile the door hinges
+  // mount on. The panel spans the blind section less the side and the stile; both
+  // run H - 85 under a Gola channel, else H - 2T between the bottom and the rails.
+  if (hasBlindPanel) {
+    const blindH = doorStyle === 'Gola' ? round2(H - 85) : round2(H - 2 * T);
+    panels.push({
+      name: 'Blind panel',
+      qty: 1,
+      width: round2(BLIND_PANEL_WIDTH - 2 * T),
+      depth: blindH,
+      thickness: T,
+      notes: 'Closes the blind section, no edge banding',
+    });
+    panels.push({
+      name: 'Blind stile',
+      qty: 2,
+      width: blindH,
+      depth: 75,
+      thickness: T,
+      notes: 'Doubled, at the door end of the blind panel; door hinges mount on it',
     });
   }
 
@@ -801,6 +828,8 @@ export function calculateCabinet(config) {
   // No screwed-on HDF back: an open box's back is board fixed between the panels,
   // and a sink cabinet has no back.
   hardware.back_screws = (openBox || isSink) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
+  // 30mm wood screws: 4 join the doubled blind stile, 12 fix the blind panel.
+  hardware.wood_screws_30 = hasBlindPanel ? 16 : 0;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
