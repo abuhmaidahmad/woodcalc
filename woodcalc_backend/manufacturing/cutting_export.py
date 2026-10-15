@@ -1,6 +1,8 @@
 """
 Export a CuttingJob's optimized layout to:
   - CSV parts list (per placement, per sheet) - for spreadsheets / manual cutting
+  - Excel workbook for several jobs at once (a work order's materials) - opens
+    in Excel, Google Sheets, Numbers and LibreOffice
   - PDF cutting diagram - one page per sheet, parts drawn to scale with labels
 
 Both read straight from CuttingLayout / PartPlacement rows created by
@@ -44,6 +46,98 @@ def export_csv(job_id) -> str:
                 job.thickness,
             ])
 
+    return buffer.getvalue()
+
+
+def _sheet_title(name, used):
+    """Excel tab names: at most 31 chars, none of []:*?/\\, unique in the book."""
+    base = "".join("-" if ch in '[]:*?/\\' else ch for ch in name)[:31] or "Material"
+    title, n = base, 2
+    while title.lower() in used:
+        suffix = f" ({n})"
+        title, n = base[:31 - len(suffix)] + suffix, n + 1
+    used.add(title.lower())
+    return title
+
+
+def export_xlsx(jobs) -> bytes:
+    """Returns .xlsx bytes for optimized cutting jobs: a Summary tab (sheets
+    needed per material), one cut-list tab per material, and a Layouts tab with
+    every placement for the saw."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    bold = Font(bold=True)
+    header_fill = PatternFill("solid", fgColor="ECF0F1")
+
+    def header(ws, cols):
+        ws.append(cols)
+        for cell in ws[ws.max_row]:
+            cell.font = bold
+            cell.fill = header_fill
+        ws.freeze_panes = f"A{ws.max_row + 1}"  # a string: ws.cell() would add an empty row
+
+    def autosize(ws):
+        for i, col in enumerate(ws.columns, start=1):
+            longest = max((len(str(c.value)) for c in col if c.value is not None), default=0)
+            ws.column_dimensions[get_column_letter(i)].width = min(max(longest + 2, 8), 50)
+
+    def num(d):
+        return float(d) if d is not None else None
+
+    wb = Workbook()
+    summary = wb.active
+    summary.title = "Summary"
+    header(summary, ["Material code", "Material", "Thickness (mm)", "Sheet size (mm)", "Pieces", "Sheets"])
+    layouts_rows = []
+    used_titles = {"summary", "layouts"}
+    total_sheets = 0
+
+    for job in jobs:
+        layouts = sorted(job.layouts.all(), key=lambda l: l.sheet_index)
+        placements = [(l, p) for l in layouts for p in l.placements.all()]
+        first_sheet = layouts[0].sheet if layouts else None
+        size = f"{num(first_sheet.width):g} x {num(first_sheet.height):g}" if first_sheet else ""
+        summary.append([job.material.sku, job.material.name, num(job.thickness), size, len(placements), len(layouts)])
+        total_sheets += len(layouts)
+
+        # Cut list: identical parts on one line, as a workshop reads it.
+        cut = {}
+        for _, p in placements:
+            w, h = num(p.part.width), num(p.part.height)
+            key = (p.part.label, w, h, p.part.grain_locked)
+            cut[key] = cut.get(key, 0) + 1
+        ws = wb.create_sheet(_sheet_title(job.material.sku or job.material.name, used_titles))
+        ws.append([f"{job.material.sku} - {job.material.name}", f"{num(job.thickness):g}mm",
+                   f"{len(layouts)} sheet(s)"])
+        ws[ws.max_row][0].font = bold
+        ws.append([])
+        header(ws, ["Part", "Width (mm)", "Height (mm)", "Qty", "Grain locked"])
+        for (label, w, h, grain), qty in sorted(cut.items(), key=lambda kv: (kv[0][0], -kv[0][1], -kv[0][2])):
+            ws.append([label, w, h, qty, "Yes" if grain else "No"])
+        autosize(ws)
+
+        for l, p in placements:
+            layouts_rows.append([job.material.sku, num(job.thickness), l.sheet_index, num(l.waste_percent),
+                                 p.part.label, num(p.width), num(p.height), num(p.x), num(p.y),
+                                 "Yes" if p.rotated else "No"])
+
+    summary.append(["Total", None, None, None, None, total_sheets])
+    for cell in summary[summary.max_row]:
+        cell.font = bold
+    autosize(summary)
+
+    ws = wb.create_sheet("Layouts")
+    header(ws, ["Material code", "Thickness (mm)", "Sheet #", "Waste %", "Part",
+                "Width (mm)", "Height (mm)", "X", "Y", "Rotated"])
+    for row in layouts_rows:
+        ws.append(row)
+    ws.auto_filter.ref = ws.dimensions
+    autosize(ws)
+
+    buffer = io.BytesIO()
+    wb.save(buffer)
     return buffer.getvalue()
 
 

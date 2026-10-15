@@ -199,3 +199,63 @@ class CuttingJobStockTests(TestCase):
         self._optimize(self._job(4))
         self.hdf.refresh_from_db()
         self.assertEqual(self.hdf.quantity_on_hand, 6)
+
+
+class CuttingJobXlsxExportTests(TestCase):
+    """Several optimized jobs download as one workbook: summary + a tab per material."""
+
+    def setUp(self):
+        from inventory.models import Material
+        self.company = Company.objects.create(name='A', slug='a')
+        user = get_user_model().objects.create_user(username='u', email='u@example.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.client = APIClient()
+        self.client.force_authenticate(user)
+        self.wo = WorkOrder.objects.create(tenant=self.company, order_number='WO-1', product_name='K')
+        self.ply = Material.objects.create(tenant=self.company, sku='wh.pw.18', name='White plywood',
+                                           board_width=2440, board_height=1220, board_thickness=18)
+        self.hdf = Material.objects.create(tenant=self.company, sku='HDF/3', name='HDF 3mm',
+                                           board_width=2440, board_height=1220, board_thickness=3)
+
+    def _optimized_job(self, material, thickness, parts):
+        res = self.client.post('/api/manufacturing/cutting-jobs/', {
+            'work_order': self.wo.id, 'material': material.id, 'thickness': thickness, 'kerf': '4', 'parts': parts,
+        }, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        job_id = res.json()['id']
+        self.assertEqual(self.client.post(f'/api/manufacturing/cutting-jobs/{job_id}/optimize/').status_code, 200)
+        return job_id
+
+    def _workbook(self, res):
+        import io
+        from openpyxl import load_workbook
+        return load_workbook(io.BytesIO(b''.join(res.streaming_content) if res.streaming else res.content))
+
+    def test_exports_summary_and_cut_list_per_material(self):
+        ply = self._optimized_job(self.ply, '18', [
+            {'label': 'Side panel', 'width': '720', 'height': '560', 'quantity': 4, 'grain_locked': False}])
+        hdf = self._optimized_job(self.hdf, '3', [
+            {'label': 'Back', 'width': '1100', 'height': '1100', 'quantity': 4, 'grain_locked': False}])
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/export-xlsx/?ids={ply},{hdf}')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertIn('cutting_list_WO-1.xlsx', res['Content-Disposition'])
+        wb = self._workbook(res)
+        self.assertEqual(wb.sheetnames, ['Summary', 'wh.pw.18', 'HDF-3', 'Layouts'])
+        rows = list(wb['Summary'].iter_rows(min_row=2, values_only=True))
+        self.assertEqual(rows[0][:3], ('wh.pw.18', 'White plywood', 18))
+        self.assertEqual(rows[0][4:], (4, 1))
+        self.assertEqual(rows[1][4:], (4, 2))
+        self.assertEqual(rows[2], ('Total', None, None, None, None, 3))
+        cut = list(wb['wh.pw.18'].iter_rows(min_row=4, values_only=True))
+        self.assertEqual(cut, [('Side panel', 720, 560, 4, 'No')])
+        self.assertEqual(wb['Layouts'].max_row, 1 + 4 + 4)
+
+    def test_skips_another_tenants_jobs(self):
+        from inventory.models import Material
+        from .models import CuttingJob
+        other = Company.objects.create(name='B', slug='b')
+        wo = WorkOrder.objects.create(tenant=other, order_number='WO-9', product_name='K')
+        mat = Material.objects.create(tenant=other, sku='X', name='X')
+        job = CuttingJob.objects.create(work_order=wo, material=mat, thickness=18)
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/export-xlsx/?ids={job.id}')
+        self.assertEqual(res.status_code, 404)

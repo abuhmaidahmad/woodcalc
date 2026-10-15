@@ -1604,6 +1604,8 @@
     "colPieces": "Pieces",
     "colSheets": "Sheets",
     "totalSheets": "Total sheets",
+    "downloadSpreadsheet": "Download Excel / Google Sheets",
+    "errDownloadSpreadsheet": "Could not download the spreadsheet",
     "loadCarcass": "Load Carcass",
     "loadFronts": "Load Fronts",
     "loadBackPanels": "Load Back Panels",

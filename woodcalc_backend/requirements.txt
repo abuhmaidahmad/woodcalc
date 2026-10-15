@@ -16,5 +16,6 @@ Pillow==12.2.0
 cryptography
 resend
 reportlab
+openpyxl
 requests==2.34.2
 anthropic

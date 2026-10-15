@@ -13,7 +13,7 @@ from .serializers import (
 )
 from .serializers import StockSheetSerializer, CuttingJobSerializer
 from .cutting_service import optimize_job, release_job_stock, job_stock_reference, booked_by_job
-from .cutting_export import export_csv, export_pdf
+from .cutting_export import export_csv, export_pdf, export_xlsx
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
@@ -200,6 +200,25 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
         csv_text = export_csv(job.id)
         response = HttpResponse(csv_text, content_type='text/csv')
         response['Content-Disposition'] = f'attachment; filename="cutting_job_{job.id}.csv"'
+        return response
+
+    # One workbook for several jobs, e.g. every material of a work order:
+    # ?ids=1,2,3 (in that order).
+    @action(detail=False, methods=['get'], url_path='export-xlsx')
+    def export_xlsx_action(self, request):
+        try:
+            ids = [int(i) for i in request.query_params.get('ids', '').split(',') if i.strip()]
+        except ValueError:
+            return Response({'detail': 'ids must be a comma-separated list of job ids.'}, status=400)
+        jobs = {j.id: j for j in self.get_queryset().filter(id__in=ids).select_related('material', 'work_order')
+                .prefetch_related('layouts__sheet', 'layouts__placements__part')}
+        if not jobs:
+            return Response({'detail': 'No cutting jobs found.'}, status=404)
+        ordered = [jobs[i] for i in ids if i in jobs]
+        order_number = ordered[0].work_order.order_number
+        response = HttpResponse(export_xlsx(ordered),
+                                content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = f'attachment; filename="cutting_list_{order_number}.xlsx"'
         return response
 
     @action(detail=True, methods=['get'], url_path='export-pdf')

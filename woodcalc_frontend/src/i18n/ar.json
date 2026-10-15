@@ -1604,6 +1604,8 @@
     "colPieces": "القطع",
     "colSheets": "الألواح",
     "totalSheets": "إجمالي الألواح",
+    "downloadSpreadsheet": "تنزيل ملف Excel / Google Sheets",
+    "errDownloadSpreadsheet": "تعذر تنزيل جدول البيانات",
     "loadCarcass": "تحميل الهيكل",
     "loadFronts": "تحميل الواجهات",
     "loadBackPanels": "تحميل الألواح الخلفية",

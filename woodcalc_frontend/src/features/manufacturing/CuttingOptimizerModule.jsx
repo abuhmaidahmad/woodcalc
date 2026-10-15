@@ -380,6 +380,26 @@ function CuttingOptimizerModule() {
     window.URL.revokeObjectURL(url)
   }
 
+  // Every material's cut list in one .xlsx -- opens in Excel and Google Sheets.
+  async function downloadWorkbook() {
+    setError('')
+    try {
+      const ids = results.map(({ job }) => job.id).join(',')
+      const res = await fetch(`${API}/api/manufacturing/cutting-jobs/export-xlsx/?ids=${ids}`, { headers: authHeaders })
+      if (!res.ok) throw new Error(t('cuttingOptimizer.errDownloadSpreadsheet'))
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const wo = workOrders.find(w => String(w.id) === String(results[0].job.work_order))
+      a.download = `cutting_list_${wo?.order_number || results[0].job.work_order}.xlsx`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof TypeError ? t('cuttingOptimizer.errNoResponse') : e.message)
+    }
+  }
+
   const inputStyle = { padding: 8, border: '1px solid #ddd', borderRadius: 6, width: '100%' }
   const labelStyle = { fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }
   const activeMaterial = groupMaterial(activeGroup)
@@ -500,9 +520,14 @@ function CuttingOptimizerModule() {
         </div>
       </div>
 
-      {results.length > 1 && (
+      {results.length > 0 && (
         <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
-          <h2 style={{ margin: '0 0 12px', fontSize: 18, color: '#2c3e50' }}>{t('cuttingOptimizer.sheetsSummary')}</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>{t('cuttingOptimizer.sheetsSummary')}</h2>
+            <button onClick={downloadWorkbook} style={{ padding: '6px 12px', border: '1px solid #27ae60', borderRadius: 6, background: '#27ae60', color: 'white', cursor: 'pointer' }}>
+              {t('cuttingOptimizer.downloadSpreadsheet')}
+            </button>
+          </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ background: '#ecf0f1' }}>
