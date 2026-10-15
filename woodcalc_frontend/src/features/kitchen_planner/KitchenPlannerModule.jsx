@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -2179,6 +2179,28 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                               color: currentDoors === n ? '#8A6D3B' : '#666',
                               fontWeight: 700, fontSize: 13, cursor: 'pointer',
                             }}>{n}</button>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+                {hasSingleDoorWidth(selCab) && (() => {
+                  // One door across the width: which side it hinges on (3D open fronts
+                  // swings it from there). Two-wide doors always open from the middle.
+                  const side = selCab.hingeSide === 'right' ? 'right' : 'left'
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('roomCanvas.hingeSide')}</div>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[['left', t('roomCanvas.hingeLeft')], ['right', t('roomCanvas.hingeRight')]].map(([id, label]) => (
+                          <button key={id} onClick={() => updateCab('hingeSide', id)}
+                            style={{
+                              flex: 1, padding: '6px 0', borderRadius: 6,
+                              border: side === id ? '1.5px solid #C9A876' : '1.5px solid #E0DAD4',
+                              background: side === id ? '#FBF3E7' : '#fff',
+                              color: side === id ? '#8A6D3B' : '#666',
+                              fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                            }}>{label}</button>
                         ))}
                       </div>
                     </div>
