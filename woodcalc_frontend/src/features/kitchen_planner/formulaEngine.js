@@ -488,7 +488,7 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
   if (partName === 'Side panel') {
     return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: fc } : { ...none, R: fc }
   }
-  if (['Top panel', 'Bottom panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
+  if (['Top panel', 'Bottom panel', 'Fixed panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
   // A sink's bottom rail has its exposed long edge banded in carcass color.
   if (partName === 'Bottom rail') return { ...none, R: cc }
   // A blind stile's front edge shows beside the door; its back edge is carcass.
@@ -563,6 +563,8 @@ export function calculateCabinet(config) {
   const carcassH = isWallGola ? round2(H - GOLA_CHANNEL_MM) : H;
   const isSink = ['Sink', 'Single Sink', 'Double Sink'].includes(config.subtype);
   const hasBlindPanel = config.subtype === 'Blind' && cabinetType !== 'wall';
+  const hasPantryFixedPanel = config.subtype === 'Pantry' && cabinetType === 'tall'
+    && Number.isFinite(requestedDoorCount) && requestedDoorCount > 1;
   // Wall cabinets (incl. glass-door ones): top and bottom are 20mm short of the
   // sides and the back sits right behind them, leaving (20 - back thickness) of
   // side free at the back. Other cabinets keep 30mm behind the back.
@@ -604,6 +606,18 @@ export function calculateCabinet(config) {
       thickness: T,
       notes: `(W - 2T) × ${bottomFormula}, same as bottom panel`,
     });
+    // A pantry with more than one door splits into lower + upper doors; a fixed
+    // panel sits behind that joint (the door clearance), cut like the top panel.
+    if (hasPantryFixedPanel) {
+      panels.push({
+        name: 'Fixed panel',
+        qty: 1,
+        width: bottomW,
+        depth: bottomD,
+        thickness: T,
+        notes: `(W - 2T) × ${bottomFormula}, behind the door joint`,
+      });
+    }
   } else {
     const railW = bottomW;
     panels.push({
@@ -869,6 +883,8 @@ export function calculateCabinet(config) {
   // The blind panel and its doubled stile take 16 x 30mm wood screws (12 + 4),
   // counted as confirmats for now.
   if (hasBlindPanel) hardware.confirmats += 16;
+  // A pantry's fixed panel takes two confirmats per side.
+  if (hasPantryFixedPanel) hardware.confirmats += 4;
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;

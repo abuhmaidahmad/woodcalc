@@ -2077,6 +2077,27 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           )}
         </group>
       )}
+      {isTall && cab.subtype === 'Pantry' && requestedDoorCount > 1 && (() => {
+        // Fixed panel behind the lower/upper door joint (formulaEngine.js
+        // hasPantryFixedPanel); its front edge is banded in front color and shows
+        // through the door gap. Gola units sit it behind the C-channel notch.
+        const T = 0.018
+        const baseH = (cab.baseHeight || 800) / 1000
+        const frontZ = D / 2 - (doorStyle === 'Gola' ? GOLA_NOTCH_DEPTH : 0) + 0.0005
+        const depth = D - 0.030
+        return (
+          <group position={[0, baseH - 0.0015, frontZ - depth / 2]}>
+            <mesh castShadow receiveShadow>
+              <boxGeometry args={[W - 2 * T, T, depth]} />
+              <meshPhysicalMaterial color={carcassColor} roughness={carcassMatProps.roughness ?? 0.6} metalness={carcassMatProps.metalness ?? 0} envMapIntensity={0.5} />
+            </mesh>
+            <mesh position={[0, 0, depth / 2 + 0.0003]}>
+              <boxGeometry args={[W - 2 * T, T, 0.0006]} />
+              <meshPhysicalMaterial color={frontColor} roughness={0.5} envMapIntensity={0.5} />
+            </mesh>
+          </group>
+        )
+      })()}
       {cab.ledStripInterior && !isShelf && (() => {
         const T = 0.018
         const len = Math.max(0.05, H - T * 2 - 0.02)
