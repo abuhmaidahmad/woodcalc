@@ -311,19 +311,35 @@ export function buildZonePresets(height) {
   ];
 }
 
+// Small drawer zones (180 at H720, 200 at H800) stacked in a run pair up two by
+// two with no channel inside a pair: the upper one pulls from the channel above
+// it, the lower one from the channel below it. True when zone i is the lower
+// drawer of such a pair.
+const GOLA_SMALL_DRAWER_MAX_MM = 200;
+function isLowerOfSmallPair(zones, i) {
+  const cur = zones[i];
+  if (!cur || cur.type !== 'drawer' || cur.h > GOLA_SMALL_DRAWER_MAX_MM) return false;
+  let runIndex = 0;
+  for (let j = i - 1; j >= 0 && zones[j].type === 'drawer' && zones[j].h === cur.h; j--) runIndex++;
+  return runIndex % 2 === 1;
+}
+
 // A Gola C-channel sits between two adjacent zones so you can hook a finger under
 // the front below it and pull it open (the topmost zone instead opens via the
-// carcass's own shared L-channel, so index 0 never gets one here). Two small
-// drawers stacked back-to-back are the one exception: the lower small drawer
-// already opens fine from the channel below it (shared with the bigger drawer
-// beneath, e.g. '2_small_1_big_drawer'), so a channel between the two smalls
-// would just be a second, redundant pull point for the same front -- skip it.
+// carcass's own shared L-channel, so index 0 never gets one here). The lower
+// drawer of a small pair gets none (isLowerOfSmallPair): '4_drawers' has a single
+// C between the 2nd and 3rd drawer, '2_small_1_big_drawer' one above the big one.
 export function golaNeedsChannelAbove(zones, i) {
   if (i <= 0) return false;
-  const prev = zones[i - 1], cur = zones[i], next = zones[i + 1];
-  const isRedundantSmallPair = prev?.type === 'drawer' && cur?.type === 'drawer'
-    && next?.type === 'drawer' && cur.h === prev.h && next.h > cur.h;
-  return !isRedundantSmallPair;
+  return !isLowerOfSmallPair(zones, i);
+}
+
+// A Gola drawer with no channel directly above or below it has nothing to pull
+// from -- e.g. the 4th drawer of '4_drawers' -- so it opens push-to-open (TIP-ON).
+export function golaDrawerHasNoPull(zones, i) {
+  if (i === 0) return false;
+  const channelBelow = i + 1 < zones.length && golaNeedsChannelAbove(zones, i + 1);
+  return !golaNeedsChannelAbove(zones, i) && !channelBelow;
 }
 
 // mm eaten from the top of zone i's slot by whatever sits directly above it: the
@@ -335,6 +351,22 @@ export function golaNeedsChannelAbove(zones, i) {
 export function golaChannelGapMm(zones, i) {
   if (i === 0) return GOLA_CHANNEL_MM;
   return golaNeedsChannelAbove(zones, i) ? GOLA_CHANNEL_MM : 0;
+}
+
+// A Gola small drawer front is always cut 15mm short of its zone (180 -> 165 at
+// H720, 200 -> 185 at H800). A pair shares the 30 a channel costs; a lone small
+// drawer hands the other 15 to the front below its channel, so '1_small_drawer_1_door'
+// is 165 + 495 at H720 -- every layout's fronts add up to the same total.
+const GOLA_SMALL_DRAWER_REDUCTION_MM = 15;
+const isSmallDrawer = (z) => z?.type === 'drawer' && z.h <= GOLA_SMALL_DRAWER_MAX_MM;
+
+// How much shorter than its zone a Gola front is cut.
+export function golaFrontReductionMm(zones, i) {
+  if (isSmallDrawer(zones[i])) return GOLA_SMALL_DRAWER_REDUCTION_MM;
+  const base = golaChannelGapMm(zones, i) > 0 ? GOLA_FRONT_REDUCTION_MM : 3;
+  const prevIsLoneSmall = i > 0 && isSmallDrawer(zones[i - 1])
+    && !isLowerOfSmallPair(zones, i - 1) && golaNeedsChannelAbove(zones, i);
+  return prevIsLoneSmall ? base + GOLA_SMALL_DRAWER_REDUCTION_MM : base;
 }
 
 const DEFAULT_ZONE_PRESET_ID = { Drawers: '4_drawers', '2Drw+Door': '2_small_1_door' };
@@ -766,20 +798,17 @@ export function calculateCabinet(config) {
       ? config.zonePreset
       : { zones: [{ type: 'drawer', h: H }] }; // defensive fallback: a raw config with no zonePreset
     const zoneList = zonePreset.zones;
-    const maxDrawerH = Math.max(0, ...zoneList.filter(z => z.type === 'drawer').map(z => z.h));
     // LEGRABOX-style height class is a fact of each drawer's own face height, not
-    // of its position in the stack -- e.g. '2_drawers' (two equal-height "big"
-    // drawers) needs 2x LEGRABOX C, not 1x C + 1x M just because only one of them
-    // is picked for the Gola TIP-ON treatment below. 'small' is this cabinet's own
-    // height-tier threshold (matches buildZonePresets' own small/big split).
+    // of its position in the stack. 'small' is this cabinet's own height-tier
+    // threshold (matches buildZonePresets' own small/big split).
     const smallZoneH = H >= 780 ? 200 : 180;
-    let tipOnAssigned = false;
     zoneList.forEach((zone, zoneIdx) => {
       // Every front in a Gola stack sits behind whatever's milled above it (25mm
       // channel, or none at all when golaNeedsChannelAbove skips it) plus the
-      // usual 3mm edge clearance every front gets — matching the 3D render's
+      // usual 3mm edge clearance every front gets; a small pair splits theirs
+      // evenly (golaFrontReductionMm) — matching the 3D render's
       // computeGolaDrawerLayout, which shrinks each front by the same amount.
-      const zoneReduction = (doorStyle === 'Gola' && golaChannelGapMm(zoneList, zoneIdx) > 0) ? GOLA_FRONT_REDUCTION_MM : 3;
+      const zoneReduction = doorStyle === 'Gola' ? golaFrontReductionMm(zoneList, zoneIdx) : 3;
       if (zone.type === 'door') {
         const widths = zonePreset.doorCount === 2 ? [twoDoorWidthEach, twoDoorWidthEach] : [oneDoorWidth];
         const dh = round2(zone.h - zoneReduction);
@@ -791,20 +820,19 @@ export function calculateCabinet(config) {
           });
         });
       } else {
-        // Gola TIP-ON (push-to-open) is still assigned to only one drawer in the
-        // stack -- a separate hardware/style decision from runner height class.
-        const isBig = zone.h === maxDrawerH && !tipOnAssigned;
-        if (isBig) tipOnAssigned = true;
+        // Gola drawers pull from the channel above or below them; only one with
+        // neither (the 4th of '4_drawers') is push-to-open (TIP-ON).
+        const tipOnGola = doorStyle === 'Gola' && golaDrawerHasNoPull(zoneList, zoneIdx);
         const runnerSize = systemHasIntegratedBox ? (zone.h <= smallZoneH ? 'M' : 'C') : undefined;
         drawerFronts.push({
           width: round2(W - 3),
           height: round2(zone.h - zoneReduction),
           style: doorStyle,
           runnerSize,
-          opening: doorStyle === 'Gola' ? (isBig ? 'TIP-ON' : 'channel') : doorStyle,
-          tipOn: doorStyle === 'Push' ? true : (doorStyle === 'Gola' && isBig),
+          opening: doorStyle === 'Gola' ? (tipOnGola ? 'TIP-ON' : 'channel') : doorStyle,
+          tipOn: doorStyle === 'Push' ? true : (doorStyle === 'Gola' && tipOnGola),
           notes: doorStyle === 'Gola'
-            ? (isBig ? 'Big drawer: push-to-open (TIP-ON)' : 'Gola channel access')
+            ? (tipOnGola ? 'No channel to pull from: push-to-open (TIP-ON)' : 'Gola channel access')
             : (runnerSize ? `LEGRABOX ${runnerSize}` : ''),
         });
       }

@@ -1,5 +1,5 @@
 import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -533,29 +533,31 @@ const GOLA_FRONT_DROP  = GOLA_CH + 0.002
 // Shared drawer-stack layout so door fronts, C channels and side panel notches
 // always agree (single source of truth) — driven by the cabinet's own interior-
 // layout zones (see formulaEngine.js's buildZonePresets/resolveZonePreset),
-// listed top-to-bottom, instead of a fixed 2-small-1-big shape. Each zone is a
-// "slot"; the topmost one always sits below the carcass's own shared L-channel
-// notch (not re-rendered here to avoid a duplicate mesh), so it always loses
-// GOLA_CH off its top. Every other zone only loses GOLA_CH when it actually
-// gets its own milled C-channel (golaNeedsChannelAbove, formulaEngine.js) --
-// e.g. two stacked small drawers share the channel below them, so the one
-// between them is skipped and those two fronts instead sit edge-to-edge with
-// just DoorPanel's own small built-in reveal, matching formulaEngine.js's cut
-// heights (which apply the same GOLA_CH-or-nothing rule) so BOM and render agree.
+// listed top-to-bottom. Which zones get a channel (golaNeedsChannelAbove) and
+// how tall each front is cut (golaFrontReductionMm) both come from
+// formulaEngine.js, so the render and the cut list never disagree.
 function computeGolaDrawerLayout(H, zones) {
-  const CH = GOLA_CH
-  let yTop = H / 2
+  // Fronts are cut to formulaEngine's own sizes (golaFrontReductionMm) and
+  // stacked top to bottom: each channel (the top L included) takes GOLA_CH,
+  // and whatever height is left over is shared out as the reveal below each
+  // front. A channel therefore sits right under the front above it, not on a
+  // zone boundary (e.g. under a 165 small drawer, not at 180).
+  const fronts = zones.map((z, i) => (z.h - golaFrontReductionMm(zones, i)) / 1000)
+  const hasChannel = zones.map((_, i) => i === 0 || golaNeedsChannelAbove(zones, i))
+  const used = fronts.reduce((s, f) => s + f, 0) + hasChannel.filter(Boolean).length * GOLA_CH
+  const reveal = Math.max(0, (H - used) / zones.length)
+  let cursor = H / 2
   const positions = []
   const channels = []
   zones.forEach((zone, i) => {
-    const slot = zone.h / 1000
-    const hasChannel = i === 0 || golaNeedsChannelAbove(zones, i)
-    const gap = hasChannel ? GOLA_FRONT_DROP : 0
-    const frontH = slot - gap
-    const frontCenter = yTop - gap - frontH / 2
-    positions.push({ h: frontH, yCenter: frontCenter, type: zone.type })
-    if (i > 0 && hasChannel) channels.push({ y: yTop - CH / 2, size: CH })
-    yTop -= slot
+    if (hasChannel[i]) {
+      if (i > 0) channels.push({ y: cursor - GOLA_CH / 2, size: GOLA_CH })
+      cursor -= GOLA_CH
+    }
+    // DoorPanel takes its own 3mm reveal off h, so hand it the front plus that.
+    const h = fronts[i] + 0.003
+    positions.push({ h, yCenter: cursor - h / 2, type: zone.type })
+    cursor -= fronts[i] + reveal
   })
   return { positions, channels }
 }
