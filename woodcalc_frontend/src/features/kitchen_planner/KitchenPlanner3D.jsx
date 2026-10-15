@@ -1,10 +1,10 @@
-import { Canvas, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP } from './formulaEngine'
+import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
-import React, { useMemo, Suspense, useState, useEffect } from 'react'
+import React, { useMemo, Suspense, useState, useEffect, useCallback, useContext, useRef, createContext } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
@@ -331,7 +331,9 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
 }
 
 // backInset: the back's distance in from the rear edge (open boxes set it 18mm in).
-function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null, backInset = 0 }) {
+// topRails: base cabinets have a front and back rail under the countertop instead
+// of a full top panel (used when an opened cabinet shows its inside).
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null, backInset = 0, topRails = false }) {
   const T = 0.018
   const shelfD = D - backInset - T - 0.01
   const shelfZ = backInset / 2 - 0.005
@@ -399,9 +401,13 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
   return (
     <>
       {panel([W, T, D], [0, T / 2, 0])}
-      {panel([W, T, D], [0, H - T / 2, 0])}
-      {panel([T, H - T * 2, D], [-W / 2 + T / 2, H / 2, 0])}
-      {panel([T, H - T * 2, D], [W / 2 - T / 2, H / 2, 0])}
+      {topRails ? (<>
+        {panel([W - T * 2, T, 0.1], [0, H - T / 2, D / 2 - 0.05])}
+        {panel([W - T * 2, T, 0.1], [0, H - T / 2, -D / 2 + 0.05])}
+      </>) : panel([W, T, D], [0, H - T / 2, 0])}
+      {/* With rails the sides run up to the top, the rails sitting between them. */}
+      {panel([T, H - T * (topRails ? 1 : 2), D], [-W / 2 + T / 2, (H + (topRails ? T : 0)) / 2, 0])}
+      {panel([T, H - T * (topRails ? 1 : 2), D], [W / 2 - T / 2, (H + (topRails ? T : 0)) / 2, 0])}
       {!openFront && panel([W - T * 2, H - T * 2, T], [0, H / 2, -D / 2 + backInset + T / 2])}
       {shelves}
     </>
@@ -441,7 +447,63 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
   )
 }
 
-function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet, drawerIndex = 0, hideHandle = false }) {
+// ---- Open fronts mode ----
+// With the 3D toolbar's "Open fronts" toggle on, clicking a door swings it open on
+// its hinge and clicking a drawer slides it out. Only MAX_OPEN_CABINETS cabinets
+// can be open at once (opening another closes the one opened first), and only an
+// open cabinet swaps its solid carcass block for real panels, so the extra
+// geometry stays bounded however big the design is.
+const MAX_OPEN_CABINETS = 3
+const DOOR_OPEN_ANGLE = 1.75 // ~100 degrees
+const NO_OPEN_KEYS = []
+const CabinetFrontsContext = createContext({ enabled: false, openKeys: NO_OPEN_KEYS, toggle: () => {} })
+
+// Moves its children as one front: hinge 'left'/'right' swings around that
+// vertical edge, 'drawer' slides straight out. Animates only while moving and
+// asks for frames on demand, so a closed scene costs nothing extra.
+function OpeningFront({ frontKey, hinge, doorW, frontZ, slide, renderInside, children }) {
+  const { enabled, openKeys, toggle } = useContext(CabinetFrontsContext)
+  const isOpen = enabled && openKeys.includes(frontKey)
+  const group = useRef()
+  const progress = useRef(isOpen ? 1 : 0)
+  const [showInside, setShowInside] = useState(isOpen)
+  const invalidate = useThree(state => state.invalidate)
+  useEffect(() => {
+    if (isOpen) setShowInside(true)
+    invalidate()
+  }, [isOpen, invalidate])
+  const pivotX = hinge === 'left' ? -doorW / 2 : hinge === 'right' ? doorW / 2 : 0
+  const sign = hinge === 'left' ? -1 : hinge === 'right' ? 1 : 0
+  useFrame((state, dt) => {
+    const target = isOpen ? 1 : 0
+    const p = progress.current
+    if (p === target || !group.current) return
+    const next = Math.abs(target - p) < 0.002 ? target : p + (target - p) * Math.min(1, dt * 8)
+    progress.current = next
+    group.current.rotation.y = sign * DOOR_OPEN_ANGLE * next
+    group.current.position.z = frontZ + (hinge === 'drawer' ? slide * next : 0)
+    // Shadow maps update on demand only (ShadowMapOnDemand); keep them following the front.
+    state.gl.shadowMap.needsUpdate = true
+    if (next === target) { if (target === 0) setShowInside(false) } else state.invalidate()
+  })
+  const p0 = progress.current
+  const handlers = enabled && hinge ? {
+    onClick: (e) => { e.stopPropagation(); if (e.delta > 5) return; toggle(frontKey) },
+    onPointerOver: (e) => { e.stopPropagation(); document.body.style.cursor = 'pointer' },
+    onPointerOut: () => { document.body.style.cursor = '' },
+  } : {}
+  return (
+    <group ref={group} position={[pivotX, 0, frontZ + (hinge === 'drawer' ? slide * p0 : 0)]}
+      rotation={[0, sign * DOOR_OPEN_ANGLE * p0, 0]} {...handlers}>
+      <group position={[-pivotX, 0, -frontZ]}>
+        {children}
+        {showInside && renderInside && renderInside()}
+      </group>
+    </group>
+  )
+}
+
+function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, matProps, doorStyle, golaHex, golaColor, handlePosition, isWallCabinet, drawerIndex = 0, hideHandle = false, frontKey = null, hinge = null }) {
   const GAP = 0.002
   const PROUD = 0.020
   const DOOR_T = 0.019
@@ -461,12 +523,29 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
   // Each drawer slice shifts into a different part of the texture so grain reads as continuous.
   const offV  = drawerIndex * rV
 
-  return (
-    <group position={[x, y, 0]}>
-      <mesh position={[0, 0, D / 2 + 0.001]}>
-        <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
-        <meshStandardMaterial color="#111111" roughness={1} />
-      </mesh>
+  const { enabled: openMode, openKeys } = useContext(CabinetFrontsContext)
+  const isOpen = openMode && frontKey != null && openKeys.includes(frontKey)
+  const canOpen = openMode && frontKey != null && hinge != null
+  // A drawer front pulls a plain box out with it (12mm sides, back and bottom).
+  const renderDrawerBox = hinge === 'drawer' ? () => {
+    const BT = 0.012
+    const boxW = Math.max(0.05, panelW - 0.06)
+    const boxH = Math.max(0.05, Math.min(panelH * 0.7, 0.25))
+    const boxD = Math.max(0.1, D - 0.06)
+    const zc = frontZ - DOOR_T - boxD / 2
+    const yc = -panelH / 2 + 0.03 + boxH / 2
+    const mat = <meshStandardMaterial color="#d9d4cc" roughness={0.7} />
+    return (
+      <group>
+        <mesh position={[-boxW / 2 + BT / 2, yc, zc]}><boxGeometry args={[BT, boxH, boxD]} />{mat}</mesh>
+        <mesh position={[boxW / 2 - BT / 2, yc, zc]}><boxGeometry args={[BT, boxH, boxD]} />{mat}</mesh>
+        <mesh position={[0, yc, zc - boxD / 2 + BT / 2]}><boxGeometry args={[boxW - 2 * BT, boxH, BT]} />{mat}</mesh>
+        <mesh position={[0, yc - boxH / 2 + BT / 2, zc]}><boxGeometry args={[boxW - 2 * BT, BT, boxD]} />{mat}</mesh>
+      </group>
+    )
+  } : null
+
+  const front = (<>
       {texEntry ? (
         <PhotoTexturedBox
           args={[panelW, panelH, DOOR_T]}
@@ -513,6 +592,22 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
           <meshStandardMaterial color="#111" roughness={1} />
         </mesh>
       )}
+  </>)
+
+  return (
+    <group position={[x, y, 0]}>
+      {!isOpen && (
+        <mesh position={[0, 0, D / 2 + 0.001]}>
+          <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
+          <meshStandardMaterial color="#111111" roughness={1} />
+        </mesh>
+      )}
+      {canOpen ? (
+        <OpeningFront frontKey={frontKey} hinge={hinge} doorW={doorW} frontZ={frontZ}
+          slide={D * 0.65} renderInside={renderDrawerBox}>
+          {front}
+        </OpeningFront>
+      ) : front}
     </group>
   )
 }
@@ -745,6 +840,13 @@ function CDrawerChannel({ W, D, y, golaHex }) {
   )
 }
 
+// Doors hang in pairs: the left one of each pair hinges on its left edge, the
+// right one on its right edge; a single door hinges on the left.
+function doorHinge(i, count) {
+  if (count <= 1) return 'left'
+  return i % 2 === 0 ? 'left' : 'right'
+}
+
 function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left' }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
@@ -782,6 +884,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
               golaHex={golaHex} golaColor={golaColor}
               handlePosition={handlePosition}
               isWallCabinet={isWallCabinet}
+              frontKey={`zd-${i}-${k}`} hinge={doorHinge(k, zoneDoorCount)}
             />
           )
         }
@@ -796,6 +899,7 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
             handlePosition="center"
             isWallCabinet={isWallCabinet}
             drawerIndex={drawerIdx}
+            frontKey={`zd-${i}`} hinge="drawer"
           />
         )
         drawerIdx++
@@ -818,7 +922,8 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
           matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
-          handlePosition="top" isWallCabinet={isWallCabinet} />
+          handlePosition="top" isWallCabinet={isWallCabinet}
+          frontKey={`lo-${i}`} hinge={doorHinge(i, numDoors)} />
       )
       doors.push(
         <DoorPanel key={`up-${i}`} x={xOff} y={yChan + upperH / 2} D={D}
@@ -826,7 +931,8 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
           matProps={matProps} doorStyle={doorStyle}
           golaHex={golaHex} golaColor={golaColor}
-          handlePosition="bottom" isWallCabinet={isWallCabinet} drawerIndex={i} />
+          handlePosition="bottom" isWallCabinet={isWallCabinet} drawerIndex={i}
+          frontKey={`up-${i}`} hinge={doorHinge(i, numDoors)} />
       )
     }
   } else {
@@ -844,6 +950,9 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
           golaHex={golaHex} golaColor={golaColor}
           handlePosition={handlePosition || 'bottom'}
           isWallCabinet={isWallCabinet}
+          frontKey={`d-${i}`}
+          // A blind door hinges on the stile beside the blind panel.
+          hinge={isBlind ? (blindSide === 'left' ? 'left' : 'right') : doorHinge(i, numDoors)}
         />
       )
     }
@@ -1904,7 +2013,7 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
 // `cab` keeps a stable object reference for every cabinet except the one
 // being edited (state updates use `cabinets.map(c => c.id === id ? {...} : c)`),
 // so memoizing here turns an O(N) rebuild into O(1) per edit.
-const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {}, roomHeightMm = 2800 }) {
+const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThickness = 30, textureMap = {}, roomHeightMm = 2800, openMode = false, openKeys = NO_OPEN_KEYS, onToggleFront = null }) {
   const W = cab.width / 1000
   const H = cab.height / 1000
   const D = cab.depth / 1000
@@ -1969,7 +2078,19 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const boxMatProps = useFrontForBox ? getMaterialProps(frontMaterial) : carcassMatProps
   const boxTexEntry = useFrontForBox && cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] || null : null
 
+  const cabId = cab.id
+  const frontsCtx = useMemo(() => ({
+    enabled: openMode,
+    openKeys,
+    toggle: (key) => onToggleFront && onToggleFront(cabId, key),
+  }), [openMode, openKeys, onToggleFront, cabId])
+  // An opened cabinet shows its real panels (sides, bottom, top or rails, back,
+  // shelves) instead of the solid block every closed cabinet is drawn as.
+  const showInterior = openMode && openKeys.length > 0
+  const isSinkCabinet = cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'
+
   return (
+    <CabinetFrontsContext.Provider value={frontsCtx}>
     <group position={[x + W/2, (showLegs ? legH : 0) + elevation/1000, z + D/2]} rotation={[0, -rot, 0]}>
       {showLegs && [[-W/2+0.025,-D/2+0.025],[W/2-0.025,-D/2+0.025],[-W/2+0.025,D/2-0.025],[W/2-0.025,D/2-0.025]].map(([lx,lz],i) => (
         <mesh key={i} position={[lx,-legH/2,lz]}>
@@ -2011,10 +2132,21 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           shelfCount={shelfCountFor(cab)}
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf}
-          backInset={cab.subtype === 'Open Shelf' ? OPEN_BOX_BACK_GAP / 1000 : 0} />
+          backInset={hasBoxBoardBack(cab) ? OPEN_BOX_BACK_GAP / 1000 : 0} />
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
-      ) : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
+      ) : showInterior && !isShelf ? (() => {
+        const golaWallLift = isWall && doorStyle === 'Gola' ? GOLA_CH : 0
+        return (
+          <group position={[0, golaWallLift, 0]}>
+            <HollowGlassCarcass W={W} H={H - golaWallLift} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps}
+              shelfCount={isDrawers ? 0 : shelfCountFor(cab)}
+              isGola={doorStyle === 'Gola' && isBase}
+              topRails={isBase}
+              openFront={isSinkCabinet} />
+          </group>
+        )
+      })() : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
         <GolaCarcass W={W} H={H} D={D} color={carcassColor} matProps={carcassMatProps} isDrawers={isDrawers} baseHeight={cab.baseHeight} zones={zonePreset?.zones} isTall={isTall}
           isSink={cab.subtype === 'Sink' || cab.subtype === 'Single Sink' || cab.subtype === 'Double Sink'} />
       ) : (() => {
@@ -2150,6 +2282,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         </group>
       )}
     </group>
+    </CabinetFrontsContext.Provider>
   )
 })
 
@@ -2593,6 +2726,29 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
   // pressure); without this the canvas just goes blank with no explanation.
   const [contextLost, setContextLost] = useState(false)
 
+  // Open fronts mode: [{ id, keys }] per open cabinet, oldest first. Opening a
+  // front on a 4th cabinet closes the one opened first.
+  const [openMode, setOpenMode] = useState(false)
+  const [openCabs, setOpenCabs] = useState([])
+  const toggleFront = useCallback((cabId, key) => {
+    setOpenCabs(prev => {
+      const entry = prev.find(e => e.id === cabId)
+      if (!entry) return [...prev, { id: cabId, keys: [key] }].slice(-MAX_OPEN_CABINETS)
+      const keys = entry.keys.includes(key) ? entry.keys.filter(k => k !== key) : [...entry.keys, key]
+      return keys.length === 0
+        ? prev.filter(e => e.id !== cabId)
+        : prev.map(e => (e.id === cabId ? { ...e, keys } : e))
+    })
+  }, [])
+  const toggleOpenMode = () => {
+    setOpenMode(on => !on)
+    setOpenCabs([])
+    document.body.style.cursor = ''
+  }
+  // Open fronts mode renders at 1x resolution without ambient occlusion, so the
+  // extra panels of opened cabinets don't slow the view down.
+  const lowRes = LOW_POWER || openMode
+
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd',position:'relative'}}>
       {contextLost && (
@@ -2604,8 +2760,21 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
           </button>
         </div>
       )}
+      <button type="button" onClick={toggleOpenMode} aria-pressed={openMode}
+        style={{position:'absolute',top:12,right:12,zIndex:2,padding:'8px 14px',borderRadius:8,
+          border: openMode ? '1px solid #C8902A' : '1px solid #ccc',
+          background: openMode ? '#C8902A' : 'rgba(255,255,255,0.92)', color: openMode ? '#fff' : '#1A1A1A',
+          fontWeight:600,fontSize:13,cursor:'pointer',fontFamily:'Inter, sans-serif'}}>
+        {openMode ? t('kitchenPlannerModule.openFrontsOn') : t('kitchenPlannerModule.openFronts')}
+      </button>
+      {openMode && (
+        <div style={{position:'absolute',top:54,right:12,zIndex:2,padding:'6px 10px',borderRadius:8,
+          background:'rgba(255,255,255,0.92)',color:'#555',fontSize:12,maxWidth:240,fontFamily:'Inter, sans-serif'}}>
+          {t('kitchenPlannerModule.openFrontsHint', { count: MAX_OPEN_CABINETS })}
+        </div>
+      )}
       <Canvas shadows
-        dpr={LOW_POWER ? [1, 1.5] : [1, 2]}
+        dpr={openMode ? 1 : LOW_POWER ? [1, 1.5] : [1, 2]}
         onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setContextLost(true) })}
         frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
@@ -2660,7 +2829,8 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
             const hit = findOverlappingStairProfile(cab, stairs)
             if (hit) return <SteppedTallCabinet key={cab.id} cab={cab} profile={hit.profile} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>
           }
-          return <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap} roomHeightMm={ROOM_H * 1000}/>
+          return <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap} roomHeightMm={ROOM_H * 1000}
+            openMode={openMode} openKeys={openCabs.find(e => e.id === cab.id)?.keys || NO_OPEN_KEYS} onToggleFront={toggleFront}/>
         })}
         {backsplashSegments.map(seg => (
           <Backsplash3D key={seg.id} seg={seg} cabinets={cabinets} countertopMat={countertopMat}
@@ -2686,7 +2856,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         <Environment files="/lebombo_1k.hdr" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
-        {LOW_POWER ? (
+        {lowRes ? (
           <EffectComposer multisampling={0}>
             <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
           </EffectComposer>

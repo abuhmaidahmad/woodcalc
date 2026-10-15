@@ -81,9 +81,9 @@ export function glassShelfSpec(c) {
     qty,
     width: Math.round(c.width - 40),
     // Shelves are 10mm shallower than the space in front of the back: an open
-    // box's full-depth bottom less the gap and its 18mm board back, else the
-    // glass-door cabinet's top/bottom depth.
-    depth: Math.round(!isGlassDoorCabinet(c) ? c.depth - OPEN_BOX_BACK_GAP - T - 10
+    // box's (or front-material glass-door cabinet's) full-depth bottom less the
+    // gap and its 18mm board back, else the glass-door cabinet's top/bottom depth.
+    depth: Math.round(hasBoxBoardBack(c) ? c.depth - OPEN_BOX_BACK_GAP - T - 10
       : c.category === 'wall' ? c.depth - 20 - 10
       : c.depth - 30 - companyBack.thickness - 10),
     thickness: companyGlass.thickness,
@@ -445,6 +445,12 @@ export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPane
 
 export const isOpenBox = (c) => c?.subtype === 'Open Shelf';
 
+// A glass-door cabinet whose Box Color is the front material (gloss, laminate...)
+// has no matching 3mm back, so it's built like an open box -- full-depth top and
+// bottom, 18mm box-board back -- just with its glass doors on.
+export const hasBoxBoardBack = (c) => isOpenBox(c)
+  || (isGlassDoorCabinet(c) && c.openBoxMaterialSource === 'front');
+
 // Which board a carcass panel is cut from: 'back' (the HDF back, its own stock
 // material), 'front' (fixed front panels, or an open box whose Box Color is the
 // front material) or 'carcass'.
@@ -536,6 +542,7 @@ export function calculateCabinet(config) {
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
+  const boxBoardBack = hasBoxBoardBack(config);
   // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
   const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
@@ -572,8 +579,8 @@ export function calculateCabinet(config) {
   const bottomD = isWallCab ? round2(D - 20) : round2(D - 30 - backT);
   const bottomFormula = isWallCab ? '(D - 20)' : `(D - 30 - ${backT})`;
   const panels = [];
-  if (openBox) {
-    panels.push(...openBoxPanels(W, H, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
+  if (boxBoardBack) {
+    panels.push(...openBoxPanels(W, carcassH, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
   } else {
   panels.push({
     name: 'Side panel',
@@ -879,7 +886,7 @@ export function calculateCabinet(config) {
   const hardware = {};
   hardware.legs = 4;
   // A sink's bottom rail takes two more confirmats.
-  hardware.confirmats = isSink && !openBox ? 12 : 10;
+  hardware.confirmats = isSink && !boxBoardBack ? 12 : 10;
   // The blind panel and its doubled stile take 16 x 30mm wood screws (12 + 4),
   // counted as confirmats for now.
   if (hasBlindPanel) hardware.confirmats += 16;
@@ -888,9 +895,9 @@ export function calculateCabinet(config) {
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
-  // No screwed-on HDF back: an open box's back is board fixed between the panels,
-  // and a sink cabinet has no back.
-  hardware.back_screws = (openBox || isSink) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
+  // No screwed-on HDF back: an open box's (or box-board glass-door cabinet's)
+  // back is board fixed between the panels, and a sink cabinet has no back.
+  hardware.back_screws = (boxBoardBack || isSink) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
