@@ -454,7 +454,9 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
 // open cabinet swaps its solid carcass block for real panels, so the extra
 // geometry stays bounded however big the design is.
 const MAX_OPEN_CABINETS = 3
-const DOOR_OPEN_ANGLE = 1.75 // ~100 degrees
+// 90 degrees: two doors hinged on the same joint stand side by side instead of
+// crossing into each other.
+const DOOR_OPEN_ANGLE = Math.PI / 2
 const NO_OPEN_KEYS = []
 const CabinetFrontsContext = createContext({ enabled: false, openKeys: NO_OPEN_KEYS, toggle: () => {} })
 
