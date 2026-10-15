@@ -1378,7 +1378,11 @@
     "stairSupportSide": "Support Side (wall)",
     "stairSupportSideOuterAuto": "Support side is the outer edge of the turn (auto)",
     "stairShowSupportPlate": "Show steel support plate",
-    "stairWarnNoWallSupport": "Floating stair's support side isn't against a wall"
+    "stairWarnNoWallSupport": "Floating stair's support side isn't against a wall",
+    "nicheLowerDoorH": "Lower door height (mm)",
+    "nicheUpperDoorH": "Upper door height (mm)",
+    "nicheOpening": "Opening: {{mm}} mm",
+    "nicheNoOpening": "Doors leave no opening — reduce a door height"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",

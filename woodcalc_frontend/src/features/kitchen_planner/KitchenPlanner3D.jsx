@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -852,7 +852,7 @@ function doorHinge(i, count, singleSide = 'left') {
   return i % 2 === 0 ? 'left' : 'right'
 }
 
-function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left', hingeSide = 'left' }) {
+function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, numDoors, isDrawers, zonePreset, handlePosition, golaColor, isWallCabinet, isTall, isBroom, splitEnabled, baseHeight, isBlind, blindSide = 'left', hingeSide = 'left', niche = null }) {
   const matProps = getMaterialProps(frontMaterial)
   const golaHex = GOLA_COLORS[golaColor] || GOLA_COLORS.black
   const effectiveDoorStyle = isWallCabinet ? 'Push' : doorStyle
@@ -909,6 +909,26 @@ function CabinetDoors({ W, H, D, doorStyle, frontColor, frontMaterial, frontMate
         )
         drawerIdx++
       }
+    })
+  } else if (niche) {
+    // Appliance Niche (formulaEngine.js nicheDoorHeights): a door on the carcass
+    // bottom and one ending 3mm under the top, the opening between them. Each
+    // slot gets DoorPanel's 2mm reveal back so the panels cut to the BOM sizes.
+    const lowerH = niche.lower / 1000 + 0.004
+    const upperH = niche.upper / 1000 + 0.004
+    const upperTop = H - 0.003 + 0.002
+    ;[['lo', -H / 2 - 0.002 + lowerH / 2, lowerH, 'top'], ['up', -H / 2 + upperTop - upperH / 2, upperH, 'bottom']].forEach(([key, y, h, pull], i) => {
+      doors.push(
+        <DoorPanel key={key} x={0} y={y} D={D}
+          doorW={W} doorH={h}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={frontMaterialCode} textureMap={textureMap}
+          matProps={matProps} doorStyle={doorStyle}
+          golaHex={golaHex} golaColor={golaColor}
+          handlePosition={pull} isWallCabinet={isWallCabinet} drawerIndex={i}
+          // Gola has no channel here: the opening itself is the finger pull.
+          hideHandle={doorStyle === 'Gola'}
+          frontKey={key} hinge={doorHinge(0, 1, hingeSide)} />
+      )
     })
   } else if (isTall && splitEnabled) {
     // Tall units: lower + upper door split at base-cabinet-top level (all styles). Excludes broom/linen units, which use one continuous door.
@@ -2061,6 +2081,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   // Hoisted out of SidePanelSlab so the same gap height can also size PanelSkirtingFill.
   const panelLift = (cab.elevation || 0) > 0 ? 0 : legH
   const isGlass   = cab.subtype === 'Glass Door'
+  const isNiche   = cab.subtype === APPLIANCE_NICHE
+  const niche     = isNiche ? nicheDoorHeights(cab) : null
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
     (cab.subtype === 'Oven Tower' || cab.subtype === 'Double Oven') ? 'ovenTower' :
@@ -2148,6 +2170,33 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf}
           backInset={hasBoxBoardBack(cab) ? OPEN_BOX_BACK_GAP / 1000 : 0} />
+      ) : isNiche ? (
+        // Open carcass so the appliance opening shows its real sides and back; the
+        // doors hide the rest. Two fixed panels close the opening flush with the
+        // door edges, front edge banded in front color (formulaEngine.js isNiche).
+        // Adjustable shelves sit evenly spaced in each section behind the doors
+        // (nicheShelfSplit), never across the opening.
+        <>
+          {(() => {
+            const sp = nicheShelfSplit(cab)
+            const sections = [[0.018, sp.clearLower / 1000, sp.lower], [H - 0.018 - sp.clearUpper / 1000, sp.clearUpper / 1000, sp.upper]]
+            return sections.flatMap(([y0, clear, n], s) => Array.from({ length: n }, (_, k) => {
+              const gap = (clear - n * 0.018) / (n + 1)
+              const y = y0 + gap * (k + 1) + 0.018 * k + 0.009
+              return <SmartBox key={`ns-${s}-${k}`} args={[W - 0.040, 0.018, D - 0.046]} position={[0, y, 0.004]} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={0.5} castShadow receiveShadow />
+            }))
+          })()}
+          <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} shelfCount={0} />
+          {[niche.lower / 1000 - 0.009, H - 0.003 - niche.upper / 1000 + 0.009].map((y, i) => (
+            <group key={i} position={[0, y, 0.005]}>
+              <SmartBox args={[W - 0.036, 0.018, D - 0.028]} position={[0, 0, 0]} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={0.5} castShadow receiveShadow />
+              <mesh position={[0, 0, (D - 0.028) / 2 + 0.0003]}>
+                <boxGeometry args={[W - 0.036, 0.018, 0.0006]} />
+                <meshPhysicalMaterial color={frontColor} roughness={0.5} envMapIntensity={0.5} />
+              </mesh>
+            </group>
+          ))}
+        </>
       ) : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
       ) : showInterior && !isShelf ? (() => {
@@ -2294,6 +2343,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               isBlind={isBlindCab}
               blindSide={cab.blindSide || 'left'}
               hingeSide={cab.hingeSide || 'left'}
+              niche={niche}
             />
           )}
         </group>

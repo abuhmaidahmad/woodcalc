@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems } from './formulaEngine'
+import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, resolveSteppedCabinetProfile, stairFillerPanels, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, edgeBandingLengthMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -2166,7 +2166,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {isShelfEligible(selCab) && selCab.subtype !== 'Blind' && selCab.subtype !== 'Open Shelf' && (() => {
+                {isShelfEligible(selCab) && !['Blind', 'Open Shelf', APPLIANCE_NICHE].includes(selCab.subtype) && (() => {
                   // Open Shelf is an open-box cabinet with no door at all (isShelfEligible
                   // only gates the shelf-count control above, which Open Shelf legitimately
                   // needs) -- splitting a door count it doesn't have would be meaningless.
@@ -2186,6 +2186,21 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                               fontWeight: 700, fontSize: 13, cursor: 'pointer',
                             }}>{n}</button>
                         ))}
+                      </div>
+                    </div>
+                  )
+                })()}
+                {selCab.subtype === APPLIANCE_NICHE && (() => {
+                  // Both door heights are typed in; the opening is what's left between them.
+                  const { lower, upper, opening } = nicheDoorHeights(selCab)
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.nicheLowerDoorH')}</div>
+                      <DimInput value={lower} onCommit={v => updateCab('nicheLowerDoorH', v)} style={s.propInput} />
+                      <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.nicheUpperDoorH')}</div>
+                      <DimInput value={upper} onCommit={v => updateCab('nicheUpperDoorH', v)} style={s.propInput} />
+                      <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: opening > 0 ? '#F5F0E8' : '#FEF2F2', fontSize: 12, fontWeight: 700, color: opening > 0 ? DARK : '#E74C3C' }}>
+                        {opening > 0 ? t('kitchenPlannerModule.nicheOpening', { mm: opening }) : t('kitchenPlannerModule.nicheNoOpening')}
                       </div>
                     </div>
                   )

@@ -1378,7 +1378,11 @@
     "stairSupportSide": "جانب الدعم (الحائط)",
     "stairSupportSideOuterAuto": "جانب الدعم هو الحافة الخارجية للمنعطف (تلقائي)",
     "stairShowSupportPlate": "إظهار لوح الدعم الفولاذي",
-    "stairWarnNoWallSupport": "جانب الدعم للسلم المعلّق ليس ملاصقًا لحائط"
+    "stairWarnNoWallSupport": "جانب الدعم للسلم المعلّق ليس ملاصقًا لحائط",
+    "nicheLowerDoorH": "ارتفاع الباب السفلي (مم)",
+    "nicheUpperDoorH": "ارتفاع الباب العلوي (مم)",
+    "nicheOpening": "الفتحة: {{mm}} مم",
+    "nicheNoOpening": "لا تبقى فتحة بين البابين — قلل ارتفاع أحد البابين"
   },
   "roomCanvas": {
     "lengthAngleTitle": "الطول (مم) — Tab للزاوية، Enter للتأكيد",

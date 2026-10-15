@@ -61,13 +61,48 @@ export const hasGlassShelves = (c) => isOpenBox(c) || isGlassDoorCabinet(c);
 const SHELF_STD_GAP = 300;
 const SHELF_MIN_GAP = 250;
 const shelvesForGap = (c, gap) => Math.max(0, Math.floor((c.height - 36 - gap) / (gap + T)));
-export const maxShelvesFor = (c) => (isShelfEligible(c) ? shelvesForGap(c, SHELF_MIN_GAP) : 0);
+export const maxShelvesFor = (c) => {
+  if (!isShelfEligible(c)) return 0;
+  if (c.subtype !== APPLIANCE_NICHE) return shelvesForGap(c, SHELF_MIN_GAP);
+  // An Appliance Niche's shelves only go behind its doors, never across the
+  // opening, so each section takes its own share; never below the standard.
+  const fit = nicheSectionsClearH(c).reduce((n, h) => n + shelvesForGap({ height: h + 36 }, SHELF_MIN_GAP), 0);
+  return Math.max(fit, nicheStandardShelves(c));
+};
+
+// An Appliance Niche gets 4 shelves at 2400 tall, one fewer for every 300mm shorter.
+function nicheStandardShelves(c) {
+  const H = Number(c.height) || 0;
+  return Math.max(0, 4 - Math.max(0, Math.ceil((2400 - H) / SHELF_STD_GAP)));
+}
+
+// Clear height (mm) inside an Appliance Niche's lower and upper sections: from
+// the bottom panel up to the lower fixed panel, and from the upper fixed panel
+// up to the top panel (both fixed panels sit flush with the door edges).
+function nicheSectionsClearH(c) {
+  const { lower, upper } = nicheDoorHeights(c);
+  return [Math.max(0, lower - 2 * T), Math.max(0, upper + 3 - 2 * T)];
+}
+
+// How an Appliance Niche's shelves split between its lower and upper sections:
+// each shelf goes to whichever section then keeps the bigger gap between shelves.
+export function nicheShelfSplit(c) {
+  const clear = nicheSectionsClearH(c);
+  const counts = [0, 0];
+  const gapWith = (i, n) => (clear[i] - n * T) / (n + 1);
+  for (let k = 0; k < shelfCountFor(c); k++) {
+    const i = gapWith(0, counts[0] + 1) >= gapWith(1, counts[1] + 1) ? 0 : 1;
+    counts[i]++;
+  }
+  return { lower: counts[0], upper: counts[1], clearLower: clear[0], clearUpper: clear[1] };
+}
 
 // Shelves a cabinet gets: its own count, else the standard (4 in a tall cabinet,
 // otherwise as many as the 300mm gap allows), never more than fit at 250mm.
 export function shelfCountFor(c) {
   if (!isShelfEligible(c)) return 0;
-  const standard = c.category === 'tall' ? 4 : shelvesForGap(c, SHELF_STD_GAP);
+  const standard = c.subtype === APPLIANCE_NICHE ? nicheStandardShelves(c)
+    : c.category === 'tall' ? 4 : shelvesForGap(c, SHELF_STD_GAP);
   return Math.min(c.shelfCount ?? c.glassShelfCount ?? standard, maxShelvesFor(c));
 }
 
@@ -180,6 +215,29 @@ export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Fr
 // height like a single Oven Tower) so the stacked pair stays within reach and leaves
 // a usable door above. Shared with OvenTowerAppliance in KitchenPlanner3D.jsx.
 export const DOUBLE_OVEN_BOTTOM = 450;
+// A tall unit with a door below and a door above an open niche for a free-standing
+// appliance (e.g. a water dispenser). The user types both door heights; the
+// opening is whatever is left between them (nicheDoorHeights).
+export const APPLIANCE_NICHE = 'Appliance Niche';
+const NICHE_DEFAULT_OPENING = 600;
+
+// Door heights (mm) of an Appliance Niche and the opening left between them. The
+// lower door sits on the carcass bottom, the upper door stops 3mm under the top
+// (like a tall unit's upper door); the niche's fixed panels sit flush with the
+// two door edges, so the opening is the clear height between them. Unset, the
+// lower door matches the base run's doors and the opening defaults to 600.
+export function nicheDoorHeights(c) {
+  const H = Number(c.height);
+  const bh = Number(c.baseHeight) || 800;
+  const lower = Number(c.nicheLowerDoorH) > 0
+    ? Number(c.nicheLowerDoorH)
+    : bh - (c.doorStyle === 'Gola' ? GOLA_FRONT_REDUCTION_MM : 3);
+  const upper = Number(c.nicheUpperDoorH) > 0
+    ? Number(c.nicheUpperDoorH)
+    : Math.max(0, H - 3 - lower - NICHE_DEFAULT_OPENING);
+  return { lower: round2(lower), upper: round2(upper), opening: round2(H - 3 - lower - upper) };
+}
+
 export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
 
 export function isCarcassCabinet(c) {
@@ -243,6 +301,8 @@ export function cabinetConfig(c) {
     drawerBoxConstruction: c.drawerBoxConstruction,
     baseHeight: c.baseHeight,
     openBoxMaterialSource: c.openBoxMaterialSource,
+    nicheLowerDoorH: c.nicheLowerDoorH,
+    nicheUpperDoorH: c.nicheUpperDoorH,
   };
 }
 
@@ -564,6 +624,7 @@ export function calculateCabinet(config) {
   const doorStyle = (config.doorStyle || 'Handle');
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
+  const isNiche = config.subtype === APPLIANCE_NICHE;
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
   const boxBoardBack = hasBoxBoardBack(config);
@@ -647,6 +708,18 @@ export function calculateCabinet(config) {
         depth: bottomD,
         thickness: T,
         notes: `(W - 2T) × ${bottomFormula}, behind the door joint`,
+      });
+    }
+    // An Appliance Niche's opening is closed off top and bottom by two fixed
+    // panels, flush with the door edges either side of it.
+    if (isNiche) {
+      panels.push({
+        name: 'Fixed panel',
+        qty: 2,
+        width: bottomW,
+        depth: bottomD,
+        thickness: T,
+        notes: `(W - 2T) × ${bottomFormula}, top and bottom of the ${nicheDoorHeights(config).opening}mm opening`,
       });
     }
   } else {
@@ -757,7 +830,7 @@ export function calculateCabinet(config) {
   const defaultDoorCount = getDefaultDoorCount(W);
   const doorCount = isBlind ? 1 : (isHobOven || openBox) ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
-  const isTallSplit = !isOvenTower && config.cabinetType === 'tall' && doorCount > 1;
+  const isTallSplit = !isOvenTower && !isNiche && config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;
 
   const doors = [];
@@ -794,6 +867,17 @@ export function calculateCabinet(config) {
       width: round2(W - 3), height: upperH, style: doorStyle,
       hinges: getHingeCount(upperH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
       notes: `Door above ${label}`,
+    });
+  } else if (isNiche) {
+    // One door below and one above the appliance opening, both full width; the
+    // opening itself is the finger pull, like an oven tower's.
+    const { lower, upper, opening } = nicheDoorHeights(config);
+    [[lower, 'Door below'], [upper, 'Door above']].forEach(([h, where]) => {
+      doors.push({
+        width: round2(W - 3), height: h, style: doorStyle,
+        hinges: getHingeCount(h), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+        notes: `${where} ${opening}mm appliance opening`,
+      });
     });
   } else if (isDrawerCab) {
     // Handled entirely below via the zone-driven layout — no generic full-height
@@ -900,7 +984,7 @@ export function calculateCabinet(config) {
   const numGolaChannels = isDrawerCab
     ? zonesForGola.reduce((n, _, i) => n + (golaNeedsChannelAbove(zonesForGola, i) ? 1 : 0), 0)
     : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
-  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !openBox) ? {
+  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !isNiche && !openBox) ? {
     // Tall units have no top L-profile; their base-level channel is a C. Wall
     // units have none either -- the door overhanging the short carcass is the pull.
     L_meters: (config.cabinetType === 'tall' || isWallGola) ? 0 : round2(W / 1000 * 100) / 100,
@@ -916,6 +1000,7 @@ export function calculateCabinet(config) {
   if (hasBlindPanel) hardware.confirmats += 16;
   // A pantry's fixed panel takes two confirmats per side.
   if (hasPantryFixedPanel) hardware.confirmats += 4;
+  if (isNiche) hardware.confirmats += 8;
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
