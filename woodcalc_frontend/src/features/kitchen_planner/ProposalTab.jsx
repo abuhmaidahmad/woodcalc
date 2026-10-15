@@ -23,7 +23,6 @@ const DEFAULT_PRICES = {
   confirmat_pc:      0.10,  // per piece
   dowel_pc:          0.05,  // per piece
   back_screw_pc:     0.05,  // per piece
-  wood_screw_pc:     0.05,  // 30mm wood screw per piece
   handle_pc:         3.50,  // per handle
   soft_close_pc:     2.00,  // tip-on per piece
   machining_cab:    15.00,  // CNC machining per cabinet
@@ -280,16 +279,14 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const confirmCost  = parseFloat(((h.confirmats || 0) * prices.confirmat_pc).toFixed(3))
   const dowelCost    = parseFloat(((h.dowels || 0)     * prices.dowel_pc).toFixed(3))
   const screwCost    = parseFloat(((h.back_screws || 0)* prices.back_screw_pc).toFixed(3))
-  const woodScrewCost = parseFloat(((h.wood_screws_30 || 0) * (prices.wood_screw_pc ?? DEFAULT_PRICES.wood_screw_pc)).toFixed(3))
   const handleCost   = parseFloat(((h.handles || 0)    * prices.handle_pc).toFixed(3))
   const softCost     = parseFloat(((h.tip_on || 0)     * prices.soft_close_pc).toFixed(3))
-  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + woodScrewCost + handleCost + softCost
+  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + handleCost + softCost
 
   breakdown.push({ label: t('proposalTab.breakdownHinges'),      qty: (h.hinges || 0)     + ' ' + t('proposalTab.unitPcs'), unit: prices.hinge_pc,     cost: hingeCost })
   breakdown.push({ label: t('proposalTab.breakdownLegs'),        qty: (h.legs || 0)       + ' ' + t('proposalTab.unitPcs'), unit: prices.leg_pc,       cost: legCost })
   breakdown.push({ label: t('proposalTab.breakdownConfirmats'),  qty: (h.confirmats || 0) + ' ' + t('proposalTab.unitPcs'), unit: prices.confirmat_pc, cost: confirmCost })
   breakdown.push({ label: t('proposalTab.breakdownHandles'),     qty: (h.handles || 0)    + ' ' + t('proposalTab.unitPcs'), unit: prices.handle_pc,    cost: handleCost })
-  if (h.wood_screws_30) breakdown.push({ label: t('proposalTab.breakdownWoodScrews30'), qty: h.wood_screws_30 + ' ' + t('proposalTab.unitPcs'), unit: prices.wood_screw_pc ?? DEFAULT_PRICES.wood_screw_pc, cost: woodScrewCost })
 
   const machiningCost = prices.machining_cab
   const laborCost     = prices.labor_cab
@@ -483,7 +480,6 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.blumHinge')}          value={prices.hinge_pc}       onChange={v => updatePrice('hinge_pc', v)} />
           <PriceRow label={t('proposalTab.adjustableLeg')}      value={prices.leg_pc}         onChange={v => updatePrice('leg_pc', v)} />
           <PriceRow label={t('proposalTab.confirmat')}          value={prices.confirmat_pc}   onChange={v => updatePrice('confirmat_pc', v)} />
-          <PriceRow label={t('proposalTab.woodScrew30')}        value={prices.wood_screw_pc ?? DEFAULT_PRICES.wood_screw_pc} onChange={v => updatePrice('wood_screw_pc', v)} />
           <PriceRow label={t('proposalTab.dowel')}              value={prices.dowel_pc}       onChange={v => updatePrice('dowel_pc', v)} />
           <PriceRow label={t('proposalTab.handle')}             value={prices.handle_pc}      onChange={v => updatePrice('handle_pc', v)} />
           <PriceRow label={t('proposalTab.softCloseTipOn')}     value={prices.soft_close_pc}  onChange={v => updatePrice('soft_close_pc', v)} />

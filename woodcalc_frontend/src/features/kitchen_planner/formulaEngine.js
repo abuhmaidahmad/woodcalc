@@ -838,14 +838,15 @@ export function calculateCabinet(config) {
   hardware.legs = 4;
   // A sink's bottom rail takes two more confirmats.
   hardware.confirmats = isSink && !openBox ? 12 : 10;
+  // The blind panel and its doubled stile take 16 x 30mm wood screws (12 + 4),
+  // counted as confirmats for now.
+  if (hasBlindPanel) hardware.confirmats += 16;
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;
   // No screwed-on HDF back: an open box's back is board fixed between the panels,
   // and a sink cabinet has no back.
   hardware.back_screws = (openBox || isSink) ? 0 : Math.ceil((W - 2 * T) / 100) * 2;
-  // 30mm wood screws: 4 join the doubled blind stile, 12 fix the blind panel.
-  hardware.wood_screws_30 = hasBlindPanel ? 16 : 0;
   hardware.shelf_pins = shelves * 4;
   const numHandles = doors.filter(d => d.handle).length + (doorStyle === 'Handle' ? drawerCount : 0);
   hardware.handles = numHandles;
