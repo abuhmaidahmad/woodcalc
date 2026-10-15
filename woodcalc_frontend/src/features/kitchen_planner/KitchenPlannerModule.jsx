@@ -2025,7 +2025,13 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             ) : selCab ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <div style={s.propTitle}>{selCab.label}</div>
+                  <div style={{ ...s.propTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {/* Same number and colour as the cabinet's position badge on the plan */}
+                    <span style={{ minWidth: 22, height: 22, padding: '0 5px', boxSizing: 'border-box', borderRadius: 11, background: isCarcassCabinet(selCab) ? '#C8902A' : '#888', color: '#fff', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      {cabinets.indexOf(selCab) + 1}
+                    </span>
+                    {selCab.label}
+                  </div>
                   <button onClick={() => { setCabinets(p => p.filter(c => c.id !== selected)); setSelected(null) }}
                     style={{ padding: '4px 8px', background: '#FEF2F2', color: '#E74C3C', border: '1.5px solid #FECACA', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
                     {t('kitchenPlannerModule.delete')}
