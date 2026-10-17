@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, glassShelfSpec, isGlassMaterial } from '../kitchen_planner/formulaEngine'
+import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
 import { useCompanyStandards } from '../../api/companySettings'
@@ -14,8 +14,9 @@ function emptyPart() {
 // Splits the room's BOM into one group per board material -- a kitchen with two
 // front finishes (e.g. a high-gloss and a laminate) is cut from two different
 // boards, so each gets its own cutting job and sheet layout. 'all' gathers the
-// carcass, fronts, backs and glass together, so a board used for both open
-// boxes and doors is packed (and its sheets counted) once.
+// carcass, fronts and backs together, so a board used for both open boxes and
+// doors is packed (and its sheets counted) once. Glass shelves aren't cut here:
+// they're made to size by the glass supplier.
 export function bomPanelsToGroups(cabinets, group) {
   const groups = new Map()
   const wants = kind => group === 'all' || group === kind
@@ -25,7 +26,7 @@ export function bomPanelsToGroups(cabinets, group) {
     // still the same board as "wh.pw.18".
     sku = typeof sku === 'string' ? sku.trim() : sku
     // A back panel with no stock material is grouped by its thickness, so 3mm
-    // and 8mm backs never end up on the same sheet -- nor a 4mm back with 4mm glass.
+    // and 8mm backs never end up on the same sheet.
     const groupKey = sku || `${kind}|${thickness}`
     if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, thickness: sku ? '' : String(thickness || ''), merged: new Map() })
     const merged = groups.get(groupKey).merged
@@ -60,11 +61,6 @@ export function bomPanelsToGroups(cabinets, group) {
         if (!isBackPanel(p)) return
         addPart('back', p.materialCode, p.name, p.width, p.depth, false, p.qty, p.thickness)
       })
-    }
-
-    if (wants('glass')) {
-      const glass = glassShelfSpec(cab)
-      if (glass) addPart('glass', glass.materialCode, 'Glass shelf', glass.width, glass.depth, false, glass.qty, glass.thickness)
     }
 
     if (wants('front')) {
@@ -111,7 +107,7 @@ function CuttingOptimizerModule() {
   const navigate = useNavigate()
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
-  // Loads the company back panel + glass standards the BOM import depends on.
+  // Loads the company back panel standard the BOM import depends on.
   useCompanyStandards()
   const token = localStorage.getItem('access_token')
   const authHeaders = { Authorization: `Bearer ${token}` }
@@ -156,7 +152,7 @@ function CuttingOptimizerModule() {
   // a stock sheet set up (e.g. back-panel MDF) or is selected right now.
   const sheetMaterialIds = new Set(stockSheets.map(s => String(s.material)))
   const materialOptions = materials.filter(m =>
-    m.material_type === 'front' || m.material_type === 'carcass' || isBackPanelMaterial(m) || isGlassMaterial(m) || sheetMaterialIds.has(String(m.id))
+    m.material_type === 'front' || m.material_type === 'carcass' || isBackPanelMaterial(m) || sheetMaterialIds.has(String(m.id))
     || groups.some(g => String(groupMaterial(g)?.id) === String(m.id)))
 
   function materialOptionLabel(m) {
@@ -497,9 +493,6 @@ function CuttingOptimizerModule() {
         </button>
         <button onClick={() => loadFromBOM('back')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
           {t('cuttingOptimizer.loadBackPanels')}
-        </button>
-        <button onClick={() => loadFromBOM('glass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16, marginInlineStart: 8 }}>
-          {t('cuttingOptimizer.loadGlassShelves')}
         </button>
 
         <div>

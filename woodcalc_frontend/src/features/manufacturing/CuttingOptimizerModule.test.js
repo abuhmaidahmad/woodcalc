@@ -31,4 +31,10 @@ describe('bomPanelsToGroups', () => {
     expect(hg.parts.some(p => p.label === 'Door')).toBe(true)
     expect(hg.parts.some(p => p.label !== 'Door')).toBe(true)
   })
+
+  it('leaves glass shelves out -- the glass supplier makes them to size', () => {
+    const openBox = { ...cab('HG623', 600), category: 'wall', subtype: 'Open Shelf', height: 720, depth: 320 }
+    const groups = bomPanelsToGroups([openBox], 'all')
+    expect(groups.flatMap(g => g.parts).some(p => /glass/i.test(p.label))).toBe(false)
+  })
 })
