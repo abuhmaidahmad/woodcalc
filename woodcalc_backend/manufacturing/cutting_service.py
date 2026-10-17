@@ -186,9 +186,20 @@ def optimize_job(job_id):
         )
 
     grain_dir = sheet_def.grain_direction
+    # The sheet's grain is fixed when it's first created; a material ticked as
+    # grained later must not keep cutting from a grainless sheet.
+    if grain_dir == 'none' and job.material.has_grain:
+        grain_dir = 'length'
+    # pack_parts keeps a grain-locked part's width along the sheet's width, so
+    # the sheet is turned until its grain runs along that axis. 'length' is the
+    # board's long side whichever field holds it (2070x2800 and 2800x2070 are
+    # the same board), 'width' its short side.
+    long_side_is_height = sheet_def.height > sheet_def.width
+    grain_along_height = (grain_dir == 'length' and long_side_is_height) or \
+        (grain_dir == 'width' and not long_side_is_height)
     pack_sheet_w, pack_sheet_h = sheet_def.width, sheet_def.height
     swapped = False
-    if grain_dir == 'width':
+    if grain_along_height:
         pack_sheet_w, pack_sheet_h = sheet_def.height, sheet_def.width
         swapped = True
 

@@ -81,6 +81,32 @@ class CuttingJobMaterialTests(TestCase):
         self.assertEqual((sheet.width, sheet.height, sheet.thickness, sheet.grain_direction, sheet.tenant),
                          (2800, 2070, 18, 'length', self.company))
 
+    def _door_placements(self):
+        from .models import PartPlacement
+        job = self._job(self.mat.id)
+        res = self.client.post(f"/api/manufacturing/cutting-jobs/{job.json()['id']}/optimize/")
+        self.assertEqual(res.status_code, 200, res.content)
+        return list(PartPlacement.objects.filter(part__job_id=job.json()['id']))
+
+    def test_grain_runs_along_board_long_side_when_entered_as_height(self):
+        # 2070x2800: the long side (and the grain) is the board's height, so every
+        # door's height (the part's width) must run along it.
+        self.mat.board_width, self.mat.board_height = 2070, 2800
+        self.mat.save()
+        placements = self._door_placements()
+        self.assertEqual(len(placements), 3)
+        self.assertTrue(all(not p.rotated and (p.width, p.height) == (447, 717) for p in placements))
+
+    def test_grained_material_overrides_stale_grainless_sheet(self):
+        from .models import StockSheet
+        StockSheet.objects.create(tenant=self.company, material=self.mat, thickness=18,
+                                  width=2800, height=2070, grain_direction='none')
+        from unittest import mock
+        from . import cutting_service
+        with mock.patch.object(cutting_service, 'pack_parts', wraps=cutting_service.pack_parts) as pack:
+            self._door_placements()
+        self.assertTrue(all(p.grain_locked for p in pack.call_args.args[0]))
+
     def test_optimize_reports_material_without_board_size(self):
         self.mat.board_width = None
         self.mat.save()
