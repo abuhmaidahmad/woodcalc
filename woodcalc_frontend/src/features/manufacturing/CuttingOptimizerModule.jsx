@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace } from '../kitchen_planner/formulaEngine'
+import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from '../kitchen_planner/formulaEngine'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
 import { useCompanyStandards } from '../../api/companySettings'
@@ -15,8 +15,11 @@ function emptyPart() {
 // front finishes (e.g. a high-gloss and a laminate) is cut from two different
 // boards, so each gets its own cutting job and sheet layout. 'all' gathers the
 // carcass, fronts and backs together, so a board used for both open boxes and
-// doors is packed (and its sheets counted) once. Glass shelves aren't cut here:
-// they're made to size by the glass supplier.
+// doors is packed (and its sheets counted) once. Fillers, side/top panels, toe
+// kicks and loose shelves are one flat board each, cut from the front material
+// like a door (a Filler's fixing cleat comes from the carcass board), matching
+// the master cut list. Glass shelves aren't cut here: they're made to size by
+// the glass supplier.
 export function bomPanelsToGroups(cabinets, group) {
   const groups = new Map()
   const wants = kind => group === 'all' || group === kind
@@ -39,7 +42,18 @@ export function bomPanelsToGroups(cabinets, group) {
   }
 
   cabinets.forEach(cab => {
-    if (!isCarcassCabinet(cab)) return
+    if (!isCarcassCabinet(cab)) {
+      if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return // purchased, not cut
+      const piece = nonCarcassPieceDims(cab)
+      if (wants('front') && piece.width > 0 && piece.depth > 0) {
+        addPart('front', cab.frontMaterialCode, cab.subtype || 'Piece', piece.width, piece.depth, true, 1)
+      }
+      if (wants('carcass') && cab.subtype === 'Filler') {
+        const cleat = fillerCleatDims(cab)
+        if (cleat.width > 0) addPart('carcass', cab.carcassMaterialCode, 'Filler Fixing Cleat', cleat.width, cleat.depth, false, 1)
+      }
+      return
+    }
     let result
     try {
       result = calculateCabinet(cabinetConfig(cab))
