@@ -65,6 +65,7 @@ function getCabElevRange(cab) {
   }
   return [0, cab.height || 0]
 }
+const isMountedAbove = cab => cab.category === 'wall' || (cab.elevation || 0) > 0
 const rangesOverlap = (a, b) => a[0] < b[1] && b[0] < a[1]
 // One axis per edge (not just the first two) -- a rectangle only needs two
 // since its far edges are parallel to the near ones, but a stair step can
@@ -1913,7 +1914,10 @@ export default function RoomCanvas({
               selected={selected === el.id && selectedType === 'element'}
               onMouseDown={e => startElementDrag(e, el.id, 'element')} />
           ))}
-          {[...cabinets.filter(c => c.category !== 'wall'), ...cabinets.filter(c => c.category === 'wall')].map(cab => (
+          {/* Floor items first, then anything mounted above them -- wall units and also
+              elevated accessories (wall side panels, wall fillers), which would otherwise
+              be painted over by a base filler/cabinet added after them. */}
+          {[...cabinets.filter(c => !isMountedAbove(c)), ...cabinets.filter(isMountedAbove)].map(cab => (
             <CabinetShape2D
               key={cab.id}
               cab={cab}
