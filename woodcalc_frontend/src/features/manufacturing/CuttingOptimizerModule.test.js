@@ -62,6 +62,16 @@ describe('bomPanelsToGroups', () => {
     })
   })
 
+  it("cuts a blind corner's 150mm filler from the front board, door height, grain locked", () => {
+    const blind = { ...cab('H1210_ST', 1200), subtype: 'Blind', doorStyle: 'Gola' }
+    const groups = bomPanelsToGroups([blind], 'all')
+    const front = groups.find(g => g.sku === 'H1210_ST')
+    const door = front.parts.find(p => p.label === 'Door')
+    expect(front.parts.find(p => p.label === 'Blind filler'))
+      .toEqual({ label: 'Blind filler', width: door.width, height: '150', quantity: 1, grain_locked: true })
+    expect(groups.find(g => g.sku === 'PLY18').parts.some(p => p.label === 'Blind filler')).toBe(false)
+  })
+
   it("cuts a filler's cleat from the kitchen's carcass board when the filler has none", () => {
     const filler = { ...cab('HG623', 50), category: 'accessories', subtype: 'Filler', carcassMaterialCode: null }
     const groups = bomPanelsToGroups([cab('HG623', 600), cab('HG623', 400), filler], 'carcass')

@@ -186,6 +186,7 @@ const GOLA_CHANNEL_MM = 25;
 // channel plus clearance) -- same 30mm for doors and drawer fronts.
 const GOLA_FRONT_REDUCTION_MM = 30;
 export const BLIND_PANEL_WIDTH = 650; // mm — fixed hidden section behind adjoining cabinet
+export const BLIND_FILLER_WIDTH = 150; // mm — front-material fascia beside a blind corner's door
 const BLIND_STILE_DEPTH = 75;
 
 // Adjustable-shelf feature: base/wall/tall/corner cabinets get it, EXCEPT drawer-based fronts,
@@ -573,7 +574,7 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
   const fc = frontMat || frontColor || 'Front'
   const none = { T: 'None', B: 'None', L: 'None', R: 'None' }
   if (partName.includes('Back') || partName.includes('HDF')) return none
-  if (partName.includes('Door') || partName.includes('Front panel') || partName.includes('Drawer front')) {
+  if (partName.includes('Door') || partName.includes('Front panel') || partName.includes('Drawer front') || partName === 'Blind filler') {
     return { T: fc, B: fc, L: fc, R: fc }
   }
   if (partName === 'Side panel') {
@@ -1069,6 +1070,21 @@ export function calculateCabinet(config) {
   edgeBanding.rules.carcass_exposed = 'banded in carcass color';
 
   const totalHinges = hardware.hinges;
+
+  // A blind corner's door is flanked by a 150mm fascia in the front material, as
+  // tall as the door and with its grain running the same way (the fascia drawn
+  // in CabinetDoors, KitchenPlanner3D.jsx).
+  if (isBlind && doors.length > 0) {
+    panels.push({
+      name: 'Blind filler',
+      qty: 1,
+      width: doors[0].height,
+      depth: BLIND_FILLER_WIDTH,
+      thickness: T,
+      faceMaterial: 'front',
+      notes: `${BLIND_FILLER_WIDTH}mm fascia beside the door, door height`,
+    });
+  }
 
   const summary = {
     width: W,

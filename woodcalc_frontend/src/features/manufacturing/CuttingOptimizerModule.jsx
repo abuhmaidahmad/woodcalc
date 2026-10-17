@@ -71,14 +71,17 @@ export function bomPanelsToGroups(cabinets, group) {
       return
     }
 
-    if (wants('carcass')) {
-      result.panels.forEach(p => {
-        if (isBackPanel(p)) return
-        // An open box can be cut from the front material (its Box Color).
-        const sku = panelFace(p) === 'front' ? cab.frontMaterialCode : cab.carcassMaterialCode
-        addPart('carcass', sku, p.name, p.width, p.depth, false, p.qty)
-      })
-    }
+    result.panels.forEach(p => {
+      if (isBackPanel(p)) return
+      // Panels in the front material (a blind corner's filler, an open box whose
+      // Box Color is the front) are cut with the fronts, grain along their height
+      // like a door's.
+      if (panelFace(p) === 'front') {
+        if (wants('front')) addPart('front', cab.frontMaterialCode, p.name, p.width, p.depth, true, p.qty)
+      } else if (wants('carcass')) {
+        addPart('carcass', cab.carcassMaterialCode, p.name, p.width, p.depth, false, p.qty)
+      }
+    })
 
     if (wants('back')) {
       result.panels.forEach(p => {
