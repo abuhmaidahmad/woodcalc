@@ -725,6 +725,8 @@
     "widthLabel": "Width",
     "heightLabel": "Height",
     "thicknessLabel": "Thickness",
+    "hasGrainLabel": "Has grain",
+    "hasGrainHint": "Grain runs along the board's long side. The cutting optimizer won't turn doors, drawer fronts or panels across it.",
     "texturePhotoSize": "TEXTURE PHOTO SIZE (mm)",
     "texturePhotoSizeHint": "— real-world area the uploaded photo covers",
     "photoWidthLabel": "Photo Width",

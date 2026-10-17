@@ -34,7 +34,7 @@ const PRICE_UNIT_SHORT = { board: '/board', lm: '/m', m2: '/m²' }
 const EMPTY_FORM = {
   name: '', sku: '', material_type: 'front', finish: 'matt', core_material: '',
   supplier: '', fallback_hex: '#C8902A',
-  board_width: 2440, board_height: 1220, board_thickness: 18,
+  board_width: 2440, board_height: 1220, board_thickness: 18, has_grain: false,
   price_per_board: '', price_unit: 'board', roughness: 0.4, metalness: 0.0,
   texture_physical_width_mm: 600, texture_physical_height_mm: 600,
 }
@@ -190,6 +190,7 @@ export default function MaterialCatalog() {
       board_width: tex.board_width || 2440,
       board_height: tex.board_height || 1220,
       board_thickness: tex.board_thickness || 18,
+      has_grain: !!tex.has_grain,
       price_per_board: tex.price_per_board || '',
       price_unit: tex.price_unit || 'board',
       roughness: tex.roughness ?? 0.4,
@@ -572,6 +573,13 @@ export default function MaterialCatalog() {
               <Field label={t('materialCatalog.heightLabel')} value={form.board_height} type="number" onChange={v => setForm(f => ({ ...f, board_height: v }))} placeholder="1220" />
               <Field label={t('materialCatalog.thicknessLabel')} value={form.board_thickness} type="number" onChange={v => setForm(f => ({ ...f, board_thickness: v }))} placeholder="18" />
             </div>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 12, cursor: 'pointer' }}>
+              <input type="checkbox" checked={form.has_grain} onChange={e => setForm(f => ({ ...f, has_grain: e.target.checked }))} style={{ marginTop: 2 }} />
+              <span>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{t('materialCatalog.hasGrainLabel')}</span>
+                <span style={{ display: 'block', fontSize: 11, color: '#888' }}>{t('materialCatalog.hasGrainHint')}</span>
+              </span>
+            </label>
 
             {/* Texture photo physical size */}
             <div style={{ fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 600 }}>{t('materialCatalog.texturePhotoSize')} <span style={{ color: '#bbb', fontWeight: 400 }}>{t('materialCatalog.texturePhotoSizeHint')}</span></div>
