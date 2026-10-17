@@ -108,6 +108,13 @@ export function bomPanelsToGroups(cabinets, group) {
   }))
 }
 
+// Which board a tab is cut from. Thickness is compared as a number: a tab picked
+// by hand takes the stock sheet's "18.00" while a BOM tab takes the material's
+// 18, and both are the same board.
+export function boardKey(materialId, thickness) {
+  return `${materialId}|${Number(thickness)}`
+}
+
 let groupSeq = 0
 function newGroup({ sku = null, materialId = '', thickness = '', parts = [emptyPart()] } = {}) {
   groupSeq += 1
@@ -276,9 +283,9 @@ function CuttingOptimizerModule() {
     // as a superseded re-run and put its stock back.
     const byBoard = new Map()
     toRun.forEach(({ g, parts }) => {
-      const boardKey = `${groupMaterial(g).id}|${groupThickness(g)}`
-      if (byBoard.has(boardKey)) byBoard.get(boardKey).parts.push(...parts)
-      else byBoard.set(boardKey, { g, parts: [...parts] })
+      const key = boardKey(groupMaterial(g).id, groupThickness(g))
+      if (byBoard.has(key)) byBoard.get(key).parts.push(...parts)
+      else byBoard.set(key, { g, parts: [...parts] })
     })
 
     setLoading(true)

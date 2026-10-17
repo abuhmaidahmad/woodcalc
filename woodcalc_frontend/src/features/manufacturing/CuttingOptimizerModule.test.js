@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bomPanelsToGroups } from './CuttingOptimizerModule'
+import { bomPanelsToGroups, boardKey } from './CuttingOptimizerModule'
 
 const cab = (frontMaterialCode, width) => ({
   category: 'base', subtype: 'Base', width, height: 720, depth: 560,
@@ -56,5 +56,12 @@ describe('bomPanelsToGroups', () => {
     const groups = bomPanelsToGroups([cab('HG623', 600), cab('HG623', 400), filler], 'carcass')
     expect(groups.map(g => g.sku)).toEqual(['PLY18'])
     expect(groups[0].parts.some(p => p.label === 'Filler Fixing Cleat')).toBe(true)
+  })
+})
+
+describe('boardKey', () => {
+  it('treats 18 and "18.00" as the same board', () => {
+    expect(boardKey(5, '18.00')).toBe(boardKey('5', 18))
+    expect(boardKey(5, '18')).not.toBe(boardKey(5, '3'))
   })
 })
