@@ -92,6 +92,10 @@ export function bomPanelsToGroups(cabinets, group) {
         if (d.glassDoor) return // bought in from the glass supplier
         addPart('front', cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
       })
+      // Grain runs vertically like the doors', so it carries on down a drawer stack.
+      result.drawerFronts.forEach(d => {
+        addPart('front', cab.frontMaterialCode, 'Drawer Front', d.height, d.width, true, 1)
+      })
     }
   })
 

@@ -51,6 +51,17 @@ describe('bomPanelsToGroups', () => {
     expect(ply.parts).toEqual([{ label: 'Filler Fixing Cleat', width: '717', height: '100', quantity: 1, grain_locked: false }])
   })
 
+  it('cuts drawer fronts from the front board with the grain along their height', () => {
+    const drawers = { ...cab('H1210_ST', 600), subtype: 'Drawers' }
+    const groups = bomPanelsToGroups([drawers], 'front')
+    const fronts = groups[0].parts.filter(p => p.label === 'Drawer Front')
+    expect(fronts.reduce((n, p) => n + p.quantity, 0)).toBeGreaterThan(0)
+    fronts.forEach(p => {
+      expect(p.grain_locked).toBe(true)
+      expect(p.height).toBe('597') // the 600 cabinet's front width runs across the grain
+    })
+  })
+
   it("cuts a filler's cleat from the kitchen's carcass board when the filler has none", () => {
     const filler = { ...cab('HG623', 50), category: 'accessories', subtype: 'Filler', carcassMaterialCode: null }
     const groups = bomPanelsToGroups([cab('HG623', 600), cab('HG623', 400), filler], 'carcass')
