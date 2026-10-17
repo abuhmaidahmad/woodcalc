@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.test import SimpleTestCase, TestCase
 from rest_framework.test import APIClient
 
 from tenants.models import Company, CompanyMembership
@@ -285,3 +285,54 @@ class CuttingJobXlsxExportTests(TestCase):
         job = CuttingJob.objects.create(work_order=wo, material=mat, thickness=18)
         res = self.client.get(f'/api/manufacturing/cutting-jobs/export-xlsx/?ids={job.id}')
         self.assertEqual(res.status_code, 404)
+
+
+class PackPartsTests(SimpleTestCase):
+    # Job 115's 50 pieces on a 2800x1220 board, 4mm kerf: ~4.2 boards of parts.
+    JOB_115 = [(680, 1050, 2), (1077, 547, 2), (314, 300, 4), (350, 178, 2), (1077, 447, 7), (1019, 314, 2),
+               (264, 250, 4), (230, 178, 2), (1080, 320, 2), (1055, 300, 4), (1800, 180, 2), (300, 900, 1),
+               (1044, 264, 2), (1080, 250, 6), (1050, 250, 2), (1080, 180, 4), (1500, 180, 1), (1300, 180, 1)]
+
+    def _parts(self, dims, grain_locked=False):
+        from .cutting_service import Part
+        return [Part(id=i, width=Decimal(w), height=Decimal(h), grain_locked=grain_locked)
+                for i, (w, h, q) in enumerate(dims) for _ in range(q)]
+
+    def _assert_valid(self, sheets, parts, sheet_w, sheet_h, kerf):
+        placed = [pl for s in sheets for pl in s.placements]
+        self.assertEqual(len(placed), len(parts))
+        for s in sheets:
+            pls = s.placements
+            for a in pls:
+                self.assertTrue(a.x >= 0 and a.y >= 0 and a.x + a.width <= sheet_w and a.y + a.height <= sheet_h)
+                self.assertEqual((a.width, a.height),
+                                 (a.part.height, a.part.width) if a.rotated else (a.part.width, a.part.height))
+                if a.part.grain_locked:
+                    self.assertFalse(a.rotated)
+            for i, a in enumerate(pls):
+                for b in pls[i + 1:]:
+                    apart = (a.x + a.width + kerf <= b.x or b.x + b.width + kerf <= a.x or
+                             a.y + a.height + kerf <= b.y or b.y + b.height + kerf <= a.y)
+                    self.assertTrue(apart, f'{a} overlaps {b}')
+
+    def test_job_115_fits_on_five_boards(self):
+        from .cutting_service import pack_parts
+        parts = self._parts(self.JOB_115)
+        sheets, impossible = pack_parts(parts, Decimal(2800), Decimal(1220), Decimal(4))
+        self.assertEqual(impossible, [])
+        self.assertEqual(len(sheets), 5)
+        self._assert_valid(sheets, parts, 2800, 1220, 4)
+
+    def test_grain_locked_parts_are_never_turned(self):
+        from .cutting_service import pack_parts
+        parts = self._parts(self.JOB_115, grain_locked=True)
+        sheets, impossible = pack_parts(parts, Decimal(2800), Decimal(1220), Decimal(4))
+        self.assertEqual(impossible, [])
+        self._assert_valid(sheets, parts, 2800, 1220, 4)
+
+    def test_same_parts_give_the_same_layout(self):
+        from .cutting_service import pack_parts
+        def layout():
+            sheets, _ = pack_parts(self._parts(self.JOB_115), Decimal(2800), Decimal(1220), Decimal(4))
+            return [[(p.part.id, p.x, p.y, p.rotated) for p in s.placements] for s in sheets]
+        self.assertEqual(layout(), layout())

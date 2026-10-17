@@ -7,6 +7,9 @@ wrapper that reads a CuttingJob's parts + matching stock sheets and persists
 the result as CuttingLayout / PartPlacement rows.
 """
 
+import math
+import random
+import time
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -53,31 +56,51 @@ def _fits(rect: FreeRect, w: Decimal, h: Decimal) -> bool:
     return w <= rect.width and h <= rect.height
 
 
-def _best_fit_rect(free_rects, w: Decimal, h: Decimal):
-    """Smallest leftover area among rects that fit (w, h). Returns index or None."""
+def _best_fit_rect(free_rects, w: Decimal, h: Decimal, fit_rule: str = "area"):
+    """Index of the free rect (w, h) fits best, or None. 'area' leaves the least
+    area over; 'short_side' leaves the thinnest sliver on one side, so the part
+    hugs the rect's edge."""
     best_idx = None
-    best_leftover = None
+    best_score = None
     for i, r in enumerate(free_rects):
         if _fits(r, w, h):
-            leftover = r.area - (w * h)
-            if best_leftover is None or leftover < best_leftover:
-                best_leftover = leftover
+            if fit_rule == "short_side":
+                score = (min(r.width - w, r.height - h), max(r.width - w, r.height - h))
+            else:
+                score = (r.area - (w * h),)
+            if best_score is None or score < best_score:
+                best_score = score
                 best_idx = i
     return best_idx
 
 
-def _split_guillotine(rect: FreeRect, w: Decimal, h: Decimal, kerf: Decimal):
+def _split_guillotine(rect: FreeRect, w: Decimal, h: Decimal, kerf: Decimal,
+                      split_rule: str = "leftover_axis"):
     """
     Place (w, h) at rect's top-left corner, split the remaining L-shaped space
     into two guillotine-legal rects (straight cuts through the full remaining
-    width or height), each shrunk by the kerf.
-    Uses the "shorter leftover axis" heuristic to decide split direction.
+    width or height), each shrunk by the kerf. The first cut runs either down
+    (the right offcut keeps the rect's full height) or across (the bottom offcut
+    keeps its full width); split_rule decides which:
+      leftover_axis      down when more is left over to the right than below
+      leftover_axis_rev  the opposite
+      max_area           whichever leaves the biggest single offcut
+      min_area           whichever leaves the two offcuts closest in size
     """
     right_w = rect.width - w - kerf
     bottom_h = rect.height - h - kerf
 
+    if split_rule == "leftover_axis_rev":
+        cut_down = right_w < bottom_h
+    elif split_rule in ("max_area", "min_area"):
+        down_big = max(right_w * rect.height, bottom_h * w)
+        across_big = max(bottom_h * rect.width, right_w * h)
+        cut_down = down_big >= across_big if split_rule == "max_area" else down_big < across_big
+    else:
+        cut_down = right_w >= bottom_h
+
     results = []
-    if right_w >= bottom_h:
+    if cut_down:
         if right_w > 0:
             results.append(FreeRect(rect.x + w + kerf, rect.y, right_w, rect.height))
         if bottom_h > 0:
@@ -101,27 +124,26 @@ def _part_can_ever_fit(part, sheet_width: Decimal, sheet_height: Decimal,
     return False
 
 
-def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal,
-               trim_top: Decimal = Decimal("0"), trim_left: Decimal = Decimal("0")):
-    """
-    parts: list[Part], each already expanded to individual units (qty flattened).
-    Returns (list[SheetResult], list[Part]) - the second list is parts that can
-    NEVER fit on this sheet size (too large in every allowed orientation), so the
-    caller should treat their presence as an error rather than silently dropping them.
-    """
-    impossible = [p for p in parts if not _part_can_ever_fit(p, sheet_width, sheet_height, trim_top, trim_left)]
-    remaining = sorted(
-        (p for p in parts if p not in impossible),
-        key=lambda p: p.width * p.height, reverse=True,
-    )
-    sheets = []
-    sheet_index = 0
+# Orders the parts are packed in. Biggest-first is the usual best, but a few
+# long thin strips can strand themselves on a sheet of their own, so the
+# alternatives get a go too.
+_SORT_KEYS = (
+    lambda p: (p.width * p.height, max(p.width, p.height)),
+    lambda p: (max(p.width, p.height), min(p.width, p.height)),
+    lambda p: (p.width + p.height, max(p.width, p.height)),
+    lambda p: (p.width, p.height),
+    lambda p: (p.height, p.width),
+)
+_SPLIT_RULES = ("leftover_axis", "leftover_axis_rev", "max_area", "min_area")
+_FIT_RULES = ("area", "short_side")
+_SEARCH_SECONDS = 1.5
 
+
+def _pack_once(remaining, sheet_width, sheet_height, kerf, trim_top, trim_left, split_rule, fit_rule):
+    """One greedy pass: fills a sheet with whatever still fits, then starts the next."""
+    sheets = []
     while remaining:
-        sheet_index += 1
-        usable_w = sheet_width - trim_left
-        usable_h = sheet_height - trim_top
-        free_rects = [FreeRect(trim_left, trim_top, usable_w, usable_h)]
+        free_rects = [FreeRect(trim_left, trim_top, sheet_width - trim_left, sheet_height - trim_top)]
         placements = []
         still_unplaced = []
 
@@ -132,7 +154,7 @@ def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal
 
             best_choice = None
             for w, h, rotated in candidates:
-                idx = _best_fit_rect(free_rects, w, h)
+                idx = _best_fit_rect(free_rects, w, h, fit_rule)
                 if idx is not None:
                     leftover = free_rects[idx].area - (w * h)
                     if best_choice is None or leftover < best_choice[4]:
@@ -145,21 +167,74 @@ def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal
             idx, w, h, rotated, _ = best_choice
             rect = free_rects.pop(idx)
             placements.append(Placement(part=part, x=rect.x, y=rect.y, width=w, height=h, rotated=rotated))
-            free_rects.extend(_split_guillotine(rect, w, h, kerf))
+            free_rects.extend(_split_guillotine(rect, w, h, kerf, split_rule))
 
         if not placements:
-            impossible.extend(still_unplaced)
-            break
-
-        used_area = sum(p.width * p.height for p in placements)
-        sheet_area = sheet_width * sheet_height
-        waste_pct = Decimal("100") - (used_area / sheet_area * Decimal("100")) if sheet_area else Decimal("0")
-        waste_pct = waste_pct.quantize(Decimal("0.01"))
-
-        sheets.append(SheetResult(sheet_index=sheet_index, placements=placements, waste_percent=waste_pct))
+            return sheets, still_unplaced
+        sheets.append(placements)
         remaining = still_unplaced
+    return sheets, []
 
-    return sheets, impossible
+
+def pack_parts(parts, sheet_width: Decimal, sheet_height: Decimal, kerf: Decimal,
+               trim_top: Decimal = Decimal("0"), trim_left: Decimal = Decimal("0")):
+    """
+    parts: list[Part], each already expanded to individual units (qty flattened).
+    Returns (list[SheetResult], list[Part]) - the second list is parts that can
+    NEVER fit on this sheet size (too large in every allowed orientation), so the
+    caller should treat their presence as an error rather than silently dropping them.
+
+    Packs the parts every way in _SORT_KEYS x _SPLIT_RULES x _FIT_RULES, then
+    reshuffles the best order for up to _SEARCH_SECONDS, and keeps the layout
+    with the fewest sheets; among those, the one that leaves its last sheet
+    emptiest, so the offcut worth keeping is as big as it can be.
+    """
+    impossible = [p for p in parts if not _part_can_ever_fit(p, sheet_width, sheet_height, trim_top, trim_left)]
+    packable = [p for p in parts if p not in impossible]
+
+    best = {"score": None}
+
+    def attempt(ordered, split_rule, fit_rule):
+        sheets, unplaced = _pack_once(ordered, sheet_width, sheet_height, kerf,
+                                      trim_top, trim_left, split_rule, fit_rule)
+        last_used = sum(p.width * p.height for p in sheets[-1]) if sheets else 0
+        score = (len(unplaced), len(sheets), last_used)
+        if best["score"] is None or score < best["score"]:
+            best.update(score=score, layout=(sheets, unplaced), order=ordered,
+                        split_rule=split_rule, fit_rule=fit_rule)
+
+    for sort_key in _SORT_KEYS:
+        ordered = sorted(packable, key=sort_key, reverse=True)
+        for split_rule in _SPLIT_RULES:
+            for fit_rule in _FIT_RULES:
+                attempt(ordered, split_rule, fit_rule)
+
+    # Then keep swapping a few parts in the best order so far, until the layout
+    # can't use fewer sheets (the parts' area fills that many) or time's up.
+    # Seeded, so the same job always gets the same layout.
+    if packable:
+        usable_area = (sheet_width - trim_left) * (sheet_height - trim_top)
+        min_sheets = math.ceil(sum(p.width * p.height for p in packable) / usable_area)
+        rng = random.Random(0)
+        deadline = time.monotonic() + _SEARCH_SECONDS
+        while best["score"][1] > min_sheets and time.monotonic() < deadline:
+            order = list(best["order"])
+            for _ in range(rng.randint(1, 8)):
+                i, j = rng.randrange(len(order)), rng.randrange(len(order))
+                order[i], order[j] = order[j], order[i]
+            for split_rule in _SPLIT_RULES:
+                attempt(order, split_rule, best["fit_rule"])
+
+    sheets, unplaced = best["layout"] if best["score"] else ([], [])
+    impossible.extend(unplaced)
+
+    sheet_area = sheet_width * sheet_height
+    results = []
+    for i, placements in enumerate(sheets, start=1):
+        used_area = sum(p.width * p.height for p in placements)
+        waste_pct = Decimal("100") - (used_area / sheet_area * Decimal("100")) if sheet_area else Decimal("0")
+        results.append(SheetResult(sheet_index=i, placements=placements, waste_percent=waste_pct.quantize(Decimal("0.01"))))
+    return results, impossible
 
 
 def optimize_job(job_id):
