@@ -41,6 +41,16 @@ export function bomPanelsToGroups(cabinets, group) {
     }
   }
 
+  // A Filler has no carcass material of its own (the planner hides that picker
+  // for it), so its fixing cleat is cut from the board most of the kitchen's
+  // boxes use.
+  const carcassUse = new Map()
+  cabinets.forEach(cab => {
+    const sku = isCarcassCabinet(cab) && typeof cab.carcassMaterialCode === 'string' && cab.carcassMaterialCode.trim()
+    if (sku) carcassUse.set(sku, (carcassUse.get(sku) || 0) + 1)
+  })
+  const kitchenCarcassSku = [...carcassUse.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
+
   cabinets.forEach(cab => {
     if (!isCarcassCabinet(cab)) {
       if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return // purchased, not cut
@@ -50,7 +60,7 @@ export function bomPanelsToGroups(cabinets, group) {
       }
       if (wants('carcass') && cab.subtype === 'Filler') {
         const cleat = fillerCleatDims(cab)
-        if (cleat.width > 0) addPart('carcass', cab.carcassMaterialCode, 'Filler Fixing Cleat', cleat.width, cleat.depth, false, 1)
+        if (cleat.width > 0) addPart('carcass', cab.carcassMaterialCode || kitchenCarcassSku, 'Filler Fixing Cleat', cleat.width, cleat.depth, false, 1)
       }
       return
     }

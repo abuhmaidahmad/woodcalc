@@ -50,4 +50,11 @@ describe('bomPanelsToGroups', () => {
     const ply = groups.find(g => g.sku === 'PLY18')
     expect(ply.parts).toEqual([{ label: 'Filler Fixing Cleat', width: '717', height: '100', quantity: 1, grain_locked: false }])
   })
+
+  it("cuts a filler's cleat from the kitchen's carcass board when the filler has none", () => {
+    const filler = { ...cab('HG623', 50), category: 'accessories', subtype: 'Filler', carcassMaterialCode: null }
+    const groups = bomPanelsToGroups([cab('HG623', 600), cab('HG623', 400), filler], 'carcass')
+    expect(groups.map(g => g.sku)).toEqual(['PLY18'])
+    expect(groups[0].parts.some(p => p.label === 'Filler Fixing Cleat')).toBe(true)
+  })
 })
