@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, resolveSteppedCabinetProfile, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -21,7 +21,7 @@ const LOW_POWER = typeof window !== 'undefined' && (
   (navigator.hardwareConcurrency || 8) <= 4
 )
 import { computeWallBodies, getWallThickness } from './wallGeometry'
-import { computeStairSteps, findOverlappingStairProfile } from './stairGeometry'
+import { computeStairSteps } from './stairGeometry'
 
 const ALL_CT_MATS = [
   ...COUNTERTOP_MATERIALS,
@@ -2344,60 +2344,6 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   )
 })
 
-// A tall cabinet with steppedTop keeps its normal door/shelf/drawer layout
-// (Cabinet, unchanged) but rendered at a shorter, uniform height -- the
-// tallest height that clears every constrained segment of the stair above
-// it (resolveSteppedCabinetProfile). Wherever the stair actually allows more
-// room than that uniform body uses, a plain closed filler block (matching
-// the carcass color/material) sits on top and fills up to that segment's
-// own available height, giving the outer silhouette a real stepped profile
-// without redesigning the interior per segment.
-const SteppedTallCabinet = React.memo(function SteppedTallCabinet({ cab, profile, countertopMat, countertopThickness, textureMap }) {
-  const resolved = useMemo(() => resolveSteppedCabinetProfile(cab, profile), [cab, profile])
-  const x = cab.x / 1000, z = cab.y / 1000
-  const rot = (cab.rotation || 0) * Math.PI / 180
-  const W = cab.width / 1000, D = cab.depth / 1000
-  const legHm = resolved.legHmm / 1000
-  const color = cab.carcassColor || '#F5F0E8'
-  const finish = cab.carcassMaterial
-  const matProps = getMaterialProps(finish)
-  const texEntry = cab.carcassMaterialCode ? textureMap[cab.carcassMaterialCode] : null
-
-  const renderFiller = (key, args, position) => {
-    if (texEntry) {
-      const physW = (texEntry.texture_physical_width_mm || 600) / 1000
-      const physH = (texEntry.texture_physical_height_mm || 600) / 1000
-      return (
-        <PhotoTexturedBox key={key} args={args} position={position} castShadow receiveShadow
-          imageUrl={texEntry.texture_image} color={color} matProps={matProps}
-          envMapIntensity={1.0} repeatU={args[0] / physW} repeatV={args[2] / physH} />
-      )
-    }
-    return (
-      <SmartBox key={key} args={args} position={position} castShadow receiveShadow
-        color={color} materialName={finish} matProps={matProps} envMapIntensity={1.0} />
-    )
-  }
-
-  const fillers = resolved.segments.map((seg, i) => {
-    const fillerHmm = seg.availableH - resolved.effectiveH
-    if (fillerHmm <= 1) return null
-    const segWm = (seg.x1 - seg.x0) / 1000
-    const localX = (seg.x0 + seg.x1) / 2 / 1000 - W / 2
-    const fillerHm = fillerHmm / 1000
-    return renderFiller(`f${i}`, [segWm, fillerHm, D], [localX, resolved.effectiveH / 1000 + fillerHm / 2, 0])
-  })
-
-  return (
-    <>
-      <Cabinet cab={{ ...cab, height: resolved.effectiveH }} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap} />
-      <group position={[x + W / 2, legHm, z + D / 2]} rotation={[0, -rot, 0]}>
-        {fillers}
-      </group>
-    </>
-  )
-})
-
 // Memoized for the same reason as Cabinet: `wall` keeps a stable reference
 // for every wall except the one being edited, and `elements` is stable
 // whenever cabinets (not doors/windows) are what changed.
@@ -2883,10 +2829,6 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
           :<DoorElement key={el.id} el={el}/>)}
         {otherEls.map(el=><OtherElement key={el.id} el={el} roomH={ROOM_H}/>)}
         {cabinets.map(cab=>{
-          if (cab.steppedTop && cab.category === 'tall') {
-            const hit = findOverlappingStairProfile(cab, stairs)
-            if (hit) return <SteppedTallCabinet key={cab.id} cab={cab} profile={hit.profile} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap}/>
-          }
           return <Cabinet key={cab.id} cab={cab} countertopMat={countertopMat} countertopThickness={countertopThickness} textureMap={textureMap} roomHeightMm={ROOM_H * 1000}
             openMode={openMode} openKeys={openCabs.find(e => e.id === cab.id)?.keys || NO_OPEN_KEYS} onToggleFront={toggleFront}/>
         })}

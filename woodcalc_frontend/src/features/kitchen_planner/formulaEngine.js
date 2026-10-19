@@ -70,10 +70,10 @@ export const maxShelvesFor = (c) => {
   return Math.max(fit, nicheStandardShelves(c));
 };
 
-// An Appliance Niche gets 4 shelves at 2400 tall, one fewer for every 300mm shorter.
+// An Appliance Niche gets 3 shelves at 2400 tall, one fewer for every 300mm shorter.
 function nicheStandardShelves(c) {
   const H = Number(c.height) || 0;
-  return Math.max(0, 4 - Math.max(0, Math.ceil((2400 - H) / SHELF_STD_GAP)));
+  return Math.max(0, 3 - Math.max(0, Math.ceil((2400 - H) / SHELF_STD_GAP)));
 }
 
 // Height (mm) of an Appliance Niche's lower and upper sections behind the doors:
@@ -172,7 +172,7 @@ export function resolveBackPanel() {
   return { ...companyBack };
 }
 
-// The HDF back (main carcass back or a stepped filler's) -- tagged by kind, not
+// The HDF back -- tagged by kind, not
 // matched by thickness, since the thickness is configurable. An open box's board
 // back and the 'Back rail' are 18mm carcass board, so they don't match.
 export function isBackPanel(p) {
@@ -483,52 +483,6 @@ function chooseToeKickAndLegs(height) {
   return { toeKickH, legH, preset };
 }
 
-// Tall cabinets stand on the same legs a base run does, sized off the
-// project's base height setting -- matches the Cabinet component's own
-// showLegs/legH logic in KitchenPlanner3D.jsx exactly, so a stair's
-// floor-referenced clearance and the cabinet's own H field convert the same
-// way in both the 3D view and the BOM.
-export function getTallLegHeightMm(cab) {
-  return cab.baseHeight === 720 ? 150 : 80;
-}
-
-// Turns a stair's absolute (floor-referenced) top_profile (stairGeometry.js's
-// computeStairTopProfile) into an actual carcass height for this cabinet:
-// effectiveH is the tallest uniform height that clears every constrained
-// segment, and each segment's own availableH is how tall a stepped filler
-// above that uniform body could go before it would hit the stair. Never
-// exceeds the cabinet's own designed height -- a stepped top only gives back
-// room the stair allows, it doesn't grow the unit beyond what was designed.
-export function resolveSteppedCabinetProfile(cab, stairProfile, minHeightMm = 300) {
-  const nominalH = cab.height;
-  const legHmm = getTallLegHeightMm(cab);
-  const segments = stairProfile.segments.map(seg => {
-    const availableH = seg.capHeight == null
-      ? nominalH
-      : Math.min(nominalH, Math.max(0, seg.capHeight - legHmm));
-    return { x0: seg.x0, x1: seg.x1, availableH };
-  });
-  const effectiveH = Math.max(minHeightMm, Math.min(nominalH, ...segments.map(s => s.availableH)));
-  return { nominalH, effectiveH, legHmm, segments };
-}
-
-// Extra sheet-good pieces for one stepped-top filler block sitting on top of
-// the (shorter, uniform) main carcass, filling the gap up to what that
-// segment's own stair clearance allows. Closed box, no door -- the filler is
-// bonus storage above the unit's normal front, not a redesigned zone.
-export function stairFillerPanels(seg, effectiveH, depth, back = resolveBackPanel()) {
-  const fillerH = round2(seg.availableH - effectiveH);
-  if (fillerH <= 1) return [];
-  const w = round2(seg.x1 - seg.x0);
-  const innerDepth = round2(depth - 30 - back.thickness);
-  return [
-    { name: 'Stepped filler side panel', qty: 2, width: fillerH, depth, thickness: T, notes: 'Follows stair above' },
-    { name: 'Stepped filler top panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
-    { name: 'Stepped filler bottom panel', qty: 1, width: w, depth: innerDepth, thickness: T, notes: 'Follows stair above' },
-    { name: 'Stepped filler back panel', qty: 1, width: w, depth: fillerH, thickness: back.thickness, kind: 'hdf_back', materialCode: back.materialCode, notes: 'Follows stair above' },
-  ];
-}
-
 export const isOpenBox = (c) => c?.subtype === 'Open Shelf';
 
 // A glass-door cabinet whose Box Color is the front material (gloss, laminate...)
@@ -596,26 +550,53 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
 
 // Edge banding for one calculateCabinet() panel. An open box has no fronts to
 // match, so its sides/top/bottom (edgeFront) are banded in the box board itself.
+// Carcass edges behind a bought-in glass door (behindGlass) have no front board to
+// match, so they take the carcass color. A wall cabinet's side (endsBanded) also
+// has its top and bottom edges banded in carcass color (an open box's in its box
+// board), whatever the door style.
 export function panelEdgeBanding(p, carcassColor, frontColor, carcassMat, frontMat, doorStyle) {
+  const cc = carcassMat || carcassColor || 'Carcass'
   if (p.edgeFront) {
-    const box = p.faceMaterial === 'front' ? (frontMat || frontColor || 'Front') : (carcassMat || carcassColor || 'Carcass')
-    return { T: 'None', B: 'None', L: 'None', R: box }
+    const box = p.faceMaterial === 'front' ? (frontMat || frontColor || 'Front') : cc
+    const ends = p.endsBanded ? box : 'None'
+    return { T: ends, B: ends, L: 'None', R: box }
   }
-  return getEdgeBanding(p.name, carcassColor, frontColor, carcassMat, frontMat, doorStyle)
+  const eb = p.behindGlass
+    ? getEdgeBanding(p.name, carcassColor, carcassColor, carcassMat, carcassMat, doorStyle)
+    : getEdgeBanding(p.name, carcassColor, frontColor, carcassMat, frontMat, doorStyle)
+  return p.endsBanded ? { ...eb, T: cc, B: cc } : eb
 }
 
-// Total banded length (mm) of a calculateCabinet() result. L/R run along a
-// panel's width, T/B along its depth; doors/drawer fronts are banded all round
-// (bought-in aluminium glass doors aren't banded).
-export function edgeBandingLengthMm(result, doorStyle) {
-  const panels = result.panels.reduce((sum, p) => {
-    const eb = panelEdgeBanding(p, null, null, null, null, doorStyle)
-    const len = ['L', 'R'].filter(k => eb[k] !== 'None').length * p.width
-      + ['T', 'B'].filter(k => eb[k] !== 'None').length * p.depth
-    return sum + len * p.qty
-  }, 0)
-  const fronts = [...result.doors.filter(d => !d.glassDoor), ...result.drawerFronts].reduce((s, d) => s + 2 * (d.width + d.height), 0)
-  return panels + fronts
+// Fillers, Side Panels and Panels are front-material pieces on show, banded all
+// round in the front color. Other flat pieces aren't banded.
+export function flatPieceEdgeBanding(c, frontMat) {
+  if (!['Filler', 'Side Panel', 'Panel'].includes(c.subtype)) return {}
+  const fc = frontMat || 'Front'
+  return { T: fc, B: fc, L: fc, R: fc }
+}
+
+// Banded length (mm) of a calculateCabinet() result per edge band, keyed by the
+// carcass/front material names passed in. L/R run along a panel's width, T/B
+// along its depth; doors/drawer fronts are banded all round in the front
+// material (bought-in aluminium glass doors aren't banded).
+export function edgeBandingByMaterialMm(result, doorStyle, carcassMat = 'Carcass', frontMat = 'Front') {
+  const totals = {}
+  const add = (mat, mm) => { if (mat !== 'None' && mm > 0) totals[mat] = (totals[mat] || 0) + mm }
+  result.panels.forEach(p => {
+    const eb = panelEdgeBanding(p, null, null, carcassMat, frontMat, doorStyle)
+    add(eb.L, p.width * p.qty); add(eb.R, p.width * p.qty)
+    add(eb.T, p.depth * p.qty); add(eb.B, p.depth * p.qty)
+  })
+  ;[...result.doors.filter(d => !d.glassDoor), ...result.drawerFronts].forEach(d => add(frontMat, 2 * (d.width + d.height)))
+  return totals
+}
+
+// Banded length (mm) per edge band of a non-carcass piece: a Filler/Side Panel/
+// Panel all round, plus a Filler's fixing cleat front edge, all in the front material.
+export function flatPieceEdgeBandingByMaterialMm(c, frontMat = 'Front') {
+  if (Object.keys(flatPieceEdgeBanding(c, frontMat)).length === 0) return {}
+  const { width, depth } = nonCarcassPieceDims(c)
+  return { [frontMat]: 2 * (width + depth) + (c.subtype === 'Filler' ? fillerCleatDims(c).width : 0) }
 }
 
 export function calculateCabinet(config) {
@@ -1101,6 +1082,13 @@ export function calculateCabinet(config) {
     totalHinges,
     hardware,
   };
+
+  // Wall cabinet sides get their top/bottom edges banded (panelEdgeBanding); a
+  // glass-door cabinet's carcass edges are banded in carcass color.
+  panels.forEach(p => {
+    if (isWallCab && p.name === 'Side panel') p.endsBanded = true;
+    if (isGlassDoorCabinet(config) && panelFace(p) === 'carcass') p.behindGlass = true;
+  });
 
   const panelsDetailed = panels.map(p => ({
     ...p,

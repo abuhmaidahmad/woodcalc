@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingLengthMm, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
+import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -120,6 +120,15 @@ function priceFlatPiece(cab, prices, materialsMap, t) {
     { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: pricePerM2, cost: boardCost },
   ]
   let materialCost = boardCost
+
+  // Fillers and Side Panels are banded all round in the front color, matching
+  // the master cut list (flatPieceEdgeBanding).
+  if (Object.keys(flatPieceEdgeBanding(cab)).length > 0) {
+    const pieceEbM = 2 * (width + depth) / 1000
+    const pieceEbCost = parseFloat((pieceEbM * prices.edge_banding_m).toFixed(3))
+    breakdown.push({ label: t('proposalTab.breakdownEdgeBand'), qty: pieceEbM.toFixed(2) + ' ' + t('proposalTab.unitM'), unit: prices.edge_banding_m, cost: pieceEbCost })
+    materialCost = parseFloat((materialCost + pieceEbCost).toFixed(3))
+  }
 
   // A Filler also needs its fixing cleat (see fillerCleatDims) -- carcass-material
   // board plus a front edge band matching the filler's own front. Matches the
@@ -243,8 +252,11 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const hdfUnit     = m2_8 > 0 ? parseFloat((hdfCost / m2_8).toFixed(3)) : prices.hdf8_m2
   const doorMatCost = parseFloat(((doorM2 + drawerFrontM2 + frontPanelM2) * frontPricePerM2).toFixed(3))
 
-  const edgeM = edgeBandingLengthMm(result, cab.doorStyle) / 1000
-  const edgeCost = parseFloat((edgeM * prices.edge_banding_m).toFixed(3))
+  // One edge band line per band: the carcass material and the cabinet's front material.
+  const edgeRows = Object.entries(edgeBandingByMaterialMm(result, cab.doorStyle,
+    cab.carcassMaterialName || cab.carcassColor || 'Carcass', cab.frontMaterialName || cab.frontColor || 'Front'))
+    .map(([mat, mm]) => ({ mat, m: mm / 1000, cost: parseFloat((mm / 1000 * prices.edge_banding_m).toFixed(3)) }))
+  const edgeCost = edgeRows.reduce((s, r) => s + r.cost, 0)
 
   const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)
 
@@ -267,7 +279,7 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   breakdown.push({ label: t('proposalTab.breakdownCarcassBoard'), qty: m2_18.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: carcassPricePerM2, cost: boardCost })
   breakdown.push({ label: t('proposalTab.breakdownHdf8'),    qty: m2_8.toFixed(3)  + ' ' + t('proposalTab.unitM2'), unit: hdfUnit, cost: hdfCost })
   breakdown.push({ label: t('proposalTab.breakdownDoorPanel'), qty: (doorM2 + drawerFrontM2 + frontPanelM2).toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: frontPricePerM2, cost: doorMatCost })
-  breakdown.push({ label: t('proposalTab.breakdownEdgeBand'),  qty: edgeM.toFixed(2)  + ' ' + t('proposalTab.unitM'),  unit: prices.edge_banding_m, cost: edgeCost })
+  edgeRows.forEach(r => breakdown.push({ label: `${t('proposalTab.breakdownEdgeBand')} · ${r.mat}`, qty: r.m.toFixed(2) + ' ' + t('proposalTab.unitM'), unit: prices.edge_banding_m, cost: r.cost }))
   drawerBoxRows.forEach(r => breakdown.push(r))
   if (glassDoors.length) breakdown.push({ label: t('proposalTab.breakdownGlassDoors', { count: glassDoors.length }), qty: glassDoorM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: glassDoorPricePerM2, cost: glassDoorCost })
   if (glass) breakdown.push({ label: t('proposalTab.breakdownGlassShelves', { count: glass.qty }), qty: glassM2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: glassPricePerM2, cost: glassCost })

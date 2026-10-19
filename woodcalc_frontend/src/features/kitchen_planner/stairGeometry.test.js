@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { computeStairSteps, getStairSupportSegments, checkStairWallSupport, computeStairTopProfile } from './stairGeometry'
+import { computeStairSteps, getStairSupportSegments, checkStairWallSupport } from './stairGeometry'
 
 function signedArea(poly) {
   let s = 0
@@ -356,18 +356,6 @@ describe('computeStairSteps constructionStyle', () => {
   it('bottomHeight never goes negative even if treadThickness exceeds the first riser height', () => {
     const data = computeStairSteps(makeStraightStair({ constructionStyle: 'floating', treadThickness: 5000 }))
     data.steps.forEach(s => expect(s.bottomHeight).toBeGreaterThanOrEqual(0))
-  })
-
-  it('closed-style top_profile caps at the tread top; open/floating caps at the tread underside', () => {
-    const cab = { x: 0, y: -450, width: 600, depth: 600, rotation: 0 }
-    const closed = computeStairTopProfile(makeStraightStair(), cab)
-    const floating = computeStairTopProfile(makeStraightStair({ constructionStyle: 'floating', treadThickness: 60 }), cab)
-    expect(closed.overlaps).toBe(true)
-    expect(floating.overlaps).toBe(true)
-    const closedCap = closed.segments.find(s => s.capHeight != null).capHeight
-    const floatingCap = floating.segments.find(s => s.capHeight != null).capHeight
-    expect(floatingCap).toBeLessThan(closedCap)
-    expect(floatingCap).toBeCloseTo(closedCap - 60, 6)
   })
 })
 
