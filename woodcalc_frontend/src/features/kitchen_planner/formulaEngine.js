@@ -366,11 +366,13 @@ export function hasSingleDoorWidth(c) {
   return columns === 1;
 }
 
+// Hinges per door by height, following Blum's chart for standard-weight doors;
+// heavy or extra-wide doors aren't accounted for yet.
 export function getHingeCount(doorHeight) {
   if (doorHeight <= 900) return 2;
   if (doorHeight <= 1400) return 3;
-  if (doorHeight <= 1800) return 4;
-  return 4;
+  if (doorHeight <= 2000) return 4;
+  return 5;
 }
 
 // Interior-layout presets for Drawers/2Drw+Door cabinets -- single source of truth

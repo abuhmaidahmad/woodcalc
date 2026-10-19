@@ -118,7 +118,7 @@ Kitchen Planner saves/restores: walls, elements, cabinets, `baseHeight`, `projec
 - Handle/Push door height = opening - 3 - 3
 - 1 door width = W-3 | 2 doors each = (W-3)/2
 - Under 600mm = 1 door | 600mm = 1 default (user changeable) | over 600mm = 2 doors default
-- Hinges Blum: ≤900mm=2, 901–1400=3, 1401–1800=4 per door
+- Hinges Blum: ≤900mm=2, 901–1400=3, 1401–2000=4, over 2000=5 per door (Blum; heavy doors TBD)
 - Gola profile: routed into side panels, top front rail, priced per linear meter (W-2T)
 
 ### Interior Zones (visual preset picker — no dropdown)
