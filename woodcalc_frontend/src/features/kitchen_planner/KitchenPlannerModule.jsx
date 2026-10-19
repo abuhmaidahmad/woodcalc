@@ -119,8 +119,29 @@ function panelMaterialAndBanding(p, c, carcassMat, frontMat) {
   return { mat, eb }
 }
 
+// The carcass/front material names a cabinet's parts and edge bands are listed
+// under -- shared by the cut lists and the BOM's per-material edge band totals.
+function bandMaterialNames(c) {
+  return {
+    carcassMat: c.carcassMaterialName || c.carcassColor || 'Carcass',
+    frontMat: c.frontMaterialName || c.frontColor || 'Front',
+  }
+}
+
+// A Filler/Side Panel/Panel/Toe Kick is one flat board in its front material (a
+// Filler also has its fixing cleat, cut from the carcass board).
+function flatPieceRows(c, carcassMat, frontMat) {
+  const { width, depth, thickness } = nonCarcassPieceDims(c)
+  const rows = [{ name: c.subtype || 'Piece', qty: 1, width, depth, thickness, mat: frontMat, eb: flatPieceEdgeBanding(c, frontMat) }]
+  if (c.subtype === 'Filler') {
+    const cleat = fillerCleatDims(c)
+    rows.push({ name: 'Filler Fixing Cleat', qty: 1, width: cleat.width, depth: cleat.depth, thickness: cleat.thickness, mat: carcassMat, eb: { T: 'None', B: 'None', L: 'None', R: frontMat } })
+  }
+  return rows
+}
+
 function EBCell({ eb }) {
-  const sides = [['T', eb.T], ['B', eb.B], ['L', eb.L], ['R', eb.R]]
+  const sides = [['T', eb.T || 'None'], ['B', eb.B || 'None'], ['L', eb.L || 'None'], ['R', eb.R || 'None']]
   return (
     <div style={{ fontSize: 10, lineHeight: 1.6 }}>
       {sides.map(([s, v]) => (
@@ -142,12 +163,17 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
     <div style={{ marginTop: 24 }}>
       <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>{t('kitchenPlannerModule.perCabinetCutList')}</div>
       {cabinets.map((c, i) => {
-        if (!isCarcassCabinet(c)) return null
-        let result
-        try { result = calculateCabinet(cabinetConfig(c)) } catch { return null }
+        // Fillers, side panels and other flat pieces are listed too, so their
+        // edge banding can be checked here like a cabinet's.
+        const flat = !isCarcassCabinet(c)
+        if (flat && APPLIANCE_SUBTYPES.includes(c.subtype)) return null
+        let result = { panels: [], doors: [], drawerFronts: [], hardware: null }
+        if (!flat) {
+          try { result = calculateCabinet(cabinetConfig(c)) } catch { return null }
+        }
         const isOpen = expanded[c.id]
-        const carcassMat = c.carcassMaterialName || c.carcassColor || 'Carcass'
-        const frontMat = c.frontMaterialName || c.frontColor || 'Front'
+        const { carcassMat, frontMat } = bandMaterialNames(c)
+        const flatRows = flat ? flatPieceRows(c, carcassMat, frontMat) : []
         // exclude toe kick from per-cabinet list
         const panels = result.panels.filter(p => !p.name.includes('Toe'))
         return (
@@ -159,7 +185,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 8 }}>{c.width}×{c.height}×{c.depth}mm · {c.doorStyle}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + result.doors.length + result.drawerFronts.length} {t('kitchenPlannerModule.parts')}</span>
+                <span style={{ fontSize: 11, color: '#888' }}>{panels.length + flatRows.length + result.doors.length + result.drawerFronts.length} {t('kitchenPlannerModule.parts')}</span>
                 <span style={{ color: ACCENT, fontSize: 14 }}>{isOpen ? '▲' : '▼'}</span>
               </div>
             </div>
@@ -188,6 +214,17 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                         </tr>
                       )
                     })}
+                    {flatRows.map((r, ri) => (
+                      <tr key={'f'+ri} style={{ borderBottom: '1px solid #F7F4F0' }}>
+                        <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{r.qty}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness}mm</td>
+                        <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.mat}</td>
+                        <td style={{ padding: '8px 12px' }}><EBCell eb={r.eb} /></td>
+                      </tr>
+                    ))}
                     {result.doors.map((d, di) => {
                       const eb = d.glassDoor ? {} : getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
                       return (
@@ -218,15 +255,17 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                     })}
                   </tbody>
                 </table>
-                <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: '1px solid #F0EBE5', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.confirmats')} <strong>{result.hardware.confirmats}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.dowels')} <strong>{result.hardware.dowels}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.legs')} <strong>{result.hardware.legs}</strong></span>
-                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.hinges')} <strong>{result.doors.reduce((s,d)=>s+d.hinges,0)}</strong></span>
-                  {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.handles')} <strong>{result.hardware.handles}</strong></span>}
-                  {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.tipOn')} <strong>{result.hardware.tip_on}</strong></span>}
-                  <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.backScrews')} <strong>{result.hardware.back_screws}</strong></span>
-                </div>
+                {result.hardware && (
+                  <div style={{ padding: '10px 16px', background: '#FAFAFA', borderTop: '1px solid #F0EBE5', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.confirmats')} <strong>{result.hardware.confirmats}</strong></span>
+                    <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.dowels')} <strong>{result.hardware.dowels}</strong></span>
+                    <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.legs')} <strong>{result.hardware.legs}</strong></span>
+                    <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.hinges')} <strong>{result.doors.reduce((s,d)=>s+d.hinges,0)}</strong></span>
+                    {result.hardware.handles > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.handles')} <strong>{result.hardware.handles}</strong></span>}
+                    {result.hardware.tip_on > 0 && <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.tipOn')} <strong>{result.hardware.tip_on}</strong></span>}
+                    <span style={{ fontSize: 11, color: '#666' }}>{t('kitchenPlannerModule.backScrews')} <strong>{result.hardware.back_screws}</strong></span>
+                  </div>
+                )}
               </>
             )}
           </div>
@@ -263,8 +302,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
   cabinets.forEach(c => {
     if (c.ledStripInterior) ledStripMeters += c.height / 1000
     if (c.ledStripUnder) ledStripMeters += c.width / 1000
-    const carcassMat = c.carcassMaterialName || c.material || 'Carcass'
-    const frontMat = c.frontMaterialName || 'Front'
+    const { carcassMat, frontMat } = bandMaterialNames(c)
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
       // Side Panel is itself non-carcass (a flat piece, handled below) so it never
@@ -283,19 +321,13 @@ function computeMasterCutList(cabinets, calculateCabinet) {
         if (!skirtingByMaterial[matKey]) skirtingByMaterial[matKey] = { meters: 0, elbows: 0 }
         skirtingByMaterial[matKey].meters += c.width / 1000
       }
-      // Filler/Panel/etc: one piece at its actual dimensions, no formula run
-      const { width: pieceWidth, depth: pieceDepth, thickness: pieceTh } = nonCarcassPieceDims(c)
-      const key = `${pieceWidth}×${pieceDepth}×${pieceTh}|${frontMat}|piece-${c.subtype}`
-      if (!masterMap[key]) masterMap[key] = { name: c.subtype || 'Piece', width: pieceWidth, depth: pieceDepth, thickness: pieceTh, material: frontMat, eb: flatPieceEdgeBanding(c, frontMat), qty: 0 }
-      masterMap[key].qty += 1
-      // Filler panels get a fixing cleat behind them (see fillerCleatDims) — cut
-      // from carcass material, front edge banded to match the filler's own front.
-      if (c.subtype === 'Filler') {
-        const { width: cw, depth: cd, thickness: ct } = fillerCleatDims(c)
-        const cleatKey = `${cw}×${cd}×${ct}|${carcassMat}|piece-FillerCleat`
-        if (!masterMap[cleatKey]) masterMap[cleatKey] = { name: 'Filler Fixing Cleat', width: cw, depth: cd, thickness: ct, material: carcassMat, eb: { T: 'None', B: 'None', L: 'None', R: frontMat }, qty: 0 }
-        masterMap[cleatKey].qty += 1
-      }
+      // Filler/Panel/etc: one piece at its actual dimensions, no formula run (a
+      // Filler also has its fixing cleat, see fillerCleatDims).
+      flatPieceRows(c, carcassMat, frontMat).forEach(r => {
+        const key = `${r.width}×${r.depth}×${r.thickness}|${r.mat}|${r.name}|${JSON.stringify(r.eb)}`
+        if (!masterMap[key]) masterMap[key] = { name: r.name, width: r.width, depth: r.depth, thickness: r.thickness, material: r.mat, eb: r.eb, qty: 0 }
+        masterMap[key].qty += r.qty
+      })
       return
     }
     let result
@@ -570,8 +602,7 @@ function aggregateBOM(cabinets) {
   const edgeByMaterial = {}
   const addEdge = (byMat) => Object.entries(byMat).forEach(([mat, mm]) => { edgeByMaterial[mat] = (edgeByMaterial[mat] || 0) + mm / 1000 })
   cabinets.forEach(cab => {
-    const carcassMat = cab.carcassMaterialName || cab.carcassColor || 'Carcass'
-    const frontMat = cab.frontMaterialName || cab.frontColor || 'Front'
+    const { carcassMat, frontMat } = bandMaterialNames(cab)
     if (!isCarcassCabinet(cab)) {
       addEdge(flatPieceEdgeBandingByMaterialMm(cab, frontMat))
       return

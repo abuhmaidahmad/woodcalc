@@ -269,9 +269,11 @@ function CuttingOptimizerModule() {
     }))
   }
 
-  async function createAndOptimize() {
+  // Optimizes every material tab, or just the one passed in (its earlier
+  // layouts are replaced, the other materials' are kept).
+  async function createAndOptimize(only = null) {
     setError('')
-    const toRun = groups
+    const toRun = (only ? [only] : groups)
       .map(g => ({ g, parts: g.parts.filter(p => p.label && p.width && p.height) }))
       .filter(({ parts }) => parts.length > 0)
     if (!workOrderId || toRun.length === 0) {
@@ -287,9 +289,15 @@ function CuttingOptimizerModule() {
 
     // Two tabs that resolve to the same board are one cutting job: separate jobs
     // would be packed on separate sheets, and the second would treat the first
-    // as a superseded re-run and put its stock back.
+    // as a superseded re-run and put its stock back. So optimizing one tab takes
+    // in every tab cut from its board.
+    const runBoard = only && boardKey(groupMaterial(only).id, groupThickness(only))
+    const boardTabs = only
+      ? groups.filter(g => groupMaterial(g)?.id && boardKey(groupMaterial(g).id, groupThickness(g)) === runBoard)
+        .map(g => ({ g, parts: g.parts.filter(p => p.label && p.width && p.height) }))
+      : toRun
     const byBoard = new Map()
-    toRun.forEach(({ g, parts }) => {
+    boardTabs.forEach(({ g, parts }) => {
       const key = boardKey(groupMaterial(g).id, groupThickness(g))
       if (byBoard.has(key)) byBoard.get(key).parts.push(...parts)
       else byBoard.set(key, { g, parts: [...parts] })
@@ -327,7 +335,7 @@ function CuttingOptimizerModule() {
           throw new Error(errData.detail || t('cuttingOptimizer.errOptimizeJob'))
         }
         const job = await optimizeRes.json()
-        done.push({ job, title: material.name ? `${material.sku} — ${material.name}` : groupLabel(g) })
+        done.push({ job, board: boardKey(material.id, groupThickness(g)), title: material.name ? `${material.sku} — ${material.name}` : groupLabel(g) })
       } catch (e) {
         // fetch only throws a TypeError when no response came back at all
         // (Safari words it "Load failed"), e.g. the server timed out.
@@ -335,7 +343,9 @@ function CuttingOptimizerModule() {
         failures.push(`${groupLabel(g)}: ${message}`)
       }
     }
-    setResults(done)
+    setResults(prev => only
+      ? [...prev.filter(r => r.board !== runBoard), ...done]
+      : done)
     if (failures.length) setError(failures.join(' · '))
     setLoading(false)
     // Layouts carry the stock sheet the backend may have just created.
@@ -530,22 +540,13 @@ function CuttingOptimizerModule() {
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           {t('cuttingOptimizer.addPart')}
         </button>
-        <button onClick={() => loadFromBOM('all')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #2c3e50', borderRadius: 6, background: '#2c3e50', color: 'white', cursor: 'pointer', marginRight: 8 }}>
+        <button onClick={() => loadFromBOM('all')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #2c3e50', borderRadius: 6, background: '#2c3e50', color: 'white', cursor: 'pointer', marginBottom: 16 }}>
           {t('cuttingOptimizer.loadAll')}
-        </button>
-        <button onClick={() => loadFromBOM('carcass')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
-          {t('cuttingOptimizer.loadCarcass')}
-        </button>
-        <button onClick={() => loadFromBOM('front')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
-          {t('cuttingOptimizer.loadFronts')}
-        </button>
-        <button onClick={() => loadFromBOM('back')} disabled={bomLoading} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginBottom: 16 }}>
-          {t('cuttingOptimizer.loadBackPanels')}
         </button>
 
         <div>
           <button
-            onClick={readOnly ? loadSavedJobs : createAndOptimize}
+            onClick={readOnly ? loadSavedJobs : () => createAndOptimize()}
             disabled={loading}
             style={{ padding: '10px 20px', background: '#2c3e50', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer' }}
           >
@@ -557,6 +558,12 @@ function CuttingOptimizerModule() {
                 ? t('cuttingOptimizer.createOptimizeAll', { count: groups.length })
                 : t('cuttingOptimizer.createOptimize')}
           </button>
+          {!readOnly && groups.length > 1 && (
+            <button onClick={() => createAndOptimize(activeGroup)} disabled={loading}
+              style={{ padding: '10px 20px', marginInlineStart: 8, background: 'white', color: '#2c3e50', border: '1px solid #2c3e50', borderRadius: 6, cursor: 'pointer' }}>
+              {t('cuttingOptimizer.optimizeOnly', { group: groupLabel(activeGroup) })}
+            </button>
+          )}
           {error && <span style={{ color: '#e74c3c', marginLeft: 12 }}>{error}</span>}
         </div>
       </div>
