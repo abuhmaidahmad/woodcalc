@@ -107,6 +107,18 @@ class CuttingJobMaterialTests(TestCase):
             self._door_placements()
         self.assertTrue(all(p.grain_locked for p in pack.call_args.args[0]))
 
+    def test_material_without_grain_overrides_grained_sheet(self):
+        from unittest import mock
+        from .models import StockSheet
+        from . import cutting_service
+        self.mat.has_grain = False
+        self.mat.save()
+        StockSheet.objects.create(tenant=self.company, material=self.mat, thickness=18,
+                                  width=2800, height=2070, grain_direction='length')
+        with mock.patch.object(cutting_service, 'pack_parts', wraps=cutting_service.pack_parts) as pack:
+            self._door_placements()
+        self.assertFalse(any(p.grain_locked for p in pack.call_args.args[0]))
+
     def test_optimize_reports_material_without_board_size(self):
         self.mat.board_width = None
         self.mat.save()

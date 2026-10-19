@@ -261,9 +261,12 @@ def optimize_job(job_id):
         )
 
     grain_dir = sheet_def.grain_direction
-    # The sheet's grain is fixed when it's first created; a material ticked as
-    # grained later must not keep cutting from a grainless sheet.
-    if grain_dir == 'none' and job.material.has_grain:
+    # The material's "Has grain" decides: the sheet's grain is fixed when it's
+    # first created, and must not outlive the box being ticked or unticked. The
+    # sheet only says which way a grained board's grain runs.
+    if not job.material.has_grain:
+        grain_dir = 'none'
+    elif grain_dir == 'none':
         grain_dir = 'length'
     # pack_parts keeps a grain-locked part's width along the sheet's width, so
     # the sheet is turned until its grain runs along that axis. 'length' is the

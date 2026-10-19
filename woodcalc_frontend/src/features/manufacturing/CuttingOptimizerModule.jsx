@@ -438,6 +438,9 @@ function CuttingOptimizerModule() {
   const labelStyle = { fontSize: 12, color: '#666', marginBottom: 4, display: 'block' }
   const activeMaterial = groupMaterial(activeGroup)
   const activeMaterialMissing = activeGroup.sku && !activeGroup.materialId && !activeMaterial && materials.length > 0
+  // A board without grain is cut with every part free to turn, whatever its
+  // grain_locked says (the optimizer ignores it), so the tick isn't shown.
+  const boardHasNoGrain = activeMaterial?.has_grain === false
 
   return (
     <div dir={dir} style={{ maxWidth: 1100, margin: '0 auto' }}>
@@ -502,6 +505,9 @@ function CuttingOptimizerModule() {
         )}
 
         <label style={labelStyle}>{t('cuttingOptimizer.parts')}</label>
+        {boardHasNoGrain && (
+          <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{t('cuttingOptimizer.noGrainNote')}</div>
+        )}
         <div style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
         {activeGroup.parts.map((p, idx) => (
           <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
@@ -509,10 +515,14 @@ function CuttingOptimizerModule() {
             <input style={inputStyle} placeholder={t('cuttingOptimizer.widthMmPlaceholder')} type="number" value={p.width} onChange={e => updatePart(idx, 'width', e.target.value)} />
             <input style={inputStyle} placeholder={t('cuttingOptimizer.heightMmPlaceholder')} type="number" value={p.height} onChange={e => updatePart(idx, 'height', e.target.value)} />
             <input style={inputStyle} placeholder={t('cuttingOptimizer.qtyPlaceholder')} type="number" value={p.quantity} onChange={e => updatePart(idx, 'quantity', e.target.value)} />
-            <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
-              <input type="checkbox" checked={p.grain_locked} onChange={e => updatePart(idx, 'grain_locked', e.target.checked)} />
-              {t('cuttingOptimizer.grainLocked')}
-            </label>
+            {boardHasNoGrain ? (
+              <span style={{ fontSize: 13, color: '#aaa' }}>{t('cuttingOptimizer.freeToRotate')}</span>
+            ) : (
+              <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <input type="checkbox" checked={p.grain_locked} onChange={e => updatePart(idx, 'grain_locked', e.target.checked)} />
+                {t('cuttingOptimizer.grainLocked')}
+              </label>
+            )}
             <button onClick={() => removePart(idx)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>✕</button>
           </div>
         ))}

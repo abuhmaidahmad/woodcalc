@@ -1598,6 +1598,8 @@
     "heightMmPlaceholder": "Height mm",
     "qtyPlaceholder": "Qty",
     "grainLocked": "Grain locked",
+    "freeToRotate": "Free to rotate",
+    "noGrainNote": "This board has no grain, so parts are turned wherever that saves board. To keep them upright, tick “Has grain” on the material in the Materials Catalog.",
     "addPart": "+ Add part",
     "loadAll": "Load All Materials",
     "sheetsSummary": "Sheets needed per material",
