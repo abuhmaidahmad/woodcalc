@@ -105,7 +105,7 @@ export default function ProductionBoard() {
 
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -117,9 +117,9 @@ export default function ProductionBoard() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
+      <div className="m-split" style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
         {/* Orders list */}
-        <div style={{ width: 360, borderInlineEnd: '1px solid #E0DAD4', overflow: 'auto', padding: 16 }}>
+        <div className="m-split-side" style={{ width: 360, borderInlineEnd: '1px solid #E0DAD4', overflow: 'auto', padding: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 12 }}>{orders.length} {t('productionBoard.workOrders')}</div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('common.loading')}</div>

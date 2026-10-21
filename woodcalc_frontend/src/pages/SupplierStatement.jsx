@@ -40,7 +40,7 @@ export default function SupplierStatement() {
 
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -54,10 +54,10 @@ export default function SupplierStatement() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: DARK, marginBottom: 20 }}>{data.supplier_name} — {t('supplierStatement.accountStatement')}</h1>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+        <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ fontSize: 11, color: '#888', marginBottom: 4 }}>{t('supplierStatement.totalOrdered')}</div>
             <div style={{ fontSize: 18, fontWeight: 800, color: DARK }}>{data.total_ordered}</div>

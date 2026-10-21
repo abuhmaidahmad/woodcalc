@@ -71,7 +71,7 @@ export default function AdminCompanyDetail() {
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -85,7 +85,7 @@ export default function AdminCompanyDetail() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
 
         {/* Company card */}
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>

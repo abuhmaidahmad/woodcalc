@@ -33,7 +33,7 @@ export default function RegisterCustomer() {
 
   return (
     <RegisterLayout role="customer" icon="🏠">
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerCustomer.firstName')} error={errors.first_name?.[0]}>
           <Input placeholder={t('registerCustomer.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
@@ -47,7 +47,7 @@ export default function RegisterCustomer() {
       <FormField label={t('registerCustomer.password')} error={errors.password?.[0]}>
         <Input type="password" placeholder={t('registerCustomer.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerCustomer.phone')} error={errors.phone?.[0]}>
           <Input placeholder={t('registerCustomer.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>

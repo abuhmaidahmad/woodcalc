@@ -43,7 +43,7 @@ export default function LeadCaptureModal({ companySlug, designSnapshot, designTo
 
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 2000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 380, boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 380, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
         {done ? (
           <>
             <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 8 }}>{t('leadCaptureModal.thanksTitle')}</div>

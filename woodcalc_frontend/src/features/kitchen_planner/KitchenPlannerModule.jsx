@@ -1360,7 +1360,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
   return (
     <div dir={dir} style={s.page}>
-      <div style={s.topBar}>
+      <div className="planner-topbar" style={s.topBar}>
         <div id="onboarding-configurator-project" style={s.topLeft}>
           {onBack && (
             <button onClick={onBack}
@@ -1396,7 +1396,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             </span>
           )}
         </div>
-        <div id="onboarding-configurator-tabs" style={s.tabs}>
+        <div id="onboarding-configurator-tabs" className="planner-tabs" style={s.tabs}>
           {[
             ['room',     t('kitchenPlannerModule.tabRoom')],
             ['planner',  t('kitchenPlannerModule.tabCabinets')],
@@ -1538,8 +1538,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       )}
 
       {tab === 'room' && (
-        <div style={s.workspace}>
-          <div style={s.leftPanel}>
+        <div className="m-split planner-workspace" style={s.workspace}>
+          <div className="m-split-side" style={s.leftPanel}>
 <div id="onboarding-configurator-room-size" style={s.panelSection}>
   <div style={s.panelLabel}>{t('kitchenPlannerModule.roomSize')}</div>
   <label style={s.dimLabel}>{t('kitchenPlannerModule.widthMm')}<input type="number" value={room.width} onChange={e => setRoom(r => ({ ...r, width: +e.target.value }))} style={s.dimInput} /></label>
@@ -1602,7 +1602,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               <label style={s.toggle}><input type="checkbox" checked={showDimensions} onChange={e => setShowDimensions(e.target.checked)} />{t('kitchenPlannerModule.showDimensions')}</label>
             </div>
           </div>
-          <div id="onboarding-configurator-room-canvas" style={s.canvasWrap}>
+          <div id="onboarding-configurator-room-canvas" className="planner-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
@@ -1611,7 +1611,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               stairs={stairs} setStairs={setStairs}
               backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments} />
           </div>
-          <div id="onboarding-configurator-room-properties" style={s.rightPanel}>
+          <div id="onboarding-configurator-room-properties" className="m-split-side" style={s.rightPanel}>
         {selectedType === 'backsplash' ? (() => {
           const seg = backsplashSegments.find(s => s.id === selected)
           if (!seg) return null
@@ -2007,8 +2007,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       )}
 
       {tab === 'planner' && (
-        <div style={s.workspace}>
-          {!locked && <div id="onboarding-configurator-catalog" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
+        <div className="m-split planner-workspace" style={s.workspace}>
+          {!locked && <div id="onboarding-configurator-catalog" className="m-split-side" style={{ ...s.leftPanel, width: 220, padding: 0, display: 'flex', flexDirection: 'column' }}>
             {baseHeight && projectDefaults && !readOnly && (
               <div style={{ display: 'flex', borderBottom: '1px solid #E8E4DF', flexShrink: 0 }}>
                 <button onClick={() => setLeftPanelMode('catalog')}
@@ -2039,7 +2039,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
             />
             )}
           </div>}
-          <div id="onboarding-configurator-cabinets-canvas" style={s.canvasWrap}>
+          <div id="onboarding-configurator-cabinets-canvas" className="planner-canvas" style={s.canvasWrap}>
             <RoomCanvas room={room} scale={SCALE} showGrid={showGrid} showDimensions={showDimensions}
               elements={elements} setElements={setElements} cabinets={cabinets} setCabinets={setCabinets}
               selected={selected} setSelected={setSelected} selectedType={selectedType} setSelectedType={setSelectedType}
@@ -2053,7 +2053,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               hideWallsElements={true}
               bulkIds={bulkIds} onToggleBulk={toggleBulk} />
           </div>
-          <div id="onboarding-configurator-cabinets-properties" style={{ ...s.rightPanel, width: 280 }}>
+          <div id="onboarding-configurator-cabinets-properties" className="m-split-side" style={{ ...s.rightPanel, width: 280 }}>
             {bulkCount > 0 ? (
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>

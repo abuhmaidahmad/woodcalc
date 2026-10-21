@@ -3,3 +3,47 @@ html, body, #root { min-height: 100%; width: 100%; overflow-y: auto; font-family
 
 .page-loader-spinner { width: 28px; height: 28px; border: 3px solid rgba(200, 144, 42, 0.25); border-top-color: #C8902A; border-radius: 50%; animation: page-loader-spin 0.8s linear infinite; }
 @keyframes page-loader-spin { to { transform: rotate(360deg); } }
+
+/* Phone layout. Pages are styled inline, so these hooks need !important to
+   override those inline values below 640px. */
+@media (max-width: 640px) {
+  /* Language pill moves off the top bars to the bottom corner opposite the
+     Feedback button (which sits at the inline end). */
+  .lang-switcher { top: auto !important; bottom: 20px; right: auto !important; left: 12px; }
+  html[lang="ar"] .lang-switcher { left: auto; right: 12px !important; }
+
+  /* Top bars: brand on the first line, nav buttons on a swipeable second line. */
+  .app-topbar { height: auto !important; min-height: 56px; flex-wrap: wrap; gap: 8px 12px; padding: 10px 16px !important; }
+  .app-topbar > * { min-width: 0; }
+  .app-topbar > div:last-child:not(:first-child) {
+    flex: 1 1 100%; flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; gap: 8px !important;
+  }
+  .app-topbar > div:last-child:not(:first-child)::-webkit-scrollbar { display: none; }
+  .app-topbar > div:last-child:not(:first-child) > * { flex-shrink: 0; white-space: nowrap; }
+
+  .app-content { padding: 16px !important; }
+
+  .m-stack { grid-template-columns: 1fr !important; }
+  .m-2col { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+
+  /* Side panel + main area: stack vertically and scroll as one column. */
+  .m-split { flex-direction: column !important; height: auto !important; overflow-y: auto !important; }
+  .m-split > .m-split-side {
+    width: 100% !important; flex-shrink: 0; overflow: visible !important;
+    border-inline-end: none !important; border-left: none !important; border-right: none !important;
+    border-bottom: 1px solid #E0DAD4;
+  }
+
+  /* Kitchen planner: keep the app-height shell, put the canvas first and let
+     the panels scroll beneath it. */
+  .planner-topbar { gap: 8px !important; }
+  .planner-topbar > * { min-width: 0 !important; }
+  .planner-tabs { flex: 1 1 100%; flex-wrap: nowrap !important; overflow-x: auto; scrollbar-width: none; }
+  .planner-tabs::-webkit-scrollbar { display: none; }
+  .planner-tabs > * { flex-shrink: 0; white-space: nowrap; }
+  .planner-workspace { flex: 1 1 0 !important; min-height: 0; }
+  .planner-canvas { order: -1; flex: 0 0 60vh !important; padding: 8px !important; }
+
+  /* Wide tables scroll sideways instead of stretching the page. */
+  table { display: block; max-width: 100%; overflow-x: auto; }
+}

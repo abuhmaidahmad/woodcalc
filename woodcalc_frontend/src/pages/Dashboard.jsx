@@ -198,7 +198,7 @@ export default function Dashboard() {
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={styles.page}>
       {/* Top Bar */}
-      <div style={styles.topBar}>
+      <div className="app-topbar" style={styles.topBar}>
         <div style={styles.topLeft}>
           <Logo forDarkBg height={26} />
         </div>

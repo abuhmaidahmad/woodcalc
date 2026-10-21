@@ -62,7 +62,7 @@ export default function RegisterSupplier() {
 
   return (
     <RegisterLayout role="supplier" icon="📦">
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerSupplier.firstName')} error={errors.first_name?.[0]}>
           <Input placeholder={t('registerSupplier.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
@@ -76,7 +76,7 @@ export default function RegisterSupplier() {
       <FormField label={t('registerSupplier.password')} error={errors.password?.[0]}>
         <Input type="password" placeholder={t('registerSupplier.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerSupplier.phone')} error={errors.phone?.[0]}>
           <Input placeholder={t('registerSupplier.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
@@ -87,7 +87,7 @@ export default function RegisterSupplier() {
       <FormField label={t('registerSupplier.companyName')} error={errors.company_name?.[0]}>
         <Input placeholder={t('registerSupplier.companyNamePlaceholder')} value={form.company_name} onChange={set('company_name')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerSupplier.crNumber')} error={errors.commercial_registration_number?.[0]}>
           <Input placeholder={t('registerSupplier.crPlaceholder')} value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
         </FormField>

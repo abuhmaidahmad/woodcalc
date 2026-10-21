@@ -159,7 +159,7 @@ export default function TeamCard() {
             </button>
           ) : (
             <div style={{ border: '1.5px solid #E0DAD4', borderRadius: 8, padding: 16, marginTop: 8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
+              <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 8 }}>
                 <input value={form.first_name} onChange={e => setForm(f => ({ ...f, first_name: e.target.value }))}
                   placeholder={t('team.firstName')}
                   style={{ padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, outline: 'none' }} />

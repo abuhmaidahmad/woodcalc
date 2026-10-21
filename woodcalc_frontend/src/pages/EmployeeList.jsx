@@ -81,7 +81,7 @@ export default function EmployeeList() {
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -101,7 +101,7 @@ export default function EmployeeList() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('hr.title')}</h1>
           {canManage && (
@@ -161,11 +161,11 @@ export default function EmployeeList() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
           <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 20 }}>{t('hr.addEmployee')}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.firstName')} value={form.first_name} onChange={v => setForm(f => ({ ...f, first_name: v }))} />
               <Field label={t('hr.lastName')} value={form.last_name} onChange={v => setForm(f => ({ ...f, last_name: v }))} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.jobTitle')} value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} />
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('hr.department')}</div>
@@ -176,11 +176,11 @@ export default function EmployeeList() {
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.email')} type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} />
               <Field label={t('hr.phone')} value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               <Field label={t('hr.hireDate')} type="date" value={form.hire_date} onChange={v => setForm(f => ({ ...f, hire_date: v }))} />
               {canViewSalary && <Field label={t('hr.salary')} type="number" value={form.salary} onChange={v => setForm(f => ({ ...f, salary: v }))} />}
             </div>

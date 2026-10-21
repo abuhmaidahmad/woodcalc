@@ -459,10 +459,10 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const fmtC = (n) => currency === 'JD' ? `${fmt(n)} JD` : `$${fmt(n / usdRate)}`
 
   return (
-    <div dir={dir} style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#F7F4F0' }}>
+    <div dir={dir} className="m-split" style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#F7F4F0' }}>
 
       {/* ── LEFT: Settings ── */}
-      <div style={{ width: 260, background: '#fff', borderInlineEnd: '1px solid #E0DAD4',
+      <div className="m-split-side" style={{ width: 260, background: '#fff', borderInlineEnd: '1px solid #E0DAD4',
         overflowY: 'auto', flexShrink: 0, padding: 16 }}>
 
         <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 4 }}>{t('proposalTab.pricingSettings')}</div>

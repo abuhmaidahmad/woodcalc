@@ -301,7 +301,7 @@ export default function MaterialCatalog() {
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
 
       {/* Top bar */}
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#555', fontSize: 12 }}>|</span>
@@ -443,7 +443,7 @@ export default function MaterialCatalog() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <Field label={t('materialCatalog.supplierNameLabel')} value={supplierForm.name} onChange={v => setSupplierForm(f => ({ ...f, name: v }))} placeholder={t('materialCatalog.supplierNamePlaceholder')} />
               <Field label={t('materialCatalog.contactNameLabel')} value={supplierForm.contact_name} onChange={v => setSupplierForm(f => ({ ...f, contact_name: v }))} placeholder={t('materialCatalog.contactNamePlaceholder')} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label={t('materialCatalog.phoneLabel')} value={supplierForm.phone} onChange={v => setSupplierForm(f => ({ ...f, phone: v }))} placeholder={t('materialCatalog.phonePlaceholder')} />
                 <Field label={t('materialCatalog.emailLabel')} value={supplierForm.email} onChange={v => setSupplierForm(f => ({ ...f, email: v }))} placeholder={t('materialCatalog.emailPlaceholder')} />
               </div>
@@ -496,13 +496,13 @@ export default function MaterialCatalog() {
             </div>
 
             {/* Row: Name + Code */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('materialCatalog.materialNameLabel')} value={form.name} onChange={v => setForm(f => ({ ...f, name: v }))} placeholder={t('materialCatalog.materialNamePlaceholder')} />
               <Field label={t('materialCatalog.skuLabel')} value={form.sku} onChange={v => setForm(f => ({ ...f, sku: v }))} placeholder={t('materialCatalog.skuPlaceholder')} />
             </div>
 
             {/* Row: Type + Finish */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.typeLabel')}</div>
                 <select value={form.material_type} onChange={e => {
@@ -568,7 +568,7 @@ export default function MaterialCatalog() {
 
             {/* Board dimensions */}
             <div style={{ fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 600 }}>{t('materialCatalog.boardSize')}</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('materialCatalog.widthLabel')} value={form.board_width} type="number" onChange={v => setForm(f => ({ ...f, board_width: v }))} placeholder="2440" />
               <Field label={t('materialCatalog.heightLabel')} value={form.board_height} type="number" onChange={v => setForm(f => ({ ...f, board_height: v }))} placeholder="1220" />
               <Field label={t('materialCatalog.thicknessLabel')} value={form.board_thickness} type="number" onChange={v => setForm(f => ({ ...f, board_thickness: v }))} placeholder="18" />
@@ -583,13 +583,13 @@ export default function MaterialCatalog() {
 
             {/* Texture photo physical size */}
             <div style={{ fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 600 }}>{t('materialCatalog.texturePhotoSize')} <span style={{ color: '#bbb', fontWeight: 400 }}>{t('materialCatalog.texturePhotoSizeHint')}</span></div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('materialCatalog.photoWidthLabel')} value={form.texture_physical_width_mm} type="number" onChange={v => setForm(f => ({ ...f, texture_physical_width_mm: v }))} placeholder="600" />
               <Field label={t('materialCatalog.photoHeightLabel')} value={form.texture_physical_height_mm} type="number" onChange={v => setForm(f => ({ ...f, texture_physical_height_mm: v }))} placeholder="600" />
             </div>
 
             {/* Price + what it's quoted per (countertop suppliers often price per running meter) */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('materialCatalog.priceLabel')} value={form.price_per_board} type="number" onChange={v => setForm(f => ({ ...f, price_per_board: v }))} placeholder="0.00" />
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.priceUnitLabel')}</div>
@@ -600,7 +600,7 @@ export default function MaterialCatalog() {
             </div>
 
             {/* Fallback color */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.fallbackColorLabel')}</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -613,7 +613,7 @@ export default function MaterialCatalog() {
             </div>
 
             {/* Roughness + Metalness */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.roughnessLabel')} <span style={{ color: '#bbb' }}>{t('materialCatalog.roughnessHint')}</span></div>
                 <input type="range" min="0" max="1" step="0.05" value={form.roughness}
@@ -673,7 +673,7 @@ export default function MaterialCatalog() {
               {editingDs && <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemNameLocked')}</div>}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('materialCatalog.drawerSystemBrandLabel')} value={dsForm.brand}
                 onChange={v => setDsForm(f => ({ ...f, brand: v }))}
                 placeholder={t('materialCatalog.drawerSystemBrandPlaceholder')} />
@@ -688,7 +688,7 @@ export default function MaterialCatalog() {
             </div>
 
             {dsForm.box_construction === 'metal_sided' && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+              <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                 <Field label={t('materialCatalog.drawerSystemPriceMLabel')} value={dsForm.price_per_set_m} type="number"
                   onChange={v => setDsForm(f => ({ ...f, price_per_set_m: v }))} placeholder="0.00" />
                 <Field label={t('materialCatalog.drawerSystemPriceCLabel')} value={dsForm.price_per_set_c} type="number"

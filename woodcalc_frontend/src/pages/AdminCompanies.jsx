@@ -59,7 +59,7 @@ export default function AdminCompanies() {
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -77,7 +77,7 @@ export default function AdminCompanies() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
         <div style={{ marginBottom: 20 }}>
           <h1 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: DARK }}>{t('adminCompanies.title')}</h1>
           <div style={{ color: '#888', fontSize: 13, marginTop: 2 }}>{t('adminCompanies.total', { count: companies.length })}</div>

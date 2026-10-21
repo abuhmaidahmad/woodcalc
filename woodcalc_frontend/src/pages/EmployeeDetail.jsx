@@ -148,7 +148,7 @@ export default function EmployeeDetail() {
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -160,7 +160,7 @@ export default function EmployeeDetail() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 800, margin: '0 auto', padding: 24 }}>
         <div style={{ display: 'flex', gap: 4, marginBottom: 16 }}>
           {TABS.map(([id2, label]) => (
             <button key={id2} onClick={() => setTab(id2)}
@@ -173,11 +173,11 @@ export default function EmployeeDetail() {
 
         {tab === 'profile' && (
           <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.firstName')} value={form.first_name} onChange={v => setForm(f => ({ ...f, first_name: v }))} disabled={!canManage} />
               <Field label={t('hr.lastName')} value={form.last_name} onChange={v => setForm(f => ({ ...f, last_name: v }))} disabled={!canManage} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.jobTitle')} value={form.job_title} onChange={v => setForm(f => ({ ...f, job_title: v }))} disabled={!canManage} />
               <div>
                 <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('hr.department')}</div>
@@ -189,11 +189,11 @@ export default function EmployeeDetail() {
                 </select>
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
               <Field label={t('hr.email')} type="email" value={form.email} onChange={v => setForm(f => ({ ...f, email: v }))} disabled={!canManage} />
               <Field label={t('hr.phone')} value={form.phone} onChange={v => setForm(f => ({ ...f, phone: v }))} disabled={!canManage} />
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               <Field label={t('hr.hireDate')} type="date" value={form.hire_date || ''} onChange={v => setForm(f => ({ ...f, hire_date: v }))} disabled={!canManage} />
               {canViewSalary && (
                 <Field label={t('hr.salary')} type="number" value={form.salary ?? ''} onChange={v => setForm(f => ({ ...f, salary: v }))} disabled={!hasPermission('hr.edit_salary')} />

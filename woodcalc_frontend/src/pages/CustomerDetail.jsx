@@ -102,7 +102,7 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
   return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
       {/* Top bar */}
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -116,7 +116,7 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
         </button>
       </div>
 
-      <div style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
 
         {/* Customer card */}
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -193,7 +193,7 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
       {/* Add Project Modal */}
       {showAddProject && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('customerDetail.modalTitle')}</div>
             <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('customerDetail.modalFor')} {customer.name}</div>
             {[['name', t('customerDetail.fieldProjectName')], ['address', t('customerDetail.fieldSiteAddress')], ['notes', t('customerDetail.fieldNotes')]].map(([key, label]) => (
@@ -227,7 +227,7 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
       {/* Edit Customer Modal */}
       {showEditCustomer && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
+          <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: 400, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 20px 60px rgba(0,0,0,0.2)' }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: DARK, marginBottom: 20 }}>{t('customerDetail.editCustomer')}</div>
             {[['name', t('customerDetail.fieldName')], ['phone', t('customerDetail.fieldPhone')], ['email', t('customerDetail.fieldEmail')], ['company', t('customerDetail.fieldCompany')], ['address', t('customerDetail.fieldAddress')]].map(([key, label]) => (
               <div key={key} style={{ marginBottom: 12 }}>

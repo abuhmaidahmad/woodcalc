@@ -134,7 +134,7 @@ export default function CadCamImport() {
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
-      <div style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
+      <div className="app-topbar" style={{ height: 56, background: DARK, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
@@ -146,7 +146,7 @@ export default function CadCamImport() {
         </button>
       </div>
 
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
+      <div className="app-content" style={{ maxWidth: 960, margin: '0 auto', padding: 24 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: DARK }}>{t('cadcamImport.title')}</h1>
         <div style={{ color: '#888', fontSize: 13, marginBottom: 20 }}>{t('cadcamImport.subtitle')}</div>
 
@@ -235,7 +235,7 @@ export default function CadCamImport() {
 
             {job.status === 'done' && !loadingResults && (
               <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
+                <div className="m-2col" style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 12, marginBottom: 24 }}>
                   <StatCard label={t('cadcamImport.statParts')} value={parts.length} />
                   <StatCard label={t('cadcamImport.statSheets')} value={sheetsUsed} />
                   <StatCard label={t('cadcamImport.statEdges')} value={bandedEdges} />

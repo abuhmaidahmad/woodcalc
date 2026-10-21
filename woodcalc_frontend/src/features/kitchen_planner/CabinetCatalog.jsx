@@ -414,7 +414,7 @@ function ProjectSetup({ onConfirm, initial, companySlug }) {
 
   return (
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '92vh', overflowY: 'auto' }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: 28, width: 440, maxWidth: 'calc(100vw - 32px)', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', maxHeight: '92vh', overflowY: 'auto' }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: DARK, marginBottom: 4 }}>{t('cabinetCatalog.projectSetupTitle')}</div>
         <div style={{ fontSize: 12, color: '#888', marginBottom: 20 }}>{t('cabinetCatalog.projectSetupDesc')}</div>
 

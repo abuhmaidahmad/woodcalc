@@ -39,7 +39,7 @@ export default function RegisterManufacturer() {
 
   return (
     <RegisterLayout role="manufacturer" icon="🏭">
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerManufacturer.firstName')} error={errors.first_name?.[0]}>
           <Input placeholder={t('registerManufacturer.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
@@ -53,7 +53,7 @@ export default function RegisterManufacturer() {
       <FormField label={t('registerManufacturer.password')} error={errors.password?.[0]}>
         <Input type="password" placeholder={t('registerManufacturer.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerManufacturer.phone')} error={errors.phone?.[0]}>
           <Input placeholder={t('registerManufacturer.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
@@ -64,7 +64,7 @@ export default function RegisterManufacturer() {
       <FormField label={t('registerManufacturer.companyName')} error={errors.factory_company_name?.[0]}>
         <Input placeholder={t('registerManufacturer.companyNamePlaceholder')} value={form.factory_company_name} onChange={set('factory_company_name')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerManufacturer.crNumber')} error={errors.commercial_registration_number?.[0]}>
           <Input placeholder={t('registerManufacturer.crPlaceholder')} value={form.commercial_registration_number} onChange={set('commercial_registration_number')} />
         </FormField>

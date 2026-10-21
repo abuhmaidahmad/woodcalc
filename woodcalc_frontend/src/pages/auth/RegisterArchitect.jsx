@@ -38,7 +38,7 @@ export default function RegisterArchitect() {
 
   return (
     <RegisterLayout role="architect" icon="📐">
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerArchitect.firstName')} error={errors.first_name?.[0]}>
           <Input placeholder={t('registerArchitect.firstNamePlaceholder')} value={form.first_name} onChange={set('first_name')} />
         </FormField>
@@ -52,7 +52,7 @@ export default function RegisterArchitect() {
       <FormField label={t('registerArchitect.password')} error={errors.password?.[0]}>
         <Input type="password" placeholder={t('registerArchitect.passwordPlaceholder')} value={form.password} onChange={set('password')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerArchitect.phone')} error={errors.phone?.[0]}>
           <Input placeholder={t('registerArchitect.phonePlaceholder')} value={form.phone} onChange={set('phone')} />
         </FormField>
@@ -63,7 +63,7 @@ export default function RegisterArchitect() {
       <FormField label={t('registerArchitect.companyStudioName')} error={errors.company_studio_name?.[0]}>
         <Input placeholder={t('registerArchitect.companyStudioPlaceholder')} value={form.company_studio_name} onChange={set('company_studio_name')} />
       </FormField>
-      <div style={styles.row}>
+      <div className="m-stack" style={styles.row}>
         <FormField label={t('registerArchitect.licenseNumber')} error={errors.license_number?.[0]}>
           <Input placeholder={t('registerArchitect.licenseNumberPlaceholder')} value={form.license_number} onChange={set('license_number')} />
         </FormField>

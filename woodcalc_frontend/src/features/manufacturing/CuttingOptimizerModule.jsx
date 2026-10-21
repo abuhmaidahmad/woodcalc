@@ -463,7 +463,7 @@ function CuttingOptimizerModule() {
       <h1 style={{ color: '#2c3e50', marginBottom: 20 }}>{t('cuttingOptimizer.title')}</h1>
 
       <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 16, marginBottom: 16 }}>
+        <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr 1fr', gap: 16, marginBottom: 16 }}>
           <div>
             <label style={labelStyle}>{t('cuttingOptimizer.workOrder')}</label>
             <select style={inputStyle} value={workOrderId} onChange={e => setWorkOrderId(e.target.value)}>

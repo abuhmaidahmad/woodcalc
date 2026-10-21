@@ -283,10 +283,10 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
   }
 
   return (
-    <div dir={dir} style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#F7F4F0' }}>
+    <div dir={dir} className="m-split" style={{ flex: 1, display: 'flex', overflow: 'hidden', background: '#F7F4F0' }}>
 
       {/* LEFT: Company + Payment + Signature */}
-      <div style={{ width: 280, background: '#fff', borderInlineEnd: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 16 }}>
+      <div className="m-split-side" style={{ width: 280, background: '#fff', borderInlineEnd: '1px solid #E0DAD4', overflowY: 'auto', flexShrink: 0, padding: 16 }}>
 
         <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 4 }}>{t('contractTab.contractSettings')}</div>
         <div style={{ fontSize: 11, color: '#999', marginBottom: 14 }}>{t('contractTab.contractNo')} <strong style={{ color: DARK }}>{contractNo}</strong></div>
@@ -373,7 +373,7 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
           </div>
 
           {/* Parties */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+          <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
             {[[t('contractTab.contractor'), company.name, company.address, company.phone],
               [t('contractTab.client'), customer.name, customer.address, customer.phone]].map(([role, name, addr, phone]) => (
               <div key={role} style={{ background: '#fff', borderRadius: 10, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
@@ -469,7 +469,7 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
           </div>
 
           {/* Signatures */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div style={{ background: '#fff', borderRadius: 12, padding: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', textAlign: 'center' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#999', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>{t('contractTab.contractorSignature')}</div>
               {signature
