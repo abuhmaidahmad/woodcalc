@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { bomPanelsToGroups, boardKey } from './CuttingOptimizerModule'
+import { bilingualPartName as L } from '../kitchen_planner/partNamesAr'
 
 const cab = (frontMaterialCode, width) => ({
   category: 'base', subtype: 'Base', width, height: 720, depth: 560,
@@ -28,8 +29,8 @@ describe('bomPanelsToGroups', () => {
     const skus = groups.map(g => g.sku).filter(Boolean).sort()
     expect(skus).toEqual(['HG623', 'PLY18'])
     const hg = groups.find(g => g.sku === 'HG623')
-    expect(hg.parts.some(p => p.label === 'Door')).toBe(true)
-    expect(hg.parts.some(p => p.label !== 'Door')).toBe(true)
+    expect(hg.parts.some(p => p.label === L('Door'))).toBe(true)
+    expect(hg.parts.some(p => p.label !== L('Door'))).toBe(true)
   })
 
   it('leaves glass shelves out -- the glass supplier makes them to size', () => {
@@ -44,17 +45,17 @@ describe('bomPanelsToGroups', () => {
     const fridge = { ...cab('HG623', 600), category: 'accessories', subtype: 'Fridge' }
     const groups = bomPanelsToGroups([filler, panel, fridge], 'all')
     const hg = groups.find(g => g.sku === 'HG623')
-    expect(hg.parts).toEqual([{ label: 'Filler', width: '720', height: '50', quantity: 1, grain_locked: true }])
+    expect(hg.parts).toEqual([{ label: L('Filler'), width: '720', height: '50', quantity: 1, grain_locked: true }])
     const h1210 = groups.find(g => g.sku === 'H1210_ST')
-    expect(h1210.parts).toEqual([{ label: 'Side Panel', width: '2400', height: '580', quantity: 1, grain_locked: true }])
+    expect(h1210.parts).toEqual([{ label: L('Side Panel'), width: '2400', height: '580', quantity: 1, grain_locked: true }])
     const ply = groups.find(g => g.sku === 'PLY18')
-    expect(ply.parts).toEqual([{ label: 'Filler Fixing Cleat', width: '717', height: '100', quantity: 1, grain_locked: false }])
+    expect(ply.parts).toEqual([{ label: L('Filler Fixing Cleat'), width: '717', height: '100', quantity: 1, grain_locked: false }])
   })
 
   it('cuts drawer fronts from the front board with the grain along their height', () => {
     const drawers = { ...cab('H1210_ST', 600), subtype: 'Drawers' }
     const groups = bomPanelsToGroups([drawers], 'front')
-    const fronts = groups[0].parts.filter(p => p.label === 'Drawer Front')
+    const fronts = groups[0].parts.filter(p => p.label === L('Drawer Front'))
     expect(fronts.reduce((n, p) => n + p.quantity, 0)).toBeGreaterThan(0)
     fronts.forEach(p => {
       expect(p.grain_locked).toBe(true)
@@ -66,17 +67,17 @@ describe('bomPanelsToGroups', () => {
     const blind = { ...cab('H1210_ST', 1200), subtype: 'Blind', doorStyle: 'Gola' }
     const groups = bomPanelsToGroups([blind], 'all')
     const front = groups.find(g => g.sku === 'H1210_ST')
-    const door = front.parts.find(p => p.label === 'Door')
-    expect(front.parts.find(p => p.label === 'Blind filler'))
-      .toEqual({ label: 'Blind filler', width: door.width, height: '150', quantity: 1, grain_locked: true })
-    expect(groups.find(g => g.sku === 'PLY18').parts.some(p => p.label === 'Blind filler')).toBe(false)
+    const door = front.parts.find(p => p.label === L('Door'))
+    expect(front.parts.find(p => p.label === L('Blind filler')))
+      .toEqual({ label: L('Blind filler'), width: door.width, height: '150', quantity: 1, grain_locked: true })
+    expect(groups.find(g => g.sku === 'PLY18').parts.some(p => p.label === L('Blind filler'))).toBe(false)
   })
 
   it("cuts a filler's cleat from the kitchen's carcass board when the filler has none", () => {
     const filler = { ...cab('HG623', 50), category: 'accessories', subtype: 'Filler', carcassMaterialCode: null }
     const groups = bomPanelsToGroups([cab('HG623', 600), cab('HG623', 400), filler], 'carcass')
     expect(groups.map(g => g.sku)).toEqual(['PLY18'])
-    expect(groups[0].parts.some(p => p.label === 'Filler Fixing Cleat')).toBe(true)
+    expect(groups[0].parts.some(p => p.label === L('Filler Fixing Cleat'))).toBe(true)
   })
 })
 

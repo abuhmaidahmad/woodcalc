@@ -22,6 +22,7 @@ import ContractTab from './ContractTab'
 import LeadCaptureModal from './LeadCaptureModal'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { partNameAr } from './partNamesAr'
 import OnboardingTour from '../../components/OnboardingTour'
 import configuratorSteps from '../../onboardingSteps/configurator'
 
@@ -140,6 +141,16 @@ function flatPieceRows(c, carcassMat, frontMat) {
   return rows
 }
 
+// A part's English name with its Arabic name underneath, for the workshop.
+function PartName({ name, ar = partNameAr(name) }) {
+  return (
+    <>
+      {name}
+      {ar && <div dir="rtl" style={{ fontSize: 11, fontWeight: 500, color: '#888', textAlign: 'left' }}>{ar}</div>}
+    </>
+  )
+}
+
 function EBCell({ eb }) {
   const sides = [['T', eb.T || 'None'], ['B', eb.B || 'None'], ['L', eb.L || 'None'], ['R', eb.R || 'None']]
   return (
@@ -155,7 +166,7 @@ function EBCell({ eb }) {
 
 // ─── Per-Cabinet Cut List ────────────────────────────────────────────
 function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [expanded, setExpanded] = React.useState({})
   const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
 
@@ -204,7 +215,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                       const { mat: panelMat, eb } = panelMaterialAndBanding(p, c, carcassMat, frontMat)
                       return (
                         <tr key={pi} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{p.name}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}><PartName name={p.name} /></td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{p.qty}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{p.depth}</td>
@@ -216,7 +227,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                     })}
                     {flatRows.map((r, ri) => (
                       <tr key={'f'+ri} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                        <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}><PartName name={r.name} /></td>
                         <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>{r.qty}</td>
                         <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
                         <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
@@ -229,7 +240,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                       const eb = d.glassDoor ? {} : getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
                       return (
                         <tr key={'d'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.door', { n: di+1 })}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}><PartName name={t('kitchenPlannerModule.door', { n: di+1 })} ar={language === 'ar' ? '' : `باب ${di+1}`} /></td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
@@ -243,7 +254,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                       const eb = getEdgeBanding('Door', c.carcassColor, c.frontColor, carcassMat, frontMat)
                       return (
                         <tr key={'dr'+di} style={{ borderBottom: '1px solid #F7F4F0', background: '#FFFDF9' }}>
-                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}>{t('kitchenPlannerModule.drawerFront', { n: di+1 })}</td>
+                          <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: ACCENT }}><PartName name={t('kitchenPlannerModule.drawerFront', { n: di+1 })} ar={language === 'ar' ? '' : `وجه درج ${di+1}`} /></td>
                           <td style={{ padding: '8px 12px', fontSize: 12, color: '#666' }}>1</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.width}</td>
                           <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{d.height}</td>
@@ -576,7 +587,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
                 {rows.map((r, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid #F7F4F0', background: i % 2 === 0 ? '#fff' : '#FDFAF6' }}>
                     <td style={{ padding: '8px 12px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>{String(i+1).padStart(2,'0')}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}>{r.name}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 600, color: DARK }}><PartName name={r.name} /></td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.width}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontFamily: 'monospace' }}>{r.depth}</td>
                     <td style={{ padding: '8px 12px', fontSize: 11, color: '#666' }}>{r.thickness ? `${r.thickness}mm` : '—'}{isBackPanel(r)?' HDF':''}</td>

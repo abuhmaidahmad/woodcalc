@@ -198,7 +198,9 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
     def export_csv_action(self, request, pk=None):
         job = self.get_object()
         csv_text = export_csv(job.id)
-        response = HttpResponse(csv_text, content_type='text/csv')
+        # The byte-order mark makes Excel read the file as UTF-8, so the
+        # Arabic part names don't come out garbled.
+        response = HttpResponse('\ufeff' + csv_text, content_type='text/csv; charset=utf-8')
         response['Content-Disposition'] = f'attachment; filename="cutting_job_{job.id}.csv"'
         return response
 

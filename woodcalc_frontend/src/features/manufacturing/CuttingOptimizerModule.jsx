@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from '../kitchen_planner/formulaEngine'
+import { bilingualPartName } from '../kitchen_planner/partNamesAr'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
 import { useCompanyStandards } from '../../api/companySettings'
@@ -33,6 +34,7 @@ export function bomPanelsToGroups(cabinets, group) {
     const groupKey = sku || `${kind}|${thickness}`
     if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, thickness: sku ? '' : String(thickness || ''), merged: new Map() })
     const merged = groups.get(groupKey).merged
+    label = bilingualPartName(label)
     const key = `${label}|${width}|${height}|${grainLocked}`
     if (merged.has(key)) {
       merged.get(key).quantity += qty

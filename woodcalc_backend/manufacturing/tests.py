@@ -288,6 +288,17 @@ class CuttingJobXlsxExportTests(TestCase):
         self.assertEqual(cut, [('Side panel', 720, 560, 4, 'No')])
         self.assertEqual(wb['Layouts'].max_row, 1 + 4 + 4)
 
+    def test_csv_and_pdf_carry_arabic_part_names(self):
+        job = self._optimized_job(self.ply, '18', [
+            {'label': 'Side panel / جانب', 'width': '720', 'height': '560', 'quantity': 2, 'grain_locked': False}])
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/export-csv/')
+        text = res.content.decode('utf-8')
+        self.assertTrue(text.startswith('\ufeff'))  # so Excel reads it as UTF-8
+        self.assertIn('Side panel / جانب', text)
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/export-pdf/')
+        self.assertEqual(res.status_code, 200)
+        self.assertIn(b'Amiri', res.content)
+
     def test_skips_another_tenants_jobs(self):
         from inventory.models import Material
         from .models import CuttingJob

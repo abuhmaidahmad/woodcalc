@@ -11,10 +11,20 @@ manufacturing.cutting_service.optimize_job(), so run that first.
 
 import csv
 import io
+from pathlib import Path
 
+import arabic_reshaper
+from bidi.algorithm import get_display
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+
+# Part labels carry an Arabic name after the English one ("Side panel / جانب");
+# Helvetica has no Arabic glyphs, so that half is drawn in Amiri.
+ARABIC_FONT = "Amiri"
+pdfmetrics.registerFont(TTFont(ARABIC_FONT, str(Path(__file__).parent / "fonts" / "Amiri-Regular.ttf")))
 
 
 def export_csv(job_id) -> str:
@@ -141,6 +151,25 @@ def export_xlsx(jobs) -> bytes:
     return buffer.getvalue()
 
 
+def _split_label(label):
+    """'Side panel / جانب' -> ('Side panel', 'جانب'); a label with no Arabic
+    half comes back as (label, '')."""
+    english, sep, arabic = label.rpartition(" / ")
+    if sep and any("\u0600" <= ch <= "\u06ff" for ch in arabic):
+        return english, arabic
+    return label, ""
+
+
+def _fit(c, text, font, size, max_w, shape=False):
+    """The longest start of text that fits max_w points, shaped and put in
+    visual order for Arabic so the letters join and read right to left."""
+    def render(t):
+        return get_display(arabic_reshaper.reshape(t)) if shape else t
+    while text and c.stringWidth(render(text), font, size) > max_w:
+        text = text[:-1]
+    return render(text.rstrip())
+
+
 def export_pdf(job_id) -> bytes:
     """Returns PDF bytes: one landscape page per sheet, parts drawn to scale."""
     from manufacturing.models import CuttingJob
@@ -179,7 +208,6 @@ def export_pdf(job_id) -> bytes:
         c.setLineWidth(1)
         c.rect(origin_x, origin_y, sheet_w * mm * scale, sheet_h * mm * scale)
 
-        c.setFont("Helvetica", 7)
         for placement in layout.placements.all():
             x = origin_x + float(placement.x) * mm * scale
             y = origin_y + float(placement.y) * mm * scale
@@ -187,16 +215,25 @@ def export_pdf(job_id) -> bytes:
             h = float(placement.height) * mm * scale
 
             c.rect(x, y, w, h)
-            label = f"{placement.part.label}"
+            english, arabic = _split_label(placement.part.label or "")
             dims = f"{placement.width}x{placement.height}"
             if placement.rotated:
                 dims += " (R)"
 
+            # English name, Arabic name, then the size, each line drawn only
+            # while it still fits inside the part.
+            lines = [(english, "Helvetica", False)]
+            if arabic:
+                lines.append((arabic, ARABIC_FONT, True))
+            lines.append((dims, "Helvetica", False))
             text_x = x + 2
             text_y = y + h - 9
-            if text_y > y:
-                c.drawString(text_x, text_y, label[:20])
-                c.drawString(text_x, text_y - 8, dims)
+            for text, font, shape in lines:
+                if text_y <= y:
+                    break
+                c.setFont(font, 7)
+                c.drawString(text_x, text_y, _fit(c, text, font, 7, w - 4, shape))
+                text_y -= 8.5
 
         c.showPage()
 

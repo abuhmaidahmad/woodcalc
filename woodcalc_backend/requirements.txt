@@ -19,3 +19,5 @@ reportlab
 openpyxl
 requests==2.34.2
 anthropic
+arabic-reshaper
+python-bidi
