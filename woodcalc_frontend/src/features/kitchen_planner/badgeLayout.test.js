@@ -145,3 +145,13 @@ describe('isDarkFill', () => {
     expect(['#FFFFFF', '#d7dadd', '#c9cccf', '#f0e6d2', 'url(#hatch)', undefined].map(isDarkFill)).toEqual([false, false, false, false, false, false])
   })
 })
+
+describe('cabTextLayout width line', () => {
+  const cab = { label: 'Wall 450', width: 450, depth: 300, x: 0, y: 0 }
+  it('skips the width line when the name already shows the width', () => {
+    expect(cabTextLayout(cab, 1, true).lines.map(l => l.text)).toEqual(['Wall 450'])
+  })
+  it('keeps the width line when the name has no width', () => {
+    expect(cabTextLayout({ ...cab, label: 'TV Unit' }, 1, true).lines.map(l => l.text)).toEqual(['TV Unit', '450mm'])
+  })
+})

@@ -66,7 +66,10 @@ export function cabLocalToWorld(cab, scale, lx, ly) {
 export function cabTextLayout(cab, scale, showDimensions, pivotAt = null, fontScale = 1) {
   const { w, h } = cabSize(cab, scale)
   const label = cab.label || ''
-  const dims = showDimensions ? `${cab.width}mm` : null
+  // Catalog names already end in the width ("Wall 450"), so skip the repeat.
+  const nameNum = /\s(\d+)(mm)?$/.exec(label)
+  const nameHasWidth = nameNum && Number(nameNum[1]) === Number(cab.width)
+  const dims = showDimensions && !nameHasWidth ? `${cab.width}mm` : null
   const labelW = measureTextWidth(label, LABEL_FONT, 700)
   const along = labelW > w - 2 && h > w
   const avail = (along ? h : w) - 2
