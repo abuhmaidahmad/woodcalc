@@ -76,6 +76,23 @@ const ROOM_ELEMENTS = [
   { type: 'column',   label: 'Column',         labelKey: 'kitchenPlannerModule.elColumn',         icon: '⬛', color: '#9E9E9E', w: 300,  h: 300  },
 ]
 
+// Catalog labels carry the width ("Wall 200", "Filler Wall 50mm"), so a width
+// edit also swaps that trailing number. Custom names without it stay as typed.
+const LABEL_WIDTH_RE = /^(.*\s)(\d+)(mm)?$/
+function relabelForWidth(label, oldW, newW) {
+  if (typeof label !== 'string') return label
+  const m = label.match(LABEL_WIDTH_RE)
+  return m && Number(m[2]) === Number(oldW) ? `${m[1]}${newW}${m[3] || ''}` : label
+}
+// Projects saved before the fix above can hold catalog cabinets whose name
+// still shows the old width. Bring the name in line with the width on load.
+function syncLabelToWidth(c) {
+  if (!c || c.isCustom || typeof c.label !== 'string' || !c.width) return c
+  const m = c.label.match(LABEL_WIDTH_RE)
+  if (!m || Number(m[2]) === Number(c.width)) return c
+  return { ...c, label: `${m[1]}${c.width}${m[3] || ''}` }
+}
+
 const snap = v => Math.round(v / GRID) * GRID
 
 // Where a newly added cabinet/element should land: the center of the drawn
@@ -949,7 +966,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       if (initialData.backsplashHeight) setBacksplashHeightState(initialData.backsplashHeight)
       if (initialData.backsplashThickness) setBacksplashThicknessState(initialData.backsplashThickness)
       if (initialData.elements) setElementsState(initialData.elements)
-      if (initialData.cabinets) setCabinetsState(initialData.cabinets)
+      if (initialData.cabinets) setCabinetsState(initialData.cabinets.map(syncLabelToWidth))
       if (initialData.baseHeight) setBaseHeightState(initialData.baseHeight)
       if (initialData.projectDefaults) setProjectDefaultsState(initialData.projectDefaults)
       if (initialData.countertopMat) setCountertopMatState(initialData.countertopMat)
@@ -1058,13 +1075,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setSelectedType('element')
   }
 
-  // Catalog labels carry the width ("Wall 200", "Filler Wall 50mm"), so a width
-  // edit also swaps that trailing number. Custom names without it stay as typed.
-  const relabelForWidth = (label, oldW, newW) => {
-    if (typeof label !== 'string') return label
-    const m = label.match(/^(.*\s)(\d+)(mm)?$/)
-    return m && Number(m[2]) === Number(oldW) ? `${m[1]}${newW}${m[3] || ''}` : label
-  }
   const updateCab = (key, val) => setCabinets(p => p.map(c => {
     if (c.id !== selected) return c
     if (key === 'width') return { ...c, width: val, label: relabelForWidth(c.label, c.width, val) }
