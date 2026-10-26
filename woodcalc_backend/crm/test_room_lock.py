@@ -505,3 +505,22 @@ class StaleWorkOrderTests(RoomLockTestBase):
         self.assertEqual(res.status_code, 200)
         wo.refresh_from_db()
         self.assertEqual((wo.revision_changed_after_start, wo.status_reason), (False, ''))
+
+
+class ProjectTotalTests(RoomLockTestBase):
+    def total(self):
+        self.project.refresh_from_db()
+        return self.project.total_value
+
+    def test_total_counts_only_confirmed_rooms(self):
+        Room.objects.filter(id=self.room.id).update(grand_total=100)
+        draft = Room.objects.create(project=self.project, name='Draft', grand_total=500)
+        self.lock()
+        self.assertEqual(self.total(), 100)
+
+        self.assertEqual(self.api('owner').delete(f'/api/crm/rooms/{draft.id}/').status_code, 204)
+        self.assertEqual(self.total(), 100)
+
+        self.assertEqual(self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'edit'},
+                                                format='json').status_code, 200)
+        self.assertEqual(self.total(), 0)

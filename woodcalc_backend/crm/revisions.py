@@ -38,9 +38,15 @@ def started_work_orders(chain, tenant_id):
 
 
 def recompute_project_total(project):
+    """Project value = the confirmed (approved) revision of each room.
+    Drafts and design variants that were never confirmed don't count."""
     rooms = list(Room.objects.filter(project=project))
     roots = [r for r in rooms if r.parent_revision_id is None]
-    total = sum((active_revision(revision_chain(root)).grand_total for root in roots), Decimal('0'))
+    total = Decimal('0')
+    for root in roots:
+        current = active_revision(revision_chain(root))
+        if current.revision_status == Room.RevisionStatus.APPROVED:
+            total += current.grand_total
     project.total_value = total
     project.save(update_fields=['total_value', 'updated_at'])
 

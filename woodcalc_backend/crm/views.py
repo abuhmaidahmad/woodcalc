@@ -172,6 +172,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         before = snapshot(serializer.instance)
         room = serializer.save()
         log_room_edit(room, self.request.user, before)
+        recompute_project_total(room.project)
 
     @action(detail=True, methods=['get'])
     def history(self, request, pk=None):
@@ -189,7 +190,9 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
     def perform_destroy(self, instance):
         if instance.child_revisions.exists():
             raise ValidationError({'detail': 'This room has revisions and cannot be deleted.'})
+        project = instance.project
         instance.delete()
+        recompute_project_total(project)
 
     def _lock(self, room, user):
         room.is_locked = True
@@ -315,6 +318,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
         log_room_action(room, request.user, RoomChangeLog.Action.LOCK, reason=reason,
                         new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant})
+        recompute_project_total(room.project)
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -332,6 +336,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.revision_status = Room.RevisionStatus.DRAFT
         room.save(update_fields=['is_locked', 'unlock_reason', 'revision_status', 'updated_at'])
         log_room_action(room, request.user, RoomChangeLog.Action.UNLOCK, reason=reason)
+        recompute_project_total(room.project)
         return Response(RoomSerializer(room).data)
 
     def get_serializer_class(self):
