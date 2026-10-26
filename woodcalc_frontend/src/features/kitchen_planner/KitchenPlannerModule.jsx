@@ -1058,7 +1058,18 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setSelectedType('element')
   }
 
-  const updateCab = (key, val) => setCabinets(p => p.map(c => c.id === selected ? { ...c, [key]: val } : c))
+  // Catalog labels carry the width ("Wall 200", "Filler Wall 50mm"), so a width
+  // edit also swaps that trailing number. Custom names without it stay as typed.
+  const relabelForWidth = (label, oldW, newW) => {
+    if (typeof label !== 'string') return label
+    const m = label.match(/^(.*\s)(\d+)(mm)?$/)
+    return m && Number(m[2]) === Number(oldW) ? `${m[1]}${newW}${m[3] || ''}` : label
+  }
+  const updateCab = (key, val) => setCabinets(p => p.map(c => {
+    if (c.id !== selected) return c
+    if (key === 'width') return { ...c, width: val, label: relabelForWidth(c.label, c.width, val) }
+    return { ...c, [key]: val }
+  }))
   const updateEl  = (key, val) => setElements(p => p.map(e => e.id === selected ? { ...e, [key]: val } : e))
   // One-time bulk color edit: applies the given field updates to every cabinet
   // currently shift/ctrl-selected into bulkIds, without changing the single
