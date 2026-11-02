@@ -1,14 +1,27 @@
 import React, { useState, useEffect } from 'react'
-import { getCompany, hasPermission } from '../api/auth'
+import { getCompany, hasPermission, canManageFieldOps } from '../api/auth'
 import { listMembers, createMember, updateMember, removeMember, listPermissions } from '../api/hr'
 import { useTranslation } from '../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 
-const ROLE_KEYS = { owner: 'team.roleOwner', admin: 'team.roleAdmin', staff: 'team.roleStaff', auditor: 'team.roleAuditor' }
+const ROLE_KEYS = {
+  owner: 'team.roleOwner', admin: 'team.roleAdmin', staff: 'team.roleStaff', auditor: 'team.roleAuditor',
+  field_manager: 'team.roleFieldManager', installer: 'team.roleInstaller', driver: 'team.roleDriver',
+}
+const OFFICE_ROLES = ['admin', 'staff', 'auditor', 'field_manager', 'installer', 'driver']
+const FIELD_WORKER_ROLES = ['installer', 'driver']
+const FIELD_ROLES = ['field_manager', 'installer', 'driver']
+const ROLES_WITH_PERMISSIONS = ['admin', 'staff']
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', role: 'staff', permissions: [] }
+const emptyForm = (role) => ({ first_name: '', last_name: '', email: '', password: '', role, permissions: [] })
+
+function roleHint(role, t) {
+  if (role === 'auditor') return t('team.auditorHint')
+  if (FIELD_ROLES.includes(role)) return t('team.fieldRoleHint.' + role)
+  return null
+}
 
 export default function TeamCard() {
   const { t } = useTranslation()
@@ -17,11 +30,14 @@ export default function TeamCard() {
   const [permissions, setPermissions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState(EMPTY_FORM)
+  const fullTeam = hasPermission('team.manage_members')
+  const roleOptions = fullTeam ? OFFICE_ROLES : FIELD_WORKER_ROLES
+  const defaultRole = fullTeam ? 'staff' : 'installer'
+  const [form, setForm] = useState(emptyForm(defaultRole))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
-  const canManage = hasPermission('team.manage_members')
+  const canManage = fullTeam || canManageFieldOps()
 
   const fetchAll = async () => {
     setLoading(true)
@@ -48,10 +64,8 @@ export default function TeamCard() {
     await updateMember(member.id, { permissions: next })
   }
 
-  // Auditors are view-only, so switching someone to auditor drops any HR/team
-  // permissions they held rather than leaving them granted-but-unusable.
   const changeRole = async (member, role) => {
-    const patch = role === 'auditor' ? { role, permissions: [] } : { role }
+    const patch = ROLES_WITH_PERMISSIONS.includes(role) ? { role } : { role, permissions: [] }
     setMembers(prev => prev.map(m => m.id === member.id ? { ...m, ...patch } : m))
     await updateMember(member.id, patch)
   }
@@ -69,7 +83,7 @@ export default function TeamCard() {
     try {
       const res = await createMember(form)
       if (res.id) {
-        setForm(EMPTY_FORM)
+        setForm(emptyForm(defaultRole))
         setShowAdd(false)
         fetchAll()
       } else {
@@ -115,9 +129,7 @@ export default function TeamCard() {
                   ) : (
                     <select value={m.role} onChange={e => changeRole(m, e.target.value)}
                       style={{ fontSize: 11, fontWeight: 600, padding: '4px 8px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: DARK, cursor: 'pointer' }}>
-                      <option value="admin">{t('team.roleAdmin')}</option>
-                      <option value="staff">{t('team.roleStaff')}</option>
-                      <option value="auditor">{t('team.roleAuditor')}</option>
+                      {roleOptions.map(r => <option key={r} value={r}>{t(ROLE_KEYS[r])}</option>)}
                     </select>
                   )}
                   {m.role !== 'owner' && (
@@ -128,10 +140,10 @@ export default function TeamCard() {
                   )}
                 </div>
               </div>
-              {m.role === 'auditor' && (
-                <div style={{ fontSize: 11, color: '#888' }}>{t('team.auditorHint')}</div>
+              {roleHint(m.role, t) && (
+                <div style={{ fontSize: 11, color: '#888' }}>{roleHint(m.role, t)}</div>
               )}
-              {m.role !== 'owner' && m.role !== 'auditor' && (
+              {ROLES_WITH_PERMISSIONS.includes(m.role) && fullTeam && (
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {permissions.map(p => {
                     const codeKey = p.code.replace(/\./g, '_')
@@ -177,15 +189,13 @@ export default function TeamCard() {
 
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('team.role')}</div>
               <select value={form.role}
-                onChange={e => { const role = e.target.value; setForm(f => ({ ...f, role, permissions: role === 'auditor' ? [] : f.permissions })) }}
+                onChange={e => { const role = e.target.value; setForm(f => ({ ...f, role, permissions: ROLES_WITH_PERMISSIONS.includes(role) ? f.permissions : [] })) }}
                 style={{ padding: '6px 10px', border: '1.5px solid #E0DAD4', borderRadius: 6, fontSize: 12, marginBottom: 10 }}>
-                <option value="admin">{t('team.roleAdmin')}</option>
-                <option value="staff">{t('team.roleStaff')}</option>
-                <option value="auditor">{t('team.roleAuditor')}</option>
+                {roleOptions.map(r => <option key={r} value={r}>{t(ROLE_KEYS[r])}</option>)}
               </select>
 
-              {form.role === 'auditor' ? (
-                <div style={{ fontSize: 11, color: '#888', marginBottom: 12 }}>{t('team.auditorHint')}</div>
+              {!ROLES_WITH_PERMISSIONS.includes(form.role) || !fullTeam ? (
+                roleHint(form.role, t) && <div style={{ fontSize: 11, color: '#888', marginBottom: 12 }}>{roleHint(form.role, t)}</div>
               ) : (<>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('team.permissions')}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
@@ -209,7 +219,7 @@ export default function TeamCard() {
               {error && <div style={{ fontSize: 11, color: '#c33', marginBottom: 8 }}>{error}</div>}
 
               <div style={{ display: 'flex', gap: 8 }}>
-                <button onClick={() => { setShowAdd(false); setForm(EMPTY_FORM); setError('') }}
+                <button onClick={() => { setShowAdd(false); setForm(emptyForm(defaultRole)); setError('') }}
                   style={{ flex: 1, padding: '8px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 6, cursor: 'pointer', fontSize: 12, color: '#666' }}>
                   {t('team.cancel')}
                 </button>

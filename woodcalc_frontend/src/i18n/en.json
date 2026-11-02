@@ -1682,6 +1682,14 @@
     "roleAdmin": "Admin",
     "roleStaff": "Staff",
     "roleAuditor": "Auditor (view only)",
+    "roleFieldManager": "Installation Manager",
+    "roleInstaller": "Installer",
+    "roleDriver": "Driver",
+    "fieldRoleHint": {
+      "field_manager": "Manages installations and installer/driver accounts. Can't see prices, payments or other modules.",
+      "installer": "Sees only the installation jobs assigned to them.",
+      "driver": "Field account for deliveries. Driver screens are coming soon."
+    },
     "auditorHint": "Auditors can open every room, BOM, cutting list and work order, but can't save or change anything.",
     "remove": "Remove",
     "removeConfirm": "Remove this teammate's access?",
@@ -1707,7 +1715,8 @@
       "hr_view_salary": "View salary & payroll data",
       "hr_edit_salary": "Edit salary & run payroll",
       "hr_manage_attendance": "Record/edit attendance",
-      "hr_manage_leave": "Approve/reject leave requests"
+      "hr_manage_leave": "Approve/reject leave requests",
+      "field_ops_manage": "Manage installations & field crews"
     }
   },
   "hr": {

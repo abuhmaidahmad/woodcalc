@@ -83,10 +83,21 @@ export function isStaff() {
   return !!u?.is_staff;
 }
 
+export const FIELD_ROLES = ['field_manager', 'installer', 'driver'];
+
 export function hasPermission(code) {
   const company = getCompany();
   if (!company) return false;
+  if (FIELD_ROLES.includes(company.role)) return false;
   return company.role === 'owner' || (company.permissions || []).includes(code);
+}
+
+export function canManageFieldOps() {
+  return !!getCompany()?.can_manage_field_ops;
+}
+
+export function isFieldRole() {
+  return FIELD_ROLES.includes(getCompany()?.role);
 }
 
 // Auditors can view everything their company can but the backend rejects any
