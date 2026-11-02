@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
+from tenants.permissions import can_manage_field_ops
 from .models import ArchitectProfile, ManufacturerProfile, SupplierProfile, EmailAccount
 
 User = get_user_model()
@@ -145,6 +146,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             'trial_ends_at': company.trial_ends_at,
             'role': membership.role,
             'permissions': membership.permissions,
+            'can_manage_field_ops': can_manage_field_ops(obj, company),
         }
 
 
