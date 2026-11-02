@@ -100,6 +100,20 @@ export function isFieldRole() {
   return FIELD_ROLES.includes(getCompany()?.role);
 }
 
+const ROLE_HOME = { installer: '/installer/jobs', driver: '/driver', field_manager: '/field-ops' };
+
+export function homePath(user = getUser()) {
+  return ROLE_HOME[user?.company?.role] || '/dashboard';
+}
+
+export function canOpenPath(path, user = getUser()) {
+  const role = user?.company?.role;
+  if (!FIELD_ROLES.includes(role)) return true;
+  if (role === 'installer') return path.startsWith('/installer/');
+  if (role === 'field_manager') return path === '/field-ops';
+  return path === '/driver';
+}
+
 // Auditors can view everything their company can but the backend rejects any
 // write, so screens hide Save/Send controls instead of letting them fail.
 export function isReadOnly() {
@@ -160,7 +174,8 @@ export async function authFetch(url, options = {}) {
       const body = await res.clone().json()
       isPermissionDenied = typeof body?.detail === 'string' &&
         (body.detail.startsWith('Missing permission:') || body.detail.startsWith('Read-only access:') ||
-          body.detail.startsWith('Locked:'))
+          body.detail.startsWith('Locked:') || body.detail.startsWith('Field accounts') ||
+          body.detail.startsWith("You don't have permission") || body.detail.startsWith("This job isn't"))
     } catch {}
     if (!isPermissionDenied) {
       window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { loginUser, saveSession } from '../../api/auth';
+import { loginUser, saveSession, homePath } from '../../api/auth';
 import { useTranslation } from '../../i18n/LanguageContext';
 import Logo from '../../components/Logo';
 
@@ -24,7 +24,7 @@ export default function Login() {
       });
       const userData = await userRes.json();
       saveSession({ access: res.access, refresh: res.refresh }, userData);
-      navigate('/dashboard');
+      navigate(homePath(userData));
     } else {
       setError(t('login.error'));
     }
