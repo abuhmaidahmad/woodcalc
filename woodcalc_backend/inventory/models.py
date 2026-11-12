@@ -190,6 +190,13 @@ class DrawerSystem(models.Model):
     back_height_m = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
     back_height_c = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
     back_thickness = models.PositiveIntegerField(null=True, blank=True)
+    # A metal-sided system's shop-cut bottom: the cabinet's inner width (W - 2T)
+    # less bottom_width_deduction, by the cabinet depth less
+    # bottom_depth_deduction. The defaults are the formula used before these
+    # were editable (W - 2T - 25 x D - 80, 8mm).
+    bottom_width_deduction = models.DecimalField(max_digits=6, decimal_places=1, default=25)
+    bottom_depth_deduction = models.DecimalField(max_digits=6, decimal_places=1, default=80)
+    bottom_thickness = models.PositiveIntegerField(default=8)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

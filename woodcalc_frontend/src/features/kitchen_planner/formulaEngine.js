@@ -56,6 +56,28 @@ export function setCompanyDrawerMaterials({ boxMaterialCode, boxThickness, botto
   };
 }
 
+// The company's drawer system catalog (inventory DrawerSystem), loaded by the
+// planner and the production views. A metal-sided system's shop-cut bottom is
+// sized from its catalog entry; the defaults are the formula used before those
+// fields existed (W - 2T - 25 x D - 80, 8mm).
+export const DRAWER_BOTTOM_DEFAULTS = { widthDeduction: 25, depthDeduction: 80, thickness: 8 };
+let drawerSystemCatalog = [];
+export function setDrawerSystemCatalog(list) {
+  drawerSystemCatalog = Array.isArray(list) ? list : [];
+}
+// A metal-sided bottom's deductions/thickness for one cabinet config: its own
+// drawerSystemSpec when given (a catalog entry), else the catalog entry named
+// by config.drawerSystem, else the defaults.
+export function drawerBottomSpec(config) {
+  const sys = config.drawerSystemSpec || drawerSystemCatalog.find(s => s.name === config.drawerSystem);
+  const pick = (v, d) => { const n = Number(v); return v !== null && v !== undefined && v !== '' && Number.isFinite(n) && n >= 0 ? n : d; };
+  return {
+    widthDeduction: pick(sys?.bottom_width_deduction, DRAWER_BOTTOM_DEFAULTS.widthDeduction),
+    depthDeduction: pick(sys?.bottom_depth_deduction, DRAWER_BOTTOM_DEFAULTS.depthDeduction),
+    thickness: pick(sys?.bottom_thickness, DRAWER_BOTTOM_DEFAULTS.thickness) || DRAWER_BOTTOM_DEFAULTS.thickness,
+  };
+}
+
 // Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
 // sets their thickness and price; without one they're 8mm tempered at the generic rate.
 const GLASS_T = 8;
@@ -1118,20 +1140,22 @@ export function calculateCabinet(config) {
         false_front_clearance_bottom: -3,
       };
     } else {
-      // Metal-sided systems (LEGRABOX etc.) supply the sides + back with the runner
-      // set itself, but not the bottom -- that's still a shop-cut board sized to the
-      // steel box's own interior, same clearance logic as a wood box.
-      const intBoxW = round2(W - 2 * T - 25);
-      const intBoxD = round2(D - 30 - 50);
+      // Metal-sided systems (LEGRABOX etc.) supply the sides with the runner set
+      // itself, but not the bottom -- that's a shop-cut board sized by the drawer
+      // system's catalog entry (drawerBottomSpec: inner width and depth less its
+      // deductions, its thickness).
+      const bottom = drawerBottomSpec(config);
+      const intBoxW = round2(W - 2 * T - bottom.widthDeduction);
+      const intBoxD = round2(D - bottom.depthDeduction);
       drawerBox = {
         type: drawerType,
         system: drawerSystem,
         count: drawerCount,
         integrated_front: true,
         parts_per_drawer: [
-          { name: 'Drawer bottom panel (8mm HDF)', qty: 1, width: intBoxW, depth: intBoxD },
+          { name: 'Drawer bottom panel (8mm HDF)', role: 'bottom', thickness: bottom.thickness, qty: 1, width: intBoxW, depth: intBoxD },
         ],
-        base_thickness: 8,
+        base_thickness: bottom.thickness,
         note: `Integrated box system (${drawerSystem}) — sides/back supplied by the runner set, bottom panel shop-cut`,
       };
     }

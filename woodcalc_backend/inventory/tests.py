@@ -59,6 +59,14 @@ class DrawerSystemBackSizeTests(TestCase):
         self.assertEqual((got['back_width_deduction'], got['back_height_m'], got['back_height_c'], got['back_thickness']),
                          ('87.0', '68.0', '167.0', 16))
 
+    def test_bottom_sizes_default_to_the_old_formula(self):
+        res = self.api.post('/api/inventory/drawer-systems/', {'name': 'Any', 'box_construction': 'metal_sided'}, format='json')
+        got = res.json()
+        self.assertEqual((got['bottom_width_deduction'], got['bottom_depth_deduction'], got['bottom_thickness']),
+                         ('25.0', '80.0', 8))
+        res = self.api.patch(f"/api/inventory/drawer-systems/{got['id']}/", {'bottom_thickness': 16}, format='json')
+        self.assertEqual(res.json()['bottom_thickness'], 16)
+
     def test_back_sizes_optional(self):
         res = self.api.post('/api/inventory/drawer-systems/', {'name': 'Plain', 'box_construction': 'metal_sided'}, format='json')
         self.assertEqual(res.status_code, 201, res.content)

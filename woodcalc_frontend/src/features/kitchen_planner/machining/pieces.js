@@ -87,6 +87,8 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
 
   const config = {
     ...cabinetConfig(cab), hingeSide: cab.hingeSide, blindSide: cab.blindSide, shelfHeights: cab.shelfHeights, constructionSettings,
+    // Metal-sided bottoms are sized from this cabinet's drawer system entry.
+    drawerSystemSpec: drawerSystems.find(s => s.name === cab.drawerSystem) || undefined,
   };
   let built;
   try { built = buildMachining(config); } catch { return []; }
@@ -114,10 +116,14 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
     for (let n = 1; n <= (box.count || 1); n++) {
       box.parts_per_drawer.forEach(dp => {
         const codes = DRAWER_CODES[dp.name] || Array.from({ length: dp.qty }, (_, k) => `P${k + 1}`);
-        const mat = /HDF|bottom|base/i.test(dp.name) ? drawerMats.bottom : drawerMats.box;
+        const company = /HDF|bottom|base/i.test(dp.name) ? drawerMats.bottom : drawerMats.box;
+        // A part whose thickness the drawer system sets (a metal-sided bottom) is
+        // cut from the company material only when the thicknesses match.
+        const mat = dp.thickness && dp.thickness !== company.thickness
+          ? { materialCode: null, thickness: dp.thickness } : company;
         for (let k = 0; k < dp.qty; k++) {
           out.push(piece(`DB${n}-${codes[k] || `P${k + 1}`}`, dp.name, dp.width, dp.depth, mat.thickness, 'drawer', mat.materialCode,
-            mat.materialCode || `${mat === drawerMats.bottom ? 'Drawer bottom' : 'Drawer box'} ${mat.thickness}mm`, false, NONE));
+            mat.materialCode || `${/HDF|bottom|base/i.test(dp.name) ? 'Drawer bottom' : 'Drawer box'} ${mat.thickness}mm`, false, NONE));
         }
       });
       if (box.integrated_front) {

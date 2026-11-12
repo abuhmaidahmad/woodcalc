@@ -1,4 +1,5 @@
 import { authFetch } from './auth';
+import { setDrawerSystemCatalog } from '../features/kitchen_planner/formulaEngine';
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app';
 
@@ -10,6 +11,7 @@ export function loadDrawerSystems() {
     loadPromise = authFetch(`${BASE_URL}/api/inventory/drawer-systems/`)
       .then(res => (res.ok ? res.json() : []))
       .then(data => (Array.isArray(data) ? data : data.results || []))
+      .then(list => { setDrawerSystemCatalog(list); return list; })
       .catch(() => { loadPromise = null; return []; });
   }
   return loadPromise;

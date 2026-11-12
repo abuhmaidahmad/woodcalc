@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, cabinetBadges, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -414,9 +414,10 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     if (result.drawerBox && result.drawerBox.parts_per_drawer) {
       result.drawerBox.parts_per_drawer.forEach(p => {
         const isHdf = p.name.includes('HDF')
-        const mat = isHdf ? 'HDF 8mm' : 'Drawer box 12mm'
-        const key = `${p.width}×${p.depth}×${isHdf ? 8 : 12}|${mat}|drawerbox`
-        if (!masterMap[key]) masterMap[key] = { name: p.name, width: p.width, depth: p.depth, thickness: isHdf ? 8 : 12, material: mat, eb: {}, qty: 0 }
+        const th = p.thickness ?? (isHdf ? 8 : 12)
+        const mat = isHdf ? `HDF ${th}mm` : `Drawer box ${th}mm`
+        const key = `${p.width}×${p.depth}×${th}|${mat}|drawerbox`
+        if (!masterMap[key]) masterMap[key] = { name: p.name, width: p.width, depth: p.depth, thickness: th, material: mat, eb: {}, qty: 0 }
         masterMap[key].qty += p.qty * (result.drawerBox.count || 1)
       })
     }
@@ -955,7 +956,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     const fetchDrawerSystems = () => {
       authFetch(withCompanyParam(API + '/api/inventory/drawer-systems/', publicCompanySlug))
         .then(r => r.json())
-        .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.results || [])
+          // Metal-sided drawer bottoms are sized from the catalog (formulaEngine).
+          setDrawerSystemCatalog(list)
+          setAvailableDrawerSystems(list)
+        })
         .catch(() => {})
     }
     fetchDrawerSystems()
@@ -1363,9 +1369,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           if (result.drawerBox && result.drawerBox.parts_per_drawer) {
             result.drawerBox.parts_per_drawer.forEach(p => {
               const isHdf = p.name.includes('HDF')
-              const mat = isHdf ? 'HDF 8mm' : 'Drawer box 12mm'
-              const key = `${p.name}|${p.width}x${p.depth}x${isHdf ? 8 : 12}|${mat}`
-              if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${isHdf ? 8 : 12}mm (${mat})`, qty: 0, unit: 'pcs' }
+              const th = p.thickness ?? (isHdf ? 8 : 12)
+              const mat = isHdf ? `HDF ${th}mm` : `Drawer box ${th}mm`
+              const key = `${p.name}|${p.width}x${p.depth}x${th}|${mat}`
+              if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${th}mm (${mat})`, qty: 0, unit: 'pcs' }
               masterMap[key].qty += p.qty * (result.drawerBox.count || 1)
             })
           }
