@@ -89,7 +89,8 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
   const out = parts.map(part => {
     const code = partCode(part.id);
     if (part.source === 'Door' || part.source === 'Drawer front') {
-      return piece(code, part.source, part.length, part.width, part.thickness, 'front', cab.frontMaterialCode, frontName, true, allRound(frontName), part);
+      // 'Drawer Front' is the name the cut lists and their Arabic names use.
+      return piece(code, part.source === 'Door' ? 'Door' : 'Drawer Front', part.length, part.width, part.thickness, 'front', cab.frontMaterialCode, frontName, true, allRound(frontName), part);
     }
     const p = panelFor(part.source);
     const eb = panelEdgeBanding(p, null, null, carcassName, frontName, cab.doorStyle);

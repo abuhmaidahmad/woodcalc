@@ -110,9 +110,16 @@ class CuttingPart(models.Model):
     height = models.DecimalField(max_digits=8, decimal_places=2)
     quantity = models.PositiveIntegerField(default=1)
     grain_locked = models.BooleanField(default=True)
+    # A part loaded from a work order's room is one physical piece (quantity 1)
+    # with its own ID, <WO>-R<room #>-<badge>-<code> (machining/pieces.js), so
+    # the layout, labels and CNC files can all say which piece goes where.
+    # Parts typed in by hand have none.
+    piece_id = models.CharField(max_length=80, blank=True, db_index=True)
+    cabinet = models.CharField(max_length=200, blank=True)
+    edge_banding = models.JSONField(default=dict, blank=True)  # {T, B, L, R}: band material or 'None'
 
     def __str__(self):
-        return f'{self.label or "part"} {self.width}x{self.height} x{self.quantity}'
+        return f'{self.piece_id or self.label or "part"} {self.width}x{self.height} x{self.quantity}'
 
 
 class CuttingLayout(models.Model):

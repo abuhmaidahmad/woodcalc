@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { calculateCabinet, setCompanyBackPanel, setRoomBackPanel, withRoomBackPanel, glassShelfSpec } from '../formulaEngine'
-import { bomPanelsToGroups } from '../../manufacturing/CuttingOptimizerModule'
+import { piecesToGroups } from '../../manufacturing/CuttingOptimizerModule'
+import { workOrderPieces } from './pieces'
 import { buildMachining } from './index'
 import { SURFACE_CABINETS, cutSizes } from './surfaceCabinets'
 import surfaceCutSizes from './__fixtures__/surfaceCutSizes.json'
@@ -46,8 +47,10 @@ describe('a confirmed room keeps its construction settings', () => {
     setCompanyBackPanel({ construction: 'groove' })
     const cab = { id: 1, category: 'base', subtype: 'Single Door', width: 600, height: 720, depth: 560, doorStyle: 'Handle', shelfCount: 1, carcassMaterialCode: 'C18' }
     const depths = (groups) => groups.flatMap(g => g.parts.filter(p => /Bottom/.test(p.label)).map(p => p.height))
-    expect(depths(withRoomBackPanel(FROZEN_TODAY, () => bomPanelsToGroups([cab], 'carcass')))).toEqual(['522'])
-    expect(depths(bomPanelsToGroups([cab], 'carcass'))).toEqual(['560'])
+    const load = (settings) => piecesToGroups(workOrderPieces({ order_number: 'WO-1' },
+      { room_number: 1, planner_data: { cabinets: [cab] }, construction_settings: settings }), 'carcass')
+    expect(depths(load(FROZEN_TODAY))).toEqual(['522'])
+    expect(depths(load(null))).toEqual(['560'])
 
     const cfg = SURFACE_CABINETS.base600_1shelf
     expect(buildMachining({ ...cfg, constructionSettings: FROZEN_TODAY }).result.backGroove).toBeNull()

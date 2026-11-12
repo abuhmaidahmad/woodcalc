@@ -38,7 +38,7 @@ def export_csv(job_id) -> str:
     buffer = io.StringIO()
     writer = csv.writer(buffer)
     writer.writerow([
-        "Sheet #", "Part Label", "Width (mm)", "Height (mm)",
+        "Sheet #", "Piece ID", "Part Label", "Cabinet", "Width (mm)", "Height (mm)",
         "X", "Y", "Rotated", "Material", "Thickness (mm)",
     ])
 
@@ -46,7 +46,9 @@ def export_csv(job_id) -> str:
         for placement in layout.placements.all():
             writer.writerow([
                 layout.sheet_index,
+                placement.part.piece_id,
                 placement.part.label,
+                placement.part.cabinet,
                 placement.width,
                 placement.height,
                 placement.x,
@@ -112,25 +114,27 @@ def export_xlsx(jobs) -> bytes:
         summary.append([job.material.sku, job.material.name, num(job.thickness), size, len(placements), len(layouts)])
         total_sheets += len(layouts)
 
-        # Cut list: identical parts on one line, as a workshop reads it.
+        # Cut list: identical parts on one line, as a workshop reads it, with
+        # the IDs of the pieces on it.
         cut = {}
         for _, p in placements:
             w, h = num(p.part.width), num(p.part.height)
             key = (p.part.label, w, h, p.part.grain_locked)
-            cut[key] = cut.get(key, 0) + 1
+            qty, ids = cut.get(key, (0, []))
+            cut[key] = (qty + 1, ids + ([p.part.piece_id] if p.part.piece_id else []))
         ws = wb.create_sheet(_sheet_title(job.material.sku or job.material.name, used_titles))
         ws.append([f"{job.material.sku} - {job.material.name}", f"{num(job.thickness):g}mm",
                    f"{len(layouts)} sheet(s)"])
         ws[ws.max_row][0].font = bold
         ws.append([])
-        header(ws, ["Part", "Width (mm)", "Height (mm)", "Qty", "Grain locked"])
-        for (label, w, h, grain), qty in sorted(cut.items(), key=lambda kv: (kv[0][0], -kv[0][1], -kv[0][2])):
-            ws.append([label, w, h, qty, "Yes" if grain else "No"])
+        header(ws, ["Part", "Width (mm)", "Height (mm)", "Qty", "Grain locked", "Piece IDs"])
+        for (label, w, h, grain), (qty, ids) in sorted(cut.items(), key=lambda kv: (kv[0][0], -kv[0][1], -kv[0][2])):
+            ws.append([label, w, h, qty, "Yes" if grain else "No", ", ".join(sorted(ids)) or None])
         autosize(ws)
 
         for l, p in placements:
             layouts_rows.append([job.material.sku, num(job.thickness), l.sheet_index, num(l.waste_percent),
-                                 p.part.label, num(p.width), num(p.height), num(p.x), num(p.y),
+                                 p.part.piece_id or None, p.part.label, num(p.width), num(p.height), num(p.x), num(p.y),
                                  "Yes" if p.rotated else "No"])
 
     summary.append(["Total", None, None, None, None, total_sheets])
@@ -139,7 +143,7 @@ def export_xlsx(jobs) -> bytes:
     autosize(summary)
 
     ws = wb.create_sheet("Layouts")
-    header(ws, ["Material code", "Thickness (mm)", "Sheet #", "Waste %", "Part",
+    header(ws, ["Material code", "Thickness (mm)", "Sheet #", "Waste %", "Piece ID", "Part",
                 "Width (mm)", "Height (mm)", "X", "Y", "Rotated"])
     for row in layouts_rows:
         ws.append(row)
@@ -220,9 +224,10 @@ def export_pdf(job_id) -> bytes:
             if placement.rotated:
                 dims += " (R)"
 
-            # English name, Arabic name, then the size, each line drawn only
-            # while it still fits inside the part.
-            lines = [(english, "Helvetica", False)]
+            # Piece ID, English name, Arabic name, then the size, each line
+            # drawn only while it still fits inside the part.
+            lines = [(placement.part.piece_id, "Helvetica-Bold", False)] if placement.part.piece_id else []
+            lines.append((english, "Helvetica", False))
             if arabic:
                 lines.append((arabic, ARABIC_FONT, True))
             lines.append((dims, "Helvetica", False))

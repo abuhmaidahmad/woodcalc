@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { workOrderPieces, groupPieces, partCode, pieceId } from './pieces'
-import { bomPanelsToGroups } from '../../manufacturing/CuttingOptimizerModule'
+import legacy from './__fixtures__/legacyOptimizerLoad.json'
 
 const base = (id, extra = {}) => ({ id, label: `Base ${extra.width || 600}`, category: 'base', subtype: 'Single Door', width: 600, height: 720, depth: 560,
   doorStyle: 'Handle', shelfCount: 1, carcassMaterialCode: 'C18', carcassMaterialName: 'White', frontMaterialCode: 'OAK', frontMaterialName: 'Oak', ...extra })
@@ -50,12 +50,12 @@ describe('work order pieces', () => {
   })
 
   it('adds up to exactly what the optimizer used to load, per board', () => {
-    const cabinets = [base(1), base(2, { width: 800, doorCount: 2, frontMaterialCode: 'GLOSS' }), base(3, { subtype: 'Blind', width: 1000 }),
-      { id: 4, category: 'accessories', subtype: 'Filler', width: 50, height: 720, frontMaterialCode: 'OAK' }]
-    const pieces = workOrderPieces(wo(), room(cabinets)).filter(p => p.kind !== 'drawer')
+    // __fixtures__/legacyOptimizerLoad.json: these cabinets as the optimizer's
+    // BOM import grouped them (merged, with quantities) before pieces existed.
+    const pieces = workOrderPieces(wo(), room(legacy.cabinets)).filter(p => p.kind !== 'drawer')
     const bySku = (sku) => groupPieces(pieces.filter(p => (p.sku || null) === sku))
       .map(g => `${g.label}|${g.length}|${g.width}|${g.quantity}`).sort()
-    bomPanelsToGroups(cabinets, 'all').forEach(g => {
+    legacy.groups.forEach(g => {
       expect(bySku(g.sku), g.sku).toEqual(g.parts.map(p => `${p.label}|${p.width}|${p.height}|${p.quantity}`).sort())
     })
   })

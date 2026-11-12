@@ -1587,6 +1587,7 @@
     "chequeBounced": "BOUNCED"
   },
   "cuttingOptimizer": {
+    "colPieceId": "Piece ID",
     "errSelectAll": "Select a work order and add at least one part.",
     "errCreateJob": "Failed to create cutting job",
     "errOptimizeJob": "Failed to optimize cutting job",

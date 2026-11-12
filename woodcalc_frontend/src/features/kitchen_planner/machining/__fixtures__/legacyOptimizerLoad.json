@@ -1,0 +1,248 @@
+{
+ "cabinets": [
+  {
+   "id": 1,
+   "label": "Base 600",
+   "category": "base",
+   "subtype": "Single Door",
+   "width": 600,
+   "height": 720,
+   "depth": 560,
+   "doorStyle": "Handle",
+   "shelfCount": 1,
+   "carcassMaterialCode": "C18",
+   "carcassMaterialName": "White",
+   "frontMaterialCode": "OAK",
+   "frontMaterialName": "Oak"
+  },
+  {
+   "id": 2,
+   "label": "Base 800",
+   "category": "base",
+   "subtype": "Single Door",
+   "width": 800,
+   "height": 720,
+   "depth": 560,
+   "doorStyle": "Handle",
+   "shelfCount": 1,
+   "carcassMaterialCode": "C18",
+   "carcassMaterialName": "White",
+   "frontMaterialCode": "GLOSS",
+   "frontMaterialName": "Oak",
+   "doorCount": 2
+  },
+  {
+   "id": 3,
+   "label": "Base 1000",
+   "category": "base",
+   "subtype": "Blind",
+   "width": 1000,
+   "height": 720,
+   "depth": 560,
+   "doorStyle": "Handle",
+   "shelfCount": 1,
+   "carcassMaterialCode": "C18",
+   "carcassMaterialName": "White",
+   "frontMaterialCode": "OAK",
+   "frontMaterialName": "Oak"
+  },
+  {
+   "id": 4,
+   "category": "accessories",
+   "subtype": "Filler",
+   "width": 50,
+   "height": 720,
+   "frontMaterialCode": "OAK"
+  }
+ ],
+ "groups": [
+  {
+   "sku": "C18",
+   "parts": [
+    {
+     "label": "Side panel / جانب",
+     "width": "720",
+     "height": "560",
+     "quantity": 6,
+     "grain_locked": false
+    },
+    {
+     "label": "Bottom panel / قاعدة",
+     "width": "564",
+     "height": "522",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Front rail / عارضة أمامية",
+     "width": "564",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Back rail / عارضة خلفية",
+     "width": "564",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Shelf (18mm) / رف (18مم)",
+     "width": "563",
+     "height": "512",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Bottom panel / قاعدة",
+     "width": "764",
+     "height": "522",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Front rail / عارضة أمامية",
+     "width": "764",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Back rail / عارضة خلفية",
+     "width": "764",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Shelf (18mm) / رف (18مم)",
+     "width": "763",
+     "height": "512",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Bottom panel / قاعدة",
+     "width": "964",
+     "height": "522",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Front rail / عارضة أمامية",
+     "width": "964",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Back rail / عارضة خلفية",
+     "width": "964",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Blind panel / لوح العمى",
+     "width": "614",
+     "height": "684",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Blind stile / قائم العمى",
+     "width": "684",
+     "height": "75",
+     "quantity": 2,
+     "grain_locked": false
+    },
+    {
+     "label": "Shelf (18mm) / رف (18مم)",
+     "width": "963",
+     "height": "437",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Filler Fixing Cleat / قطعة تثبيت السدة",
+     "width": "717",
+     "height": "100",
+     "quantity": 1,
+     "grain_locked": false
+    }
+   ]
+  },
+  {
+   "sku": null,
+   "parts": [
+    {
+     "label": "Back panel (HDF) / ظهر (HDF)",
+     "width": "580",
+     "height": "718",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Back panel (HDF) / ظهر (HDF)",
+     "width": "780",
+     "height": "718",
+     "quantity": 1,
+     "grain_locked": false
+    },
+    {
+     "label": "Back panel (HDF) / ظهر (HDF)",
+     "width": "980",
+     "height": "718",
+     "quantity": 1,
+     "grain_locked": false
+    }
+   ]
+  },
+  {
+   "sku": "OAK",
+   "parts": [
+    {
+     "label": "Door / باب",
+     "width": "717",
+     "height": "597",
+     "quantity": 1,
+     "grain_locked": true
+    },
+    {
+     "label": "Blind filler / سدة جزء الميت",
+     "width": "717",
+     "height": "150",
+     "quantity": 1,
+     "grain_locked": true
+    },
+    {
+     "label": "Door / باب",
+     "width": "717",
+     "height": "347",
+     "quantity": 1,
+     "grain_locked": true
+    },
+    {
+     "label": "Filler / سدة",
+     "width": "720",
+     "height": "50",
+     "quantity": 1,
+     "grain_locked": true
+    }
+   ]
+  },
+  {
+   "sku": "GLOSS",
+   "parts": [
+    {
+     "label": "Door / باب",
+     "width": "717",
+     "height": "397",
+     "quantity": 2,
+     "grain_locked": true
+    }
+   ]
+  }
+ ]
+}
