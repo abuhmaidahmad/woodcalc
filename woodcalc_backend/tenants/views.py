@@ -16,6 +16,11 @@ from .utils import get_company_settings
 # material -- matches BACK_PANEL_THICKNESS_OPTIONS in the frontend's formulaEngine.js.
 BACK_PANEL_THICKNESS_OPTIONS = (3, 4, 5, 6, 8)
 
+# How the back panel is fixed -- matches BACK_CONSTRUCTIONS in formulaEngine.js.
+# 'surface' (the default when unset) keeps the original cut sizes; 'groove' sets
+# the back in a groove in the sides, top and bottom.
+BACK_CONSTRUCTIONS = ('surface', 'groove')
+
 
 # Company standards backed by a stock material: `<prefix>_material_sku` picks the
 # material and `<prefix>_thickness_mm` mirrors its board thickness, so the cut
@@ -83,6 +88,11 @@ def company_settings(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 patch['back_panel_thickness_mm'] = int(mm)
+        if 'back_construction' in patch and patch['back_construction'] not in BACK_CONSTRUCTIONS:
+            return Response(
+                {'back_construction': [f'Must be one of {list(BACK_CONSTRUCTIONS)}.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         settings, _ = CompanySettings.objects.get_or_create(company=request.company)
         settings.flags = {**settings.flags, **patch}
         settings.save(update_fields=['flags', 'updated_at'])

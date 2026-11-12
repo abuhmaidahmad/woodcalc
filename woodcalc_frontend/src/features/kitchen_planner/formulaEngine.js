@@ -2,6 +2,8 @@
 // Cabinet formula engine for WoodCalc
 // Units: mm
 
+import { MACHINING_CONFIG } from './machining/config';
+
 const T = 18; // panel thickness mm
 // Standard HDF back panel thickness (mm). The company sets its back panel on
 // the Settings page -- a stock material (back_panel_material_sku, whose board
@@ -16,12 +18,22 @@ const positiveOr = (v, fallback) => {
   return Number.isFinite(n) && n > 0 ? n : fallback;
 };
 
-let companyBack = { thickness: BACK_T, materialCode: null };
+// How the HDF back is fixed (company setting back_construction):
+//  'surface' (default) -- the back stands behind the bottom/top, which stop
+//    30mm + back thickness short of the sides' depth (D - 20 on wall cabinets);
+//  'groove' -- the back sits in a groove (MACHINING_CONFIG.backGroove) in the
+//    sides, top and bottom, which run the full depth.
+export const BACK_CONSTRUCTIONS = ['surface', 'groove'];
+let companyBack = { thickness: BACK_T, materialCode: null, construction: 'surface' };
 export function getCompanyBackPanel() {
   return companyBack;
 }
-export function setCompanyBackPanel({ thickness, materialCode } = {}) {
-  companyBack = { thickness: positiveOr(thickness, BACK_T), materialCode: materialCode || null };
+export function setCompanyBackPanel({ thickness, materialCode, construction } = {}) {
+  companyBack = {
+    thickness: positiveOr(thickness, BACK_T),
+    materialCode: materialCode || null,
+    construction: construction === 'groove' ? 'groove' : 'surface',
+  };
 }
 
 // Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
@@ -625,7 +637,8 @@ export function calculateCabinet(config) {
     : /legrabox|tandembox|integrated/i.test(drawerSystem);
   const isDrawerCab = config.subtype === 'Drawers' || config.subtype === '2Drw+Door';
   const cabinetType = config.cabinetType || config.category || 'base';
-  const { thickness: backT, materialCode: backMaterialCode } = resolveBackPanel();
+  const { thickness: backT, materialCode: backMaterialCode, construction: companyConstruction } = resolveBackPanel();
+  const backConstruction = (config.backConstruction ?? companyConstruction) === 'groove' ? 'groove' : 'surface';
 
   // Wall and tall cabinets don't sit on the floor with a toe kick + legs
   const hasFloorBase = cabinetType === 'base';
@@ -646,8 +659,21 @@ export function calculateCabinet(config) {
   // sides and the back sits right behind them, leaving (20 - back thickness) of
   // side free at the back. Other cabinets keep 30mm behind the back.
   const isWallCab = cabinetType === 'wall';
-  const bottomD = isWallCab ? round2(D - 20) : round2(D - 30 - backT);
-  const bottomFormula = isWallCab ? '(D - 20)' : `(D - 30 - ${backT})`;
+  // A grooved back: the sides, top and bottom all run the full depth D with the
+  // groove setback from their back edge; the back is let into the grooves.
+  // Open boxes (their own board back) and sinks (no back) aren't grooved.
+  const grooveCfg = config.backGroove || MACHINING_CONFIG.backGroove;
+  const grooved = backConstruction === 'groove' && !boxBoardBack && !isSink;
+  // backInto: how far the back reaches into each groove.
+  const backGroove = grooved ? {
+    width: round2(backT + grooveCfg.widthClearance), depth: grooveCfg.depth, setback: grooveCfg.setback,
+    backInto: grooveCfg.depth - grooveCfg.backClearance,
+  } : null;
+  const backInto = grooved ? backGroove.backInto : 0;
+  // The groove's front wall: whatever stands in front of the back stops here.
+  const grooveFrontD = grooved ? round2(D - backGroove.setback - backGroove.width) : null;
+  const bottomD = grooved ? D : isWallCab ? round2(D - 20) : round2(D - 30 - backT);
+  const bottomFormula = grooved ? 'D, grooved for the back' : isWallCab ? '(D - 20)' : `(D - 30 - ${backT})`;
   const panels = [];
   if (boxBoardBack) {
     panels.push(...openBoxPanels(W, carcassH, D, config.openBoxMaterialSource === 'front' ? 'front' : 'carcass'));
@@ -686,13 +712,17 @@ export function calculateCabinet(config) {
     // A pantry with more than one door splits into lower + upper doors; a fixed
     // panel sits behind that joint (the door clearance), cut like the top panel.
     if (hasPantryFixedPanel) {
+      // With a grooved back it stops at the groove's front wall, the back
+      // running past it.
       panels.push({
         name: 'Fixed panel',
         qty: 1,
         width: bottomW,
-        depth: bottomD,
+        depth: grooved ? grooveFrontD : bottomD,
         thickness: T,
-        notes: `(W - 2T) × ${bottomFormula}, behind the door joint`,
+        notes: grooved
+          ? `(W - 2T) × (D - ${backGroove.setback} - ${backGroove.width}), behind the door joint, stops at the back groove`
+          : `(W - 2T) × ${bottomFormula}, behind the door joint`,
       });
     }
   } else {
@@ -727,9 +757,13 @@ export function calculateCabinet(config) {
       notes: 'Sink rail at back of bottom panel',
     });
   } else {
-    const backW = round2(bottomW + 16);
-    // The HDF back runs the carcass height less 2mm.
-    const backH = round2(carcassH - 2);
+    // Surface: 8mm past the inner width each side, the carcass height less 2mm.
+    // Grooved: into each groove less the clearance; height between the top and
+    // bottom grooves, or with rails (no top) from the bottom groove to the top edge.
+    const backW = grooved ? round2(bottomW + 2 * backInto) : round2(bottomW + 16);
+    const backH = !grooved ? round2(carcassH - 2)
+      : usesTopPanel ? round2(carcassH - 2 * T + 2 * backInto)
+      : round2(carcassH - T + backInto);
     panels.push({
       name: 'Back panel (HDF)',
       qty: 1,
@@ -738,7 +772,7 @@ export function calculateCabinet(config) {
       thickness: backT,
       kind: 'hdf_back',
       materialCode: backMaterialCode,
-      notes: `${backT}mm HDF`,
+      notes: grooved ? `${backT}mm HDF, in a ${backGroove.width}×${backGroove.depth} groove` : `${backT}mm HDF`,
     });
   }
 
@@ -773,7 +807,9 @@ export function calculateCabinet(config) {
   const shelfW = round2(bottomW - 1);
   // Shelves are 10mm shallower than the top/bottom panels; a blind corner's also
   // clear its 75mm blind stile.
-  const shelfD = round2(bottomD - 10 - (hasBlindPanel ? BLIND_STILE_DEPTH : 0));
+  // With a grooved back they stop shelfClearance in front of the groove.
+  const shelfD = round2((grooved ? grooveFrontD - grooveCfg.shelfClearance : bottomD - 10)
+    - (hasBlindPanel ? BLIND_STILE_DEPTH : 0));
   if (shelves > 0) {
     panels.push({
       name: 'Shelf (18mm)',
@@ -1101,6 +1137,8 @@ export function calculateCabinet(config) {
 
   return {
     constants: { T, BACK_T: backT, CONFIRMAT, EDGE_BANDING },
+    backConstruction,
+    backGroove,
     panels: panelsDetailed,
     hardware,
     edgeBanding,

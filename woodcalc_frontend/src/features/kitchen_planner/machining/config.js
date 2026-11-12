@@ -2,6 +2,17 @@
 // only from here (merged with any per-call overrides, see buildMachining), so a
 // workshop's drilling standards change in one place.
 export const MACHINING_CONFIG = {
+  // Back panel set in a groove (company setting backConstruction = 'groove'):
+  // a groove on the inner face of the sides, top and bottom, running their
+  // full length. formulaEngine sizes the back, top, bottom and shelves from
+  // these same values.
+  backGroove: {
+    depth: 8,
+    setback: 18, // panel back edge to the groove's rear wall
+    widthClearance: 1, // groove width = company back panel thickness + this
+    backClearance: 1, // the back stops this short of each groove's bottom
+    shelfClearance: 10, // adjustable shelves stop this far in front of the groove
+  },
   // Concealed hinge cups on the door's back face. The number of hinges per door
   // comes from formulaEngine getHingeCount(door height).
   hinge: {

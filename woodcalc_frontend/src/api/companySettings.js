@@ -22,7 +22,7 @@ export async function updateCompanySettings(patch) {
 }
 
 function applyStandardFlags(flags) {
-  setCompanyBackPanel({ thickness: flags.back_panel_thickness_mm, materialCode: flags.back_panel_material_sku });
+  setCompanyBackPanel({ thickness: flags.back_panel_thickness_mm, materialCode: flags.back_panel_material_sku, construction: flags.back_construction });
   setCompanyGlass({ thickness: flags.glass_shelf_thickness_mm, materialCode: flags.glass_shelf_material_sku });
   setCompanyGlassDoor({ materialCode: flags.glass_door_material_sku });
 }

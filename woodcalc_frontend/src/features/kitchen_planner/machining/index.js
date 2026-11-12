@@ -14,16 +14,35 @@ import { buildParts } from './parts';
 import { validatePart } from './schema';
 import { hingeRule } from './rules/hinge';
 import { confirmatRule } from './rules/confirmat';
+import { backGrooveRule } from './rules/backGroove';
 
 // Rules run in this order; each is (parts, ctx) => void.
-export const RULES = [hingeRule, confirmatRule];
+export const RULES = [hingeRule, confirmatRule, backGrooveRule];
 
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
   const side = result.panels.find(p => p.name === 'Side panel');
   const bottom = result.panels.find(p => p.name === 'Bottom panel');
+  const back = result.panels.find(p => p.name === 'Back panel (HDF)');
   const carcassH = side ? side.width : Number(config.height);
   const bottomD = bottom ? bottom.depth : Number(config.depth);
+  const fixedPanelZ = (Number(config.baseHeight) || 800) - 18;
+  const g = result.backGroove;
+  if (g) {
+    // Grooved: the back's rear face sits on the groove's rear wall, its lower
+    // edge reaching into the bottom groove; the back rail stops at the groove's
+    // front wall.
+    const D = side ? side.depth : Number(config.depth);
+    const grooveRear = D - g.setback;
+    return {
+      carcassH,
+      backFrontY: grooveRear - (back ? back.thickness : 0),
+      backBottomZ: 18 - g.backInto,
+      backRailBackY: grooveRear - g.width,
+      bottomRailBackY: bottomD,
+      fixedPanelZ,
+    };
+  }
   return {
     carcassH,
     // The back stands right behind the bottom/top panels, 1mm clear of the
@@ -34,13 +53,13 @@ export function carcassLayout(result, config) {
     bottomRailBackY: bottomD,
     // A pantry's fixed panel sits behind the lower/upper door joint, at the
     // project's base height.
-    fixedPanelZ: (Number(config.baseHeight) || 800) - 18,
+    fixedPanelZ,
   };
 }
 
 export function buildMachining(config, overrides = {}, rules = RULES) {
   const cfg = mergeConfig(MACHINING_CONFIG, overrides);
-  const result = calculateCabinet(config);
+  const result = calculateCabinet({ ...config, backGroove: cfg.backGroove });
   const layout = carcassLayout(result, config, cfg);
   const { parts, cabinet } = buildParts(result, config, layout);
   const ctx = { config, cfg, result, layout, cabinet };

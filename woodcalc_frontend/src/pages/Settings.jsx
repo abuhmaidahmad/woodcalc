@@ -9,7 +9,7 @@ import TeamCard from '../components/TeamCard'
 import CabinetTemplateApprovalQueue from '../components/CabinetTemplateApprovalQueue'
 import { ONBOARDING_MODULES } from '../onboardingSteps'
 import { getCompanySettings, updateCompanySettings } from '../api/companySettings'
-import { BACK_PANEL_THICKNESS_OPTIONS, isBackPanelMaterial, isGlassMaterial, isGlassDoorMaterial } from '../features/kitchen_planner/formulaEngine'
+import { BACK_PANEL_THICKNESS_OPTIONS, BACK_CONSTRUCTIONS, isBackPanelMaterial, isGlassMaterial, isGlassDoorMaterial } from '../features/kitchen_planner/formulaEngine'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -36,6 +36,7 @@ function ManufacturingStandardsCard() {
   const [doorSku, setDoorSku] = useState('')
   const [doorMaterials, setDoorMaterials] = useState([])
   const [mm, setMm] = useState(8)
+  const [construction, setConstruction] = useState('surface')
   const [materials, setMaterials] = useState([])
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -43,10 +44,10 @@ function ManufacturingStandardsCard() {
   useEffect(() => {
     getCompanySettings()
       .then(flags => {
-        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '' }
-        setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku)
+        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface' }
+        setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction)
       })
-      .catch(() => { setSaved({ sku: '', mm: 8, glassSku: '', doorSku: '' }) })
+      .catch(() => { setSaved({ sku: '', mm: 8, glassSku: '', doorSku: '', construction: 'surface' }) })
     const fetchAll = async (url, acc = []) => {
       const data = await (await authFetch(url)).json()
       const list = acc.concat(data.results || data || [])
@@ -67,9 +68,10 @@ function ManufacturingStandardsCard() {
         ...(sku ? { back_panel_material_sku: sku } : { back_panel_material_sku: null, back_panel_thickness_mm: mm }),
         glass_shelf_material_sku: glassSku || null,
         glass_door_material_sku: doorSku || null,
+        back_construction: construction,
       })
-      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '' }
-      setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku)
+      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface' }
+      setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction)
       setMessage(t('settings.standardsSaved'))
     } catch (e) {
       setMessage(`${t('settings.standardsError')}: ${e.message}`)
@@ -77,7 +79,7 @@ function ManufacturingStandardsCard() {
     setSaving(false)
   }
 
-  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm) || glassSku !== saved.glassSku || doorSku !== saved.doorSku)
+  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm) || glassSku !== saved.glassSku || doorSku !== saved.doorSku || construction !== saved.construction)
   const selectedGlass = glassMaterials.find(m => m.sku === glassSku)
   const labelStyle = { fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 500 }
   return (
@@ -120,6 +122,17 @@ function ManufacturingStandardsCard() {
             </div>
           )}
           <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.backPanelHint')}</div>
+
+          <div style={labelStyle}>{t('settings.backConstruction')}</div>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
+            {BACK_CONSTRUCTIONS.map(c => (
+              <button key={c} onClick={() => { setConstruction(c); setMessage('') }} disabled={readOnly}
+                style={{ flex: 1, padding: '10px 6px', border: `2px solid ${construction === c ? ACCENT : '#E0DAD4'}`, borderRadius: 8, cursor: readOnly ? 'default' : 'pointer', background: construction === c ? ACCENT + '10' : '#FAFAFA', color: construction === c ? ACCENT : DARK, fontSize: 13, fontWeight: 700 }}>
+                {t(`settings.backConstruction_${c}`)}
+              </button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t(`settings.backConstructionHint_${construction}`)}</div>
 
           <div style={labelStyle}>{t('settings.glassShelfMaterial')}</div>
           <select value={glassSku} disabled={readOnly} onChange={e => { setGlassSku(e.target.value); setMessage('') }}
