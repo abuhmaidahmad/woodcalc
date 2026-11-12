@@ -422,3 +422,37 @@ class HardwareInputsTests(TestCase):
                   "zones": [{"type": "drawer", "h": 180, "cost": 1}, {"type": "door", "h": 360}]}
         self.assertEqual(_zone_preset(preset), {"id": "2_small_1_door", "doorCount": 2,
                                                 "zones": [{"type": "drawer", "h": 180}, {"type": "door", "h": 360}]})
+
+
+class HardwareFrozenFlagTests(FieldOpsSetup):
+    def test_flag_follows_saved_summary(self):
+        api = as_user(self.manager)
+        url = f"/api/field-ops/installations/{self.job.id}/"
+        self.assertFalse(api.get(url).json()["hardware_frozen"])
+        listed = {j["id"]: j for j in api.get("/api/field-ops/installations/").json()["results"]}
+        self.assertFalse(listed[self.job.id]["hardware_frozen"])
+        api.patch(url, {"hardware_summary": [{"key": "hinges", "qty": 4}]}, format="json")
+        self.assertTrue(api.get(url).json()["hardware_frozen"])
+        listed = {j["id"]: j for j in api.get("/api/field-ops/installations/").json()["results"]}
+        self.assertTrue(listed[self.job.id]["hardware_frozen"])
+
+    def test_empty_summary_counts_as_frozen(self):
+        api = as_user(self.manager)
+        url = f"/api/field-ops/installations/{self.job.id}/"
+        api.patch(url, {"hardware_summary": []}, format="json")
+        self.assertTrue(api.get(url).json()["hardware_frozen"])
+
+    def test_changing_kitchen_without_summary_unfreezes(self):
+        api = as_user(self.manager)
+        url = f"/api/field-ops/installations/{self.job.id}/"
+        api.patch(url, {"hardware_summary": [{"key": "hinges", "qty": 4}]}, format="json")
+        _, other_room = make_locked_room(self.a, name="Second")
+        other_room.project = self.project
+        other_room.save()
+        res = api.patch(url, {"room": other_room.id}, format="json")
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertFalse(res.json()["hardware_frozen"])
+
+    def test_installer_response_has_no_frozen_flag(self):
+        body = as_user(self.installer).get(f"/api/field-ops/my-jobs/{self.job.id}/").json()
+        self.assertNotIn("hardware_frozen", body)

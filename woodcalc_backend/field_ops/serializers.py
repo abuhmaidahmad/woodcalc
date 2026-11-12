@@ -91,6 +91,7 @@ class InstallationSerializer(serializers.ModelSerializer):
     maps_url = serializers.SerializerMethodField()
     design = serializers.SerializerMethodField()
     hardware_summary = HardwareItemSerializer(many=True, write_only=True, required=False)
+    hardware_frozen = serializers.SerializerMethodField()
 
     class Meta:
         model = Installation
@@ -98,7 +99,7 @@ class InstallationSerializer(serializers.ModelSerializer):
             "id", "project", "project_name", "customer_name", "customer_phone", "room", "room_name",
             "revision_number", "status", "scheduled_date", "area", "address", "lat", "lng", "maps_url",
             "site_contact_name", "site_contact_phone", "notes", "assignments", "design", "hardware_summary",
-            "created_at", "updated_at",
+            "hardware_frozen", "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
@@ -110,6 +111,9 @@ class InstallationSerializer(serializers.ModelSerializer):
 
     def get_maps_url(self, obj):
         return maps_url(obj.lat, obj.lng)
+
+    def get_hardware_frozen(self, obj):
+        return isinstance((obj.design_snapshot or {}).get(HARDWARE_SUMMARY_KEY), list)
 
     def get_design(self, obj):
         if self.context.get("view") and getattr(self.context["view"], "action", None) == "list":
