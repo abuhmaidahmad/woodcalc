@@ -168,6 +168,8 @@ Kitchen Planner saves/restores: walls, elements, cabinets, `baseHeight`, `projec
   - `GROOVE { face: TOP|BOTTOM, x, y, x2, y2, width, depth }`: centreline (x, y)→(x2, y2), width across it.
   - Every op carries `rule` (generating rule or import source), for tracing only.
 - **Back construction** (company setting `back_construction`, Settings page): `'surface'` (default, unset = surface) keeps the original cut sizes — back behind the bottom/top, which are D−30−back (D−20 on wall cabinets). `'groove'`: GROOVE on the inner face of sides, top and bottom, full length, width = back thickness + 1, depth 8, rear wall 18mm from the back edge (`MACHINING_CONFIG.backGroove`). Top/bottom run full depth D; back = (W−2T + 14) × (inner height + 14) with a top panel, or (carcassH − 18 + 7) with rails; shelves D − 18 − groove width − 10; a pantry fixed panel stops at the groove's front wall. Open box and sink cabinets are never grooved. A cabinet config's `backConstruction` overrides the company setting.
+- **Rules (in order):** hinge cups (doors) → confirmat (sides ↔ bottom/top/rails/fixed panel, one position list per joint; ≤150mm joints get 2 screws 30 from the edges) → back groove (grooved backs only) → shelf pins (adjustable shelves).
+- **DXF export** (`machining/dxf.js`, `partToDxf`): ASCII R12, mm, drawn on the TOP face. One layer per tool+depth: `HOLE_<face>_D<d>_Z<depth>|_THRU` (CIRCLE), `GROOVE_<face>_W<w>_Z<depth>` (centreline LINE), `EDGE_HOLE_<edge>_D<d>_Z<depth>_H<z>` (LINE into the part), `OUTLINE`. `formatOp` renders an op as text (CAD/CAM import screen).
 - Cabinet coordinates (for placing parts, `part.frame`): x from the left side's outer face, y from the carcass front to the back, z up from the carcass underside.
 
 ### Terminology

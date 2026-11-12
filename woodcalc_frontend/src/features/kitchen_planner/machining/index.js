@@ -73,6 +73,7 @@ export function buildMachining(config, overrides = {}, rules = RULES) {
 }
 
 export * from './schema';
+export { partToDxf, opLayer, formatOp } from './dxf';
 export { MACHINING_CONFIG, mergeConfig } from './config';
 export { hingePositions } from './rules/hinge';
 export { confirmatPositions } from './rules/confirmat';

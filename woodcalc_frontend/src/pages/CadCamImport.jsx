@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isReadOnly } from '../api/auth'
 import Logo from '../components/Logo'
+import { formatOp } from '../features/kitchen_planner/machining/dxf'
 import { useTranslation } from '../i18n/LanguageContext'
 import {
   listImportJobs, createImportJob, getJobParts, getJobOffcuts,
@@ -269,7 +270,7 @@ export default function CadCamImport() {
                               <EdgebandCell part={p} />
                             </td>
                             <td style={{ padding: '8px 12px', fontSize: 10, color: '#666' }}>
-                              {(p.machining_ops || []).map((op, i) => <div key={i}>• {op}</div>)}
+                              {(p.machining_ops || []).map((op, i) => <div key={i}>• {formatOp(op)}</div>)}
                             </td>
                           </tr>
                         ))}
