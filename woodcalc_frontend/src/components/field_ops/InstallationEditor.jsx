@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
 import {
-  createAssignment, createInstallation, deleteAssignment, deleteInstallation, updateAssignment, updateInstallation,
+  createAssignment, createInstallation, deleteAssignment, deleteInstallation, getLockedRoomCabinets, updateAssignment,
+  updateInstallation,
 } from '../../api/fieldOps'
+import { hardwareList } from './jobDesign'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { ACCENT, BORDER, DARK, STATUSES } from './fieldOpsTheme'
 
@@ -73,6 +75,10 @@ export default function InstallationEditor({ installation, rooms, crew, onSaved,
     setSaving(true)
     setError('')
     try {
+      if (roomChanged) {
+        const cabinets = await getLockedRoomCabinets(payload.room).catch(() => null)
+        if (cabinets) payload.hardware_summary = hardwareList(cabinets)
+      }
       const res = installation ? await updateInstallation(installation.id, payload) : await createInstallation(payload)
       if (!res.ok) throw new Error(errorText(res.data))
       await syncCrew(res.data.id)

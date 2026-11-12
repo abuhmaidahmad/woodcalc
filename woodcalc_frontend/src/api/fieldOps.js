@@ -44,6 +44,13 @@ export async function listLockedRooms(params) {
   return res.ok ? listOf(await res.json()) : [];
 }
 
+export async function getLockedRoomCabinets(roomId) {
+  const res = await authFetch(`${FIELD_OPS}/locked-rooms/${roomId}/cabinets/`);
+  if (!res.ok) return null;
+  const data = await res.json();
+  return Array.isArray(data?.cabinets) ? data.cabinets : null;
+}
+
 export async function listCrew() {
   const res = await authFetch(`${FIELD_OPS}/crew/`);
   return res.ok ? listOf(await res.json()) : [];

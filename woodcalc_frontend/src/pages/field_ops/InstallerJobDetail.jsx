@@ -4,7 +4,8 @@ import { getMyJob } from '../../api/fieldOps'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { BigLink, FieldTopBar, Section, StatusBadge } from '../../components/field_ops/fieldOpsUi'
 import { ACCENT, BG, BORDER, DARK, dims, formatDate, useDir } from '../../components/field_ops/fieldOpsTheme'
-import { groupByWall, hardwareList } from '../../components/field_ops/jobDesign'
+import { groupByWall, jobHardware } from '../../components/field_ops/jobDesign'
+import HardwareList from '../../components/field_ops/HardwareList'
 
 const row = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, paddingBlock: 10, borderBottom: '1px solid #F0EBE5' }
 const muted = { fontSize: 14, color: '#777' }
@@ -49,7 +50,7 @@ export default function InstallerJobDetail() {
 
   const design = useMemo(() => job?.design || {}, [job])
   const groups = useMemo(() => groupByWall(design), [design])
-  const hardware = useMemo(() => hardwareList(design.cabinets || []), [design])
+  const hardware = useMemo(() => jobHardware(design), [design])
 
   const page = (content) => (
     <div dir={dir} style={{ minHeight: '100vh', background: BG, fontFamily: "'Inter', sans-serif" }}>
@@ -147,13 +148,7 @@ export default function InstallerJobDetail() {
       </Section>
 
       <Section title={t('fieldOps.hardware')}>
-        {hardware.length === 0 && <div style={muted}>{t('fieldOps.noHardware')}</div>}
-        {hardware.map(item => (
-          <div key={item.key + (item.spec || '')} style={row}>
-            <span style={{ fontSize: 15 }}>{t('fieldOps.hw.' + item.key)}{item.spec ? ` · ${item.spec}` : ''}</span>
-            <span style={{ fontSize: 16, fontWeight: 700 }}>{item.qty}</span>
-          </div>
-        ))}
+        <HardwareList items={hardware} />
       </Section>
 
       <Section title={t('fieldOps.countertop')}>
