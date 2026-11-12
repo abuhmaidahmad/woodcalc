@@ -1276,7 +1276,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     if (!cabinets.length) return
     setSending(true); setSentMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-    const orderNumber = 'WO-' + Date.now()
     try {
       let customerName = 'N/A'
       if (projectId) {
@@ -1315,7 +1314,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const res = await authFetch(API + '/api/manufacturing/work-orders/', {
         method: 'POST',
         body: JSON.stringify({
-          order_number: orderNumber,
           product_name: projectName + (isBackOrder ? ' (Back Order)' : '') + ' (' + newCabinets.length + ' cabinets)',
           customer_name: customerName,
           quantity: newCabinets.length,
@@ -1328,6 +1326,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
       if (res.ok) {
         const wo = await res.json()
+        // The server numbers work orders per company: WO1, WO2, ...
+        const orderNumber = wo.order_number
 
         // Build master cut-list items (panels grouped by size+material+thickness) — NEW cabinets only
         const masterMap = {}

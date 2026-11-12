@@ -417,3 +417,62 @@ class PackPartsTests(SimpleTestCase):
             sheets, _ = pack_parts(self._parts(self.JOB_115), Decimal(2800), Decimal(1220), Decimal(4))
             return [[(p.part.id, p.x, p.y, p.rotated) for p in s.placements] for s in sheets]
         self.assertEqual(layout(), layout())
+
+
+class WorkOrderNumberTests(TestCase):
+    """Work orders are numbered WO1, WO2, ... per company when they're created."""
+
+    def setUp(self):
+        from crm.models import Client, Project, Room
+        self.company = Company.objects.create(name='A', slug='a')
+        self.other = Company.objects.create(name='B', slug='b')
+        user = get_user_model().objects.create_user(username='u', email='u@example.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.client = APIClient()
+        self.client.force_authenticate(user)
+        project = Project.objects.create(client=Client.objects.create(tenant=self.company, name='C'), name='P')
+        self.room = Room.objects.create(project=project, name='K', is_locked=True, revision_status='approved')
+
+    def post(self, **extra):
+        res = self.client.post('/api/manufacturing/work-orders/', {
+            'product_name': 'K', 'room_id_ref': self.room.id, **extra}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        return res.json()
+
+    def test_numbered_in_order_per_company(self):
+        WorkOrder.objects.create(tenant=self.other, product_name='Theirs')
+        first, second = self.post(), self.post()
+        self.assertEqual((first['order_number'], first['sequence']), ('WO1', 1))
+        self.assertEqual(second['order_number'], 'WO2')
+        self.assertEqual(WorkOrder.objects.get(tenant=self.other).order_number, 'WO1')
+
+    def test_number_is_not_taken_from_the_client(self):
+        self.assertEqual(self.post(order_number='WO-1731420000000', sequence=99)['order_number'], 'WO1')
+
+    def test_number_cannot_be_changed(self):
+        wo = self.post()
+        self.client.patch(f"/api/manufacturing/work-orders/{wo['id']}/", {'order_number': 'X'}, format='json')
+        self.assertEqual(WorkOrder.objects.get(id=wo['id']).order_number, 'WO1')
+
+    def test_migration_renumbers_in_creation_order_and_renames_piece_ids(self):
+        import importlib
+        from datetime import timedelta
+        from django.apps import apps
+        from django.utils import timezone
+        from inventory.models import Material
+        from .models import CuttingJob, CuttingPart
+        migration = importlib.import_module('manufacturing.migrations.0008_short_work_order_numbers')
+        now = timezone.now()
+        made = []
+        for tenant, old, minutes in ((self.company, 'WO-300', 3), (self.company, 'WO-100', 1), (self.other, 'WO-200', 2)):
+            wo = WorkOrder.objects.create(tenant=tenant, order_number=old, product_name='K')
+            WorkOrder.objects.filter(pk=wo.pk).update(created_at=now + timedelta(minutes=minutes), sequence=None)
+            made.append(wo)
+        job = CuttingJob.objects.create(work_order=made[0], material=Material.objects.create(tenant=self.company, sku='M', name='M'), thickness=18)
+        part = CuttingPart.objects.create(job=job, label='Side', width=720, height=560, piece_id='WO-300-R2-03-SL')
+        hand = CuttingPart.objects.create(job=job, label='Spare', width=100, height=100)
+        migration.renumber(apps, None)
+        got = [WorkOrder.objects.get(pk=w.pk) for w in made]
+        self.assertEqual([(w.order_number, w.sequence) for w in got], [('WO2', 2), ('WO1', 1), ('WO1', 1)])
+        part.refresh_from_db(); hand.refresh_from_db()
+        self.assertEqual((part.piece_id, hand.piece_id), ('WO2-R2-03-SL', ''))
