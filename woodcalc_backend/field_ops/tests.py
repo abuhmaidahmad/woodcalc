@@ -343,3 +343,82 @@ class ManagementAccessTests(FieldOpsSetup):
     def test_crew_lists_only_field_workers(self):
         names = {m["role"] for m in as_user(self.owner).get("/api/field-ops/crew/").json()}
         self.assertEqual(names, {"installer", "driver"})
+
+
+class HardwareSummaryTests(FieldOpsSetup):
+    SUMMARY = [{"key": "hinges", "qty": 12}, {"key": "drawer_runner_sets", "qty": 4, "spec": "LEGRABOX"}]
+
+    def create_job(self, summary, user=None):
+        return as_user(user or self.manager).post("/api/field-ops/installations/", {
+            "project": self.project.id, "room": self.room.id, "hardware_summary": summary}, format="json")
+
+    def test_summary_is_saved_in_design_copy_and_shown_to_installer(self):
+        res = self.create_job(self.SUMMARY)
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertNotIn("hardware_summary", res.json())
+        job = Installation.objects.get(id=res.json()["id"])
+        self.assertEqual(job.design_snapshot["hardwareSummary"], self.SUMMARY)
+        InstallationAssignment.objects.create(installation=job, user=self.other_installer)
+        body = as_user(self.other_installer).get(f"/api/field-ops/my-jobs/{job.id}/").json()
+        self.assertEqual(body["design"]["hardwareSummary"], self.SUMMARY)
+        self.assertEqual(forbidden_keys(body), [])
+
+    def test_extra_fields_in_summary_items_are_dropped(self):
+        res = self.create_job([{"key": "hinges", "qty": 12, "unitCost": 3.5, "price": 40, "total": 42}])
+        self.assertEqual(res.status_code, 201, res.content)
+        job = Installation.objects.get(id=res.json()["id"])
+        self.assertEqual(job.design_snapshot["hardwareSummary"], [{"key": "hinges", "qty": 12}])
+        self.assertEqual(forbidden_keys(job.design_snapshot), [])
+
+    def test_unknown_hardware_keys_are_rejected(self):
+        for item in ({"key": "cost", "qty": 1}, {"key": "price", "qty": 1}, {"key": "hinges", "qty": -1},
+                     {"key": "hinges", "qty": "many"}):
+            with self.subTest(item=item):
+                self.assertEqual(self.create_job([item]).status_code, 400)
+
+    def test_summary_is_optional(self):
+        res = self.create_job(None)
+        self.assertEqual(res.status_code, 400)
+        res = as_user(self.manager).post("/api/field-ops/installations/", {
+            "project": self.project.id, "room": self.room.id}, format="json")
+        self.assertEqual(res.status_code, 201)
+        self.assertIsNone(res.json()["design"]["hardwareSummary"])
+
+    def test_summary_can_be_updated_without_changing_kitchen(self):
+        job_id = self.create_job(self.SUMMARY).json()["id"]
+        res = as_user(self.manager).patch(f"/api/field-ops/installations/{job_id}/", {
+            "hardware_summary": [{"key": "legs", "qty": 8}]}, format="json")
+        self.assertEqual(res.status_code, 200)
+        snapshot = Installation.objects.get(id=job_id).design_snapshot
+        self.assertEqual(snapshot["hardwareSummary"], [{"key": "legs", "qty": 8}])
+        self.assertEqual(len(snapshot["cabinets"]), 3)
+
+    def test_locked_room_cabinets_are_price_free(self):
+        res = as_user(self.manager).get(f"/api/field-ops/locked-rooms/{self.room.id}/cabinets/")
+        self.assertEqual(res.status_code, 200)
+        self.assertEqual(len(res.json()["cabinets"]), 3)
+        self.assertEqual(forbidden_keys(res.json()), [])
+        self.assertEqual(as_user(self.installer).get(
+            f"/api/field-ops/locked-rooms/{self.room.id}/cabinets/").status_code, 403)
+        self.assertEqual(as_user(self.manager).get(
+            f"/api/field-ops/locked-rooms/{self.room_b.id}/cabinets/").status_code, 404)
+
+
+class HardwareInputsTests(TestCase):
+    ENGINE_INPUTS = (
+        "width", "height", "depth", "material", "doorStyle", "category", "doorCount", "subtype", "zonePreset",
+        "drawerType", "drawerSystem", "drawerBoxConstruction", "baseHeight", "openBoxMaterialSource",
+        "nicheLowerDoorH", "nicheUpperDoorH", "shelfCount", "glassShelfCount",
+    )
+
+    def test_saved_cabinets_keep_every_input_the_hardware_engine_reads(self):
+        from .snapshot import CABINET_FIELDS
+        missing = [f for f in self.ENGINE_INPUTS if f not in CABINET_FIELDS and f != "zonePreset"]
+        self.assertEqual(missing, [])
+
+    def test_zone_preset_keeps_door_count_and_zones(self):
+        from .snapshot import _zone_preset
+        preset = {"id": "2_small_1_door", "doorCount": 2, "price": 9,
+                  "zones": [{"type": "drawer", "h": 180, "cost": 1}, {"type": "door", "h": 360}]}
+        self.assertEqual(_zone_preset(preset), {"id": "2_small_1_door", "doorCount": 2,
+                                                "zones": [{"type": "drawer", "h": 180}, {"type": "door", "h": 360}]})

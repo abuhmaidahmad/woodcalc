@@ -3,7 +3,7 @@ import math
 CABINET_FIELDS = (
     "id", "label", "category", "subtype", "width", "height", "depth", "x", "y", "rotation", "elevation",
     "baseHeight", "wallHeight", "material", "doorStyle", "doorCount", "hingeSide", "handlePosition",
-    "golaColor", "shelves", "drawerType", "drawerSystem", "drawerBoxConstruction", "openBoxMaterialSource",
+    "golaColor", "shelves", "shelfCount", "glassShelfCount", "drawerType", "drawerSystem", "drawerBoxConstruction", "openBoxMaterialSource",
     "nicheLowerDoorH", "nicheUpperDoorH", "panelThickness", "frontMaterial", "frontMaterialCode",
     "frontMaterialName", "frontColor", "frontMaterialThickness", "carcassMaterial", "carcassMaterialCode",
     "carcassMaterialName", "carcassColor", "glassType", "frameColor", "applianceFinish", "hoodMount",
@@ -16,7 +16,7 @@ SINK_FIELDS = {
     "sinkCutoutDepthMm": "cutout_depth_mm",
 }
 ZONE_FIELDS = ("type", "h")
-ZONE_PRESET_FIELDS = ("id", "label")
+ZONE_PRESET_FIELDS = ("id", "label", "doorCount")
 WALL_FIELDS = ("id", "x1", "y1", "x2", "y2", "thickness", "thicknessSide")
 ELEMENT_FIELDS = ("id", "type", "label", "x", "y", "w", "h", "rotation", "elevation", "embeddedInWall",
                   "wallIndex", "surface")
@@ -29,6 +29,11 @@ APPLIANCE_SUBTYPES = (
 SINK_SUBTYPES = ("Sink", "Single Sink", "Double Sink")
 WALL_SNAP_MARGIN_MM = 200
 SCALARS = (str, int, float, bool, type(None))
+HARDWARE_KEYS = (
+    "hinges", "handles", "tip_on", "legs", "cabinet_hangers", "shelf_pins", "confirmats", "dowels", "back_screws",
+    "drawer_runner_sets",
+)
+HARDWARE_SUMMARY_KEY = "hardwareSummary"
 
 
 def _scalar(value):

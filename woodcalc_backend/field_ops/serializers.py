@@ -5,13 +5,13 @@ from crm.models import Project, Room
 from tenants.models import FIELD_WORKER_ROLES, CompanyMembership
 
 from .models import Installation, InstallationAssignment
-from .snapshot import build_design_snapshot
+from .snapshot import HARDWARE_KEYS, HARDWARE_SUMMARY_KEY, build_design_snapshot
 
 User = get_user_model()
 
 DESIGN_KEYS = (
     "room_name", "room_type", "revision_number", "room", "base_height_mm", "wall_thickness_mm", "walls",
-    "elements", "cabinets", "appliances", "countertop", "finishes",
+    "elements", "cabinets", "appliances", "countertop", "finishes", HARDWARE_SUMMARY_KEY,
 )
 
 
@@ -32,6 +32,22 @@ def design_from_snapshot(snapshot):
 
 def request_company(context):
     return getattr(context["request"], "company", None)
+
+
+class HardwareItemSerializer(serializers.Serializer):
+    key = serializers.ChoiceField(choices=HARDWARE_KEYS)
+    qty = serializers.IntegerField(min_value=0, max_value=100000)
+    spec = serializers.CharField(max_length=100, required=False, allow_blank=True)
+
+
+def clean_hardware_summary(items):
+    cleaned = []
+    for item in items:
+        row = {"key": item["key"], "qty": item["qty"]}
+        if item.get("spec"):
+            row["spec"] = item["spec"]
+        cleaned.append(row)
+    return cleaned
 
 
 class AssignmentSerializer(serializers.ModelSerializer):
@@ -74,13 +90,15 @@ class InstallationSerializer(serializers.ModelSerializer):
     revision_number = serializers.SerializerMethodField()
     maps_url = serializers.SerializerMethodField()
     design = serializers.SerializerMethodField()
+    hardware_summary = HardwareItemSerializer(many=True, write_only=True, required=False)
 
     class Meta:
         model = Installation
         fields = [
             "id", "project", "project_name", "customer_name", "customer_phone", "room", "room_name",
             "revision_number", "status", "scheduled_date", "area", "address", "lat", "lng", "maps_url",
-            "site_contact_name", "site_contact_phone", "notes", "assignments", "design", "created_at", "updated_at",
+            "site_contact_name", "site_contact_phone", "notes", "assignments", "design", "hardware_summary",
+            "created_at", "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
 
@@ -114,9 +132,16 @@ class InstallationSerializer(serializers.ModelSerializer):
         return attrs
 
     def _with_snapshot(self, validated_data):
+        summary = validated_data.pop("hardware_summary", None)
         room = validated_data.get("room")
         if room is not None:
             validated_data["design_snapshot"] = build_design_snapshot(room)
+        if summary is not None:
+            snapshot = validated_data.get("design_snapshot")
+            if snapshot is None:
+                snapshot = dict(self.instance.design_snapshot or {}) if self.instance else {}
+            snapshot[HARDWARE_SUMMARY_KEY] = clean_hardware_summary(summary)
+            validated_data["design_snapshot"] = snapshot
         project = validated_data.get("project")
         if project is not None and not validated_data.get("address") and self.instance is None:
             validated_data["address"] = project.address or project.client.address

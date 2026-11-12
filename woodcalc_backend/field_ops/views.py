@@ -1,5 +1,7 @@
 from django.db.models import F
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet, ReadOnlyModelViewSet
 
 from crm.models import Room
@@ -9,6 +11,7 @@ from tenants.permissions import CanManageFieldOps, HasActiveCompany, HasActiveCo
 
 from .models import Installation, InstallationAssignment
 from .permissions import IsAssignedInstaller
+from .snapshot import build_design_snapshot
 from .serializers import (AssignmentSerializer, CrewMemberSerializer, InstallationSerializer,
                           InstallerJobListSerializer, InstallerJobSerializer, LockedRoomSerializer)
 
@@ -72,6 +75,10 @@ class LockedRoomViewSet(TenantScopedMixin, ReadOnlyModelViewSet):
         if self.request.query_params.get("project"):
             queryset = queryset.filter(project_id=self.request.query_params["project"])
         return queryset
+
+    @action(detail=True, methods=["get"])
+    def cabinets(self, request, pk=None):
+        return Response({"cabinets": build_design_snapshot(self.get_object())["cabinets"]})
 
 
 class CrewViewSet(TenantScopedMixin, ReadOnlyModelViewSet):
