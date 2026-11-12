@@ -157,6 +157,18 @@ Kitchen Planner saves/restores: walls, elements, cabinets, `baseHeight`, `projec
 - Customer selects supplier as source
 - Door front material follows front color; other exposed sides follow carcass color
 
+### Machining layer (`kitchen_planner/machining/`)
+- `buildMachining(cabinetConfig, overrides)` → `{ parts, errors }`: one part per physical piece (left/right sides are separate, mirrored parts), each with `machining_ops`. All dimensions live in `MACHINING_CONFIG` (`machining/config.js`); overrides merge one level deep.
+- Same op schema as `ImportedPart.machining_ops` (cadcam app), so imported and generated ops share one exporter.
+- **Part coordinates:** origin = front-left corner of the part's TOP face. X = part length (the cut list's first dimension), Y = width (second dimension, Y=0 on the FRONT edge), Z = depth measured down from TOP. Edges: LEFT x=0, RIGHT x=length, FRONT y=0, BACK y=width.
+- The part stores `visibleFace` ('TOP' | 'BOTTOM'), not the op. Sides: TOP = inner face (visible = BOTTOM, the outer face). Bottom panel/rails/shelves: TOP = upper face. Top panel: TOP = inner (lower) face. Doors: TOP = back face (visible = BOTTOM). Back panel: TOP = front face.
+- Ops:
+  - `HOLE { face: TOP|BOTTOM, x, y, diameter, depth, through }`: depth from that face; `through: true` for through-holes (never inferred from depth).
+  - `EDGE_HOLE { face: FRONT|BACK|LEFT|RIGHT, x, y, z, diameter, depth }`: (x, y) = entry point on the edge, z = height across the thickness from the BOTTOM face (default thickness/2).
+  - `GROOVE { face: TOP|BOTTOM, x, y, x2, y2, width, depth }`: centreline (x, y)→(x2, y2), width across it.
+  - Every op carries `rule` (generating rule or import source), for tracing only.
+- Cabinet coordinates (for placing parts, `part.frame`): x from the left side's outer face, y from the carcass front to the back, z up from the carcass underside.
+
 ### Terminology
 - Particleboard = خشب حبيبي (AR) / Particleboard (EN)
 
