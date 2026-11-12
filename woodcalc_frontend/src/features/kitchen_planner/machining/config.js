@@ -1,7 +1,16 @@
 // MACHINING_CONFIG -- every dimension the machining rules use, in mm. Rules read
 // only from here (merged with any per-call overrides, see buildMachining), so a
 // workshop's drilling standards change in one place.
-export const MACHINING_CONFIG = {};
+export const MACHINING_CONFIG = {
+  // Concealed hinge cups on the door's back face. The number of hinges per door
+  // comes from formulaEngine getHingeCount(door height).
+  hinge: {
+    cupDiameter: 35,
+    cupDepth: 13,
+    edgeDistance: 22.5, // cup centre from the door's hinge edge
+    endDistance: 100, // first/last cup centre from the door's top/bottom edge
+  },
+};
 
 // Merges overrides one level deep: { hinge: { cupDiameter: 26 } } changes just
 // that value and keeps the rest of the hinge section.
