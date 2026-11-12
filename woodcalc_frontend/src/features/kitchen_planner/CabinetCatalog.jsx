@@ -78,7 +78,7 @@ const Icons = {
 // generators. Translating them would split saved designs by language, same reasoning as
 // materialData.js. Only the surrounding UI chrome (category tabs, filters, buttons) is
 // translated here.
-function buildLibrary(baseHeight) {
+export function buildLibrary(baseHeight) {
   const wallInc = baseHeight === 720 ? 180 : 200
   const wallHeights = []
   for (let h = wallInc; h <= wallInc * 6; h += wallInc) wallHeights.push(h)

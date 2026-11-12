@@ -1,10 +1,13 @@
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, SAFE_METHODS
-from .utils import get_membership_for_user
+from .models import FIELD_ROLES, CompanyMembership
+from .utils import get_company_for_user, get_membership_for_user
 
 # Prefix the frontend's authFetch keys on to tell "read-only account" apart from
 # "trial expired" — only the latter should raise the billing banner.
 READ_ONLY_MESSAGE = "Read-only access: auditors can view but not change data."
+FIELD_ROLE_MESSAGE = "Field accounts can only use the field operations screens."
+FIELD_OPS_MANAGE = "field_ops.manage"
 
 
 def deny_auditor_writes(request, view):
@@ -21,8 +24,38 @@ def deny_auditor_writes(request, view):
         raise PermissionDenied(READ_ONLY_MESSAGE)
 
 
+def deny_field_roles(request, view, allowed=()):
+    membership = getattr(request, "membership", None) or get_membership_for_user(request.user)
+    if membership is None or membership.role not in FIELD_ROLES:
+        return
+    allowed = tuple(allowed) + tuple(getattr(view, "field_roles_allowed", ()))
+    if membership.role not in allowed:
+        raise PermissionDenied(FIELD_ROLE_MESSAGE)
+
+
+def can_manage_field_ops(user, company):
+    if user is None or not user.is_authenticated or company is None:
+        return False
+    membership = CompanyMembership.objects.filter(user=user, company=company).first()
+    if membership is None:
+        return False
+    Role = CompanyMembership.Role
+    if membership.role in (Role.OWNER, Role.ADMIN, Role.FIELD_MANAGER):
+        return True
+    return membership.role == Role.STAFF and FIELD_OPS_MANAGE in (membership.permissions or [])
+
+
+class CanManageFieldOps(BasePermission):
+    message = "You don't have permission to manage installations."
+
+    def has_permission(self, request, view):
+        company = getattr(request, "company", None) or get_company_for_user(request.user)
+        return can_manage_field_ops(request.user, company)
+
+
 class HasActiveCompany(BasePermission):
     message = "No active company subscription."
+    field_roles_allowed = ()
 
     def has_permission(self, request, view):
         membership = get_membership_for_user(request.user)
@@ -33,7 +66,12 @@ class HasActiveCompany(BasePermission):
         if not membership.company.is_in_good_standing:
             return False
         deny_auditor_writes(request, view)
+        deny_field_roles(request, view, self.field_roles_allowed)
         return True
+
+
+class HasActiveCompanyForFieldManager(HasActiveCompany):
+    field_roles_allowed = (CompanyMembership.Role.FIELD_MANAGER,)
 
 
 class BlocksAuditorWrites(BasePermission):
@@ -43,6 +81,8 @@ class BlocksAuditorWrites(BasePermission):
 
     def has_permission(self, request, view):
         deny_auditor_writes(request, view)
+        if request.method not in SAFE_METHODS:
+            deny_field_roles(request, view)
         return True
 
 
@@ -56,6 +96,8 @@ def user_has_permission(request, code):
         return False
     if membership.role == membership.Role.OWNER:
         return True
+    if membership.role in FIELD_ROLES:
+        return False
     return code in (membership.permissions or [])
 
 
