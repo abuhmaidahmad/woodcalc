@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from '../kitchen_planner/formulaEngine'
+import { calculateCabinet, cabinetConfig, withRoomBackPanel, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from '../kitchen_planner/formulaEngine'
 import { bilingualPartName } from '../kitchen_planner/partNamesAr'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
@@ -398,7 +398,8 @@ function CuttingOptimizerModule() {
         setError(t('cuttingOptimizer.errNoCabinets'))
         return
       }
-      const bomGroups = bomPanelsToGroups(cabinets, group)
+      // A confirmed room is cut with the construction settings frozen on it.
+      const bomGroups = withRoomBackPanel(room.construction_settings, () => bomPanelsToGroups(cabinets, group))
       if (bomGroups.length === 0) {
         setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return

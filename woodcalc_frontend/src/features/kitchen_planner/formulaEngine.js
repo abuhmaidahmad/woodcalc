@@ -125,15 +125,19 @@ export function glassShelfSpec(c) {
   if (!hasGlassShelves(c)) return null;
   const qty = shelfCountFor(c);
   if (qty <= 0) return null;
+  const back = resolveBackPanel();
+  const g = MACHINING_CONFIG.backGroove;
   return {
     qty,
     width: Math.round(c.width - 40),
     // Shelves are 10mm shallower than the space in front of the back: an open
     // box's (or front-material glass-door cabinet's) full-depth bottom less the
-    // gap and its 18mm board back, else the glass-door cabinet's top/bottom depth.
+    // gap and its 18mm board back; a grooved back's groove front wall; else the
+    // glass-door cabinet's top/bottom depth.
     depth: Math.round(hasBoxBoardBack(c) ? c.depth - OPEN_BOX_BACK_GAP - T - 10
+      : back.construction === 'groove' ? c.depth - g.setback - (back.thickness + g.widthClearance) - g.shelfClearance
       : c.category === 'wall' ? c.depth - 20 - 10
-      : c.depth - 30 - companyBack.thickness - 10),
+      : c.depth - 30 - back.thickness - 10),
     thickness: companyGlass.thickness,
     materialCode: companyGlass.materialCode,
   };
@@ -176,12 +180,38 @@ export function isBackPanelMaterial(m) {
   return m?.material_type === 'back' || m?.core_material === 'hdf';
 }
 
-// The back panel every cabinet is cut with: the company standard set on the
+// A confirmed room's own back panel settings (Room.construction_settings,
+// frozen when it was locked) -- used instead of the company's while a view of
+// that room is computing, so a confirmed kitchen's cut list doesn't move when
+// the company changes its settings. null = follow the company.
+let roomBack = null;
+export function roomBackPanel(settings) {
+  if (!settings || typeof settings !== 'object') return null;
+  return {
+    thickness: positiveOr(settings.back_panel_thickness_mm, BACK_T),
+    materialCode: settings.back_panel_material_sku || null,
+    construction: settings.back_construction === 'groove' ? 'groove' : 'surface',
+  };
+}
+// For views showing one room (the planner): set on open, cleared on close.
+export function setRoomBackPanel(settings) {
+  roomBack = roomBackPanel(settings);
+}
+// For code computing one room among many (cutting optimizer, CNC export):
+// fn() runs with the room's settings, the previous ones are restored after.
+export function withRoomBackPanel(settings, fn) {
+  const prev = roomBack;
+  roomBack = roomBackPanel(settings);
+  try { return fn(); } finally { roomBack = prev; }
+}
+
+// The back panel every cabinet is cut with: the confirmed room's frozen
+// settings when there are any, else the company standard set on the
 // Settings page -- there's no per-cabinet choice. materialCode is the stock SKU
 // it's priced at and cut from (null = generic HDF rate). Open boxes (board back)
 // and sink cabinets (no back) have their own fixed rules in calculateCabinet.
 export function resolveBackPanel() {
-  return { ...companyBack };
+  return { ...(roomBack || companyBack) };
 }
 
 // The HDF back -- tagged by kind, not

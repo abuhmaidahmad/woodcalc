@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -838,6 +838,16 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const auditor = !publicCompanySlug && isReadOnly()
   const role = getRole()
   const locked = !!lock?.isLocked
+  // A confirmed room is cut with the construction settings frozen on it (back
+  // panel fixing and thickness), not the company's current ones. Set during
+  // render so every cut list / BOM / price below already uses them.
+  const constructionSettings = lock?.constructionSettings || null
+  const constructionKey = JSON.stringify(constructionSettings)
+  setRoomBackPanel(constructionSettings)
+  useEffect(() => {
+    setRoomBackPanel(constructionKey === 'null' ? null : JSON.parse(constructionKey))
+    return () => setRoomBackPanel(null)
+  }, [constructionKey])
   const readOnly = auditor || locked
   const isVariant = !!lock?.isVariant
   const canSend = !auditor && locked && lock?.revisionStatus === 'approved' && (!isVariant || role === 'owner')
@@ -1143,7 +1153,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     materialsMap: textureMap,
     drawerSystemsCatalog: availableDrawerSystems,
     countertopMat, backsplashLm, backsplashHeight, t,
-  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyStandards])
+  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, constructionKey])
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 

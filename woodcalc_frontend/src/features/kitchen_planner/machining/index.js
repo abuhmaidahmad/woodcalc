@@ -5,10 +5,11 @@
 // cabinetConfig is calculateCabinet()'s input (formulaEngine cabinetConfig())
 // plus what only machining needs: hingeSide / blindSide, shelfHeights
 // (underside of each adjustable shelf, mm from the carcass bottom), and
-// exposedSides { left, right } for visible end panels.
+// exposedSides { left, right } for visible end panels, and constructionSettings
+// (a confirmed room's frozen Room.construction_settings) when it has them.
 // Each rule adds schema.js ops to the parts' machining_ops; errors lists any op
 // that fails validation (empty when everything fits its board).
-import { calculateCabinet } from '../formulaEngine';
+import { calculateCabinet, withRoomBackPanel } from '../formulaEngine';
 import { MACHINING_CONFIG, mergeConfig } from './config';
 import { buildParts } from './parts';
 import { validatePart } from './schema';
@@ -63,7 +64,8 @@ export function carcassLayout(result, config) {
 
 export function buildMachining(config, overrides = {}, rules = RULES) {
   const cfg = mergeConfig(MACHINING_CONFIG, overrides);
-  const result = calculateCabinet({ ...config, backGroove: cfg.backGroove });
+  const calc = () => calculateCabinet({ ...config, backGroove: cfg.backGroove });
+  const result = config.constructionSettings ? withRoomBackPanel(config.constructionSettings, calc) : calc();
   const layout = carcassLayout(result, config, cfg);
   const { parts, cabinet } = buildParts(result, config, layout);
   const ctx = { config, cfg, result, layout, cabinet };

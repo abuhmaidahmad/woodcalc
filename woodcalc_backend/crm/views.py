@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
-from tenants.utils import get_company_by_slug
+from tenants.utils import frozen_construction_settings, get_company_by_slug
 from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
 from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
@@ -22,6 +22,13 @@ from .serializers import (
     ProjectSerializer, ProjectListSerializer, RoomSerializer, RoomLiteSerializer, PaymentSerializer,
     RoomChangeLogSerializer,
 )
+
+
+def freeze_construction_settings(room):
+    """Save the company's current construction settings on a room being locked,
+    unless it already carries them from an earlier lock."""
+    if room.construction_settings is None:
+        room.construction_settings = frozen_construction_settings(room.project.client.tenant)
 
 
 @api_view(['POST'])
@@ -198,6 +205,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.is_locked = True
         room.locked_at = timezone.now()
         room.locked_by = user
+        freeze_construction_settings(room)
 
     @action(detail=True, methods=['post'])
     def request_change(self, request, pk=None):
@@ -238,7 +246,8 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         self._lock(room, request.user)
         room.revision_status = Room.RevisionStatus.PENDING_APPROVAL
-        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'construction_settings',
+                                 'updated_at'])
         log_room_action(room, request.user, RoomChangeLog.Action.REVISION_SUBMITTED)
         return Response(RoomSerializer(room).data)
 
@@ -269,7 +278,7 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         room.revision_status = Room.RevisionStatus.APPROVED
         room.approval_override_reason = override_reason if started else ''
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status',
-                                 'approval_override_reason', 'updated_at'])
+                                 'approval_override_reason', 'construction_settings', 'updated_at'])
         recompute_project_total(room.project)
         log_room_action(room, request.user, RoomChangeLog.Action.REVISION_APPROVED, reason=room.approval_override_reason,
                         new_value={'started_work_orders': started} if started else None)
@@ -311,11 +320,10 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             if not reason:
                 return Response({'detail': 'A reason is required to confirm a design variant.'},
                                 status=status.HTTP_400_BAD_REQUEST)
-        room.is_locked = True
-        room.locked_at = timezone.now()
-        room.locked_by = request.user
+        self._lock(room, request.user)
         room.revision_status = Room.RevisionStatus.APPROVED
-        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'updated_at'])
+        room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'construction_settings',
+                                 'updated_at'])
         log_room_action(room, request.user, RoomChangeLog.Action.LOCK, reason=reason,
                         new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant})
         recompute_project_total(room.project)

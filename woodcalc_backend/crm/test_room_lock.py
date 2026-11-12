@@ -524,3 +524,78 @@ class ProjectTotalTests(RoomLockTestBase):
         self.assertEqual(self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'edit'},
                                                 format='json').status_code, 200)
         self.assertEqual(self.total(), 0)
+
+
+class ConstructionSettingsTests(RoomLockTestBase):
+    """A confirmed room keeps the construction settings it was confirmed with."""
+
+    def set_company(self, **flags):
+        res = self.api('owner').patch('/api/tenants/settings/', flags, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+
+    def test_unconfirmed_room_has_none(self):
+        res = self.api('owner').get(f'/api/crm/rooms/{self.room.id}/')
+        self.assertIsNone(res.json()['construction_settings'])
+
+    def test_confirming_freezes_todays_settings(self):
+        res = self.lock()
+        self.assertEqual(res.json()['construction_settings'], {
+            'back_construction': 'surface', 'back_panel_thickness_mm': 8, 'back_panel_material_sku': None})
+
+    def test_frozen_settings_survive_company_changes(self):
+        self.set_company(back_panel_thickness_mm=5)
+        self.lock()
+        self.set_company(back_construction='groove', back_panel_thickness_mm=3)
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings, {
+            'back_construction': 'surface', 'back_panel_thickness_mm': 5, 'back_panel_material_sku': None})
+        # Unlocking for an edit doesn't drop them either.
+        self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'fix'}, format='json')
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings['back_construction'], 'surface')
+
+    def test_material_thickness_is_frozen(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='HDF3', name='HDF', board_thickness=3)
+        self.set_company(back_panel_material_sku='HDF3', back_construction='groove')
+        self.lock()
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings, {
+            'back_construction': 'groove', 'back_panel_thickness_mm': 3, 'back_panel_material_sku': 'HDF3'})
+
+    def test_not_writable_through_api(self):
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/',
+                                {'construction_settings': {'back_construction': 'groove'}}, format='json')
+        self.room.refresh_from_db()
+        self.assertIsNone(self.room.construction_settings)
+
+    def test_revision_follows_company_until_submitted(self):
+        self.lock()
+        self.set_company(back_construction='groove')
+        res = self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/')
+        rev2 = Room.objects.get(id=res.json()['id'])
+        self.assertIsNone(rev2.construction_settings)
+        self.api('staff').post(f'/api/crm/rooms/{rev2.id}/submit_revision/')
+        rev2.refresh_from_db()
+        self.assertEqual(rev2.construction_settings['back_construction'], 'groove')
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings['back_construction'], 'surface')
+
+    def test_migration_fills_only_locked_rooms(self):
+        import importlib
+        from django.apps import apps
+        migration = importlib.import_module('crm.migrations.0013_room_construction_settings')
+        self.set_company(back_panel_thickness_mm=6)
+        Room.objects.filter(pk=self.room.pk).update(is_locked=True)
+        draft = Room.objects.create(project=self.project, name='Draft', planner_data={'cabinets': [CABINET]})
+        before = Room.objects.get(pk=self.room.pk)
+        migration.freeze_locked_rooms(apps, None)
+        after = Room.objects.get(pk=self.room.pk)
+        self.assertEqual(after.construction_settings, {
+            'back_construction': 'surface', 'back_panel_thickness_mm': 6, 'back_panel_material_sku': None})
+        self.assertEqual((after.updated_at, after.planner_data, after.grand_total),
+                         (before.updated_at, before.planner_data, before.grand_total))
+        draft.refresh_from_db()
+        self.assertIsNone(draft.construction_settings)
+        self.other_room.refresh_from_db()
+        self.assertIsNone(self.other_room.construction_settings)

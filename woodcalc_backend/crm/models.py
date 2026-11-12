@@ -120,6 +120,11 @@ class Room(models.Model):
     rejection_reason = models.TextField(blank=True)
     approval_override_reason = models.TextField(blank=True)
     is_variant = models.BooleanField(default=False)
+    # The company construction settings (back_construction, back panel
+    # thickness/material) frozen when the room is first confirmed, so its cut
+    # list doesn't change if the company changes them later. Null = not yet
+    # confirmed: the planner follows the company settings.
+    construction_settings = models.JSONField(null=True, blank=True, default=None)
     source_room = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='variants')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
