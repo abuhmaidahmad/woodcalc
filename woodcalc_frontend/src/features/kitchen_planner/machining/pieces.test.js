@@ -115,3 +115,38 @@ describe('drawer box materials from company settings', () => {
     expect(new Set(db.map(p => p.thickness))).toEqual(new Set([12, 8]))
   })
 })
+
+describe('metal-sided drawer systems', () => {
+  const TANDEM = { name: 'TANDEMBOX', box_construction: 'metal_sided', back_width_deduction: '87.0', back_height_m: '68.0', back_height_c: '167.0', back_thickness: 16 }
+  const metal = (extra = {}) => base(1, { subtype: 'Drawers', drawerSystem: 'TANDEMBOX', drawerBoxConstruction: 'metal_sided',
+    zonePreset: { zones: [{ type: 'drawer', h: 180 }, { type: 'drawer', h: 180 }, { type: 'drawer', h: 360 }] }, ...extra })
+
+  it('cuts only a bottom and a back per drawer, the back sized from the catalog by height class', () => {
+    const db = workOrderPieces(wo(), room([metal()]), { drawerSystems: [TANDEM] }).filter(p => p.kind === 'drawer')
+    expect(db.map(p => p.code)).toEqual(['DB1-BT', 'DB1-BK', 'DB2-BT', 'DB2-BK', 'DB3-BT', 'DB3-BK'])
+    const backs = db.filter(p => p.code.endsWith('-BK'))
+    // inner width 600 - 36 = 564, less the system's 87
+    expect(backs.map(p => [p.length, p.width, p.thickness])).toEqual([[477, 68, 16], [477, 68, 16], [477, 167, 16]])
+    expect(db.flatMap(p => p.errors)).toEqual([])
+  })
+
+  it('cuts the back from the drawer box board only when its thickness matches', async () => {
+    const { setCompanyDrawerMaterials } = await import('../formulaEngine')
+    try {
+      setCompanyDrawerMaterials({ boxMaterialCode: 'WB16', boxThickness: 16 })
+      const back = (p) => p.find(x => x.code === 'DB1-BK')
+      expect(back(workOrderPieces(wo(), room([metal()]), { drawerSystems: [TANDEM] })).sku).toBe('WB16')
+      setCompanyDrawerMaterials({ boxMaterialCode: 'WB12', boxThickness: 12 })
+      expect(back(workOrderPieces(wo(), room([metal()]), { drawerSystems: [TANDEM] })).sku).toBeNull()
+    } finally {
+      setCompanyDrawerMaterials({})
+    }
+  })
+
+  it('cuts no back and says why when the catalog has no back sizes', () => {
+    const db = workOrderPieces(wo(), room([metal()]), { drawerSystems: [{ ...TANDEM, back_height_c: null }] }).filter(p => p.kind === 'drawer')
+    expect(db.map(p => p.code)).toEqual(['DB1-BT', 'DB1-BK', 'DB2-BT', 'DB2-BK', 'DB3-BT'])
+    expect(db.find(p => p.code === 'DB3-BT').errors[0]).toMatch(/TANDEMBOX \(height class C\)/)
+    expect(workOrderPieces(wo(), room([metal()])).filter(p => p.code.endsWith('-BK') && p.kind === 'drawer')).toEqual([])
+  })
+})

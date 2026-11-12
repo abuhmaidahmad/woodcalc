@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { authFetch, isReadOnly } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
 import { useCompanyStandards } from '../api/companySettings'
+import { loadDrawerSystems } from '../api/drawerSystems'
 import { workOrderPieces } from '../features/kitchen_planner/machining/pieces'
 import PieceCutList from '../features/manufacturing/PieceCutList'
 import CncExportButton from '../features/manufacturing/CncExportButton'
@@ -33,6 +34,8 @@ export default function ProductionBoard() {
   // The work order's room (when it has one): its pieces make the cut list.
   const [room, setRoom] = useState(null)
   const standards = useCompanyStandards()
+  const [drawerSystems, setDrawerSystems] = useState([])
+  useEffect(() => { loadDrawerSystems().then(setDrawerSystems) }, [])
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -118,8 +121,8 @@ export default function ProductionBoard() {
 
   const pieces = useMemo(() => {
     if (!selected || !room || room.workOrderId !== selected.id) return null
-    try { return workOrderPieces(selected, room) } catch { return null }
-  }, [selected, room, standards])
+    try { return workOrderPieces(selected, room, { drawerSystems }) } catch { return null }
+  }, [selected, room, standards, drawerSystems])
 
   const getStationStatus = (stationId) => {
     const log = logs.find(l => l.station === stationId)

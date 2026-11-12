@@ -183,6 +183,13 @@ class DrawerSystem(models.Model):
     # used for the biggest drawer in a stack). Left blank for wood_box systems.
     price_per_set_m = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_per_set_c = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    # A metal-sided system takes a shop-cut wooden back (and bottom): its width
+    # is the cabinet's inner width less back_width_deduction, its height set by
+    # the drawer's height class. Left blank, no back is cut for the system.
+    back_width_deduction = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
+    back_height_m = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
+    back_height_c = models.DecimalField(max_digits=6, decimal_places=1, null=True, blank=True)
+    back_thickness = models.PositiveIntegerField(null=True, blank=True)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 

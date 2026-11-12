@@ -55,6 +55,16 @@ describe('CNC export', () => {
   })
 })
 
+describe('CNC export of metal-sided drawers', () => {
+  it('lists a missing drawer back size as a problem before export', () => {
+    const cab = base(1, { subtype: 'Drawers', drawerSystem: 'LEGRABOX', drawerBoxConstruction: 'metal_sided',
+      zonePreset: { zones: [{ type: 'drawer', h: 360 }, { type: 'drawer', h: 360 }] } })
+    const { errors } = cncExport(wo, room([cab]), { drawerSystems: [{ name: 'LEGRABOX', box_construction: 'metal_sided' }] })
+    expect(errors.map(e => e.id)).toEqual(['WO125-R2-01-DB1-BT', 'WO125-R2-01-DB2-BT'])
+    expect(errors[0].message).toMatch(/set the back sizes for LEGRABOX/)
+  })
+})
+
 describe('zip writer', () => {
   it('computes the standard CRC-32', () => {
     expect(crc32(new TextEncoder().encode('123456789')).toString(16)).toBe('cbf43926')
