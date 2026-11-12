@@ -2,6 +2,7 @@ import { calculateCabinet, cabinetConfig, isCarcassCabinet } from '../../feature
 
 const COUNTED = ['hinges', 'handles', 'tip_on', 'legs', 'cabinet_hangers', 'shelf_pins', 'confirmats', 'dowels', 'back_screws']
 export const HARDWARE_KEYS = [...COUNTED, 'drawer_runner_sets']
+export const HARDWARE_ENGINE_EXTRA_KEYS = ['drawer_system', 'runner_sizes', 'confirmat_spec', 'edge_banding_spec']
 
 export function cleanHardware(items) {
   if (!Array.isArray(items)) return []
