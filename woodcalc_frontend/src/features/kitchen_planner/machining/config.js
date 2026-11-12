@@ -21,6 +21,16 @@ export const MACHINING_CONFIG = {
     edgeDistance: 22.5, // cup centre from the door's hinge edge
     endDistance: 100, // first/last cup centre from the door's top/bottom edge
   },
+  // Shelf pin holes for adjustable shelves, on the inner face of both sides:
+  // two columns, each with a hole at the shelf's planned height and one pitch
+  // above and below it.
+  shelfPins: {
+    diameter: 5,
+    depth: 12,
+    frontDistance: 37, // front column from the side's front edge
+    backDistance: 37, // back column in front of the back (the groove's front wall when grooved)
+    pitch: 32,
+  },
   // 7x50 confirmat screws wherever a panel butts into a side panel (bottom, top,
   // rails, fixed shelves). Face and edge holes come from one position list.
   confirmat: {

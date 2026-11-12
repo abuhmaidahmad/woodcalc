@@ -15,9 +15,10 @@ import { validatePart } from './schema';
 import { hingeRule } from './rules/hinge';
 import { confirmatRule } from './rules/confirmat';
 import { backGrooveRule } from './rules/backGroove';
+import { shelfPinRule } from './rules/shelfPins';
 
 // Rules run in this order; each is (parts, ctx) => void.
-export const RULES = [hingeRule, confirmatRule, backGrooveRule];
+export const RULES = [hingeRule, confirmatRule, backGrooveRule, shelfPinRule];
 
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
@@ -39,6 +40,8 @@ export function carcassLayout(result, config) {
       backFrontY: grooveRear - (back ? back.thickness : 0),
       backBottomZ: 18 - g.backInto,
       backRailBackY: grooveRear - g.width,
+      // The face the interior stops at: the groove's front wall.
+      backInnerY: grooveRear - g.width,
       bottomRailBackY: bottomD,
       fixedPanelZ,
     };
@@ -48,6 +51,7 @@ export function carcassLayout(result, config) {
     // The back stands right behind the bottom/top panels, 1mm clear of the
     // carcass top and bottom (it is cut carcassH - 2).
     backFrontY: bottomD,
+    backInnerY: bottomD,
     backBottomZ: 1,
     backRailBackY: bottomD,
     bottomRailBackY: bottomD,
