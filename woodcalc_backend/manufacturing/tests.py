@@ -330,6 +330,33 @@ class CuttingJobXlsxExportTests(TestCase):
         self.assertEqual(post([self.piece('A'), self.piece('A')]).status_code, 400)
         self.assertEqual(post([self.piece('A'), self.piece('B')]).status_code, 201)
 
+    def test_labels_one_per_piece_in_cutting_order(self):
+        import re
+        from .labels import label_placements, edge_banding_text
+        from .models import CuttingJob
+        ids = [f'WO-1-R1-0{n}-{c}' for n in (1, 2) for c in ('SL', 'SR')]
+        ply = self._optimized_job(self.ply, '18', [self.piece(i) for i in ids])
+        hdf = self._optimized_job(self.hdf, '3', [
+            {'label': 'Back', 'width': '1100', 'height': '1100', 'quantity': 3, 'grain_locked': False}])
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/export-labels/?ids={ply},{hdf}')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res['Content-Type'], 'application/pdf')
+        self.assertIn('labels_WO-1.pdf', res['Content-Disposition'])
+        self.assertEqual(len(re.findall(rb'/Type /Page\b', res.content)), 4 + 3)
+        jobs = [CuttingJob.objects.get(id=ply), CuttingJob.objects.get(id=hdf)]
+        order = label_placements(jobs)
+        # The ply job's sheets in order, each sheet's pieces as placed, then the HDF job's.
+        self.assertEqual([j.id for j, _, _ in order], [ply] * 4 + [hdf] * 3)
+        keys = [(l.sheet_index, p.id) for j, l, p in order if j.id == hdf]
+        self.assertEqual(keys, sorted(keys))
+        self.assertEqual(sorted(p.part.piece_id for j, _, p in order if j.id == ply), ids)
+        self.assertEqual(edge_banding_text({'T': 'Oak', 'B': 'None', 'L': 'White', 'R': 'Oak'}), 'T+R Oak · L White')
+        self.assertEqual(edge_banding_text({}), 'None')
+
+    def test_labels_need_jobs(self):
+        self.assertEqual(self.client.get('/api/manufacturing/cutting-jobs/export-labels/?ids=999').status_code, 404)
+        self.assertEqual(self.client.get('/api/manufacturing/cutting-jobs/export-labels/?ids=x').status_code, 400)
+
     def test_skips_another_tenants_jobs(self):
         from inventory.models import Material
         from .models import CuttingJob

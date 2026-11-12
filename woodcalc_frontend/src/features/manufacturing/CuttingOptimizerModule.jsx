@@ -378,6 +378,28 @@ function CuttingOptimizerModule() {
     window.URL.revokeObjectURL(url)
   }
 
+  // One label per piece (ID + Code128 barcode, cabinet, part, size, material,
+  // edge banding), in the order the pieces come off the saw: the jobs as listed,
+  // each one's sheets in order.
+  async function downloadLabels(jobs) {
+    setError('')
+    try {
+      const ids = jobs.map(job => job.id).join(',')
+      const res = await fetch(`${API}/api/manufacturing/cutting-jobs/export-labels/?ids=${ids}`, { headers: authHeaders })
+      if (!res.ok) throw new Error(t('cuttingOptimizer.errDownloadLabels'))
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const wo = workOrders.find(w => String(w.id) === String(jobs[0].work_order))
+      a.download = `labels_${wo?.order_number || jobs[0].work_order}${jobs.length === 1 ? `_job${jobs[0].id}` : ''}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof TypeError ? t('cuttingOptimizer.errNoResponse') : e.message)
+    }
+  }
+
   // Every material's cut list in one .xlsx -- opens in Excel and Google Sheets.
   async function downloadWorkbook() {
     setError('')
@@ -550,9 +572,14 @@ function CuttingOptimizerModule() {
         <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>{t('cuttingOptimizer.sheetsSummary')}</h2>
-            <button onClick={downloadWorkbook} style={{ padding: '6px 12px', border: '1px solid #27ae60', borderRadius: 6, background: '#27ae60', color: 'white', cursor: 'pointer' }}>
-              {t('cuttingOptimizer.downloadSpreadsheet')}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => downloadLabels(results.map(r => r.job))} style={{ padding: '6px 12px', border: '1px solid #2c3e50', borderRadius: 6, background: 'white', color: '#2c3e50', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadAllLabels')}
+              </button>
+              <button onClick={downloadWorkbook} style={{ padding: '6px 12px', border: '1px solid #27ae60', borderRadius: 6, background: '#27ae60', color: 'white', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadSpreadsheet')}
+              </button>
+            </div>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
@@ -602,8 +629,11 @@ function CuttingOptimizerModule() {
               <button onClick={() => downloadExport(job, 'csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadCsv')}
               </button>
-              <button onClick={() => downloadExport(job, 'pdf')} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+              <button onClick={() => downloadExport(job, 'pdf')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadPdf')}
+              </button>
+              <button onClick={() => downloadLabels([job])} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadLabels')}
               </button>
             </div>
           </div>

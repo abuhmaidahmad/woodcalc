@@ -1587,6 +1587,9 @@
     "chequeBounced": "مرتجع"
   },
   "cuttingOptimizer": {
+    "downloadLabels": "الملصقات",
+    "downloadAllLabels": "طباعة الملصقات (الكل)",
+    "errDownloadLabels": "تعذر تنزيل الملصقات",
     "colPieceId": "رقم القطعة",
     "errSelectAll": "اختر أمر تشغيل وأضف جزءاً واحداً على الأقل.",
     "errCreateJob": "تعذّر إنشاء مهمة التقطيع",
