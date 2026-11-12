@@ -5,7 +5,8 @@ from django.db import migrations, models
 
 def renumber(apps, schema_editor):
     """WO1, WO2, ... per company in the order the work orders were created.
-    Piece IDs already saved on cutting parts start with the old number, so
+    The old number is kept in legacy_number so the order can still be found by
+    it. Piece IDs already saved on cutting parts start with the old number, so
     they're renamed to the new one too. Nothing else changes; old numbers
     quoted in change logs and stock notes stay as they were written."""
     WorkOrder = apps.get_model('manufacturing', 'WorkOrder')
@@ -14,7 +15,7 @@ def renumber(apps, schema_editor):
     for wo in WorkOrder.objects.order_by('tenant_id', 'created_at', 'id'):
         n = counters[wo.tenant_id] = counters.get(wo.tenant_id, 0) + 1
         old, new = wo.order_number, f'WO{n}'
-        WorkOrder.objects.filter(pk=wo.pk).update(sequence=n, order_number=new)
+        WorkOrder.objects.filter(pk=wo.pk).update(sequence=n, order_number=new, legacy_number=old)
         for part in CuttingPart.objects.filter(job__work_order_id=wo.pk, piece_id__startswith=f'{old}-R'):
             CuttingPart.objects.filter(pk=part.pk).update(piece_id=new + part.piece_id[len(old):])
 
@@ -31,6 +32,11 @@ class Migration(migrations.Migration):
             model_name="workorder",
             name="sequence",
             field=models.PositiveIntegerField(blank=True, null=True),
+        ),
+        migrations.AddField(
+            model_name="workorder",
+            name="legacy_number",
+            field=models.CharField(blank=True, db_index=True, max_length=50),
         ),
         migrations.AlterField(
             model_name="workorder",

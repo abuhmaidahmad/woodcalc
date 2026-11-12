@@ -37,14 +37,20 @@ export default function ProductionBoard() {
   const [drawerSystems, setDrawerSystems] = useState([])
   useEffect(() => { loadDrawerSystems().then(setDrawerSystems) }, [])
 
-  const fetchOrders = async () => {
+  // Search matches the work order number, its pre-renumbering number (e.g.
+  // WO-1731420000000), the product or the customer, on the server.
+  const [search, setSearch] = useState('')
+  const searchRef = React.useRef('')
+  const fetchOrders = async (q = searchRef.current) => {
     setLoading(true)
     try {
-      const res = await authFetch(API + '/api/manufacturing/work-orders/')
+      const query = q.trim() ? `?search=${encodeURIComponent(q.trim())}` : ''
+      const res = await authFetch(API + `/api/manufacturing/work-orders/${query}`)
+      if (q !== searchRef.current) return // a newer search has been typed
       const data = await res.json()
       setOrders(Array.isArray(data) ? data : (data.results || []))
     } catch {}
-    setLoading(false)
+    if (q === searchRef.current) setLoading(false)
   }
 
   const fetchStations = async () => {
@@ -56,7 +62,13 @@ export default function ProductionBoard() {
     } catch {}
   }
 
-  useEffect(() => { fetchOrders(); fetchStations() }, [])
+  useEffect(() => { fetchStations() }, [])
+  // Loads the list on open (no search, no wait), then again shortly after typing stops.
+  useEffect(() => {
+    searchRef.current = search
+    const id = setTimeout(() => fetchOrders(search), search ? 300 : 0)
+    return () => clearTimeout(id)
+  }, [search])
 
   const openOrder = async (order) => {
     setSelected(order)
@@ -149,6 +161,9 @@ export default function ProductionBoard() {
       <div className="m-split" style={{ display: 'flex', height: 'calc(100vh - 56px)' }}>
         {/* Orders list */}
         <div className="m-split-side" style={{ width: 360, borderInlineEnd: '1px solid #E0DAD4', overflow: 'auto', padding: 16 }}>
+          <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder={t('productionBoard.searchOrders')}
+            aria-label={t('productionBoard.searchOrders')} data-wo-search
+            style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1.5px solid #E0DAD4', borderRadius: 8, fontSize: 12, marginBottom: 10, background: '#fff' }} />
           <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 12 }}>{orders.length} {t('productionBoard.workOrders')}</div>
           {loading ? (
             <div style={{ textAlign: 'center', padding: 40, color: '#bbb' }}>{t('common.loading')}</div>
@@ -159,7 +174,10 @@ export default function ProductionBoard() {
               <div key={o.id} onClick={() => openOrder(o)}
                 style={{ background: '#fff', borderRadius: 10, padding: 14, marginBottom: 10, cursor: 'pointer', border: selected?.id === o.id ? `2px solid ${ACCENT}` : '1.5px solid #E0DAD4' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 6 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{o.order_number}</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>
+                    {o.order_number}
+                    {o.legacy_number && <span style={{ fontWeight: 400, fontSize: 10.5, color: '#999', marginInlineStart: 6 }}>{t('productionBoard.formerly', { number: o.legacy_number })}</span>}
+                  </div>
                   <span style={{ fontSize: 10, fontWeight: 700, color: STATUS_COLORS[o.status], background: STATUS_COLORS[o.status] + '18', padding: '2px 8px', borderRadius: 4 }}>
                     {STATUS_KEYS[o.status] ? t(STATUS_KEYS[o.status]) : o.status}
                   </span>
@@ -187,6 +205,7 @@ export default function ProductionBoard() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                   <div>
                     <div style={{ fontSize: 20, fontWeight: 800, color: DARK }}>{selected.order_number}</div>
+                    {selected.legacy_number && <div style={{ fontSize: 11, color: '#999' }}>{t('productionBoard.formerly', { number: selected.legacy_number })}</div>}
                     <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{selected.product_name}</div>
                     <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{t('productionBoard.customer')} <strong style={{ color: DARK }}>{selected.customer_name}</strong></div>
                     {selected.revision_changed_after_start && (

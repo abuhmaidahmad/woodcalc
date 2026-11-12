@@ -454,6 +454,20 @@ class WorkOrderNumberTests(TestCase):
         self.client.patch(f"/api/manufacturing/work-orders/{wo['id']}/", {'order_number': 'X'}, format='json')
         self.assertEqual(WorkOrder.objects.get(id=wo['id']).order_number, 'WO1')
 
+    def test_search_by_number_old_number_product_or_customer(self):
+        a = WorkOrder.objects.create(tenant=self.company, product_name='Kitchen A', customer_name='Omar', legacy_number='WO-1731420000000')
+        b = WorkOrder.objects.create(tenant=self.company, product_name='Pantry', customer_name='Lina')
+        WorkOrder.objects.create(tenant=self.other, product_name='Theirs', legacy_number='WO-1731420000000')
+        found = lambda q: [w['order_number'] for w in self.client.get('/api/manufacturing/work-orders/', {'search': q}).json()['results']]
+        self.assertEqual(found('1731420000000'), [a.order_number])
+        self.assertEqual(found('WO2'), [b.order_number])
+        self.assertEqual(found('lina'), [b.order_number])
+        self.assertEqual(sorted(found('')), sorted([a.order_number, b.order_number]))
+
+    def test_legacy_number_is_read_only(self):
+        wo = self.post(legacy_number='X')
+        self.assertEqual(wo['legacy_number'], '')
+
     def test_migration_renumbers_in_creation_order_and_renames_piece_ids(self):
         import importlib
         from datetime import timedelta
@@ -473,6 +487,7 @@ class WorkOrderNumberTests(TestCase):
         hand = CuttingPart.objects.create(job=job, label='Spare', width=100, height=100)
         migration.renumber(apps, None)
         got = [WorkOrder.objects.get(pk=w.pk) for w in made]
-        self.assertEqual([(w.order_number, w.sequence) for w in got], [('WO2', 2), ('WO1', 1), ('WO1', 1)])
+        self.assertEqual([(w.order_number, w.sequence, w.legacy_number) for w in got],
+                         [('WO2', 2, 'WO-300'), ('WO1', 1, 'WO-100'), ('WO1', 1, 'WO-200')])
         part.refresh_from_db(); hand.refresh_from_db()
         self.assertEqual((part.piece_id, hand.piece_id), ('WO2-R2-03-SL', ''))

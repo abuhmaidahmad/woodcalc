@@ -24,6 +24,9 @@ class WorkOrder(models.Model):
     # every piece ID: WO125-R2-03-SL). sequence is the number on its own.
     order_number = models.CharField(max_length=50)
     sequence = models.PositiveIntegerField(null=True, blank=True)
+    # The number a work order had before the per-company renumbering
+    # (e.g. WO-1731420000000), kept so it can still be found by it.
+    legacy_number = models.CharField(max_length=50, blank=True, db_index=True)
     product_name = models.CharField(max_length=200)
     customer_name = models.CharField(max_length=200, blank=True)
     quantity = models.PositiveIntegerField(default=1)

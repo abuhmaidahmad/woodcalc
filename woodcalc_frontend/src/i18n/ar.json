@@ -665,6 +665,8 @@
     "exportAnyway": "تصدير على أي حال"
   },
   "productionBoard": {
+    "searchOrders": "ابحث بالرقم أو الرقم القديم أو المنتج أو العميل",
+    "formerly": "سابقاً {{number}}",
     "revisionChangedFlag": "⚠ تغيرت المراجعة بعد البدء",
     "title": "لوحة الإنتاج",
     "workOrders": "أوامر التشغيل",

@@ -665,6 +665,8 @@
     "exportAnyway": "Export anyway"
   },
   "productionBoard": {
+    "searchOrders": "Search number, old number, product, customer",
+    "formerly": "was {{number}}",
     "revisionChangedFlag": "⚠ Revision changed after start",
     "title": "Production Board",
     "workOrders": "Work Orders",
