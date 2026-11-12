@@ -240,11 +240,36 @@ export function cabinetBadges(cabinets) {
 let roomBack = null;
 export function roomBackPanel(settings) {
   if (!settings || typeof settings !== 'object') return null;
+  // Drawer box board and bottom: frozen with the room since they set drawer box
+  // sizes. A room confirmed before they were saved keeps the 12mm / 8mm its
+  // drawers were sized with (materialCode: undefined = the company's material
+  // when its thickness matches).
+  const frozenDrawers = 'drawer_box_thickness_mm' in settings;
   return {
     thickness: positiveOr(settings.back_panel_thickness_mm, BACK_T),
     materialCode: settings.back_panel_material_sku || null,
     construction: settings.back_construction === 'groove' ? 'groove' : 'surface',
+    drawer: frozenDrawers ? {
+      box: { materialCode: settings.drawer_box_material_sku || null, thickness: positiveOr(settings.drawer_box_thickness_mm, DRAWER_BOX_T) },
+      bottom: { materialCode: settings.drawer_bottom_material_sku || null, thickness: positiveOr(settings.drawer_bottom_thickness_mm, DRAWER_BOTTOM_T) },
+    } : {
+      box: { materialCode: undefined, thickness: DRAWER_BOX_T },
+      bottom: { materialCode: undefined, thickness: DRAWER_BOTTOM_T },
+    },
   };
+}
+
+// The drawer box board and bottom drawers are sized and cut with: the
+// confirmed room's frozen ones while a room view is computing, else the
+// company's (getCompanyDrawerMaterials).
+export function resolveDrawerMaterials() {
+  if (!roomBack) return companyDrawer;
+  const pick = (frozen, company) => ({
+    thickness: frozen.thickness,
+    materialCode: frozen.materialCode !== undefined ? frozen.materialCode
+      : (company.thickness === frozen.thickness ? company.materialCode : null),
+  });
+  return { box: pick(roomBack.drawer.box, companyDrawer.box), bottom: pick(roomBack.drawer.bottom, companyDrawer.bottom) };
 }
 // For views showing one room (the planner): set on open, cleared on close.
 export function setRoomBackPanel(settings) {
@@ -1120,7 +1145,13 @@ export function calculateCabinet(config) {
   let drawerBox = null;
   if (drawerCount > 0) {
     if (!systemHasIntegratedBox && drawerType.toLowerCase().includes('wood')) {
-      // Wood box interior dims per drawer (runner clearance 2x12.5mm for side-mount)
+      // Wood box outer dims per drawer (runner clearance 2x12.5mm for side-mount).
+      // The sides run the box's depth; the back and front sit between them, so
+      // they're the box width less two board thicknesses; the base goes under
+      // the whole box. Board and base thicknesses are the company's drawer box
+      // board and bottom material (Settings), or the room's frozen ones.
+      const { box: boxMat, bottom: bottomMat } = resolveDrawerMaterials();
+      const t = boxMat.thickness, b = bottomMat.thickness;
       const boxW = round2(W - 2 * T - 25);
       const boxD = round2(D - 30 - 50);
       drawerBox = {
@@ -1128,13 +1159,13 @@ export function calculateCabinet(config) {
         system: drawerSystem,
         count: drawerCount,
         parts_per_drawer: [
-          { name: 'Drawer side (12mm)', qty: 2, width: boxD, depth: 120 },
-          { name: 'Drawer back/front (12mm)', qty: 2, width: round2(boxW - 24), depth: 120 },
-          { name: 'Drawer base (8mm HDF)', qty: 1, width: boxW, depth: boxD },
+          { name: `Drawer side (${t}mm)`, role: 'side', thickness: t, qty: 2, width: boxD, depth: 120 },
+          { name: `Drawer back/front (${t}mm)`, role: 'frontback', thickness: t, qty: 2, width: round2(boxW - 2 * t), depth: 120 },
+          { name: `Drawer base (${b}mm HDF)`, role: 'bottom', thickness: b, qty: 1, width: boxW, depth: boxD },
         ],
-        side_thickness: 12,
-        back_thickness: 12,
-        base_thickness: 8,
+        side_thickness: t,
+        back_thickness: t,
+        base_thickness: b,
         false_front_thickness: 18,
         false_front_clearance_top: -3,
         false_front_clearance_bottom: -3,

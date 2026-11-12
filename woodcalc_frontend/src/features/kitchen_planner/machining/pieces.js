@@ -15,7 +15,7 @@
 import {
   cabinetBadges, cabinetConfig, isCarcassCabinet, isBackPanel, panelFace, panelEdgeBanding,
   nonCarcassPieceDims, fillerCleatDims, flatPieceEdgeBanding, APPLIANCE_SUBTYPES, withRoomBackPanel,
-  getCompanyDrawerMaterials,
+  resolveDrawerMaterials,
 } from '../formulaEngine';
 import { bilingualPartName } from '../partNamesAr';
 import { buildMachining } from './index';
@@ -39,13 +39,8 @@ export function partCode(partId) {
 // Flat (non-carcass) pieces: one board each, named by subtype.
 const FLAT_CODES = { Filler: 'FIL', 'Side Panel': 'SP', 'Top Panel': 'TP', Panel: 'PNL', 'Toe Kick': 'TK', Shelf: 'SHF' };
 
-// Drawer box parts, per drawer n: DB<n>-SL/SR (sides), -FR/-BK (front/back), -BT (base).
-const DRAWER_CODES = {
-  'Drawer side (12mm)': ['SL', 'SR'],
-  'Drawer back/front (12mm)': ['FR', 'BK'],
-  'Drawer base (8mm HDF)': ['BT'],
-  'Drawer bottom panel (8mm HDF)': ['BT'],
-};
+// Drawer box parts by role, per drawer n: DB<n>-SL/SR (sides), -FR/-BK (front/back), -BT (base).
+const DRAWER_CODES = { side: ['SL', 'SR'], frontback: ['FR', 'BK'], bottom: ['BT'] };
 
 const pad2 = (n) => String(n).padStart(2, '0');
 export const pieceId = (woNumber, roomNumber, badge, code) => `${woNumber}-R${roomNumber ?? 0}-${pad2(badge)}-${code}`;
@@ -111,19 +106,19 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
   // Drawer box parts are cut from the company's drawer box board and drawer
   // bottom material (Settings), so the optimizer needs no manual pick.
   const box = result.drawerBox;
-  const drawerMats = getCompanyDrawerMaterials();
+  const drawerMats = resolveDrawerMaterials();
   if (box?.parts_per_drawer) {
     for (let n = 1; n <= (box.count || 1); n++) {
       box.parts_per_drawer.forEach(dp => {
-        const codes = DRAWER_CODES[dp.name] || Array.from({ length: dp.qty }, (_, k) => `P${k + 1}`);
-        const company = /HDF|bottom|base/i.test(dp.name) ? drawerMats.bottom : drawerMats.box;
+        const codes = DRAWER_CODES[dp.role] || Array.from({ length: dp.qty }, (_, k) => `P${k + 1}`);
+        const company = dp.role === 'bottom' ? drawerMats.bottom : drawerMats.box;
         // A part whose thickness the drawer system sets (a metal-sided bottom) is
         // cut from the company material only when the thicknesses match.
         const mat = dp.thickness && dp.thickness !== company.thickness
           ? { materialCode: null, thickness: dp.thickness } : company;
         for (let k = 0; k < dp.qty; k++) {
           out.push(piece(`DB${n}-${codes[k] || `P${k + 1}`}`, dp.name, dp.width, dp.depth, mat.thickness, 'drawer', mat.materialCode,
-            mat.materialCode || `${/HDF|bottom|base/i.test(dp.name) ? 'Drawer bottom' : 'Drawer box'} ${mat.thickness}mm`, false, NONE));
+            mat.materialCode || `${dp.role === 'bottom' ? 'Drawer bottom' : 'Drawer box'} ${mat.thickness}mm`, false, NONE));
         }
       });
       if (box.integrated_front) {

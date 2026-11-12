@@ -541,7 +541,8 @@ class ConstructionSettingsTests(RoomLockTestBase):
     def test_confirming_freezes_todays_settings(self):
         res = self.lock()
         self.assertEqual(res.json()['construction_settings'], {
-            'back_construction': 'surface', 'back_panel_thickness_mm': 8, 'back_panel_material_sku': None})
+            'back_construction': 'surface', 'back_panel_thickness_mm': 8, 'back_panel_material_sku': None,
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
 
     def test_frozen_settings_survive_company_changes(self):
         self.set_company(back_panel_thickness_mm=5)
@@ -549,7 +550,8 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.set_company(back_construction='groove', back_panel_thickness_mm=3)
         self.room.refresh_from_db()
         self.assertEqual(self.room.construction_settings, {
-            'back_construction': 'surface', 'back_panel_thickness_mm': 5, 'back_panel_material_sku': None})
+            'back_construction': 'surface', 'back_panel_thickness_mm': 5, 'back_panel_material_sku': None,
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
         # Unlocking for an edit doesn't drop them either.
         self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'fix'}, format='json')
         self.room.refresh_from_db()
@@ -562,7 +564,18 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.lock()
         self.room.refresh_from_db()
         self.assertEqual(self.room.construction_settings, {
-            'back_construction': 'groove', 'back_panel_thickness_mm': 3, 'back_panel_material_sku': 'HDF3'})
+            'back_construction': 'groove', 'back_panel_thickness_mm': 3, 'back_panel_material_sku': 'HDF3',
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
+
+    def test_drawer_board_is_frozen(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='WB16', name='Board 16', board_thickness=16)
+        self.set_company(drawer_box_material_sku='WB16')
+        self.lock()
+        self.set_company(drawer_box_material_sku=None)
+        self.room.refresh_from_db()
+        self.assertEqual((self.room.construction_settings['drawer_box_material_sku'],
+                          self.room.construction_settings['drawer_box_thickness_mm']), ('WB16', 16))
 
     def test_not_writable_through_api(self):
         self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/',
