@@ -7,6 +7,7 @@ construction_settings['drawer_systems'] ({name: sizes}), and the formula engine
 uses those for the room instead of the live catalog -- so editing the catalog
 later doesn't change a confirmed kitchen's cut sizes. A name with no catalog
 entry is saved as None: the room keeps the default sizes it was confirmed with.
+The snapshot itself is taken by crm/construction_snapshot.py.
 """
 
 DRAWER_SIZE_FIELDS = (
@@ -31,16 +32,3 @@ def used_drawer_systems(planner_data):
     return sorted({c['drawerSystem'] for c in (cabinets or [])
                    if isinstance(c, dict) and isinstance(c.get('drawerSystem'), str) and c['drawerSystem']})
 
-
-def freeze_drawer_systems(settings, company, planner_data):
-    """settings with drawer_systems covering every system the cabinets use.
-    Entries already saved (from an earlier lock) are kept as they are; only
-    systems not saved yet are read from the catalog."""
-    from inventory.models import DrawerSystem
-    saved = dict((settings or {}).get('drawer_systems') or {})
-    missing = [n for n in used_drawer_systems(planner_data) if n not in saved]
-    if missing:
-        catalog = {s.name: s for s in DrawerSystem.objects.filter(tenant=company, name__in=missing)}
-        for name in missing:
-            saved[name] = system_sizes(catalog[name]) if name in catalog else None
-    return {**(settings or {}), 'drawer_systems': saved}

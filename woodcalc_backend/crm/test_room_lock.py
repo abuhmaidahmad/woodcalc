@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from crm.models import Client, Project, Room
+from crm.models import Client, Project, Room, RoomChangeLog
 from manufacturing.models import WorkOrder, WorkOrderItem
 from tenants.models import Company, CompanyMembership
 
@@ -600,21 +600,62 @@ class ConstructionSettingsTests(RoomLockTestBase):
             'Gone': None,  # not in the catalog: the room keeps the default sizes
         })
 
-    def test_relock_adds_new_systems_and_keeps_saved_ones(self):
+    def preview(self):
+        res = self.api('owner').get(f'/api/crm/rooms/{self.room.id}/confirm_preview/')
+        self.assertEqual(res.status_code, 200, res.content)
+        return res.json()
+
+    def test_reconfirm_takes_a_fresh_snapshot_and_previews_the_changes(self):
         from inventory.models import DrawerSystem
-        lb = DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided')
+        lb = DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided',
+                                         back_width_deduction=75, back_height_m=63, back_height_c=167, back_thickness=16)
         DrawerSystem.objects.create(tenant=self.company, name='TANDEMBOX', box_construction='metal_sided', bottom_thickness=16)
         self.drawer_cabinets('LEGRABOX')
+        self.assertEqual(self.preview()['changes'], [])  # first confirmation: nothing to compare
         self.lock()
-        lb.bottom_thickness = 12
-        lb.save()
         self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'add drawers'}, format='json')
         self.room.refresh_from_db()
+        self.assertEqual(self.preview()['changes'], [])  # nothing changed: no dialog
+        lb.bottom_thickness = 12
+        lb.save()
+        self.set_company(back_construction='groove')
         self.drawer_cabinets('LEGRABOX', 'TANDEMBOX')
+        changes = self.preview()['changes']
+        self.assertEqual(changes[0], {'setting': 'back_construction', 'system': None, 'field': None, 'old': 'surface', 'new': 'groove'})
+        self.assertIn({'setting': 'drawer_systems', 'system': 'LEGRABOX', 'field': 'bottom_thickness', 'old': 8, 'new': 12}, changes)
+        added = next(c for c in changes if c['system'] == 'TANDEMBOX')
+        self.assertEqual((added['change'], added['field'], added['old'], added['new']['bottom_thickness']),
+                         ('added', None, None, 16))
         self.lock()
         self.room.refresh_from_db()
-        saved = self.room.construction_settings['drawer_systems']
-        self.assertEqual((saved['LEGRABOX']['bottom_thickness'], saved['TANDEMBOX']['bottom_thickness']), (8, 16))
+        saved = self.room.construction_settings
+        self.assertEqual((saved['back_construction'], saved['drawer_systems']['LEGRABOX']['bottom_thickness'],
+                          saved['drawer_systems']['TANDEMBOX']['bottom_thickness']), ('groove', 12, 16))
+        log = self.room.change_logs.filter(action=RoomChangeLog.Action.LOCK).order_by('-id').first()
+        self.assertEqual(len(log.new_value['construction_changes']), len(changes))
+
+    def test_reconfirm_of_a_room_confirmed_before_drawer_settings_shows_no_false_changes(self):
+        self.room.construction_settings = {'back_construction': 'surface', 'back_panel_thickness_mm': 8,
+                                           'back_panel_material_sku': None}
+        self.room.save()
+        self.assertEqual(self.preview()['changes'], [])
+
+    def test_preview_warns_about_metal_sided_systems_without_sizes(self):
+        from inventory.models import DrawerSystem
+        DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided')
+        DrawerSystem.objects.create(tenant=self.company, name='Full', box_construction='metal_sided',
+                                    back_width_deduction=75, back_height_m=63, back_height_c=167, back_thickness=16)
+        self.drawer_cabinets('LEGRABOX', 'Gone', 'Full')
+        self.room.planner_data['cabinets'].append({**CABINET, 'id': 9, 'drawerSystem': 'Wood only'})  # not a drawer cabinet
+        self.room.save()
+        self.assertEqual(self.preview()['warnings'], [
+            {'system': 'Gone', 'missing': ['bottom', 'back']},
+            {'system': 'LEGRABOX', 'missing': ['back']},
+        ])
+        # Confirming anyway works and saves the defaults for the missing one.
+        self.lock()
+        self.room.refresh_from_db()
+        self.assertIsNone(self.room.construction_settings['drawer_systems']['Gone'])
 
     def test_migration_backfills_locked_rooms_with_todays_catalog(self):
         import importlib
