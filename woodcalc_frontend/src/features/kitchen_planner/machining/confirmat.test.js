@@ -24,8 +24,10 @@ describe('confirmat positions', () => {
     expect(confirmatPositions(400, C)).toEqual([50, 200, 350])
   })
 
-  it('puts one screw in the middle of a joint too short for two', () => {
-    expect(confirmatPositions(100, C)).toEqual([50])
+  it('puts two screws 30mm from the edges of a joint up to 150mm (rails)', () => {
+    expect(confirmatPositions(100, C)).toEqual([30, 70])
+    expect(confirmatPositions(150, C)).toEqual([30, 120])
+    expect(confirmatPositions(151, C)).toEqual([50, 101])
   })
 })
 
@@ -38,9 +40,12 @@ describe('confirmat rule', () => {
     expect(bottomEdge).toHaveLength(6) // 3 per end on a 522-deep bottom
     expect(bottomEdge[0]).toEqual({ type: 'EDGE_HOLE', face: 'LEFT', x: 0, y: 50, z: 9, diameter: 5, depth: 45, rule: 'confirmat' })
     expect(bottomEdge.filter(o => o.face === 'RIGHT').every(o => o.x === p.bottom.length)).toBe(true)
-    ;['front-rail', 'back-rail'].forEach(id => expect(ops(p[id], 'EDGE_HOLE')).toHaveLength(2))
+    ;['front-rail', 'back-rail'].forEach(id => {
+      expect(ops(p[id], 'EDGE_HOLE')).toHaveLength(4)
+      expect(ops(p[id], 'EDGE_HOLE').map(o => o.y).slice(0, 2)).toEqual([30, 70])
+    })
     const face = ops(p['side-left'], 'HOLE')
-    expect(face).toHaveLength(5) // bottom 3 + front rail 1 + back rail 1
+    expect(face).toHaveLength(7) // bottom 3 + front rail 2 + back rail 2
     face.forEach(o => expect(o).toMatchObject({ face: 'BOTTOM', diameter: 7, depth: 18, through: true }))
   })
 
@@ -49,9 +54,9 @@ describe('confirmat rule', () => {
     const p = byId(parts)
     // Right side: X runs up from the cabinet bottom, so the bottom panel's
     // screws sit at x = 9 and the rails' at 720 - 9.
-    expect(ops(p['side-right'], 'HOLE').map(o => o.x).sort((a, b) => a - b)).toEqual([9, 9, 9, 711, 711])
+    expect(ops(p['side-right'], 'HOLE').map(o => o.x).sort((a, b) => a - b)).toEqual([9, 9, 9, 711, 711, 711, 711])
     // Left side: X runs down from the cabinet top.
-    expect(ops(p['side-left'], 'HOLE').map(o => o.x).sort((a, b) => a - b)).toEqual([9, 9, 711, 711, 711])
+    expect(ops(p['side-left'], 'HOLE').map(o => o.x).sort((a, b) => a - b)).toEqual([9, 9, 9, 9, 711, 711, 711])
   })
 
   it('lines every face hole up with an edge hole, on every carcass type', () => {
@@ -77,16 +82,18 @@ describe('confirmat rule', () => {
     expect(ops(tall['fixed-panel'], 'EDGE_HOLE')).toHaveLength(6)
     expect(ops(tall['side-left'], 'HOLE')).toHaveLength(9)
     const sink = byId(buildMachining(base({ subtype: 'Sink' })).parts)
-    expect(ops(sink['bottom-rail'], 'EDGE_HOLE')).toHaveLength(2)
+    expect(ops(sink['bottom-rail'], 'EDGE_HOLE')).toHaveLength(4)
   })
 
-  it('skips face holes on an exposed side but keeps the other side\'s', () => {
-    const { parts } = buildMachining(base({ exposedSides: { left: true } }))
-    const p = byId(parts)
+  it('drills exposed sides by default (decorative panels cover the heads)', () => {
+    const p = byId(buildMachining(base({ exposedSides: { left: true } })).parts)
+    expect(ops(p['side-left'], 'HOLE')).toHaveLength(7)
+  })
+
+  it('skips face holes on an exposed side when the flag is on, keeping the other side\'s', () => {
+    const p = byId(buildMachining(base({ exposedSides: { left: true } }), { confirmat: { skipFaceHolesOnExposedSides: true } }).parts)
     expect(ops(p['side-left'], 'HOLE')).toEqual([])
-    expect(ops(p['side-right'], 'HOLE')).toHaveLength(5)
+    expect(ops(p['side-right'], 'HOLE')).toHaveLength(7)
     expect(ops(p.bottom, 'EDGE_HOLE')).toHaveLength(6)
-    const off = byId(buildMachining(base({ exposedSides: { left: true } }), { confirmat: { skipFaceHolesOnExposedSides: false } }).parts)
-    expect(ops(off['side-left'], 'HOLE')).toHaveLength(5)
   })
 })

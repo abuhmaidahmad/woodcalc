@@ -19,9 +19,13 @@ export const MACHINING_CONFIG = {
     endDistance: 50, // first/last screw from the joint's front and back
     middleOverLength: 400, // joints longer than this always get a middle screw
     maxSpacing: 250, // no two screws further apart than this
-    // Visible end panels (cabinet.exposedSides) get no face holes; they are
-    // fixed another way so no screw heads show.
-    skipFaceHolesOnExposedSides: true,
+    // Short joints (rails): two screws, shortJointEndDistance from each edge.
+    shortJointMax: 150,
+    shortJointEndDistance: 30,
+    // When true, visible end panels (cabinet.exposedSides) get no face holes
+    // and are fixed another way. Off by default: decorative side panels cover
+    // the screw heads.
+    skipFaceHolesOnExposedSides: false,
   },
 };
 

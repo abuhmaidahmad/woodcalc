@@ -10,11 +10,12 @@ const r2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100;
 
 // Screw positions along a joint of the given length, from its front end: one
 // endDistance from each end, plus evenly spaced middle screws when the joint is
-// over middleOverLength or the ends would be more than maxSpacing apart. A joint
-// too short for two screws gets one in the middle.
+// over middleOverLength or the ends would be more than maxSpacing apart. A
+// short joint (up to shortJointMax, e.g. a 100mm rail) gets two screws
+// shortJointEndDistance from its edges.
 export function confirmatPositions(length, cfg) {
+  if (length <= cfg.shortJointMax) return [r2(cfg.shortJointEndDistance), r2(length - cfg.shortJointEndDistance)];
   const span = length - 2 * cfg.endDistance;
-  if (span <= 0) return [r2(length / 2)];
   let gaps = Math.max(1, Math.ceil(span / cfg.maxSpacing));
   if (length > cfg.middleOverLength) gaps = Math.max(gaps, 2);
   return Array.from({ length: gaps + 1 }, (_, i) => r2(cfg.endDistance + (span * i) / gaps));
