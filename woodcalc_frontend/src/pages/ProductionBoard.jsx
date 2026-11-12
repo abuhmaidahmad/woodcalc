@@ -6,6 +6,7 @@ import { useTranslation } from '../i18n/LanguageContext'
 import { useCompanyStandards } from '../api/companySettings'
 import { workOrderPieces } from '../features/kitchen_planner/machining/pieces'
 import PieceCutList from '../features/manufacturing/PieceCutList'
+import CncExportButton from '../features/manufacturing/CncExportButton'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -108,6 +109,13 @@ export default function ProductionBoard() {
     } catch {}
   }
 
+  // The selected work order's room, already loaded or fetched now.
+  const loadRoom = async () => {
+    if (room && room.workOrderId === selected?.id) return room
+    const res = await authFetch(API + `/api/crm/rooms/${selected.room_id_ref}/`)
+    return res.ok ? res.json() : null
+  }
+
   const pieces = useMemo(() => {
     if (!selected || !room || room.workOrderId !== selected.id) return null
     try { return workOrderPieces(selected, room) } catch { return null }
@@ -194,6 +202,7 @@ export default function ProductionBoard() {
                       style={{ padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                       {t('productionBoard.cuttingOptimizer')}
                     </button>
+                    <CncExportButton workOrder={selected} loadRoom={loadRoom} />
                   </div>
                 </div>
               </div>

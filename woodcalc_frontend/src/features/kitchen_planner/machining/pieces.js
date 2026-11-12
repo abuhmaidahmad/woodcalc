@@ -8,9 +8,10 @@
 //
 // Each piece: { id, code, cabinetId, badge, cabinet, name, label, length,
 // width, thickness, kind ('carcass'|'front'|'back'|'drawer'), sku, materialName,
-// grainLocked, edgeBanding { T, B, L, R }, part } -- length x width in cut-list
-// order (the same as the optimizer's width x height), part = the machining part
-// (schema.js) for pieces the CNC drills, else null.
+// grainLocked, edgeBanding { T, B, L, R }, part, errors } -- length x width in
+// cut-list order (the same as the optimizer's width x height), part = the
+// machining part (schema.js) for pieces the CNC drills, else null, and errors =
+// buildMachining's problems with that part's ops (empty when it's fine).
 import {
   cabinetBadges, cabinetConfig, isCarcassCabinet, isBackPanel, panelFace, panelEdgeBanding,
   nonCarcassPieceDims, fillerCleatDims, flatPieceEdgeBanding, APPLIANCE_SUBTYPES, withRoomBackPanel,
@@ -58,9 +59,11 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
   const carcassName = cab.carcassMaterialName || cab.material || 'Carcass';
   const frontName = cab.frontMaterialName || 'Front';
   const base = { cabinetId: cab.id, badge, cabinet: cab.label || cab.subtype || '' };
+  let partErrors = []; // buildMachining's, set below for carcass cabinets
   const piece = (code, name, length, width, thickness, kind, sku, materialName, grainLocked, edgeBanding, part = null) => ({
     ...base, id: idFor(code), code, name, label: bilingualPartName(name), length, width, thickness,
     kind, sku: typeof sku === 'string' ? sku.trim() || null : sku ?? null, materialName, grainLocked, edgeBanding, part,
+    errors: part ? partErrors.filter(e => e.startsWith(`${part.id} `) || e.startsWith(`${part.id}:`)) : [],
   });
 
   if (!isCarcassCabinet(cab)) {
@@ -81,10 +84,13 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
     return out;
   }
 
-  const config = { ...cabinetConfig(cab), hingeSide: cab.hingeSide, blindSide: cab.blindSide, constructionSettings };
+  const config = {
+    ...cabinetConfig(cab), hingeSide: cab.hingeSide, blindSide: cab.blindSide, shelfHeights: cab.shelfHeights, constructionSettings,
+  };
   let built;
   try { built = buildMachining(config); } catch { return []; }
   const { parts, result } = built;
+  partErrors = built.errors;
   const panelFor = (name) => result.panels.find(p => p.name === name);
   const out = parts.map(part => {
     const code = partCode(part.id);

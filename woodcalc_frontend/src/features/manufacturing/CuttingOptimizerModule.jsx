@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isBackPanelMaterial } from '../kitchen_planner/formulaEngine'
 import { workOrderPieces } from '../kitchen_planner/machining/pieces'
+import CncExportButton from './CncExportButton'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
 import { useCompanyStandards } from '../../api/companySettings'
@@ -327,6 +328,12 @@ function CuttingOptimizerModule() {
     setLoading(false)
   }
 
+  const selectedWorkOrder = workOrders.find(w => String(w.id) === String(workOrderId)) || null
+  async function loadWorkOrderRoom() {
+    const res = await fetch(`${API}/api/crm/rooms/${selectedWorkOrder.room_id_ref}/`, { headers: authHeaders })
+    return res.ok ? res.json() : null
+  }
+
   async function loadFromBOM(group) {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
@@ -444,6 +451,11 @@ function CuttingOptimizerModule() {
               <option value="">{t('cuttingOptimizer.select')}</option>
               {workOrders.map(w => <option key={w.id} value={w.id}>{w.order_number}</option>)}
             </select>
+            {selectedWorkOrder && (
+              <div style={{ marginTop: 8 }}>
+                <CncExportButton workOrder={selectedWorkOrder} loadRoom={loadWorkOrderRoom} />
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>

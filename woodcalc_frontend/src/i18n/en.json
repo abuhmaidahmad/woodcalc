@@ -647,6 +647,17 @@
     "hideIds": "Hide piece IDs",
     "pieces": "pieces"
   },
+  "cncExport": {
+    "button": "Export CNC (DXF)",
+    "working": "Preparing…",
+    "noRoom": "This work order has no linked room to export.",
+    "noPieces": "No pieces to export.",
+    "done": "Downloaded {{count}} pieces.",
+    "failed": "Export failed",
+    "errorsTitle": "{{count}} machining problem(s) — check before sending to the CNC",
+    "cancel": "Cancel",
+    "exportAnyway": "Export anyway"
+  },
   "productionBoard": {
     "revisionChangedFlag": "⚠ Revision changed after start",
     "title": "Production Board",

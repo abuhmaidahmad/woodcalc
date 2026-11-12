@@ -647,6 +647,17 @@
     "hideIds": "إخفاء أرقام القطع",
     "pieces": "قطعة"
   },
+  "cncExport": {
+    "button": "تصدير CNC ‏(DXF)",
+    "working": "جارٍ التحضير…",
+    "noRoom": "أمر العمل هذا غير مرتبط بغرفة للتصدير.",
+    "noPieces": "لا توجد قطع للتصدير.",
+    "done": "تم تنزيل {{count}} قطعة.",
+    "failed": "فشل التصدير",
+    "errorsTitle": "{{count}} مشكلة في التشغيل — راجعها قبل الإرسال إلى CNC",
+    "cancel": "إلغاء",
+    "exportAnyway": "تصدير على أي حال"
+  },
   "productionBoard": {
     "revisionChangedFlag": "⚠ تغيرت المراجعة بعد البدء",
     "title": "لوحة الإنتاج",
