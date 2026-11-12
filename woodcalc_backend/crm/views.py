@@ -13,6 +13,7 @@ from tenants.utils import frozen_construction_settings, get_company_by_slug
 from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
 from .numbering import freeze_badges
+from .drawer_sizes import freeze_drawer_systems
 from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
                         started_work_orders)
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
@@ -27,10 +28,14 @@ from .serializers import (
 
 def freeze_on_lock(room):
     """What a room being locked keeps from then on: the company's current
-    construction settings (unless it carries them from an earlier lock), and
-    each cabinet's badge number (crm/numbering.py)."""
+    construction settings (unless it carries them from an earlier lock), the
+    sizes of the drawer systems its cabinets use (crm/drawer_sizes.py; ones
+    added since an earlier lock are added), and each cabinet's badge number
+    (crm/numbering.py)."""
+    company = room.project.client.tenant
     if room.construction_settings is None:
-        room.construction_settings = frozen_construction_settings(room.project.client.tenant)
+        room.construction_settings = frozen_construction_settings(company)
+    room.construction_settings = freeze_drawer_systems(room.construction_settings, company, room.planner_data)
     room.planner_data, _ = freeze_badges(room.planner_data)
 
 

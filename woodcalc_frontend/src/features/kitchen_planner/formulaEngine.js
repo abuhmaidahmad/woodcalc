@@ -65,11 +65,22 @@ let drawerSystemCatalog = [];
 export function setDrawerSystemCatalog(list) {
   drawerSystemCatalog = Array.isArray(list) ? list : [];
 }
-// A metal-sided bottom's deductions/thickness for one cabinet config: its own
-// drawerSystemSpec when given (a catalog entry), else the catalog entry named
-// by config.drawerSystem, else the defaults.
+// The drawer system entry a cabinet's metal-sided bottom/back are sized from:
+// a confirmed room's saved sizes for it (construction_settings.drawer_systems,
+// frozen at confirmation; saved as null = it had no catalog entry, so the
+// defaults), else the live catalog -- `live` when given, else the one the
+// views loaded. null when there's none.
+export function drawerSystemFor(name, live = null) {
+  const frozen = roomBack?.drawerSystems;
+  if (frozen && Object.prototype.hasOwnProperty.call(frozen, name)) return { name, ...(frozen[name] || {}) };
+  return (live || drawerSystemCatalog).find(s => s.name === name) || null;
+}
+
+// A metal-sided bottom's deductions/thickness for one cabinet config: from
+// drawerSystemFor (its own drawerSystemSpec standing in for the catalog when
+// given), else the defaults.
 export function drawerBottomSpec(config) {
-  const sys = config.drawerSystemSpec || drawerSystemCatalog.find(s => s.name === config.drawerSystem);
+  const sys = drawerSystemFor(config.drawerSystem, config.drawerSystemSpec ? [config.drawerSystemSpec] : null);
   const pick = (v, d) => { const n = Number(v); return v !== null && v !== undefined && v !== '' && Number.isFinite(n) && n >= 0 ? n : d; };
   return {
     widthDeduction: pick(sys?.bottom_width_deduction, DRAWER_BOTTOM_DEFAULTS.widthDeduction),
@@ -245,7 +256,9 @@ export function roomBackPanel(settings) {
   // drawers were sized with (materialCode: undefined = the company's material
   // when its thickness matches).
   const frozenDrawers = 'drawer_box_thickness_mm' in settings;
+  const drawerSystems = settings.drawer_systems && typeof settings.drawer_systems === 'object' ? settings.drawer_systems : null;
   return {
+    drawerSystems,
     thickness: positiveOr(settings.back_panel_thickness_mm, BACK_T),
     materialCode: settings.back_panel_material_sku || null,
     construction: settings.back_construction === 'groove' ? 'groove' : 'surface',

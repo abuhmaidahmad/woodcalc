@@ -15,7 +15,7 @@
 import {
   cabinetBadges, cabinetConfig, isCarcassCabinet, isBackPanel, panelFace, panelEdgeBanding,
   nonCarcassPieceDims, fillerCleatDims, flatPieceEdgeBanding, APPLIANCE_SUBTYPES, withRoomBackPanel,
-  resolveDrawerMaterials,
+  resolveDrawerMaterials, drawerSystemFor,
 } from '../formulaEngine';
 import { bilingualPartName } from '../partNamesAr';
 import { buildMachining } from './index';
@@ -143,7 +143,8 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
 // system catalog. { width, height, thickness } or { error } when the catalog
 // doesn't have the sizes, so nothing is guessed.
 export function metalSidedBack(cab, result, n, drawerSystems) {
-  const sys = drawerSystems.find(s => s.name === cab.drawerSystem);
+  // A confirmed room's saved sizes for the system, else the catalog.
+  const sys = drawerSystemFor(cab.drawerSystem, drawerSystems.length ? drawerSystems : null);
   const size = result.drawerFronts[n - 1]?.runnerSize === 'C' ? 'c' : 'm';
   const num = (v) => (v === null || v === undefined || v === '' ? NaN : Number(v));
   const deduction = num(sys?.back_width_deduction), height = num(sys?.[`back_height_${size}`]), thickness = num(sys?.back_thickness);

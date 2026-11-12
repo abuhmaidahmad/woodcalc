@@ -542,7 +542,7 @@ class ConstructionSettingsTests(RoomLockTestBase):
         res = self.lock()
         self.assertEqual(res.json()['construction_settings'], {
             'back_construction': 'surface', 'back_panel_thickness_mm': 8, 'back_panel_material_sku': None,
-            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8, 'drawer_systems': {}})
 
     def test_frozen_settings_survive_company_changes(self):
         self.set_company(back_panel_thickness_mm=5)
@@ -551,7 +551,7 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.room.refresh_from_db()
         self.assertEqual(self.room.construction_settings, {
             'back_construction': 'surface', 'back_panel_thickness_mm': 5, 'back_panel_material_sku': None,
-            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8, 'drawer_systems': {}})
         # Unlocking for an edit doesn't drop them either.
         self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'fix'}, format='json')
         self.room.refresh_from_db()
@@ -565,7 +565,7 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.room.refresh_from_db()
         self.assertEqual(self.room.construction_settings, {
             'back_construction': 'groove', 'back_panel_thickness_mm': 3, 'back_panel_material_sku': 'HDF3',
-            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8})
+            'drawer_box_material_sku': None, 'drawer_box_thickness_mm': 12, 'drawer_bottom_material_sku': None, 'drawer_bottom_thickness_mm': 8, 'drawer_systems': {}})
 
     def test_drawer_board_is_frozen(self):
         from inventory.models import Material
@@ -576,6 +576,64 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.room.refresh_from_db()
         self.assertEqual((self.room.construction_settings['drawer_box_material_sku'],
                           self.room.construction_settings['drawer_box_thickness_mm']), ('WB16', 16))
+
+    def drawer_cabinets(self, *systems):
+        self.room.planner_data = {'cabinets': [
+            {**CABINET, 'id': i + 1, 'subtype': 'Drawers', 'drawerSystem': s, 'drawerBoxConstruction': 'metal_sided'}
+            for i, s in enumerate(systems)]}
+        self.room.save()
+
+    def test_drawer_system_sizes_are_frozen(self):
+        from inventory.models import DrawerSystem
+        lb = DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided',
+                                         bottom_width_deduction=30, back_width_deduction=75, back_height_m=63,
+                                         back_height_c=167, back_thickness=16)
+        DrawerSystem.objects.create(tenant=self.company, name='Unused', box_construction='metal_sided')
+        self.drawer_cabinets('LEGRABOX', 'Gone', 'LEGRABOX')
+        self.lock()
+        lb.bottom_width_deduction = 40
+        lb.save()
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings['drawer_systems'], {
+            'LEGRABOX': {'bottom_width_deduction': 30, 'bottom_depth_deduction': 80, 'bottom_thickness': 8,
+                         'back_width_deduction': 75, 'back_height_m': 63, 'back_height_c': 167, 'back_thickness': 16},
+            'Gone': None,  # not in the catalog: the room keeps the default sizes
+        })
+
+    def test_relock_adds_new_systems_and_keeps_saved_ones(self):
+        from inventory.models import DrawerSystem
+        lb = DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided')
+        DrawerSystem.objects.create(tenant=self.company, name='TANDEMBOX', box_construction='metal_sided', bottom_thickness=16)
+        self.drawer_cabinets('LEGRABOX')
+        self.lock()
+        lb.bottom_thickness = 12
+        lb.save()
+        self.api('owner').post(f'/api/crm/rooms/{self.room.id}/unlock/', {'reason': 'add drawers'}, format='json')
+        self.room.refresh_from_db()
+        self.drawer_cabinets('LEGRABOX', 'TANDEMBOX')
+        self.lock()
+        self.room.refresh_from_db()
+        saved = self.room.construction_settings['drawer_systems']
+        self.assertEqual((saved['LEGRABOX']['bottom_thickness'], saved['TANDEMBOX']['bottom_thickness']), (8, 16))
+
+    def test_migration_backfills_locked_rooms_with_todays_catalog(self):
+        import importlib
+        from django.apps import apps
+        from inventory.models import DrawerSystem
+        migration = importlib.import_module('crm.migrations.0015_freeze_drawer_system_sizes')
+        DrawerSystem.objects.create(tenant=self.company, name='LEGRABOX', box_construction='metal_sided', bottom_thickness=16)
+        self.drawer_cabinets('LEGRABOX')
+        old = {'back_construction': 'surface', 'back_panel_thickness_mm': 8, 'back_panel_material_sku': None}
+        Room.objects.filter(pk=self.room.pk).update(is_locked=True, construction_settings=old)
+        draft = Room.objects.create(project=self.project, name='Draft', planner_data=self.room.planner_data)
+        before = Room.objects.get(pk=self.room.pk)
+        migration.freeze(apps, None)
+        after = Room.objects.get(pk=self.room.pk)
+        self.assertEqual(after.construction_settings['drawer_systems']['LEGRABOX']['bottom_thickness'], 16)
+        self.assertEqual(after.construction_settings['back_panel_thickness_mm'], 8)
+        self.assertEqual((after.updated_at, after.planner_data), (before.updated_at, before.planner_data))
+        draft.refresh_from_db()
+        self.assertIsNone(draft.construction_settings)
 
     def test_not_writable_through_api(self):
         self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/',
