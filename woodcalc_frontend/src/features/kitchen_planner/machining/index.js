@@ -13,9 +13,10 @@ import { MACHINING_CONFIG, mergeConfig } from './config';
 import { buildParts } from './parts';
 import { validatePart } from './schema';
 import { hingeRule } from './rules/hinge';
+import { confirmatRule } from './rules/confirmat';
 
 // Rules run in this order; each is (parts, ctx) => void.
-export const RULES = [hingeRule];
+export const RULES = [hingeRule, confirmatRule];
 
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
@@ -51,4 +52,5 @@ export function buildMachining(config, overrides = {}, rules = RULES) {
 export * from './schema';
 export { MACHINING_CONFIG, mergeConfig } from './config';
 export { hingePositions } from './rules/hinge';
+export { confirmatPositions } from './rules/confirmat';
 export { toCabinet, toPart, shelfPlannedHeights, doorHingeSides } from './parts';

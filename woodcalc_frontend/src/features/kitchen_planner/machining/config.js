@@ -10,6 +10,19 @@ export const MACHINING_CONFIG = {
     edgeDistance: 22.5, // cup centre from the door's hinge edge
     endDistance: 100, // first/last cup centre from the door's top/bottom edge
   },
+  // 7x50 confirmat screws wherever a panel butts into a side panel (bottom, top,
+  // rails, fixed shelves). Face and edge holes come from one position list.
+  confirmat: {
+    faceDiameter: 7, // through the side panel, from its outer face
+    edgeDiameter: 5,
+    edgeDepth: 45, // into the mating panel's end edge
+    endDistance: 50, // first/last screw from the joint's front and back
+    middleOverLength: 400, // joints longer than this always get a middle screw
+    maxSpacing: 250, // no two screws further apart than this
+    // Visible end panels (cabinet.exposedSides) get no face holes; they are
+    // fixed another way so no screw heads show.
+    skipFaceHolesOnExposedSides: true,
+  },
 };
 
 // Merges overrides one level deep: { hinge: { cupDiameter: 26 } } changes just
