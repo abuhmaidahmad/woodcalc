@@ -140,6 +140,10 @@ export function buildParts(result, config, layout) {
     // face (the one that gets drilled); the front is on show.
     parts.push(loose(`door-${i + 1}`, 'Door', d.height, d.width, T, 'BOTTOM', { hingeSide: sides[i], hingeCount: d.hinges }));
   });
+  // Drawer fronts, cut like doors (height first); nothing drilled on them yet.
+  result.drawerFronts.forEach((d, i) => {
+    parts.push(loose(`drawer-front-${i + 1}`, 'Drawer front', d.height, d.width, T, 'BOTTOM'));
+  });
   return { parts, cabinet: { W, D, carcassH } };
 }
 

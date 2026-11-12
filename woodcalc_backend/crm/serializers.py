@@ -39,7 +39,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
 ROOM_LOCK_FIELDS = ['is_locked', 'locked_at', 'locked_by', 'unlock_reason', 'revision_number', 'parent_revision', 'revision_status',
                     'rejection_reason', 'approval_override_reason', 'is_variant', 'source_room',
-                    'construction_settings']
+                    'construction_settings', 'room_number']
 
 
 class SourceRoomFieldsMixin(serializers.Serializer):

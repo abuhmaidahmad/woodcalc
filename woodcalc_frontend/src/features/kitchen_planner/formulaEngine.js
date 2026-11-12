@@ -180,6 +180,17 @@ export function isBackPanelMaterial(m) {
   return m?.material_type === 'back' || m?.core_material === 'hdf';
 }
 
+// Each cabinet's position-badge number (Map id -> n). A cabinet confirmed in a
+// room carries its number as `badge` (frozen by the backend on lock, so later
+// revisions can't renumber it); any other cabinet takes the next numbers after
+// the highest, in list order -- so an unconfirmed room is simply 1, 2, 3...
+// Same rule as crm/numbering.py.
+export function cabinetBadges(cabinets) {
+  const isNum = (b) => Number.isInteger(b) && b > 0;
+  let next = cabinets.reduce((m, c) => (isNum(c?.badge) ? Math.max(m, c.badge) : m), 0) + 1;
+  return new Map(cabinets.map(c => [c.id, isNum(c?.badge) ? c.badge : next++]));
+}
+
 // A confirmed room's own back panel settings (Room.construction_settings,
 // frozen when it was locked) -- used instead of the company's while a view of
 // that room is computing, so a confirmed kitchen's cut list doesn't move when

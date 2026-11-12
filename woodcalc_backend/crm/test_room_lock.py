@@ -83,7 +83,8 @@ class LockedRoomRejectsWritesTests(RoomLockTestBase):
                 res = getattr(client, method)(url, format='json', **kwargs)
                 self.assertEqual(res.status_code, 403, f'{role} {method}')
         self.room.refresh_from_db()
-        self.assertEqual(self.room.planner_data['cabinets'], [CABINET])
+        # Unchanged since the lock (which wrote the cabinet's badge number).
+        self.assertEqual(self.room.planner_data['cabinets'], [{**CABINET, 'badge': 1}])
 
     def test_lock_message_is_clear(self):
         res = self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'name': 'X'}, format='json')
@@ -599,3 +600,67 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.assertIsNone(draft.construction_settings)
         self.other_room.refresh_from_db()
         self.assertIsNone(self.other_room.construction_settings)
+
+
+class NumberingTests(RoomLockTestBase):
+    """Room numbers and cabinet badges, the stable parts of a piece ID."""
+
+    def cab(self, id_, **extra):
+        return {**CABINET, 'id': id_, **extra}
+
+    def test_rooms_numbered_per_project(self):
+        second = Room.objects.create(project=self.project, name='Pantry')
+        self.assertEqual((self.room.room_number, second.room_number), (1, 2))
+        self.assertEqual(self.other_room.room_number, 1)
+        res = self.api('owner').post('/api/crm/rooms/', {'project': self.project.id, 'name': 'Laundry'}, format='json')
+        self.assertEqual(res.json()['room_number'], 3)
+
+    def test_revision_keeps_number_duplicate_gets_next(self):
+        self.lock()
+        rev = self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/').json()
+        self.assertEqual(rev['room_number'], 1)
+        dup = self.api('owner').post(f'/api/crm/rooms/{self.room.id}/duplicate/', {}, format='json').json()
+        self.assertEqual(dup['room_number'], 2)
+
+    def test_room_number_not_writable(self):
+        self.api('owner').patch(f'/api/crm/rooms/{self.room.id}/', {'room_number': 9}, format='json')
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.room_number, 1)
+
+    def test_confirming_writes_badges(self):
+        self.room.planner_data = {'cabinets': [self.cab(10), self.cab(11), self.cab(12)], 'walls': []}
+        self.room.save()
+        self.lock()
+        self.room.refresh_from_db()
+        self.assertEqual([c['badge'] for c in self.room.planner_data['cabinets']], [1, 2, 3])
+        self.assertEqual(self.room.planner_data['walls'], [])
+
+    def test_badges_survive_a_revision_that_deletes_and_adds(self):
+        self.room.planner_data = {'cabinets': [self.cab(10), self.cab(11), self.cab(12)]}
+        self.room.save()
+        self.lock()
+        rev = Room.objects.get(id=self.api('staff').post(f'/api/crm/rooms/{self.room.id}/request_change/').json()['id'])
+        cabinets = rev.planner_data['cabinets'][1:] + [self.cab(13)]  # drop #1, add one
+        self.api('staff').patch(f'/api/crm/rooms/{rev.id}/', {'planner_data': {'cabinets': cabinets}}, format='json')
+        self.api('staff').post(f'/api/crm/rooms/{rev.id}/submit_revision/')
+        rev.refresh_from_db()
+        self.assertEqual([(c['id'], c['badge']) for c in rev.planner_data['cabinets']], [(11, 2), (12, 3), (13, 4)])
+
+    def test_migration_numbers_rooms_and_freezes_locked_badges(self):
+        import importlib
+        from django.apps import apps
+        migration = importlib.import_module('crm.migrations.0014_room_number_and_badges')
+        locked = Room.objects.create(project=self.project, name='Locked',
+                                     planner_data={'cabinets': [self.cab(1), self.cab(2)]})
+        rev = Room.objects.create(project=self.project, name='Locked', parent_revision=locked)
+        draft = Room.objects.create(project=self.project, name='Draft', planner_data={'cabinets': [self.cab(3)]})
+        Room.objects.filter(pk=locked.pk).update(is_locked=True)
+        Room.objects.all().update(room_number=None)
+        before = {r.pk: (r.updated_at, r.grand_total) for r in Room.objects.all()}
+        migration.number_rooms_and_freeze_badges(apps, None)
+        got = {r.pk: r for r in Room.objects.all()}
+        self.assertEqual([got[r.pk].room_number for r in (self.room, locked, rev, draft)], [1, 2, 2, 3])
+        self.assertEqual(got[self.other_room.pk].room_number, 1)
+        self.assertEqual([c['badge'] for c in got[locked.pk].planner_data['cabinets']], [1, 2])
+        self.assertNotIn('badge', got[draft.pk].planner_data['cabinets'][0])
+        self.assertEqual({pk: (r.updated_at, r.grand_total) for pk, r in got.items()}, before)

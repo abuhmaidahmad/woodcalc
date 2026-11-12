@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, cabinetBadges, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
@@ -186,11 +186,12 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
   const { t, language } = useTranslation()
   const [expanded, setExpanded] = React.useState({})
   const toggle = (id) => setExpanded(p => ({ ...p, [id]: !p[id] }))
+  const badgeNums = cabinetBadges(cabinets)
 
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ fontWeight: 700, fontSize: 15, color: DARK, marginBottom: 12 }}>{t('kitchenPlannerModule.perCabinetCutList')}</div>
-      {cabinets.map((c, i) => {
+      {cabinets.map((c) => {
         // Fillers, side panels and other flat pieces are listed too, so their
         // edge banding can be checked here like a cabinet's.
         const flat = !isCarcassCabinet(c)
@@ -209,7 +210,7 @@ function PerCabinetCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
             <div onClick={() => toggle(c.id)}
               style={{ padding: '12px 16px', background: isOpen ? ACCENT+'12' : '#FAFAFA', borderBottom: isOpen ? '1px solid '+ACCENT+'30' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: DARK }}>
-                {String(i+1).padStart(2,'0')} · {c.label}
+                {String(badgeNums.get(c.id)).padStart(2,'0')} · {c.label}
                 <span style={{ fontWeight: 400, color: '#888', fontSize: 11, marginLeft: 8 }}>{c.width}×{c.height}×{c.depth}mm · {c.doorStyle}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -865,6 +866,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const [projectName, setProjectNameState]         = useState(initialRoomName || t('kitchenPlannerModule.untitledKitchen'))
   const [editingName, setEditingName]         = useState(false)
   const [cabinets, setCabinetsState]               = useState([])
+  const badgeNums = useMemo(() => cabinetBadges(cabinets), [cabinets])
   const [elements, setElementsState]               = useState([])
   const [selected, setSelected]               = useState(null)
   const [selectedType, setSelectedType]       = useState(null)
@@ -2131,7 +2133,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   <div style={{ ...s.propTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
                     {/* Same number and colour as the cabinet's position badge on the plan */}
                     <span style={{ minWidth: 22, height: 22, padding: '0 5px', boxSizing: 'border-box', borderRadius: 11, background: isCarcassCabinet(selCab) ? '#C8902A' : '#888', color: '#fff', fontSize: 11, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      {cabinets.indexOf(selCab) + 1}
+                      {cabinetBadges(cabinets).get(selCab.id)}
                     </span>
                     {selCab.label}
                   </div>
@@ -2578,7 +2580,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     ))}
                   </tr></thead>
                   <tbody>
-                    {cabinets.map((c, i) => ({ c, num: i + 1 })).filter(({ c }) => isCarcassCabinet(c)).map(({ c, num }) => (
+                    {cabinets.map((c) => ({ c, num: badgeNums.get(c.id) })).filter(({ c }) => isCarcassCabinet(c)).map(({ c, num }) => (
                       <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
                         <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(num).padStart(2,'0')}</td>
                         <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
@@ -2616,7 +2618,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       ))}
                     </tr></thead>
                     <tbody>
-                      {cabinets.map((c, i) => ({ c, num: i + 1 })).filter(({ c }) => !isCarcassCabinet(c)).map(({ c, num }) => (
+                      {cabinets.map((c) => ({ c, num: badgeNums.get(c.id) })).filter(({ c }) => !isCarcassCabinet(c)).map(({ c, num }) => (
                         <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
                           <td style={{ padding: '10px 14px', fontSize: 12, color: '#bbb', fontWeight: 600 }}>{String(num).padStart(2,'0')}</td>
                           <td style={{ padding: '10px 14px', fontSize: 13, fontWeight: 700, color: DARK }}>{c.label}</td>
