@@ -16,6 +16,15 @@ export function StatusBadge({ status }) {
   )
 }
 
+export function NotFrozenBadge() {
+  const { t } = useTranslation()
+  return (
+    <span data-badge="not-frozen" style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, color: '#8A5A00', background: '#FFF0D1', border: '1px solid #F5C26B', padding: '4px 10px', borderRadius: 999, whiteSpace: 'nowrap' }}>
+      {t('fieldOps.notFrozenBadge')}
+    </span>
+  )
+}
+
 export function FieldTopBar({ title, children }) {
   const { t } = useTranslation()
   const navigate = useNavigate()

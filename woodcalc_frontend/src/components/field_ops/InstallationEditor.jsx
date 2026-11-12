@@ -4,6 +4,7 @@ import {
   updateInstallation,
 } from '../../api/fieldOps'
 import { hardwareList } from './jobDesign'
+import { freezeJobHardware } from './hardwareFreeze'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { ACCENT, BORDER, DARK, STATUSES } from './fieldOpsTheme'
 
@@ -37,6 +38,9 @@ export default function InstallationEditor({ installation, rooms, crew, onSaved,
   const [selected, setSelected] = useState(() => initialCrew(installation))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [unfrozenId, setUnfrozenId] = useState(null)
+  const [freezing, setFreezing] = useState(false)
+  const [freezeFailed, setFreezeFailed] = useState(false)
   const set = (key) => (e) => setForm(f => ({ ...f, [key]: e.target.value }))
 
   const toggleCrew = (userId) => setSelected(s => {
@@ -75,18 +79,33 @@ export default function InstallationEditor({ installation, rooms, crew, onSaved,
     setSaving(true)
     setError('')
     try {
+      let cabinets = null
       if (roomChanged) {
-        const cabinets = await getLockedRoomCabinets(payload.room).catch(() => null)
+        cabinets = await getLockedRoomCabinets(payload.room).catch(() => null)
         if (cabinets) payload.hardware_summary = hardwareList(cabinets)
       }
       const res = installation ? await updateInstallation(installation.id, payload) : await createInstallation(payload)
       if (!res.ok) throw new Error(errorText(res.data))
       await syncCrew(res.data.id)
-      onSaved()
+      if (roomChanged && !cabinets) {
+        setUnfrozenId(res.data.id)
+        setFreezeFailed(false)
+      } else {
+        onSaved()
+      }
     } catch (err) {
       setError(t('fieldOps.saveFailed', { err: err.message }))
     }
     setSaving(false)
+  }
+
+  const retryFreeze = async (installationId) => {
+    setFreezing(true)
+    setFreezeFailed(false)
+    const ok = await freezeJobHardware(installationId)
+    setFreezing(false)
+    if (ok) onSaved()
+    else setFreezeFailed(true)
   }
 
   const remove = async () => {
@@ -154,6 +173,37 @@ export default function InstallationEditor({ installation, rooms, crew, onSaved,
       </div>
 
       {error && <div style={{ fontSize: 13, color: '#c33', marginBottom: 12 }}>{error}</div>}
+
+      {unfrozenId && (
+        <div role="alert" style={{ border: '1.5px solid #F5C26B', background: '#FFF6E5', borderRadius: 10, padding: 14, marginBottom: 12 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: '#8A5A00', marginBottom: 4 }}>{t('fieldOps.freezeWarningTitle')}</div>
+          <div style={{ fontSize: 14, color: '#6B4A00', marginBottom: 10 }}>
+            {freezeFailed ? t('fieldOps.freezeRetryFailed') : t('fieldOps.freezeWarningBody')}
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <button onClick={() => retryFreeze(unfrozenId)} disabled={freezing}
+              style={{ minHeight: 44, paddingInline: 18, background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
+              {freezing ? t('fieldOps.saving') : t('fieldOps.freezeRetry')}
+            </button>
+            <button onClick={onSaved}
+              style={{ minHeight: 44, paddingInline: 16, background: '#fff', border: `1.5px solid ${BORDER}`, borderRadius: 8, cursor: 'pointer', fontSize: 14, color: '#666' }}>
+              {t('fieldOps.freezeLater')}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!unfrozenId && installation && installation.hardware_frozen === false && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', border: '1.5px solid #F5C26B', background: '#FFF6E5', borderRadius: 10, padding: 12, marginBottom: 12 }}>
+          <span style={{ fontSize: 14, color: '#6B4A00' }}>
+            {freezeFailed ? t('fieldOps.freezeRetryFailed') : t('fieldOps.notFrozenHint')}
+          </span>
+          <button onClick={() => retryFreeze(installation.id)} disabled={freezing}
+            style={{ minHeight: 44, paddingInline: 16, background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>
+            {freezing ? t('fieldOps.saving') : t('fieldOps.freezeNow')}
+          </button>
+        </div>
+      )}
 
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         {installation && (

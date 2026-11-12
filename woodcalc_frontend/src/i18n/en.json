@@ -1983,6 +1983,14 @@
     "action_revision_superseded": "Superseded"
   },
   "fieldOps": {
+    "notFrozenBadge": "Hardware not frozen",
+    "notFrozenHint": "Hardware totals aren't saved on this job yet. Installers see totals calculated on their phone.",
+    "freezeNow": "Freeze hardware now",
+    "freezeWarningTitle": "Job saved, but hardware totals weren't frozen",
+    "freezeWarningBody": "The kitchen's cabinets couldn't be loaded, so the hardware totals weren't saved on this job. Until they are, installers see totals calculated on their phone.",
+    "freezeRetry": "Retry",
+    "freezeLater": "Close and retry later",
+    "freezeRetryFailed": "Still couldn't save the hardware totals. Check your connection and try again.",
     "dashboardCardTitle": "Installations",
     "dashboardCardDesc": "Schedule installation jobs, assign installers and track progress on site.",
     "dashboardCardCta": "Open installations",

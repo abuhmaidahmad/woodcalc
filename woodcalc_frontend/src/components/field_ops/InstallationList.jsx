@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
 import InstallationEditor from './InstallationEditor'
-import { StatusBadge } from './fieldOpsUi'
+import { NotFrozenBadge, StatusBadge } from './fieldOpsUi'
 import { DARK, formatDate } from './fieldOpsTheme'
 
 function crewNames(installation, t) {
@@ -35,7 +35,10 @@ export default function InstallationList({ installations, rooms, crew, onChanged
               </div>
               <div style={{ fontSize: 13, color: '#888', marginTop: 4 }}>{crewNames(inst, t) || t('fieldOps.unassigned')}</div>
             </div>
-            <StatusBadge status={inst.status} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+              <StatusBadge status={inst.status} />
+              {inst.hardware_frozen === false && <NotFrozenBadge />}
+            </div>
           </div>
         </button>
       ))}

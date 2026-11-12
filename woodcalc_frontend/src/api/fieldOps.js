@@ -31,6 +31,7 @@ export async function listInstallations(params) {
   return res.ok ? listOf(await res.json()) : [];
 }
 
+export const getInstallation = (id) => send(`${FIELD_OPS}/installations/${id}/`, 'GET');
 export const createInstallation = (data) => send(`${FIELD_OPS}/installations/`, 'POST', data);
 export const updateInstallation = (id, data) => send(`${FIELD_OPS}/installations/${id}/`, 'PATCH', data);
 export const deleteInstallation = (id) => send(`${FIELD_OPS}/installations/${id}/`, 'DELETE');
