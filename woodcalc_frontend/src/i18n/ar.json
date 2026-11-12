@@ -638,6 +638,15 @@
     "categoryFastener": "مثبتات",
     "categoryAppliance": "جهاز"
   },
+  "pieceCutList": {
+    "colPart": "القطعة",
+    "colSize": "ط × ع × س (مم)",
+    "colMaterial": "المادة",
+    "colQty": "الكمية",
+    "showIds": "إظهار أرقام القطع",
+    "hideIds": "إخفاء أرقام القطع",
+    "pieces": "قطعة"
+  },
   "productionBoard": {
     "revisionChangedFlag": "⚠ تغيرت المراجعة بعد البدء",
     "title": "لوحة الإنتاج",

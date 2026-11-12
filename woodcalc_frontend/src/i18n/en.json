@@ -638,6 +638,15 @@
     "categoryFastener": "Fastener",
     "categoryAppliance": "Appliance"
   },
+  "pieceCutList": {
+    "colPart": "Part",
+    "colSize": "L × W × T (mm)",
+    "colMaterial": "Material",
+    "colQty": "Qty",
+    "showIds": "Show piece IDs",
+    "hideIds": "Hide piece IDs",
+    "pieces": "pieces"
+  },
   "productionBoard": {
     "revisionChangedFlag": "⚠ Revision changed after start",
     "title": "Production Board",
