@@ -25,13 +25,13 @@ describe('shelf pin rule', () => {
     expect([...new Set(pins(surface['side-right']).map(o => o.y))]).toEqual([37, 522 - 37])
   })
 
-  it('puts the holes at the shelf height and 32 above and below, matched on both sides', () => {
+  it('puts the middle hole 3mm under the shelf, 32 above and below, matched on both sides', () => {
     const { parts } = buildMachining(base600({ shelfHeights: [350] }))
     const p = byId(parts)
     const at = (side) => pins(side).map(o => toCabinet(side, o.x, o.y, 0))
     const zs = (side) => [...new Set(at(side).map(pt => pt[2]))].sort((a, b) => a - b)
-    expect(zs(p['side-left'])).toEqual([318, 350, 382])
-    expect(zs(p['side-right'])).toEqual([318, 350, 382])
+    expect(zs(p['side-left'])).toEqual([315, 347, 379])
+    expect(zs(p['side-right'])).toEqual([315, 347, 379])
     // Same holes, mirrored: only the x (which side) differs.
     const yz = (side) => at(side).map(pt => `${pt[1]},${pt[2]}`).sort()
     expect(yz(p['side-left'])).toEqual(yz(p['side-right']))
@@ -51,8 +51,22 @@ describe('shelf pin rule', () => {
   })
 
   it('reads every value from the config', () => {
-    const p = byId(buildMachining(base600({ shelfHeights: [350] }), { shelfPins: { pitch: 64, frontDistance: 50 } }).parts)
+    const p = byId(buildMachining(base600({ shelfHeights: [350] }), { shelfPins: { pitch: 64, frontDistance: 50, shelfPinOffset: 0 } }).parts)
     expect(pins(p['side-right']).map(o => o.x).sort((a, b) => a - b)[0]).toBe(286)
     expect(pins(p['side-right']).map(o => o.y)).toContain(50)
+  })
+})
+
+describe('shelf pin offset', () => {
+  it('moves the middle hole with shelfPinOffset', () => {
+    const z = (offset) => {
+      const p = Object.fromEntries(buildMachining({ width: 600, height: 720, depth: 560, cabinetType: 'base', subtype: 'Single Door', doorStyle: 'Handle', shelves: 1, shelfHeights: [350] },
+        offset == null ? {} : { shelfPins: { shelfPinOffset: offset } }).parts.map(x => [x.id, x]))
+      const xs = p['side-right'].machining_ops.filter(o => o.rule === 'shelf_pin').map(o => o.x)
+      return [...new Set(xs)].sort((a, b) => a - b)[1]
+    }
+    expect(z()).toBe(347)
+    expect(z(0)).toBe(350)
+    expect(z(5)).toBe(345)
   })
 })
