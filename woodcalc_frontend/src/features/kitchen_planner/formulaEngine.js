@@ -36,6 +36,26 @@ export function setCompanyBackPanel({ thickness, materialCode, construction } = 
   };
 }
 
+// Drawer boxes: the company's board for drawer box sides/fronts/backs and its
+// drawer bottom material (Settings page, drawer_box_material_sku /
+// drawer_bottom_material_sku), so the cutting optimizer knows what to cut them
+// from. Without one the optimizer groups them by thickness for a manual pick.
+const DRAWER_BOX_T = 12;
+const DRAWER_BOTTOM_T = 8;
+let companyDrawer = {
+  box: { materialCode: null, thickness: DRAWER_BOX_T },
+  bottom: { materialCode: null, thickness: DRAWER_BOTTOM_T },
+};
+export function getCompanyDrawerMaterials() {
+  return companyDrawer;
+}
+export function setCompanyDrawerMaterials({ boxMaterialCode, boxThickness, bottomMaterialCode, bottomThickness } = {}) {
+  companyDrawer = {
+    box: { materialCode: boxMaterialCode || null, thickness: positiveOr(boxThickness, DRAWER_BOX_T) },
+    bottom: { materialCode: bottomMaterialCode || null, thickness: positiveOr(bottomThickness, DRAWER_BOTTOM_T) },
+  };
+}
+
 // Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
 // sets their thickness and price; without one they're 8mm tempered at the generic rate.
 const GLASS_T = 8;

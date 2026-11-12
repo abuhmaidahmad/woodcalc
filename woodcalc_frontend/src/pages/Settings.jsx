@@ -36,6 +36,9 @@ function ManufacturingStandardsCard() {
   const [doorSku, setDoorSku] = useState('')
   const [doorMaterials, setDoorMaterials] = useState([])
   const [mm, setMm] = useState(8)
+  const [drawerBoxSku, setDrawerBoxSku] = useState('')
+  const [drawerBottomSku, setDrawerBottomSku] = useState('')
+  const [boardMaterials, setBoardMaterials] = useState([])
   const [construction, setConstruction] = useState('surface')
   const [materials, setMaterials] = useState([])
   const [saving, setSaving] = useState(false)
@@ -44,17 +47,17 @@ function ManufacturingStandardsCard() {
   useEffect(() => {
     getCompanySettings()
       .then(flags => {
-        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface' }
-        setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction)
+        const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface', drawerBoxSku: flags.drawer_box_material_sku || '', drawerBottomSku: flags.drawer_bottom_material_sku || '' }
+        setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction); setDrawerBoxSku(v.drawerBoxSku); setDrawerBottomSku(v.drawerBottomSku)
       })
-      .catch(() => { setSaved({ sku: '', mm: 8, glassSku: '', doorSku: '', construction: 'surface' }) })
+      .catch(() => { setSaved({ sku: '', mm: 8, glassSku: '', doorSku: '', construction: 'surface', drawerBoxSku: '', drawerBottomSku: '' }) })
     const fetchAll = async (url, acc = []) => {
       const data = await (await authFetch(url)).json()
       const list = acc.concat(data.results || data || [])
       return data.next ? fetchAll(data.next.replace(/^https?:/, new URL(API).protocol), list) : list
     }
     fetchAll(API + '/api/inventory/materials/')
-      .then(list => { setMaterials(list.filter(isBackPanelMaterial)); setGlassMaterials(list.filter(isGlassMaterial)); setDoorMaterials(list.filter(isGlassDoorMaterial)) })
+      .then(list => { setMaterials(list.filter(isBackPanelMaterial)); setGlassMaterials(list.filter(isGlassMaterial)); setDoorMaterials(list.filter(isGlassDoorMaterial)); setBoardMaterials(list.filter(m => !isGlassMaterial(m) && !isGlassDoorMaterial(m) && m.board_thickness)) })
       .catch(() => {})
   }, [])
 
@@ -68,10 +71,12 @@ function ManufacturingStandardsCard() {
         ...(sku ? { back_panel_material_sku: sku } : { back_panel_material_sku: null, back_panel_thickness_mm: mm }),
         glass_shelf_material_sku: glassSku || null,
         glass_door_material_sku: doorSku || null,
+        drawer_box_material_sku: drawerBoxSku || null,
+        drawer_bottom_material_sku: drawerBottomSku || null,
         back_construction: construction,
       })
-      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface' }
-      setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction)
+      const v = { sku: flags.back_panel_material_sku || '', mm: Number(flags.back_panel_thickness_mm) || 8, glassSku: flags.glass_shelf_material_sku || '', doorSku: flags.glass_door_material_sku || '', construction: flags.back_construction || 'surface', drawerBoxSku: flags.drawer_box_material_sku || '', drawerBottomSku: flags.drawer_bottom_material_sku || '' }
+      setSaved(v); setSku(v.sku); setMm(v.mm); setGlassSku(v.glassSku); setDoorSku(v.doorSku); setConstruction(v.construction); setDrawerBoxSku(v.drawerBoxSku); setDrawerBottomSku(v.drawerBottomSku)
       setMessage(t('settings.standardsSaved'))
     } catch (e) {
       setMessage(`${t('settings.standardsError')}: ${e.message}`)
@@ -79,7 +84,7 @@ function ManufacturingStandardsCard() {
     setSaving(false)
   }
 
-  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm) || glassSku !== saved.glassSku || doorSku !== saved.doorSku || construction !== saved.construction)
+  const dirty = saved != null && (sku !== saved.sku || (!sku && mm !== saved.mm) || glassSku !== saved.glassSku || doorSku !== saved.doorSku || construction !== saved.construction || drawerBoxSku !== saved.drawerBoxSku || drawerBottomSku !== saved.drawerBottomSku)
   const selectedGlass = glassMaterials.find(m => m.sku === glassSku)
   const labelStyle = { fontSize: 11, color: '#666', marginBottom: 6, fontWeight: 500 }
   return (
@@ -133,6 +138,21 @@ function ManufacturingStandardsCard() {
             ))}
           </div>
           <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t(`settings.backConstructionHint_${construction}`)}</div>
+
+          {[['drawerBox', drawerBoxSku, setDrawerBoxSku], ['drawerBottom', drawerBottomSku, setDrawerBottomSku]].map(([key, value, set]) => (
+            <React.Fragment key={key}>
+              <div style={labelStyle}>{t(`settings.${key}Material`)}</div>
+              <select value={value} disabled={readOnly} onChange={e => { set(e.target.value); setMessage('') }}
+                style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, color: DARK, background: '#fff', marginBottom: 6, boxSizing: 'border-box' }}>
+                <option value="">{t(`settings.${key}NoMaterial`)}</option>
+                {boardMaterials.map(m => (
+                  <option key={m.sku} value={m.sku}>{m.name} · {m.sku} ({m.board_thickness}mm)</option>
+                ))}
+                {value && !boardMaterials.some(m => m.sku === value) && <option value={value}>{value}</option>}
+              </select>
+              <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t(`settings.${key}Hint`)}</div>
+            </React.Fragment>
+          ))}
 
           <div style={labelStyle}>{t('settings.glassShelfMaterial')}</div>
           <select value={glassSku} disabled={readOnly} onChange={e => { setGlassSku(e.target.value); setMessage('') }}

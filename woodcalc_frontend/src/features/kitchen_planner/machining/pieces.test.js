@@ -89,3 +89,29 @@ describe('cabinetBadges (same rule as crm/numbering.py)', () => {
     expect([...m.entries()]).toEqual([['b', 2], ['x', 4], ['c', 3], ['y', 5]])
   })
 })
+
+describe('drawer box materials from company settings', () => {
+  const drawers = (extra = {}) => base(1, { subtype: 'Drawers', drawerType: 'Wood Box', drawerSystem: 'Tandem',
+    zonePreset: { zones: [{ type: 'drawer', h: 360 }, { type: 'drawer', h: 360 }] }, ...extra })
+
+  it('cuts wood box sides/fronts/backs from the box board and bottoms from the bottom material', async () => {
+    const { setCompanyDrawerMaterials } = await import('../formulaEngine')
+    setCompanyDrawerMaterials({ boxMaterialCode: 'WB12', boxThickness: 12, bottomMaterialCode: 'HDF8', bottomThickness: 8 })
+    try {
+      const db = workOrderPieces(wo(), room([drawers()])).filter(p => p.kind === 'drawer')
+      expect(db.filter(p => p.code.endsWith('-BT')).map(p => [p.sku, p.thickness])).toEqual([['HDF8', 8], ['HDF8', 8]])
+      expect(new Set(db.filter(p => !p.code.endsWith('-BT')).map(p => `${p.sku}|${p.thickness}`))).toEqual(new Set(['WB12|12']))
+      const { piecesToGroups } = await import('../../manufacturing/CuttingOptimizerModule')
+      const groups = piecesToGroups(db, 'all')
+      expect(groups.map(g => g.sku).sort()).toEqual(['HDF8', 'WB12']) // resolved: nothing to pick by hand
+    } finally {
+      setCompanyDrawerMaterials({})
+    }
+  })
+
+  it('falls back to a thickness group for a manual pick when the company has none', () => {
+    const db = workOrderPieces(wo(), room([drawers()])).filter(p => p.kind === 'drawer')
+    expect(new Set(db.map(p => p.sku))).toEqual(new Set([null]))
+    expect(new Set(db.map(p => p.thickness))).toEqual(new Set([12, 8]))
+  })
+})

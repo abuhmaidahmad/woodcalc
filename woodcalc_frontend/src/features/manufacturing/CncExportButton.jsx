@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { cncExport, cncZip } from '../kitchen_planner/machining/cncExport'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { loadCompanyStandards } from '../../api/companySettings'
 
 function download(bytes, name) {
   const url = window.URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
@@ -27,6 +28,7 @@ export default function CncExportButton({ workOrder, loadRoom, style }) {
     try {
       const room = workOrder?.room_id_ref ? await loadRoom() : null
       if (!room) { setMessage(t('cncExport.noRoom')); return }
+      await loadCompanyStandards()
       const out = cncExport(workOrder, room)
       if (out.pieces.length === 0) { setMessage(t('cncExport.noPieces')); return }
       if (out.errors.length) { setReview(out); return }

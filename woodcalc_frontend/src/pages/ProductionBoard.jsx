@@ -32,7 +32,7 @@ export default function ProductionBoard() {
   const [logs, setLogs] = useState([])
   // The work order's room (when it has one): its pieces make the cut list.
   const [room, setRoom] = useState(null)
-  useCompanyStandards()
+  const standards = useCompanyStandards()
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -119,7 +119,7 @@ export default function ProductionBoard() {
   const pieces = useMemo(() => {
     if (!selected || !room || room.workOrderId !== selected.id) return null
     try { return workOrderPieces(selected, room) } catch { return null }
-  }, [selected, room])
+  }, [selected, room, standards])
 
   const getStationStatus = (stationId) => {
     const log = logs.find(l => l.station === stationId)

@@ -15,6 +15,7 @@
 import {
   cabinetBadges, cabinetConfig, isCarcassCabinet, isBackPanel, panelFace, panelEdgeBanding,
   nonCarcassPieceDims, fillerCleatDims, flatPieceEdgeBanding, APPLIANCE_SUBTYPES, withRoomBackPanel,
+  getCompanyDrawerMaterials,
 } from '../formulaEngine';
 import { bilingualPartName } from '../partNamesAr';
 import { buildMachining } from './index';
@@ -105,16 +106,18 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
     return piece(code, p.name, part.length, part.width, part.thickness, 'carcass', cab.carcassMaterialCode, carcassName, false, eb, part);
   });
 
+  // Drawer box parts are cut from the company's drawer box board and drawer
+  // bottom material (Settings), so the optimizer needs no manual pick.
   const box = result.drawerBox;
+  const drawerMats = getCompanyDrawerMaterials();
   if (box?.parts_per_drawer) {
     for (let n = 1; n <= (box.count || 1); n++) {
       box.parts_per_drawer.forEach(dp => {
         const codes = DRAWER_CODES[dp.name] || Array.from({ length: dp.qty }, (_, k) => `P${k + 1}`);
-        const hdf = /HDF/.test(dp.name);
-        const th = hdf ? (box.base_thickness || 8) : (box.side_thickness || 12);
+        const mat = /HDF|bottom|base/i.test(dp.name) ? drawerMats.bottom : drawerMats.box;
         for (let k = 0; k < dp.qty; k++) {
-          out.push(piece(`DB${n}-${codes[k] || `P${k + 1}`}`, dp.name, dp.width, dp.depth, th, 'drawer', null,
-            hdf ? `HDF ${th}mm` : `Drawer box ${th}mm`, false, NONE));
+          out.push(piece(`DB${n}-${codes[k] || `P${k + 1}`}`, dp.name, dp.width, dp.depth, mat.thickness, 'drawer', mat.materialCode,
+            mat.materialCode || `${mat === drawerMats.bottom ? 'Drawer bottom' : 'Drawer box'} ${mat.thickness}mm`, false, NONE));
         }
       });
     }
