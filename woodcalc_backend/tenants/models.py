@@ -53,6 +53,9 @@ class CompanyMembership(models.Model):
         ADMIN = "admin", "Admin"
         STAFF = "staff", "Staff"
         AUDITOR = "auditor", "Auditor"
+        FIELD_MANAGER = "field_manager", "Installation Manager"
+        INSTALLER = "installer", "Installer"
+        DRIVER = "driver", "Driver"
 
     company = models.ForeignKey(Company, on_delete=models.CASCADE, related_name="memberships")
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="company_membership")
@@ -67,9 +70,25 @@ class CompanyMembership(models.Model):
         return f"{self.user} @ {self.company} ({self.role})"
 
 
+FIELD_ROLES = (
+    CompanyMembership.Role.FIELD_MANAGER,
+    CompanyMembership.Role.INSTALLER,
+    CompanyMembership.Role.DRIVER,
+)
+FIELD_WORKER_ROLES = (CompanyMembership.Role.INSTALLER, CompanyMembership.Role.DRIVER)
+
+
 class CompanySettings(models.Model):
+    class DeliveryMethod(models.TextChoices):
+        IN_HOUSE = "in_house", "In-house delivery"
+        THIRD_PARTY_LINK = "third_party_link", "Third-party link"
+        INSTALLER = "installer", "Installer delivers"
+
     company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name="settings")
     flags = models.JSONField(default=dict, blank=True)
+    delivery_method = models.CharField(
+        max_length=20, choices=DeliveryMethod.choices, default=DeliveryMethod.THIRD_PARTY_LINK
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

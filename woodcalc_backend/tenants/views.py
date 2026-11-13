@@ -1,15 +1,16 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .mixins import TenantScopedMixin
-from .models import CompanyMembership, CompanySettings
-from .permissions import HasActiveCompany, RequirePermission
+from .models import FIELD_WORKER_ROLES, CompanyMembership, CompanySettings
+from .permissions import (HasActiveCompany, HasActiveCompanyForFieldManager, can_manage_field_ops,
+                          user_has_permission)
 from .permissions_registry import PERMISSIONS
-from .serializers import MembershipSerializer, MembershipCreateSerializer
-from .utils import get_company_settings
+from .serializers import ASSIGNABLE_ROLES, MembershipSerializer, MembershipCreateSerializer
 
 
 # HDF back panel thicknesses (mm) the cut list formula supports without a stock
@@ -48,11 +49,33 @@ def _with_standard_materials(company, flags):
     return flags
 
 
+SETTINGS_ADMIN_ROLES = (CompanyMembership.Role.OWNER, CompanyMembership.Role.ADMIN)
+
+
+def _settings_payload(company, settings):
+    return {**_with_standard_materials(company, settings.flags), 'delivery_method': settings.delivery_method}
+
+
+def _apply_delivery_method(request, settings, value):
+    if request.membership.role not in SETTINGS_ADMIN_ROLES:
+        raise PermissionDenied("Only the owner or an admin can change the delivery method.")
+    if value not in CompanySettings.DeliveryMethod.values:
+        return Response({'delivery_method': [f'Must be one of {CompanySettings.DeliveryMethod.values}.']},
+                        status=status.HTTP_400_BAD_REQUEST)
+    settings.delivery_method = value
+    return None
+
+
 @api_view(['GET', 'PATCH'])
 @permission_classes([IsAuthenticated, HasActiveCompany])
 def company_settings(request):
+    settings, _ = CompanySettings.objects.get_or_create(company=request.company)
     if request.method == 'PATCH':
         patch = dict(request.data)
+        if 'delivery_method' in patch:
+            error = _apply_delivery_method(request, settings, patch.pop('delivery_method'))
+            if error is not None:
+                return error
         # Glass shelf thickness only ever comes from its stock material.
         patch.pop('glass_shelf_thickness_mm', None)
         for prefix in MATERIAL_STANDARDS:
@@ -93,24 +116,45 @@ def company_settings(request):
                 {'back_construction': [f'Must be one of {list(BACK_CONSTRUCTIONS)}.']},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        settings, _ = CompanySettings.objects.get_or_create(company=request.company)
         settings.flags = {**settings.flags, **patch}
-        settings.save(update_fields=['flags', 'updated_at'])
-        return Response(_with_standard_materials(request.company, settings.flags))
-    return Response(_with_standard_materials(request.company, get_company_settings(request.company)))
+        settings.save(update_fields=['flags', 'delivery_method', 'updated_at'])
+    return Response(_settings_payload(request.company, settings))
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated, HasActiveCompany])
+@permission_classes([IsAuthenticated, HasActiveCompanyForFieldManager])
 def permissions_registry(request):
     return Response(PERMISSIONS)
+
+
+def manages_full_team(request):
+    return user_has_permission(request, 'team.manage_members')
+
+
+class CanManageTeam(BasePermission):
+    message = "Missing permission: team.manage_members"
+
+    def has_permission(self, request, view):
+        return manages_full_team(request) or can_manage_field_ops(request.user, request.company)
 
 
 class MembershipViewSet(TenantScopedMixin, ModelViewSet):
     tenant_filter_field = 'company'
     queryset = CompanyMembership.objects.select_related('user', 'company').order_by('created_at')
     serializer_class = MembershipSerializer
-    permission_classes = [IsAuthenticated, HasActiveCompany, RequirePermission('team.manage_members')]
+    permission_classes = [IsAuthenticated, HasActiveCompanyForFieldManager, CanManageTeam]
+
+    def allowed_roles(self):
+        return ASSIGNABLE_ROLES if manages_full_team(self.request) else list(FIELD_WORKER_ROLES)
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        if manages_full_team(self.request):
+            return queryset
+        return queryset.filter(role__in=FIELD_WORKER_ROLES)
+
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), 'allowed_roles': self.allowed_roles()}
 
     def create(self, request, *args, **kwargs):
         company = request.company
@@ -120,7 +164,8 @@ class MembershipViewSet(TenantScopedMixin, ModelViewSet):
                 {'detail': f'Seat limit reached ({active_count}/{company.max_users}).'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        serializer = MembershipCreateSerializer(data=request.data, context={'company': company})
+        serializer = MembershipCreateSerializer(
+            data=request.data, context={'company': company, 'allowed_roles': self.allowed_roles()})
         serializer.is_valid(raise_exception=True)
         membership = serializer.save()
         return Response(MembershipSerializer(membership).data, status=status.HTTP_201_CREATED)

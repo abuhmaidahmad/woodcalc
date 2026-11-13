@@ -36,7 +36,7 @@ def create_company_for_manufacturer(user, company_name):
     company = Company.objects.create(name=company_name, slug=slug)
     company.start_trial()
     CompanyMembership.objects.create(company=company, user=user, role=CompanyMembership.Role.OWNER)
-    CompanySettings.objects.create(company=company)
+    CompanySettings.objects.get_or_create(company=company)
     return company
 
 

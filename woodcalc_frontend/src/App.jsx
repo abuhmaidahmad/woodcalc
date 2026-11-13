@@ -1,5 +1,5 @@
 import React, { lazy as lazyReact, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import RoleSelect from './pages/auth/RoleSelect';
 import Login from './pages/auth/Login';
 import ForgotPassword from './pages/auth/ForgotPassword';
@@ -7,7 +7,7 @@ import ResetPassword from './pages/auth/ResetPassword';
 import TrialBanner from './components/TrialBanner';
 import FeedbackWidget from './components/FeedbackWidget';
 import LanguageSwitcher from './components/LanguageSwitcher';
-import { isStaff } from './api/auth';
+import { isStaff, isFieldRole, canOpenPath, homePath, canManageFieldOps } from './api/auth';
 
 // Every page is loaded on demand so a visitor only downloads the code for the
 // route they open -- most importantly the public /view/:token 3D link, which
@@ -55,6 +55,10 @@ const LeadDesignView = lazy(() => import('./pages/LeadDesignView'));
 const AdminCompanies = lazy(() => import('./pages/AdminCompanies'));
 const AdminCompanyDetail = lazy(() => import('./pages/AdminCompanyDetail'));
 const AdminFeedback = lazy(() => import('./pages/AdminFeedback'));
+const InstallerJobs = lazy(() => import('./pages/field_ops/InstallerJobs'));
+const InstallerJobDetail = lazy(() => import('./pages/field_ops/InstallerJobDetail'));
+const FieldOpsDashboard = lazy(() => import('./pages/field_ops/FieldOpsDashboard'));
+const DriverHome = lazy(() => import('./pages/field_ops/DriverHome'));
 
 // Shown while a page's code chunk downloads (mostly right after a hard
 // refresh). Matches the app's light background so there's no dark flash.
@@ -67,20 +71,33 @@ function PageLoader() {
 }
 
 function PrivateRoute({ children }) {
+  const location = useLocation();
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" />;
+  if (!canOpenPath(location.pathname)) return <Navigate to={homePath()} replace />;
   return (
     <>
       <TrialBanner />
       {children}
-      <FeedbackWidget />
+      {!isFieldRole() && <FeedbackWidget />}
     </>
   );
+}
+
+function FieldOpsRoute({ children }) {
+  if (localStorage.getItem('access_token') && !canManageFieldOps()) return <Navigate to={homePath()} replace />;
+  return <PrivateRoute>{children}</PrivateRoute>;
+}
+
+function HomeRedirect() {
+  if (!localStorage.getItem('access_token')) return <Navigate to="/login" />;
+  return <Navigate to={isFieldRole() ? homePath() : '/customers'} replace />;
 }
 
 function AdminRoute({ children }) {
   const token = localStorage.getItem('access_token');
   if (!token) return <Navigate to="/login" />;
+  if (isFieldRole()) return <Navigate to={homePath()} replace />;
   if (!isStaff()) return <Navigate to="/dashboard" />;
   return (
     <>
@@ -211,8 +228,21 @@ export default function App() {
           <PrivateRoute><Dashboard /></PrivateRoute>
         } />
 
+        <Route path="/installer/jobs" element={
+          <PrivateRoute><InstallerJobs /></PrivateRoute>
+        } />
+        <Route path="/installer/jobs/:id" element={
+          <PrivateRoute><InstallerJobDetail /></PrivateRoute>
+        } />
+        <Route path="/driver" element={
+          <PrivateRoute><DriverHome /></PrivateRoute>
+        } />
+        <Route path="/field-ops" element={
+          <FieldOpsRoute><FieldOpsDashboard /></FieldOpsRoute>
+        } />
+
         {/* Default */}
-        <Route path="/" element={<Navigate to="/customers" />} />
+        <Route path="/" element={<HomeRedirect />} />
       </Routes>
       </Suspense>
     </BrowserRouter>

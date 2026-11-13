@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch, isReadOnly } from '../api/auth'
+import { authFetch, isReadOnly, canManageFieldOps } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
 import { revisionChains } from '../features/kitchen_planner/revisions'
+import ProjectInstallations from '../components/field_ops/ProjectInstallations'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -446,6 +447,8 @@ export default function ProjectDetail() {
             )}
           </div>
         )}
+
+        {canManageFieldOps() && !readOnly && <ProjectInstallations projectId={id} />}
       </div>
 
       {showPay && (

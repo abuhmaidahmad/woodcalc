@@ -188,6 +188,14 @@ export default function Dashboard() {
       },
     );
   }
+  if (user.company?.can_manage_field_ops) {
+    cards.push({
+      icon: 'production', title: t('fieldOps.dashboardCardTitle'),
+      description: t('fieldOps.dashboardCardDesc'),
+      cta: t('fieldOps.dashboardCardCta'), ctaAction: () => navigate('/field-ops'),
+      accent: '#2A7AC8',
+    });
+  }
   const roleColor = ROLE_COLORS[user.user_type] || '#C8902A';
 
   const handleLogout = () => {

@@ -20,4 +20,5 @@ urlpatterns = [
     path('api/tenants/', include('tenants.urls')),
     path('api/feedback/', include('feedback.urls')),
     path('api/platform-admin/', include('platform_admin.urls')),
+    path('api/field-ops/', include('field_ops.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
