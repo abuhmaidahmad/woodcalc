@@ -56,7 +56,12 @@ class StockSheetSerializer(serializers.ModelSerializer):
 class CuttingPartSerializer(serializers.ModelSerializer):
     class Meta:
         model = CuttingPart
-        fields = ['id', 'label', 'width', 'height', 'quantity', 'grain_locked']
+        fields = ['id', 'label', 'width', 'height', 'quantity', 'grain_locked', 'piece_id', 'cabinet', 'edge_banding']
+
+    def validate(self, attrs):
+        if attrs.get('piece_id') and attrs.get('quantity', 1) != 1:
+            raise serializers.ValidationError({'quantity': 'A piece with an ID is one piece: quantity must be 1.'})
+        return attrs
 
 
 class PartPlacementSerializer(serializers.ModelSerializer):
@@ -86,6 +91,13 @@ class CuttingJobSerializer(serializers.ModelSerializer):
             'trim_top', 'trim_left', 'status', 'created_at', 'parts', 'layouts',
         ]
         read_only_fields = ['status', 'created_at']
+
+    def validate_parts(self, parts):
+        ids = [p['piece_id'] for p in parts if p.get('piece_id')]
+        dupes = sorted({i for i in ids if ids.count(i) > 1})
+        if dupes:
+            raise serializers.ValidationError(f'Piece IDs must be unique in a job: {", ".join(dupes)}')
+        return parts
 
     def create(self, validated_data):
         parts_data = validated_data.pop('parts', [])

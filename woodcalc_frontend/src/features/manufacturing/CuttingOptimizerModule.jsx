@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { calculateCabinet, cabinetConfig, isCarcassCabinet, isBackPanel, isBackPanelMaterial, panelFace, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES } from '../kitchen_planner/formulaEngine'
-import { bilingualPartName } from '../kitchen_planner/partNamesAr'
+import { isBackPanelMaterial } from '../kitchen_planner/formulaEngine'
+import { workOrderPieces } from '../kitchen_planner/machining/pieces'
+import CncExportButton from './CncExportButton'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
 import { useCompanyStandards } from '../../api/companySettings'
@@ -12,109 +13,51 @@ function emptyPart() {
   return { label: '', width: '', height: '', quantity: 1, grain_locked: true }
 }
 
-// Splits the room's BOM into one group per board material -- a kitchen with two
-// front finishes (e.g. a high-gloss and a laminate) is cut from two different
-// boards, so each gets its own cutting job and sheet layout. 'all' gathers the
-// carcass, fronts and backs together, so a board used for both open boxes and
-// doors is packed (and its sheets counted) once. Fillers, side/top panels, toe
-// kicks and loose shelves are one flat board each, cut from the front material
-// like a door (a Filler's fixing cleat comes from the carcass board), matching
-// the master cut list. Glass shelves aren't cut here: they're made to size by
-// the glass supplier.
-export function bomPanelsToGroups(cabinets, group) {
+// Splits a work order's pieces (machining/pieces.js workOrderPieces) into one
+// group per board material -- a kitchen with two front finishes (e.g. a
+// high-gloss and a laminate) is cut from two different boards, so each gets its
+// own cutting job and sheet layout. 'all' gathers the carcass, fronts, backs and
+// drawer box parts together, so a board used for both open boxes and doors is
+// packed (and its sheets counted) once; 'carcass' / 'front' / 'back' take just
+// those. Each piece is its own part (quantity 1) carrying its ID, cabinet and
+// edge banding, so the layout shows which piece goes where. Glass is made to
+// size by the glass supplier, so it isn't here.
+export function piecesToGroups(pieces, group) {
   const groups = new Map()
-  const wants = kind => group === 'all' || group === kind
-
-  function addPart(kind, sku, label, width, height, grainLocked, qty, thickness = '') {
-    // Codes typed into the planner can carry stray spaces; " wh.pw.18" is
-    // still the same board as "wh.pw.18".
-    sku = typeof sku === 'string' ? sku.trim() : sku
-    // A back panel with no stock material is grouped by its thickness, so 3mm
-    // and 8mm backs never end up on the same sheet.
-    const groupKey = sku || `${kind}|${thickness}`
-    if (!groups.has(groupKey)) groups.set(groupKey, { sku: sku || null, thickness: sku ? '' : String(thickness || ''), merged: new Map() })
-    const merged = groups.get(groupKey).merged
-    label = bilingualPartName(label)
-    const key = `${label}|${width}|${height}|${grainLocked}`
-    if (merged.has(key)) {
-      merged.get(key).quantity += qty
-    } else {
-      merged.set(key, { label, width, height, quantity: qty, grain_locked: grainLocked })
+  pieces.forEach(p => {
+    if (group !== 'all' && group !== p.kind) return
+    // A board with no stock material (e.g. a plain HDF back) is grouped by its
+    // thickness, so 3mm and 8mm backs never end up on the same sheet.
+    const groupKey = p.sku || `${p.kind}|${p.thickness}`
+    if (!groups.has(groupKey)) {
+      groups.set(groupKey, { sku: p.sku || null, thickness: p.sku ? '' : String(p.thickness || ''), parts: [] })
     }
-  }
-
-  // A Filler has no carcass material of its own (the planner hides that picker
-  // for it), so its fixing cleat is cut from the board most of the kitchen's
-  // boxes use.
-  const carcassUse = new Map()
-  cabinets.forEach(cab => {
-    const sku = isCarcassCabinet(cab) && typeof cab.carcassMaterialCode === 'string' && cab.carcassMaterialCode.trim()
-    if (sku) carcassUse.set(sku, (carcassUse.get(sku) || 0) + 1)
-  })
-  const kitchenCarcassSku = [...carcassUse.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null
-
-  cabinets.forEach(cab => {
-    if (!isCarcassCabinet(cab)) {
-      if (APPLIANCE_SUBTYPES.includes(cab.subtype)) return // purchased, not cut
-      const piece = nonCarcassPieceDims(cab)
-      if (wants('front') && piece.width > 0 && piece.depth > 0) {
-        addPart('front', cab.frontMaterialCode, cab.subtype || 'Piece', piece.width, piece.depth, true, 1)
-      }
-      if (wants('carcass') && cab.subtype === 'Filler') {
-        const cleat = fillerCleatDims(cab)
-        if (cleat.width > 0) addPart('carcass', cab.carcassMaterialCode || kitchenCarcassSku, 'Filler Fixing Cleat', cleat.width, cleat.depth, false, 1)
-      }
-      return
-    }
-    let result
-    try {
-      result = calculateCabinet(cabinetConfig(cab))
-    } catch {
-      return
-    }
-
-    result.panels.forEach(p => {
-      if (isBackPanel(p)) return
-      // Panels in the front material (a blind corner's filler, an open box whose
-      // Box Color is the front) are cut with the fronts, grain along their height
-      // like a door's.
-      if (panelFace(p) === 'front') {
-        if (wants('front')) addPart('front', cab.frontMaterialCode, p.name, p.width, p.depth, true, p.qty)
-      } else if (wants('carcass')) {
-        addPart('carcass', cab.carcassMaterialCode, p.name, p.width, p.depth, false, p.qty)
-      }
+    groups.get(groupKey).parts.push({
+      label: p.label, width: String(p.length), height: String(p.width), quantity: 1, grain_locked: p.grainLocked,
+      piece_id: p.id, cabinet: p.cabinet, edge_banding: p.edgeBanding,
     })
-
-    if (wants('back')) {
-      result.panels.forEach(p => {
-        if (!isBackPanel(p)) return
-        addPart('back', p.materialCode, p.name, p.width, p.depth, false, p.qty, p.thickness)
-      })
-    }
-
-    if (wants('front')) {
-      result.doors.forEach(d => {
-        if (d.glassDoor) return // bought in from the glass supplier
-        addPart('front', cab.frontMaterialCode, 'Door', d.height, d.width, true, 1)
-      })
-      // Grain runs vertically like the doors', so it carries on down a drawer stack.
-      result.drawerFronts.forEach(d => {
-        addPart('front', cab.frontMaterialCode, 'Drawer Front', d.height, d.width, true, 1)
-      })
-    }
   })
+  return Array.from(groups.values()).map(g => newGroup(g))
+}
 
-  return Array.from(groups.values()).map(g => newGroup({
-    sku: g.sku,
-    thickness: g.thickness || '',
-    parts: Array.from(g.merged.values()).map(p => ({
-      label: p.label,
-      width: String(p.width),
-      height: String(p.height),
-      quantity: p.quantity,
-      grain_locked: p.grain_locked,
-    })),
-  }))
+// Rows of the parts editor: the pieces loaded from the work order shown the way
+// the saw reads them (name + size + grain, with a quantity and the IDs), then
+// any parts typed in by hand, each editable.
+export function partRows(parts) {
+  const rows = []
+  const byKey = new Map()
+  parts.forEach((p, idx) => {
+    if (!p.piece_id) { rows.push({ type: 'manual', part: p, idx }); return }
+    const key = `${p.label}|${p.width}|${p.height}|${p.grain_locked}`
+    if (!byKey.has(key)) {
+      const row = { type: 'pieces', key, label: p.label, width: p.width, height: p.height, grain_locked: p.grain_locked, ids: [], idxs: [] }
+      byKey.set(key, row)
+      rows.push(row)
+    }
+    byKey.get(key).ids.push(p.piece_id)
+    byKey.get(key).idxs.push(idx)
+  })
+  return rows
 }
 
 // Which board a tab is cut from. Thickness is compared as a number: a tab picked
@@ -261,6 +204,14 @@ function CuttingOptimizerModule() {
     updateActiveGroup(g => ({ ...g, parts: g.parts.filter((_, i) => i !== idx) }))
   }
 
+  // Drops every piece in one grouped row of the parts editor.
+  function removeParts(idxs) {
+    const drop = new Set(idxs)
+    updateActiveGroup(g => ({ ...g, parts: g.parts.filter((_, i) => !drop.has(i)) }))
+  }
+
+  const [openRows, setOpenRows] = useState({})
+
   function selectMaterial(value) {
     const m = materialsById.get(value)
     const sheet = stockSheets.find(s => String(s.material) === value)
@@ -377,6 +328,12 @@ function CuttingOptimizerModule() {
     setLoading(false)
   }
 
+  const selectedWorkOrder = workOrders.find(w => String(w.id) === String(workOrderId)) || null
+  async function loadWorkOrderRoom() {
+    const res = await fetch(`${API}/api/crm/rooms/${selectedWorkOrder.room_id_ref}/`, { headers: authHeaders })
+    return res.ok ? res.json() : null
+  }
+
   async function loadFromBOM(group) {
     setError('')
     const wo = workOrders.find(w => String(w.id) === String(workOrderId))
@@ -398,7 +355,9 @@ function CuttingOptimizerModule() {
         setError(t('cuttingOptimizer.errNoCabinets'))
         return
       }
-      const bomGroups = bomPanelsToGroups(cabinets, group)
+      // One part per physical piece of the work order's cabinets, each with its
+      // ID (a confirmed room is cut with the settings and numbers frozen on it).
+      const bomGroups = piecesToGroups(workOrderPieces(wo, room), group)
       if (bomGroups.length === 0) {
         setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return
@@ -424,6 +383,28 @@ function CuttingOptimizerModule() {
     a.download = `cutting_job_${job.id}.${kind === 'csv' ? 'csv' : 'pdf'}`
     a.click()
     window.URL.revokeObjectURL(url)
+  }
+
+  // One label per piece (ID + Code128 barcode, cabinet, part, size, material,
+  // edge banding), in the order the pieces come off the saw: the jobs as listed,
+  // each one's sheets in order.
+  async function downloadLabels(jobs) {
+    setError('')
+    try {
+      const ids = jobs.map(job => job.id).join(',')
+      const res = await fetch(`${API}/api/manufacturing/cutting-jobs/export-labels/?ids=${ids}`, { headers: authHeaders })
+      if (!res.ok) throw new Error(t('cuttingOptimizer.errDownloadLabels'))
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      const wo = workOrders.find(w => String(w.id) === String(jobs[0].work_order))
+      a.download = `labels_${wo?.order_number || jobs[0].work_order}${jobs.length === 1 ? `_job${jobs[0].id}` : ''}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      setError(e instanceof TypeError ? t('cuttingOptimizer.errNoResponse') : e.message)
+    }
   }
 
   // Every material's cut list in one .xlsx -- opens in Excel and Google Sheets.
@@ -470,6 +451,11 @@ function CuttingOptimizerModule() {
               <option value="">{t('cuttingOptimizer.select')}</option>
               {workOrders.map(w => <option key={w.id} value={w.id}>{w.order_number}</option>)}
             </select>
+            {selectedWorkOrder && (
+              <div style={{ marginTop: 8 }}>
+                <CncExportButton workOrder={selectedWorkOrder} loadRoom={loadWorkOrderRoom} />
+              </div>
+            )}
           </div>
           <div>
             <label style={labelStyle}>
@@ -521,7 +507,31 @@ function CuttingOptimizerModule() {
           <div style={{ fontSize: 12, color: '#888', marginBottom: 8 }}>{t('cuttingOptimizer.noGrainNote')}</div>
         )}
         <div style={{ maxHeight: 420, overflowY: 'auto', marginBottom: 12, paddingRight: 4 }}>
-        {activeGroup.parts.map((p, idx) => (
+        {partRows(activeGroup.parts).map(row => row.type === 'pieces' ? (
+          <div key={row.key} data-piece-row={row.key} style={{ marginBottom: 8 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+              <button onClick={() => setOpenRows(o => ({ ...o, [row.key]: !o[row.key] }))}
+                title={openRows[row.key] ? t('pieceCutList.hideIds') : t('pieceCutList.showIds')}
+                style={{ ...inputStyle, textAlign: 'start', background: '#FAFAFA', cursor: 'pointer' }}>
+                {openRows[row.key] ? '▾' : '▸'} {row.label}
+              </button>
+              <span style={{ ...inputStyle, border: '1px solid #eee' }}>{row.width}</span>
+              <span style={{ ...inputStyle, border: '1px solid #eee' }}>{row.height}</span>
+              <span style={{ ...inputStyle, border: '1px solid #eee', fontWeight: 600 }}>{row.ids.length}</span>
+              {boardHasNoGrain ? (
+                <span style={{ fontSize: 13, color: '#aaa' }}>{t('cuttingOptimizer.freeToRotate')}</span>
+              ) : (
+                <span style={{ fontSize: 13, color: '#555' }}>{row.grain_locked ? t('cuttingOptimizer.grainLocked') : ''}</span>
+              )}
+              <button onClick={() => removeParts(row.idxs)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>✕</button>
+            </div>
+            {openRows[row.key] && (
+              <div style={{ padding: '6px 10px', fontFamily: 'monospace', fontSize: 12, color: '#555', display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+                {row.ids.map(id => <span key={id} data-piece-id={id}>{id}</span>)}
+              </div>
+            )}
+          </div>
+        ) : (() => { const { part: p, idx } = row; return (
           <div key={idx} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr auto', gap: 8, marginBottom: 8, alignItems: 'center' }}>
             <input style={inputStyle} placeholder={t('cuttingOptimizer.labelPlaceholder')} value={p.label} onChange={e => updatePart(idx, 'label', e.target.value)} />
             <input style={inputStyle} placeholder={t('cuttingOptimizer.widthMmPlaceholder')} type="number" value={p.width} onChange={e => updatePart(idx, 'width', e.target.value)} />
@@ -537,7 +547,7 @@ function CuttingOptimizerModule() {
             )}
             <button onClick={() => removePart(idx)} style={{ background: 'none', border: 'none', color: '#e74c3c', cursor: 'pointer' }}>✕</button>
           </div>
-        ))}
+        ) })())}
         </div>
         <button onClick={addPart} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer', marginRight: 8 }}>
           {t('cuttingOptimizer.addPart')}
@@ -574,9 +584,14 @@ function CuttingOptimizerModule() {
         <div style={{ background: 'white', borderRadius: 8, padding: 20, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
             <h2 style={{ margin: 0, fontSize: 18, color: '#2c3e50' }}>{t('cuttingOptimizer.sheetsSummary')}</h2>
-            <button onClick={downloadWorkbook} style={{ padding: '6px 12px', border: '1px solid #27ae60', borderRadius: 6, background: '#27ae60', color: 'white', cursor: 'pointer' }}>
-              {t('cuttingOptimizer.downloadSpreadsheet')}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => downloadLabels(results.map(r => r.job))} style={{ padding: '6px 12px', border: '1px solid #2c3e50', borderRadius: 6, background: 'white', color: '#2c3e50', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadAllLabels')}
+              </button>
+              <button onClick={downloadWorkbook} style={{ padding: '6px 12px', border: '1px solid #27ae60', borderRadius: 6, background: '#27ae60', color: 'white', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadSpreadsheet')}
+              </button>
+            </div>
           </div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
@@ -626,8 +641,11 @@ function CuttingOptimizerModule() {
               <button onClick={() => downloadExport(job, 'csv')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadCsv')}
               </button>
-              <button onClick={() => downloadExport(job, 'pdf')} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+              <button onClick={() => downloadExport(job, 'pdf')} style={{ padding: '6px 12px', marginRight: 8, border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
                 {t('cuttingOptimizer.downloadPdf')}
+              </button>
+              <button onClick={() => downloadLabels([job])} style={{ padding: '6px 12px', border: '1px solid #ddd', borderRadius: 6, background: 'white', cursor: 'pointer' }}>
+                {t('cuttingOptimizer.downloadLabels')}
               </button>
             </div>
           </div>
@@ -640,7 +658,7 @@ function CuttingOptimizerModule() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#ecf0f1' }}>
-                    {[t('cuttingOptimizer.colPart'), t('cuttingOptimizer.colWidth'), t('cuttingOptimizer.colHeight'), t('cuttingOptimizer.colX'), t('cuttingOptimizer.colY'), t('cuttingOptimizer.colRotated')].map((h, hi) => (
+                    {[t('cuttingOptimizer.colPieceId'), t('cuttingOptimizer.colPart'), t('cuttingOptimizer.colWidth'), t('cuttingOptimizer.colHeight'), t('cuttingOptimizer.colX'), t('cuttingOptimizer.colY'), t('cuttingOptimizer.colRotated')].map((h, hi) => (
                       <th key={hi} style={{ padding: 8, textAlign: 'left' }}>{h}</th>
                     ))}
                   </tr>
@@ -648,7 +666,8 @@ function CuttingOptimizerModule() {
                 <tbody>
                   {layout.placements.map(pl => (
                     <tr key={pl.id} style={{ borderBottom: '1px solid #ecf0f1' }}>
-                      <td style={{ padding: 8 }}>{pl.part.label}</td>
+                      <td style={{ padding: 8, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{pl.part.piece_id || '—'}</td>
+                      <td style={{ padding: 8 }}>{pl.part.label}{pl.part.cabinet && <span style={{ color: '#999', fontSize: 11 }}> · {pl.part.cabinet}</span>}</td>
                       <td style={{ padding: 8 }}>{pl.width}</td>
                       <td style={{ padding: 8 }}>{pl.height}</td>
                       <td style={{ padding: 8 }}>{pl.x}</td>

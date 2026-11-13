@@ -1,0 +1,64 @@
+// MACHINING_CONFIG -- every dimension the machining rules use, in mm. Rules read
+// only from here (merged with any per-call overrides, see buildMachining), so a
+// workshop's drilling standards change in one place.
+export const MACHINING_CONFIG = {
+  // Back panel set in a groove (company setting backConstruction = 'groove'):
+  // a groove on the inner face of the sides, top and bottom, running their
+  // full length. formulaEngine sizes the back, top, bottom and shelves from
+  // these same values.
+  backGroove: {
+    depth: 8,
+    setback: 18, // panel back edge to the groove's rear wall
+    widthClearance: 1, // groove width = company back panel thickness + this
+    backClearance: 1, // the back stops this short of each groove's bottom
+    shelfClearance: 10, // adjustable shelves stop this far in front of the groove
+  },
+  // Concealed hinge cups on the door's back face. The number of hinges per door
+  // comes from formulaEngine getHingeCount(door height).
+  hinge: {
+    cupDiameter: 35,
+    cupDepth: 13,
+    edgeDistance: 22.5, // cup centre from the door's hinge edge
+    endDistance: 100, // first/last cup centre from the door's top/bottom edge
+  },
+  // Shelf pin holes for adjustable shelves, on the inner face of both sides:
+  // two columns, each with a middle hole shelfPinOffset below the shelf's
+  // planned underside (so the pin sits under the shelf) and one pitch above
+  // and below that.
+  shelfPins: {
+    diameter: 5,
+    depth: 12,
+    frontDistance: 37, // front column from the side's front edge
+    backDistance: 37, // back column in front of the back (the groove's front wall when grooved)
+    pitch: 32,
+    shelfPinOffset: 3, // middle hole centre = shelf underside - this
+  },
+  // 7x50 confirmat screws wherever a panel butts into a side panel (bottom, top,
+  // rails, fixed shelves). Face and edge holes come from one position list.
+  confirmat: {
+    faceDiameter: 7, // through the side panel, from its outer face
+    edgeDiameter: 5,
+    edgeDepth: 45, // into the mating panel's end edge
+    endDistance: 50, // first/last screw from the joint's front and back
+    middleOverLength: 400, // joints longer than this always get a middle screw
+    maxSpacing: 250, // no two screws further apart than this
+    // Short joints (rails): two screws, shortJointEndDistance from each edge.
+    shortJointMax: 150,
+    shortJointEndDistance: 30,
+    // When true, visible end panels (cabinet.exposedSides) get no face holes
+    // and are fixed another way. Off by default: decorative side panels cover
+    // the screw heads.
+    skipFaceHolesOnExposedSides: false,
+  },
+};
+
+// Merges overrides one level deep: { hinge: { cupDiameter: 26 } } changes just
+// that value and keeps the rest of the hinge section.
+export function mergeConfig(base, overrides = {}) {
+  const out = { ...base };
+  Object.entries(overrides || {}).forEach(([k, v]) => {
+    out[k] = v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object'
+      ? { ...base[k], ...v } : v;
+  });
+  return out;
+}

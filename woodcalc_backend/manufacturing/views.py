@@ -14,6 +14,7 @@ from .serializers import (
 from .serializers import StockSheetSerializer, CuttingJobSerializer
 from .cutting_service import optimize_job, release_job_stock, job_stock_reference, booked_by_job
 from .cutting_export import export_csv, export_pdf, export_xlsx
+from .labels import export_labels
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
@@ -204,10 +205,8 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
         response['Content-Disposition'] = f'attachment; filename="cutting_job_{job.id}.csv"'
         return response
 
-    # One workbook for several jobs, e.g. every material of a work order:
-    # ?ids=1,2,3 (in that order).
-    @action(detail=False, methods=['get'], url_path='export-xlsx')
-    def export_xlsx_action(self, request):
+    def _jobs_from_ids(self, request):
+        """The jobs named by ?ids=1,2,3, in that order, or an error Response."""
         try:
             ids = [int(i) for i in request.query_params.get('ids', '').split(',') if i.strip()]
         except ValueError:
@@ -216,11 +215,29 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
                 .prefetch_related('layouts__sheet', 'layouts__placements__part')}
         if not jobs:
             return Response({'detail': 'No cutting jobs found.'}, status=404)
-        ordered = [jobs[i] for i in ids if i in jobs]
+        return [jobs[i] for i in ids if i in jobs]
+
+    # One workbook for several jobs, e.g. every material of a work order:
+    # ?ids=1,2,3 (in that order).
+    @action(detail=False, methods=['get'], url_path='export-xlsx')
+    def export_xlsx_action(self, request):
+        ordered = self._jobs_from_ids(request)
+        if isinstance(ordered, Response):
+            return ordered
         order_number = ordered[0].work_order.order_number
         response = HttpResponse(export_xlsx(ordered),
                                 content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         response['Content-Disposition'] = f'attachment; filename="cutting_list_{order_number}.xlsx"'
+        return response
+
+    # One label per piece for the jobs in ?ids=1,2,3, in cutting order.
+    @action(detail=False, methods=['get'], url_path='export-labels')
+    def export_labels_action(self, request):
+        ordered = self._jobs_from_ids(request)
+        if isinstance(ordered, Response):
+            return ordered
+        response = HttpResponse(export_labels(ordered), content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="labels_{ordered[0].work_order.order_number}.pdf"'
         return response
 
     @action(detail=True, methods=['get'], url_path='export-pdf')

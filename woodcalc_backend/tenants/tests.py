@@ -134,6 +134,21 @@ class BackPanelThicknessSettingTests(TestCase):
         self.assertEqual(flags['cadcam_min_offcut_width_mm'], 200)
         self.assertEqual(flags['back_panel_thickness_mm'], 5)
 
+    def test_back_construction(self):
+        self.assertNotIn('back_construction', self.api.get('/api/tenants/settings/').json())
+        res = self.api.patch('/api/tenants/settings/', {'back_construction': 'groove'}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(self.api.get('/api/tenants/settings/').json()['back_construction'], 'groove')
+        # Changing the back thickness leaves the construction alone.
+        self.api.patch('/api/tenants/settings/', {'back_panel_thickness_mm': 3}, format='json')
+        self.assertEqual(self.api.get('/api/tenants/settings/').json()['back_construction'], 'groove')
+
+    def test_rejects_unknown_back_construction(self):
+        for bad in ('grooved', '', None, 1):
+            res = self.api.patch('/api/tenants/settings/', {'back_construction': bad}, format='json')
+            self.assertEqual(res.status_code, 400, bad)
+        self.assertNotIn('back_construction', self.api.get('/api/tenants/settings/').json())
+
     def test_back_panel_material_sets_thickness(self):
         from inventory.models import Material
         mat = Material.objects.create(tenant=self.company, sku='HDF3', name='HDF 3mm', material_type='back',

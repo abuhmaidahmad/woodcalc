@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
+import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -326,7 +326,8 @@ export function defaultProposalExtras(t, cabinetCount) {
 }
 
 export function computeProposalTotals({ cabinets, prices = DEFAULT_PRICES, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, t }) {
-  const pricedCabinets = cabinets.map(cab => ({ ...cab, pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
+  const badgeNums = cabinetBadges(cabinets)
+  const pricedCabinets = cabinets.map(cab => ({ ...cab, num: badgeNums.get(cab.id), pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
 
   // Backsplash: real board area (linear meters drawn × chosen height) priced by
   // the countertop's own material (same slab it's cut from), falling back to a
@@ -609,12 +610,12 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
                   </tr>
                 </thead>
                 <tbody>
-                  {pricedCabinets.map((cab, i) => (
+                  {pricedCabinets.map((cab) => (
                     <React.Fragment key={cab.id}>
                       <tr style={{ borderBottom: '1px solid #F7F4F0',
                         background: expandedCab === cab.id ? '#FDFAF6' : '#fff' }}>
                         <td style={{ padding: '10px 12px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>
-                          {String(i+1).padStart(2,'0')}
+                          {String(cab.num).padStart(2,'0')}
                         </td>
                         <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: DARK }}>
                           {cab.label}
@@ -773,9 +774,9 @@ function exportPDF(data) {
   const date = new Date().toLocaleDateString(locale || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
   const tr = (key, vars) => t ? t(key, vars) : key
 
-  const cabRows = pricedCabinets.map((c, i) => `
+  const cabRows = pricedCabinets.map((c) => `
     <tr>
-      <td>${String(i+1).padStart(2,'0')}</td>
+      <td>${String(c.num).padStart(2,'0')}</td>
       <td>${c.label}</td>
       <td style="font-family:monospace">${c.width}×${c.height}×${c.depth}mm</td>
       <td>${c.carcassMaterialName || c.material}</td>
@@ -879,9 +880,9 @@ function exportExcel(data) {
   rows.push([])
   rows.push([tr('proposalPdf.colNum'), tr('proposalPdf.colCabinet'), 'Width', 'Height', 'Depth', tr('proposalPdf.colMaterial'), tr('proposalPdf.colDoorStyle'), 'Material Cost (JD)', 'Hardware Cost (JD)', 'Machining (JD)', 'Labor (JD)', 'Total (JD)'])
 
-  pricedCabinets.forEach((c, i) => {
+  pricedCabinets.forEach((c) => {
     rows.push([
-      i + 1, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
+      c.num, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
       fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost),
       fmt(c.pricing.machiningCost), fmt(c.pricing.laborCost), fmt(c.pricing.total)
     ])

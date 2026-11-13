@@ -120,9 +120,25 @@ class Room(models.Model):
     rejection_reason = models.TextField(blank=True)
     approval_override_reason = models.TextField(blank=True)
     is_variant = models.BooleanField(default=False)
+    # The company construction settings (back_construction, back panel
+    # thickness/material) frozen when the room is first confirmed, so its cut
+    # list doesn't change if the company changes them later. Null = not yet
+    # confirmed: the planner follows the company settings.
+    construction_settings = models.JSONField(null=True, blank=True, default=None)
+    # The room's number within its project (R2 in a piece ID): given on
+    # creation, kept by its revisions. See crm/numbering.py.
+    room_number = models.PositiveIntegerField(null=True, blank=True)
     source_room = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='variants')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.room_number is None and self.project_id:
+            from .numbering import next_room_number
+            parent = self.parent_revision
+            self.room_number = (parent.room_number if parent and parent.room_number
+                                else next_room_number(self.project_id, Room.objects))
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f'{self.project} — {self.name}'

@@ -113,6 +113,7 @@ export default function RoomDetail() {
         isVariant: room.is_variant,
         sourceRoomName: room.source_room_name,
         sourceRoomRevision: room.source_room_revision,
+        constructionSettings: room.construction_settings,
       }}
       onRoomAction={roomAction}
     />

@@ -285,7 +285,7 @@ class CuttingJobXlsxExportTests(TestCase):
         self.assertEqual(rows[1][4:], (4, 2))
         self.assertEqual(rows[2], ('Total', None, None, None, None, 3))
         cut = list(wb['wh.pw.18'].iter_rows(min_row=4, values_only=True))
-        self.assertEqual(cut, [('Side panel', 720, 560, 4, 'No')])
+        self.assertEqual(cut, [('Side panel', 720, 560, 4, 'No', None)])
         self.assertEqual(wb['Layouts'].max_row, 1 + 4 + 4)
 
     def test_csv_and_pdf_carry_arabic_part_names(self):
@@ -298,6 +298,64 @@ class CuttingJobXlsxExportTests(TestCase):
         res = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/export-pdf/')
         self.assertEqual(res.status_code, 200)
         self.assertIn(b'Amiri', res.content)
+
+    def piece(self, piece_id, **extra):
+        return {'label': 'Side panel', 'width': '720', 'height': '560', 'quantity': 1, 'grain_locked': False,
+                'piece_id': piece_id, 'cabinet': 'Base 600', 'edge_banding': {'T': 'None', 'B': 'None', 'L': 'None', 'R': 'Oak'},
+                **extra}
+
+    def test_pieces_are_placed_one_by_one_with_their_ids(self):
+        ids = ['WO-1-R2-01-SL', 'WO-1-R2-01-SR', 'WO-1-R2-02-SL', 'WO-1-R2-02-SR']
+        job = self._optimized_job(self.ply, '18', [self.piece(i) for i in ids])
+        data = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/').json()
+        placed = [pl['part'] for layout in data['layouts'] for pl in layout['placements']]
+        self.assertEqual(sorted(p['piece_id'] for p in placed), ids)
+        self.assertEqual(placed[0]['cabinet'], 'Base 600')
+        self.assertEqual(placed[0]['edge_banding']['R'], 'Oak')
+        text = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/export-csv/').content.decode('utf-8')
+        self.assertIn('Piece ID', text)
+        for i in ids:
+            self.assertIn(i, text)
+        wb = self._workbook(self.client.get(f'/api/manufacturing/cutting-jobs/export-xlsx/?ids={job}'))
+        cut = list(wb['wh.pw.18'].iter_rows(min_row=4, values_only=True))
+        self.assertEqual(cut, [('Side panel', 720, 560, 4, 'No', ', '.join(ids))])
+        self.assertEqual(sorted(r[4] for r in wb['Layouts'].iter_rows(min_row=2, values_only=True)), ids)
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/{job}/export-pdf/')
+        self.assertEqual(res.status_code, 200)
+
+    def test_a_piece_is_one_piece_with_a_unique_id(self):
+        post = lambda parts: self.client.post('/api/manufacturing/cutting-jobs/', {
+            'work_order': self.wo.id, 'material': self.ply.id, 'thickness': '18', 'kerf': '4', 'parts': parts}, format='json')
+        self.assertEqual(post([self.piece('A', quantity=2)]).status_code, 400)
+        self.assertEqual(post([self.piece('A'), self.piece('A')]).status_code, 400)
+        self.assertEqual(post([self.piece('A'), self.piece('B')]).status_code, 201)
+
+    def test_labels_one_per_piece_in_cutting_order(self):
+        import re
+        from .labels import label_placements, edge_banding_text
+        from .models import CuttingJob
+        ids = [f'WO-1-R1-0{n}-{c}' for n in (1, 2) for c in ('SL', 'SR')]
+        ply = self._optimized_job(self.ply, '18', [self.piece(i) for i in ids])
+        hdf = self._optimized_job(self.hdf, '3', [
+            {'label': 'Back', 'width': '1100', 'height': '1100', 'quantity': 3, 'grain_locked': False}])
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/export-labels/?ids={ply},{hdf}')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res['Content-Type'], 'application/pdf')
+        self.assertIn('labels_WO-1.pdf', res['Content-Disposition'])
+        self.assertEqual(len(re.findall(rb'/Type /Page\b', res.content)), 4 + 3)
+        jobs = [CuttingJob.objects.get(id=ply), CuttingJob.objects.get(id=hdf)]
+        order = label_placements(jobs)
+        # The ply job's sheets in order, each sheet's pieces as placed, then the HDF job's.
+        self.assertEqual([j.id for j, _, _ in order], [ply] * 4 + [hdf] * 3)
+        keys = [(l.sheet_index, p.id) for j, l, p in order if j.id == hdf]
+        self.assertEqual(keys, sorted(keys))
+        self.assertEqual(sorted(p.part.piece_id for j, _, p in order if j.id == ply), ids)
+        self.assertEqual(edge_banding_text({'T': 'Oak', 'B': 'None', 'L': 'White', 'R': 'Oak'}), 'T+R Oak · L White')
+        self.assertEqual(edge_banding_text({}), 'None')
+
+    def test_labels_need_jobs(self):
+        self.assertEqual(self.client.get('/api/manufacturing/cutting-jobs/export-labels/?ids=999').status_code, 404)
+        self.assertEqual(self.client.get('/api/manufacturing/cutting-jobs/export-labels/?ids=x').status_code, 400)
 
     def test_skips_another_tenants_jobs(self):
         from inventory.models import Material

@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Logo from '../components/Logo'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, isReadOnly } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
+import { useCompanyStandards } from '../api/companySettings'
+import { workOrderPieces } from '../features/kitchen_planner/machining/pieces'
+import PieceCutList from '../features/manufacturing/PieceCutList'
+import CncExportButton from '../features/manufacturing/CncExportButton'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -26,6 +30,9 @@ export default function ProductionBoard() {
   const [selected, setSelected] = useState(null)
   const [items, setItems] = useState([])
   const [logs, setLogs] = useState([])
+  // The work order's room (when it has one): its pieces make the cut list.
+  const [room, setRoom] = useState(null)
+  useCompanyStandards()
 
   const fetchOrders = async () => {
     setLoading(true)
@@ -50,6 +57,13 @@ export default function ProductionBoard() {
 
   const openOrder = async (order) => {
     setSelected(order)
+    setRoom(null)
+    if (order.room_id_ref) {
+      authFetch(API + `/api/crm/rooms/${order.room_id_ref}/`)
+        .then(r => (r.ok ? r.json() : null))
+        .then(data => setRoom(data ? { ...data, workOrderId: order.id } : null))
+        .catch(() => {})
+    }
     try {
       const [itemsRes, logsRes] = await Promise.all([
         authFetch(API + `/api/manufacturing/work-order-items/?work_order=${order.id}`),
@@ -94,6 +108,18 @@ export default function ProductionBoard() {
       openOrder(selected)
     } catch {}
   }
+
+  // The selected work order's room, already loaded or fetched now.
+  const loadRoom = async () => {
+    if (room && room.workOrderId === selected?.id) return room
+    const res = await authFetch(API + `/api/crm/rooms/${selected.room_id_ref}/`)
+    return res.ok ? res.json() : null
+  }
+
+  const pieces = useMemo(() => {
+    if (!selected || !room || room.workOrderId !== selected.id) return null
+    try { return workOrderPieces(selected, room) } catch { return null }
+  }, [selected, room])
 
   const getStationStatus = (stationId) => {
     const log = logs.find(l => l.station === stationId)
@@ -176,6 +202,7 @@ export default function ProductionBoard() {
                       style={{ padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                       {t('productionBoard.cuttingOptimizer')}
                     </button>
+                    <CncExportButton workOrder={selected} loadRoom={loadRoom} />
                   </div>
                 </div>
               </div>
@@ -215,8 +242,13 @@ export default function ProductionBoard() {
                 </div>
               </div>
 
-              {/* Cut list items */}
+              {/* Cut list: the room's pieces grouped for the saw, each group opening
+                  to its piece IDs; a work order with no room keeps its saved lines. */}
               <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+                {pieces ? (<>
+                  <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>{t('productionBoard.cutList')} ({pieces.length} {t('pieceCutList.pieces')})</div>
+                  <PieceCutList pieces={pieces} />
+                </>) : (<>
                 <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>{t('productionBoard.cutList')} ({items.length} {t('productionBoard.items')})</div>
                 {items.length === 0 ? (
                   <div style={{ padding: 30, textAlign: 'center', color: '#bbb', fontSize: 12 }}>{t('productionBoard.noItems')}</div>
@@ -238,6 +270,7 @@ export default function ProductionBoard() {
                     </tbody>
                   </table>
                 )}
+                </>)}
               </div>
             </div>
           )}

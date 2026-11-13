@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
-import { BLIND_PANEL_WIDTH, isCarcassCabinet } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, isCarcassCabinet, cabinetBadges } from './formulaEngine'
 import { cabTextLayout, layoutPlan, needsFlip, isDarkFill, labelColors, BADGE_R } from './badgeLayout'
 import { useTranslation } from '../../i18n/LanguageContext'
 import {
@@ -771,6 +771,7 @@ export default function RoomCanvas({
   // Where each cabinet's label and position badge go, worked out across the whole plan at
   // once so labels of stacked items don't collide and no badge lands on another badge, a
   // label or a wall (see layoutPlan).
+  const badgeNums = useMemo(() => cabinetBadges(cabinets), [cabinets])
   const plan = useMemo(() => layoutPlan(cabinets, scale, showDimensions,
     wallBodies.map(b => [b.faceStart, b.faceEnd, b.outerEnd, b.outerStart].map(p => [p.x, p.y])), [0, 0, W, H]),
   [cabinets, scale, showDimensions, wallBodies, W, H])
@@ -1106,7 +1107,9 @@ export default function RoomCanvas({
         if (selectedType === 'cabinet') {
           const src = cabinets.find(c => c.id === selected)
           if (src) {
-            const copy = { ...src, id: Date.now(), x: src.x + OFFSET, y: src.y + OFFSET }
+            // A copy is a new cabinet: it takes the next badge number, not the original's.
+            const { badge: _badge, ...rest } = src
+            const copy = { ...rest, id: Date.now(), x: src.x + OFFSET, y: src.y + OFFSET }
             setCabinets(p => [...p, copy])
             setSelected(copy.id)
           }
@@ -1983,20 +1986,22 @@ export default function RoomCanvas({
             />
           ))}
           {/* Position badges, drawn after every cabinet, panel and label so nothing covers
-              them. The number is the cabinet's 1-based index in `cabinets`, the same "#" the
-              Cabinet List / Fillers & Panels BOM tables and the Contract/Proposal tabs show. */}
+              them. The number is cabinetBadges() (the 1-based place in `cabinets` until the room is
+              confirmed, frozen from then on), the same "#" the Cabinet List / Fillers & Panels BOM
+              tables and the Contract/Proposal tabs show. */}
           <g style={{ pointerEvents: 'none' }}>
-            {cabinets.map((cab, i) => {
+            {cabinets.map((cab) => {
               const p = plan.badges.get(cab.id)
               if (!p) return null
+              const num = badgeNums.get(cab.id)
               return (
-                <g key={cab.id} data-badge={i + 1}>
+                <g key={cab.id} data-badge={num}>
                   {p.leader && <>
                     <line x1={p.leader[0]} y1={p.leader[1]} x2={p.x} y2={p.y} stroke="#888" strokeWidth={0.75} />
                     <circle cx={p.leader[0]} cy={p.leader[1]} r={1.5} fill="#888" />
                   </>}
                   <circle cx={p.x} cy={p.y} r={BADGE_R} fill={isCarcassCabinet(cab) ? ACCENT : '#888'} stroke="#fff" strokeWidth={1} />
-                  <text x={p.x} y={p.y + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{i + 1}</text>
+                  <text x={p.x} y={p.y + 2.5} textAnchor="middle" fontSize={8} fontWeight={700} fill="#fff">{num}</text>
                 </g>
               )
             })}

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { cabinetBadges } from './formulaEngine'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -165,9 +166,10 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
         <td style="text-align:end">${p.dueDate || '—'}</td>
       </tr>`).join('')
 
-    const cabRows = cabinets.map((c, i) => `
+    const badgeNums = cabinetBadges(cabinets)
+    const cabRows = cabinets.map((c) => `
       <tr>
-        <td>${String(i+1).padStart(2,'0')}</td>
+        <td>${String(badgeNums.get(c.id)).padStart(2,'0')}</td>
         <td>${c.label}</td>
         <td>${c.width}×${c.height}×${c.depth}mm</td>
         <td>${c.material}</td>
@@ -401,9 +403,9 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
                 </tr>
               </thead>
               <tbody>
-                {cabinets.map((c, i) => (
+                {cabinets.map((c) => (
                   <tr key={c.id} style={{ borderBottom: '1px solid #F7F4F0' }}>
-                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>{String(i+1).padStart(2,'0')}</td>
+                    <td style={{ padding: '8px 12px', fontSize: 11, color: '#bbb', fontWeight: 600 }}>{String(cabinetBadges(cabinets).get(c.id)).padStart(2,'0')}</td>
                     <td style={{ padding: '8px 12px', fontSize: 12, fontWeight: 700, color: DARK }}>{c.label}</td>
                     <td style={{ padding: '8px 12px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>{c.width}×{c.height}×{c.depth}mm</td>
                     <td style={{ padding: '8px 12px', fontSize: 11 }}>{c.material}</td>
