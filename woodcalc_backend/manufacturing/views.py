@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from tenants.mixins import TenantScopedMixin
@@ -37,6 +38,12 @@ class WorkOrderViewSet(TenantScopedMixin, ModelViewSet):
         room_id = self.request.query_params.get('room_id_ref')
         if room_id:
             qs = qs.filter(room_id_ref=room_id)
+        # ?search= matches the work order number, its pre-renumbering number,
+        # the product or the customer.
+        search = (self.request.query_params.get('search') or '').strip()
+        if search:
+            qs = qs.filter(Q(order_number__icontains=search) | Q(legacy_number__icontains=search)
+                           | Q(product_name__icontains=search) | Q(customer_name__icontains=search))
         chain_ref = self.request.query_params.get('room_chain')
         if chain_ref:
             chain_room = room_for_ref(chain_ref, self.request.company)

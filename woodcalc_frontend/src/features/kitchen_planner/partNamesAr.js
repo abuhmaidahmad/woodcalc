@@ -42,6 +42,11 @@ export function partNameAr(name) {
   if (PART_NAMES_AR[name]) return PART_NAMES_AR[name]
   const glass = name.match(/^Glass Shelf \((.+)mm Tempered\)$/)
   if (glass) return `رف زجاج (${glass[1]}مم مقسّى)`
+  // Drawer box parts carry the board's thickness in their name.
+  let m
+  if ((m = name.match(/^Drawer side \((\d+(?:\.\d+)?)mm\)$/))) return `جانب درج (${m[1]}مم)`
+  if ((m = name.match(/^Drawer back\/front \((\d+(?:\.\d+)?)mm\)$/))) return `ظهر/وجه علبة الدرج (${m[1]}مم)`
+  if ((m = name.match(/^Drawer (?:base|bottom panel) \((\d+(?:\.\d+)?)mm HDF\)$/))) return `قاعدة درج (HDF ${m[1]}مم)`
   return ''
 }
 

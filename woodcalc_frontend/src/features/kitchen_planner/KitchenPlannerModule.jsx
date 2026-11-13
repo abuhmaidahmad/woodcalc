@@ -2,8 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, cabinetBadges, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
+import { confirmPreviewText } from './confirmPreview'
 import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
 import { activeTotal } from './revisions'
@@ -414,9 +415,10 @@ function computeMasterCutList(cabinets, calculateCabinet) {
     if (result.drawerBox && result.drawerBox.parts_per_drawer) {
       result.drawerBox.parts_per_drawer.forEach(p => {
         const isHdf = p.name.includes('HDF')
-        const mat = isHdf ? 'HDF 8mm' : 'Drawer box 12mm'
-        const key = `${p.width}×${p.depth}×${isHdf ? 8 : 12}|${mat}|drawerbox`
-        if (!masterMap[key]) masterMap[key] = { name: p.name, width: p.width, depth: p.depth, thickness: isHdf ? 8 : 12, material: mat, eb: {}, qty: 0 }
+        const th = p.thickness ?? (isHdf ? 8 : 12)
+        const mat = isHdf ? `HDF ${th}mm` : `Drawer box ${th}mm`
+        const key = `${p.width}×${p.depth}×${th}|${mat}|drawerbox`
+        if (!masterMap[key]) masterMap[key] = { name: p.name, width: p.width, depth: p.depth, thickness: th, material: mat, eb: {}, qty: 0 }
         masterMap[key].qty += p.qty * (result.drawerBox.count || 1)
       })
     }
@@ -955,7 +957,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     const fetchDrawerSystems = () => {
       authFetch(withCompanyParam(API + '/api/inventory/drawer-systems/', publicCompanySlug))
         .then(r => r.json())
-        .then(data => setAvailableDrawerSystems(Array.isArray(data) ? data : (data.results || [])))
+        .then(data => {
+          const list = Array.isArray(data) ? data : (data.results || [])
+          // Metal-sided drawer bottoms are sized from the catalog (formulaEngine).
+          setDrawerSystemCatalog(list)
+          setAvailableDrawerSystems(list)
+        })
         .catch(() => {})
     }
     fetchDrawerSystems()
@@ -1207,6 +1214,19 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     setRoomId(newRoomId)
   }
 
+  // Before confirming (or submitting a revision): drawer systems missing sizes,
+  // and what a re-confirmation changes versus the last snapshot. Shown only
+  // when there's something to show; false = the user backed out.
+  const reviewConfirmation = async () => {
+    const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+    try {
+      const res = await authFetch(API + `/api/crm/rooms/${roomId}/confirm_preview/`)
+      if (!res.ok) return true
+      const text = confirmPreviewText(await res.json(), t)
+      return text ? window.confirm(text) : true
+    } catch { return true }
+  }
+
   const runRoomAction = async (name, body) => {
     const result = await onRoomAction(name, body)
     if (!result.ok && result.status !== 409) window.alert(result.data.detail || t('roomDetail.actionFailed'))
@@ -1222,6 +1242,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       body = { reason }
     }
     if (!(await saveProject())) return
+    if (!(await reviewConfirmation())) return
     await runRoomAction('confirm_lock', body)
   }
 
@@ -1246,6 +1267,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const submitRevision = async () => {
     if (!window.confirm(t('kitchenPlannerModule.submitPrompt'))) return
     if (!(await saveProject())) return
+    if (!(await reviewConfirmation())) return
     await runRoomAction('submit_revision')
   }
 
@@ -1276,7 +1298,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     if (!cabinets.length) return
     setSending(true); setSentMsg('')
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-    const orderNumber = 'WO-' + Date.now()
     try {
       let customerName = 'N/A'
       if (projectId) {
@@ -1315,7 +1336,6 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
       const res = await authFetch(API + '/api/manufacturing/work-orders/', {
         method: 'POST',
         body: JSON.stringify({
-          order_number: orderNumber,
           product_name: projectName + (isBackOrder ? ' (Back Order)' : '') + ' (' + newCabinets.length + ' cabinets)',
           customer_name: customerName,
           quantity: newCabinets.length,
@@ -1328,6 +1348,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
 
       if (res.ok) {
         const wo = await res.json()
+        // The server numbers work orders per company: WO1, WO2, ...
+        const orderNumber = wo.order_number
 
         // Build master cut-list items (panels grouped by size+material+thickness) — NEW cabinets only
         const masterMap = {}
@@ -1363,9 +1385,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
           if (result.drawerBox && result.drawerBox.parts_per_drawer) {
             result.drawerBox.parts_per_drawer.forEach(p => {
               const isHdf = p.name.includes('HDF')
-              const mat = isHdf ? 'HDF 8mm' : 'Drawer box 12mm'
-              const key = `${p.name}|${p.width}x${p.depth}x${isHdf ? 8 : 12}|${mat}`
-              if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${isHdf ? 8 : 12}mm (${mat})`, qty: 0, unit: 'pcs' }
+              const th = p.thickness ?? (isHdf ? 8 : 12)
+              const mat = isHdf ? `HDF ${th}mm` : `Drawer box ${th}mm`
+              const key = `${p.name}|${p.width}x${p.depth}x${th}|${mat}`
+              if (!masterMap[key]) masterMap[key] = { desc: `${p.name} ${p.width}x${p.depth}x${th}mm (${mat})`, qty: 0, unit: 'pcs' }
               masterMap[key].qty += p.qty * (result.drawerBox.count || 1)
             })
           }

@@ -38,3 +38,36 @@ class MaterialStockEditTests(TestCase):
         self.assertIn(res.status_code, (403, 404))
         foreign.refresh_from_db()
         self.assertEqual(foreign.quantity_on_hand, 0)
+
+
+class DrawerSystemBackSizeTests(TestCase):
+    """A metal-sided drawer system can carry the size of its shop-cut wooden back."""
+
+    def setUp(self):
+        self.company = Company.objects.create(name='A', slug='a', status=Company.Status.ACTIVE)
+        user = get_user_model().objects.create_user(username='u', email='u@x.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.api = APIClient()
+        self.api.force_authenticate(user)
+
+    def test_back_sizes_round_trip(self):
+        res = self.api.post('/api/inventory/drawer-systems/', {
+            'name': 'TANDEMBOX', 'box_construction': 'metal_sided', 'back_width_deduction': '87',
+            'back_height_m': '68', 'back_height_c': '167', 'back_thickness': 16}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        got = self.api.get(f"/api/inventory/drawer-systems/{res.json()['id']}/").json()
+        self.assertEqual((got['back_width_deduction'], got['back_height_m'], got['back_height_c'], got['back_thickness']),
+                         ('87.0', '68.0', '167.0', 16))
+
+    def test_bottom_sizes_default_to_the_old_formula(self):
+        res = self.api.post('/api/inventory/drawer-systems/', {'name': 'Any', 'box_construction': 'metal_sided'}, format='json')
+        got = res.json()
+        self.assertEqual((got['bottom_width_deduction'], got['bottom_depth_deduction'], got['bottom_thickness']),
+                         ('25.0', '80.0', 8))
+        res = self.api.patch(f"/api/inventory/drawer-systems/{got['id']}/", {'bottom_thickness': 16}, format='json')
+        self.assertEqual(res.json()['bottom_thickness'], 16)
+
+    def test_back_sizes_optional(self):
+        res = self.api.post('/api/inventory/drawer-systems/', {'name': 'Plain', 'box_construction': 'metal_sided'}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertIsNone(res.json()['back_width_deduction'])

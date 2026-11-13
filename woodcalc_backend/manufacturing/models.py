@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from inventory.models import Material
 from tenants.models import Company
 
@@ -20,7 +20,13 @@ class WorkOrder(models.Model):
         ('COMPLETED', 'Completed'), ('CANCELLED', 'Cancelled'),
     ]
     tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='work_orders')
-    order_number = models.CharField(max_length=50, unique=True)
+    # WO1, WO2, ... per company, given when the work order is created (it starts
+    # every piece ID: WO125-R2-03-SL). sequence is the number on its own.
+    order_number = models.CharField(max_length=50)
+    sequence = models.PositiveIntegerField(null=True, blank=True)
+    # The number a work order had before the per-company renumbering
+    # (e.g. WO-1731420000000), kept so it can still be found by it.
+    legacy_number = models.CharField(max_length=50, blank=True, db_index=True)
     product_name = models.CharField(max_length=200)
     customer_name = models.CharField(max_length=200, blank=True)
     quantity = models.PositiveIntegerField(default=1)
@@ -33,6 +39,27 @@ class WorkOrder(models.Model):
     revision_changed_after_start = models.BooleanField(default=False)
     status_reason = models.TextField(blank=True)
     sent_cabinet_ids = models.JSONField(default=list, blank=True, help_text='List of cabinet ids from the room already included in this or prior work orders')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['tenant', 'order_number'], name='unique_order_number_per_company'),
+            models.UniqueConstraint(fields=['tenant', 'sequence'], name='unique_order_sequence_per_company'),
+        ]
+
+    def save(self, *args, **kwargs):
+        # A new work order takes its company's next number. The company row is
+        # locked meanwhile so two orders created at once can't take the same one.
+        if self.sequence is None and self.tenant_id:
+            with transaction.atomic():
+                Company.objects.select_for_update().filter(pk=self.tenant_id).first()
+                last = (WorkOrder.objects.filter(tenant_id=self.tenant_id)
+                        .aggregate(m=models.Max('sequence'))['m'] or 0)
+                self.sequence = last + 1
+                if not self.order_number:
+                    self.order_number = f'WO{self.sequence}'
+                super().save(*args, **kwargs)
+            return
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return self.order_number

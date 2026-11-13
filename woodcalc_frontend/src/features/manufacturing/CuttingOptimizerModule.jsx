@@ -5,7 +5,8 @@ import { workOrderPieces } from '../kitchen_planner/machining/pieces'
 import CncExportButton from './CncExportButton'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
-import { useCompanyStandards } from '../../api/companySettings'
+import { useCompanyStandards, loadCompanyStandards } from '../../api/companySettings'
+import { loadDrawerSystems } from '../../api/drawerSystems'
 
 const API = import.meta.env.VITE_API_URL
 
@@ -357,7 +358,8 @@ function CuttingOptimizerModule() {
       }
       // One part per physical piece of the work order's cabinets, each with its
       // ID (a confirmed room is cut with the settings and numbers frozen on it).
-      const bomGroups = piecesToGroups(workOrderPieces(wo, room), group)
+      const [, drawerSystems] = await Promise.all([loadCompanyStandards(), loadDrawerSystems()])
+      const bomGroups = piecesToGroups(workOrderPieces(wo, room, { drawerSystems }), group)
       if (bomGroups.length === 0) {
         setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return

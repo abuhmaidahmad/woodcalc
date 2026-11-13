@@ -44,7 +44,14 @@ const EMPTY_SUPPLIER = { name: '', contact_name: '', phone: '', email: '', addre
 const EMPTY_DRAWER_SYSTEM = {
   name: '', brand: '', box_construction: 'metal_sided',
   price_per_set: '', price_per_set_m: '', price_per_set_c: '',
+  back_width_deduction: '', back_height_m: '', back_height_c: '', back_thickness: '',
+  // Defaults: the bottom formula used before these were editable.
+  bottom_width_deduction: '25', bottom_depth_deduction: '80', bottom_thickness: '8',
 }
+// Metal-sided systems' shop-cut bottom (mm): inner width / depth less these, this thick.
+const DS_BOTTOM_FIELDS = ['bottom_width_deduction', 'bottom_depth_deduction', 'bottom_thickness']
+// Metal-sided systems' wooden back sizes (mm); blank = no back is cut.
+const DS_BACK_FIELDS = ['back_width_deduction', 'back_height_m', 'back_height_c', 'back_thickness']
 
 function forceHttps(url) {
   if (!url) return url
@@ -122,6 +129,8 @@ export default function MaterialCatalog() {
       price_per_set: sys.price_per_set ?? '',
       price_per_set_m: sys.price_per_set_m ?? '',
       price_per_set_c: sys.price_per_set_c ?? '',
+      ...Object.fromEntries(DS_BACK_FIELDS.map(k => [k, sys[k] ?? ''])),
+      ...Object.fromEntries(DS_BOTTOM_FIELDS.map(k => [k, sys[k] ?? EMPTY_DRAWER_SYSTEM[k]])),
     })
     setDsSaveError('')
     setShowDsModal(true)
@@ -137,6 +146,9 @@ export default function MaterialCatalog() {
         price_per_set: dsForm.price_per_set === '' ? null : dsForm.price_per_set,
         price_per_set_m: dsForm.price_per_set_m === '' ? null : dsForm.price_per_set_m,
         price_per_set_c: dsForm.price_per_set_c === '' ? null : dsForm.price_per_set_c,
+        ...Object.fromEntries(DS_BACK_FIELDS.map(k => [k, dsForm[k] === '' ? null : dsForm[k]])),
+        // Blank falls back to the default formula.
+        ...Object.fromEntries(DS_BOTTOM_FIELDS.map(k => [k, dsForm[k] === '' ? EMPTY_DRAWER_SYSTEM[k] : dsForm[k]])),
       }
       // Name is locked once created (see dsForm's name field below) -- cabinets
       // reference a drawer system by its name string, so renaming one here would
@@ -693,6 +705,32 @@ export default function MaterialCatalog() {
                   onChange={v => setDsForm(f => ({ ...f, price_per_set_m: v }))} placeholder="0.00" />
                 <Field label={t('materialCatalog.drawerSystemPriceCLabel')} value={dsForm.price_per_set_c} type="number"
                   onChange={v => setDsForm(f => ({ ...f, price_per_set_c: v }))} placeholder="0.00" />
+              </div>
+            )}
+
+            {dsForm.box_construction === 'metal_sided' && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#666', marginBottom: 6 }}>{t('materialCatalog.drawerSystemBackTitle')}</div>
+                <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8 }}>
+                  {DS_BACK_FIELDS.map(k => (
+                    <Field key={k} label={t(`materialCatalog.drawerSystem_${k}`)} value={dsForm[k]} type="number"
+                      onChange={v => setDsForm(f => ({ ...f, [k]: v }))} placeholder="mm" />
+                  ))}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemBackHint')}</div>
+              </div>
+            )}
+
+            {dsForm.box_construction === 'metal_sided' && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: '#666', marginBottom: 6 }}>{t('materialCatalog.drawerSystemBottomTitle')}</div>
+                <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                  {DS_BOTTOM_FIELDS.map(k => (
+                    <Field key={k} label={t(`materialCatalog.drawerSystem_${k}`)} value={dsForm[k]} type="number"
+                      onChange={v => setDsForm(f => ({ ...f, [k]: v }))} placeholder="mm" />
+                  ))}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemBottomHint')}</div>
               </div>
             )}
 

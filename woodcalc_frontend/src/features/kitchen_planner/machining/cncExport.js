@@ -29,8 +29,8 @@ export function pieceDxf(p) {
 }
 
 // { pieces, errors: [{ id, message }], files: [{ name, data }] }
-export function cncExport(workOrder, room) {
-  const pieces = workOrderPieces(workOrder, room);
+export function cncExport(workOrder, room, options = {}) {
+  const pieces = workOrderPieces(workOrder, room, options);
   const errors = pieces.flatMap(p => p.errors.map(message => ({ id: p.id, message })));
   const files = [
     ...pieces.map(p => ({ name: `${p.id}.dxf`, data: pieceDxf(p) })),

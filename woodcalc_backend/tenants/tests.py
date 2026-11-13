@@ -189,6 +189,23 @@ class BackPanelThicknessSettingTests(TestCase):
         res = self.api.patch('/api/tenants/settings/', {'glass_shelf_material_sku': None, 'glass_shelf_thickness_mm': 10}, format='json')
         self.assertEqual((res.json()['glass_shelf_material_sku'], res.json()['glass_shelf_thickness_mm']), (None, None))
 
+    def test_drawer_box_and_bottom_materials(self):
+        from inventory.models import Material
+        Material.objects.create(tenant=self.company, sku='WB12', name='White board 12', board_thickness=12)
+        Material.objects.create(tenant=self.company, sku='HDF8', name='HDF 8', material_type='back', board_thickness=8)
+        res = self.api.patch('/api/tenants/settings/', {
+            'drawer_box_material_sku': 'WB12', 'drawer_bottom_material_sku': 'HDF8', 'drawer_box_thickness_mm': 99},
+            format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        flags = res.json()
+        self.assertEqual((flags['drawer_box_material_sku'], flags['drawer_box_thickness_mm']), ('WB12', 12))
+        self.assertEqual((flags['drawer_bottom_material_sku'], flags['drawer_bottom_thickness_mm']), ('HDF8', 8))
+        self.assertNotIn('back_panel_material_sku', flags)
+        res = self.api.patch('/api/tenants/settings/', {'drawer_box_material_sku': None}, format='json')
+        self.assertEqual((res.json()['drawer_box_material_sku'], res.json()['drawer_box_thickness_mm']), (None, None))
+        self.assertEqual(self.api.patch('/api/tenants/settings/', {'drawer_bottom_material_sku': 'NOPE'},
+                                        format='json').status_code, 400)
+
     def test_glass_door_material(self):
         from inventory.models import Material
         Material.objects.create(tenant=self.company, sku='ALU', name='Alu glass door', material_type='glass_door',

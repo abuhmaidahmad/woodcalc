@@ -26,9 +26,13 @@ BACK_CONSTRUCTIONS = ('surface', 'groove')
 # Company standards backed by a stock material: `<prefix>_material_sku` picks the
 # material and `<prefix>_thickness_mm` mirrors its board thickness, so the cut
 # list follows a thickness edited in the Materials Catalog.
-MATERIAL_STANDARDS = ('back_panel', 'glass_shelf', 'glass_door')
+# drawer_box is the board drawer box sides/fronts/backs are cut from,
+# drawer_bottom the drawer bottoms' (usually HDF).
+MATERIAL_STANDARDS = ('back_panel', 'glass_shelf', 'glass_door', 'drawer_box', 'drawer_bottom')
 # The aluminium glass door is bought by its outer size, so it has no thickness.
-THICKNESS_STANDARDS = ('back_panel', 'glass_shelf')
+THICKNESS_STANDARDS = ('back_panel', 'glass_shelf', 'drawer_box', 'drawer_bottom')
+# Standards whose thickness can't be set on its own, only through the material.
+MATERIAL_ONLY_THICKNESS = ('glass_shelf', 'drawer_box', 'drawer_bottom')
 
 
 def _material(company, sku):
@@ -76,8 +80,9 @@ def company_settings(request):
             error = _apply_delivery_method(request, settings, patch.pop('delivery_method'))
             if error is not None:
                 return error
-        # Glass shelf thickness only ever comes from its stock material.
-        patch.pop('glass_shelf_thickness_mm', None)
+        # Glass shelf and drawer board thicknesses only ever come from their stock material.
+        for prefix in MATERIAL_ONLY_THICKNESS:
+            patch.pop(f'{prefix}_thickness_mm', None)
         for prefix in MATERIAL_STANDARDS:
             key = f'{prefix}_material_sku'
             if patch.get(key):
@@ -94,8 +99,8 @@ def company_settings(request):
                 patch[f'{prefix}_thickness_mm'] = mat.board_thickness
             elif key in patch:
                 patch[key] = None
-                if prefix == 'glass_shelf':
-                    patch['glass_shelf_thickness_mm'] = None
+                if prefix in MATERIAL_ONLY_THICKNESS:
+                    patch[f'{prefix}_thickness_mm'] = None
         if not patch.get('back_panel_material_sku') and (
                 'back_panel_material_sku' in patch or 'back_panel_thickness_mm' in patch):
             # No stock material: a plain HDF thickness, priced at the generic rate.

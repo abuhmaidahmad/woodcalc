@@ -36,6 +36,59 @@ export function setCompanyBackPanel({ thickness, materialCode, construction } = 
   };
 }
 
+// Drawer boxes: the company's board for drawer box sides/fronts/backs and its
+// drawer bottom material (Settings page, drawer_box_material_sku /
+// drawer_bottom_material_sku), so the cutting optimizer knows what to cut them
+// from. Without one the optimizer groups them by thickness for a manual pick.
+const DRAWER_BOX_T = 12;
+const DRAWER_BOTTOM_T = 8;
+let companyDrawer = {
+  box: { materialCode: null, thickness: DRAWER_BOX_T },
+  bottom: { materialCode: null, thickness: DRAWER_BOTTOM_T },
+};
+export function getCompanyDrawerMaterials() {
+  return companyDrawer;
+}
+export function setCompanyDrawerMaterials({ boxMaterialCode, boxThickness, bottomMaterialCode, bottomThickness } = {}) {
+  companyDrawer = {
+    box: { materialCode: boxMaterialCode || null, thickness: positiveOr(boxThickness, DRAWER_BOX_T) },
+    bottom: { materialCode: bottomMaterialCode || null, thickness: positiveOr(bottomThickness, DRAWER_BOTTOM_T) },
+  };
+}
+
+// The company's drawer system catalog (inventory DrawerSystem), loaded by the
+// planner and the production views. A metal-sided system's shop-cut bottom is
+// sized from its catalog entry; the defaults are the formula used before those
+// fields existed (W - 2T - 25 x D - 80, 8mm).
+export const DRAWER_BOTTOM_DEFAULTS = { widthDeduction: 25, depthDeduction: 80, thickness: 8 };
+let drawerSystemCatalog = [];
+export function setDrawerSystemCatalog(list) {
+  drawerSystemCatalog = Array.isArray(list) ? list : [];
+}
+// The drawer system entry a cabinet's metal-sided bottom/back are sized from:
+// a confirmed room's saved sizes for it (construction_settings.drawer_systems,
+// frozen at confirmation; saved as null = it had no catalog entry, so the
+// defaults), else the live catalog -- `live` when given, else the one the
+// views loaded. null when there's none.
+export function drawerSystemFor(name, live = null) {
+  const frozen = roomBack?.drawerSystems;
+  if (frozen && Object.prototype.hasOwnProperty.call(frozen, name)) return { name, ...(frozen[name] || {}) };
+  return (live || drawerSystemCatalog).find(s => s.name === name) || null;
+}
+
+// A metal-sided bottom's deductions/thickness for one cabinet config: from
+// drawerSystemFor (its own drawerSystemSpec standing in for the catalog when
+// given), else the defaults.
+export function drawerBottomSpec(config) {
+  const sys = drawerSystemFor(config.drawerSystem, config.drawerSystemSpec ? [config.drawerSystemSpec] : null);
+  const pick = (v, d) => { const n = Number(v); return v !== null && v !== undefined && v !== '' && Number.isFinite(n) && n >= 0 ? n : d; };
+  return {
+    widthDeduction: pick(sys?.bottom_width_deduction, DRAWER_BOTTOM_DEFAULTS.widthDeduction),
+    depthDeduction: pick(sys?.bottom_depth_deduction, DRAWER_BOTTOM_DEFAULTS.depthDeduction),
+    thickness: pick(sys?.bottom_thickness, DRAWER_BOTTOM_DEFAULTS.thickness) || DRAWER_BOTTOM_DEFAULTS.thickness,
+  };
+}
+
 // Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
 // sets their thickness and price; without one they're 8mm tempered at the generic rate.
 const GLASS_T = 8;
@@ -198,11 +251,38 @@ export function cabinetBadges(cabinets) {
 let roomBack = null;
 export function roomBackPanel(settings) {
   if (!settings || typeof settings !== 'object') return null;
+  // Drawer box board and bottom: frozen with the room since they set drawer box
+  // sizes. A room confirmed before they were saved keeps the 12mm / 8mm its
+  // drawers were sized with (materialCode: undefined = the company's material
+  // when its thickness matches).
+  const frozenDrawers = 'drawer_box_thickness_mm' in settings;
+  const drawerSystems = settings.drawer_systems && typeof settings.drawer_systems === 'object' ? settings.drawer_systems : null;
   return {
+    drawerSystems,
     thickness: positiveOr(settings.back_panel_thickness_mm, BACK_T),
     materialCode: settings.back_panel_material_sku || null,
     construction: settings.back_construction === 'groove' ? 'groove' : 'surface',
+    drawer: frozenDrawers ? {
+      box: { materialCode: settings.drawer_box_material_sku || null, thickness: positiveOr(settings.drawer_box_thickness_mm, DRAWER_BOX_T) },
+      bottom: { materialCode: settings.drawer_bottom_material_sku || null, thickness: positiveOr(settings.drawer_bottom_thickness_mm, DRAWER_BOTTOM_T) },
+    } : {
+      box: { materialCode: undefined, thickness: DRAWER_BOX_T },
+      bottom: { materialCode: undefined, thickness: DRAWER_BOTTOM_T },
+    },
   };
+}
+
+// The drawer box board and bottom drawers are sized and cut with: the
+// confirmed room's frozen ones while a room view is computing, else the
+// company's (getCompanyDrawerMaterials).
+export function resolveDrawerMaterials() {
+  if (!roomBack) return companyDrawer;
+  const pick = (frozen, company) => ({
+    thickness: frozen.thickness,
+    materialCode: frozen.materialCode !== undefined ? frozen.materialCode
+      : (company.thickness === frozen.thickness ? company.materialCode : null),
+  });
+  return { box: pick(roomBack.drawer.box, companyDrawer.box), bottom: pick(roomBack.drawer.bottom, companyDrawer.bottom) };
 }
 // For views showing one room (the planner): set on open, cleared on close.
 export function setRoomBackPanel(settings) {
@@ -1078,7 +1158,13 @@ export function calculateCabinet(config) {
   let drawerBox = null;
   if (drawerCount > 0) {
     if (!systemHasIntegratedBox && drawerType.toLowerCase().includes('wood')) {
-      // Wood box interior dims per drawer (runner clearance 2x12.5mm for side-mount)
+      // Wood box outer dims per drawer (runner clearance 2x12.5mm for side-mount).
+      // The sides run the box's depth; the back and front sit between them, so
+      // they're the box width less two board thicknesses; the base goes under
+      // the whole box. Board and base thicknesses are the company's drawer box
+      // board and bottom material (Settings), or the room's frozen ones.
+      const { box: boxMat, bottom: bottomMat } = resolveDrawerMaterials();
+      const t = boxMat.thickness, b = bottomMat.thickness;
       const boxW = round2(W - 2 * T - 25);
       const boxD = round2(D - 30 - 50);
       drawerBox = {
@@ -1086,32 +1172,34 @@ export function calculateCabinet(config) {
         system: drawerSystem,
         count: drawerCount,
         parts_per_drawer: [
-          { name: 'Drawer side (12mm)', qty: 2, width: boxD, depth: 120 },
-          { name: 'Drawer back/front (12mm)', qty: 2, width: round2(boxW - 24), depth: 120 },
-          { name: 'Drawer base (8mm HDF)', qty: 1, width: boxW, depth: boxD },
+          { name: `Drawer side (${t}mm)`, role: 'side', thickness: t, qty: 2, width: boxD, depth: 120 },
+          { name: `Drawer back/front (${t}mm)`, role: 'frontback', thickness: t, qty: 2, width: round2(boxW - 2 * t), depth: 120 },
+          { name: `Drawer base (${b}mm HDF)`, role: 'bottom', thickness: b, qty: 1, width: boxW, depth: boxD },
         ],
-        side_thickness: 12,
-        back_thickness: 12,
-        base_thickness: 8,
+        side_thickness: t,
+        back_thickness: t,
+        base_thickness: b,
         false_front_thickness: 18,
         false_front_clearance_top: -3,
         false_front_clearance_bottom: -3,
       };
     } else {
-      // Metal-sided systems (LEGRABOX etc.) supply the sides + back with the runner
-      // set itself, but not the bottom -- that's still a shop-cut board sized to the
-      // steel box's own interior, same clearance logic as a wood box.
-      const intBoxW = round2(W - 2 * T - 25);
-      const intBoxD = round2(D - 30 - 50);
+      // Metal-sided systems (LEGRABOX etc.) supply the sides with the runner set
+      // itself, but not the bottom -- that's a shop-cut board sized by the drawer
+      // system's catalog entry (drawerBottomSpec: inner width and depth less its
+      // deductions, its thickness).
+      const bottom = drawerBottomSpec(config);
+      const intBoxW = round2(W - 2 * T - bottom.widthDeduction);
+      const intBoxD = round2(D - bottom.depthDeduction);
       drawerBox = {
         type: drawerType,
         system: drawerSystem,
         count: drawerCount,
         integrated_front: true,
         parts_per_drawer: [
-          { name: 'Drawer bottom panel (8mm HDF)', qty: 1, width: intBoxW, depth: intBoxD },
+          { name: 'Drawer bottom panel (8mm HDF)', role: 'bottom', thickness: bottom.thickness, qty: 1, width: intBoxW, depth: intBoxD },
         ],
-        base_thickness: 8,
+        base_thickness: bottom.thickness,
         note: `Integrated box system (${drawerSystem}) — sides/back supplied by the runner set, bottom panel shop-cut`,
       };
     }

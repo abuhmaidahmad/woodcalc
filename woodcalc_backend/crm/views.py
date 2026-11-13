@@ -9,10 +9,12 @@ from rest_framework.response import Response
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
-from tenants.utils import frozen_construction_settings, get_company_by_slug
+from tenants.utils import get_company_by_slug
 from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
 from .numbering import freeze_badges
+from .construction_snapshot import missing_size_warnings, snapshot_changes
+from .construction_snapshot import snapshot as construction_snapshot
 from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
                         started_work_orders)
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
@@ -25,13 +27,22 @@ from .serializers import (
 )
 
 
-def freeze_on_lock(room):
-    """What a room being locked keeps from then on: the company's current
-    construction settings (unless it carries them from an earlier lock), and
-    each cabinet's badge number (crm/numbering.py)."""
-    if room.construction_settings is None:
-        room.construction_settings = frozen_construction_settings(room.project.client.tenant)
+def freeze_on_lock(room, fresh):
+    """What a room being locked keeps from then on: its construction settings
+    (crm/construction_snapshot.py) and each cabinet's badge number
+    (crm/numbering.py). fresh: the room is being confirmed from unlocked
+    (first time or again), so it takes a new snapshot of the company settings
+    and drawer catalog; otherwise (approving a submitted revision) it keeps
+    the snapshot it was submitted with. Returns what the new snapshot changed
+    versus the room's previous one."""
+    company = room.project.client.tenant
+    changes = []
+    if fresh or room.construction_settings is None:
+        new = construction_snapshot(company, room.planner_data)
+        changes = snapshot_changes(room.construction_settings, new)
+        room.construction_settings = new
     room.planner_data, _ = freeze_badges(room.planner_data)
+    return changes
 
 
 @api_view(['POST'])
@@ -204,11 +215,24 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
         instance.delete()
         recompute_project_total(project)
 
-    def _lock(self, room, user):
+    def _lock(self, room, user, fresh=False):
         room.is_locked = True
         room.locked_at = timezone.now()
         room.locked_by = user
-        freeze_on_lock(room)
+        return freeze_on_lock(room, fresh)
+
+    @action(detail=True, methods=['get'])
+    def confirm_preview(self, request, pk=None):
+        """What confirming this room now (confirm_lock / submit_revision) would
+        warn about: metal-sided drawer systems with no bottom/back sizes in the
+        catalog (it's cut with the defaults), and, when it was confirmed
+        before, what the fresh snapshot of the construction settings changes."""
+        room = self.get_object()
+        company = room.project.client.tenant
+        return Response({
+            'warnings': missing_size_warnings(company, room.planner_data),
+            'changes': snapshot_changes(room.construction_settings, construction_snapshot(company, room.planner_data)),
+        })
 
     @action(detail=True, methods=['post'])
     def request_change(self, request, pk=None):
@@ -247,11 +271,12 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
                 Room.RevisionStatus.DRAFT, Room.RevisionStatus.REJECTED):
             return Response({'detail': 'Only a draft revision can be submitted for approval.'},
                             status=status.HTTP_400_BAD_REQUEST)
-        self._lock(room, request.user)
+        changes = self._lock(room, request.user, fresh=True)
         room.revision_status = Room.RevisionStatus.PENDING_APPROVAL
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'construction_settings',
                                  'planner_data', 'updated_at'])
-        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_SUBMITTED)
+        log_room_action(room, request.user, RoomChangeLog.Action.REVISION_SUBMITTED,
+                        new_value={'construction_changes': changes} if changes else None)
         return Response(RoomSerializer(room).data)
 
     @action(detail=True, methods=['post'])
@@ -323,12 +348,13 @@ class RoomViewSet(TenantScopedMixin, ModelViewSet):
             if not reason:
                 return Response({'detail': 'A reason is required to confirm a design variant.'},
                                 status=status.HTTP_400_BAD_REQUEST)
-        self._lock(room, request.user)
+        changes = self._lock(room, request.user, fresh=True)
         room.revision_status = Room.RevisionStatus.APPROVED
         room.save(update_fields=['is_locked', 'locked_at', 'locked_by', 'revision_status', 'construction_settings',
                                  'planner_data', 'updated_at'])
         log_room_action(room, request.user, RoomChangeLog.Action.LOCK, reason=reason,
-                        new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant})
+                        new_value={'revision_number': room.revision_number, 'is_variant': room.is_variant,
+                                   **({'construction_changes': changes} if changes else {})})
         recompute_project_total(room.project)
         return Response(RoomSerializer(room).data)
 
