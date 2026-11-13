@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'billing',
     'feedback',
     'platform_admin',
+    'field_ops',
 ]
 
 MIDDLEWARE = [

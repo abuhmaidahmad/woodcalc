@@ -83,10 +83,35 @@ export function isStaff() {
   return !!u?.is_staff;
 }
 
+export const FIELD_ROLES = ['field_manager', 'installer', 'driver'];
+
 export function hasPermission(code) {
   const company = getCompany();
   if (!company) return false;
+  if (FIELD_ROLES.includes(company.role)) return false;
   return company.role === 'owner' || (company.permissions || []).includes(code);
+}
+
+export function canManageFieldOps() {
+  return !!getCompany()?.can_manage_field_ops;
+}
+
+export function isFieldRole() {
+  return FIELD_ROLES.includes(getCompany()?.role);
+}
+
+const ROLE_HOME = { installer: '/installer/jobs', driver: '/driver', field_manager: '/field-ops' };
+
+export function homePath(user = getUser()) {
+  return ROLE_HOME[user?.company?.role] || '/dashboard';
+}
+
+export function canOpenPath(path, user = getUser()) {
+  const role = user?.company?.role;
+  if (!FIELD_ROLES.includes(role)) return true;
+  if (role === 'installer') return path.startsWith('/installer/');
+  if (role === 'field_manager') return path === '/field-ops';
+  return path === '/driver';
 }
 
 // Auditors can view everything their company can but the backend rejects any
@@ -149,7 +174,8 @@ export async function authFetch(url, options = {}) {
       const body = await res.clone().json()
       isPermissionDenied = typeof body?.detail === 'string' &&
         (body.detail.startsWith('Missing permission:') || body.detail.startsWith('Read-only access:') ||
-          body.detail.startsWith('Locked:'))
+          body.detail.startsWith('Locked:') || body.detail.startsWith('Field accounts') ||
+          body.detail.startsWith("You don't have permission") || body.detail.startsWith("This job isn't"))
     } catch {}
     if (!isPermissionDenied) {
       window.dispatchEvent(new CustomEvent('woodcalc:access-denied'))
