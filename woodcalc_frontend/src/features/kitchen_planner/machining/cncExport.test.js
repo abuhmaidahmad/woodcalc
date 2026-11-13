@@ -46,6 +46,19 @@ describe('CNC export', () => {
     expect(partsCsv([{ ...sl, cabinet: 'Base, "tall"' }])).toContain('"Base, ""tall"""')
   })
 
+  it('names every file in plain ASCII, even for Arabic order numbers and labels', () => {
+    const arWo = { order_number: 'أمر-١٢٥', sent_cabinet_ids: [] }
+    const { pieces, files } = cncExport(arWo, room([base(1, { label: 'خزانة سفلية' })]))
+    const names = files.map(f => f.name)
+    names.forEach(n => expect(n).toMatch(/^[A-Za-z0-9-]+\.(dxf|csv)$/))
+    expect(names).toContain('125-R2-01-SL.dxf')
+    expect(names).toContain('parts.csv')
+    // The Arabic text stays inside parts.csv as data.
+    const csv = files.find(f => f.name === 'parts.csv').data
+    expect(csv).toContain('125-R2-01-SL,خزانة سفلية,Side panel,')
+    expect(pieces.every(p => /^[\x21-\x7E]+$/.test(p.id))).toBe(true)
+  })
+
   it('reports buildMachining errors per piece before anything is exported', () => {
     // A shelf planned 10mm off the bottom puts its lowest pins off the sides.
     const { errors } = cncExport(wo, room([base(1, { shelfHeights: [10] })]))
@@ -70,8 +83,20 @@ describe('zip writer', () => {
     expect(crc32(new TextEncoder().encode('123456789')).toString(16)).toBe('cbf43926')
   })
   it('writes an archive unzip accepts, UTF-8 names included', () => {
-    const { dir, names } = unzip(makeZip([{ name: 'a.txt', data: 'hello' }, { name: 'جانب.txt', data: new Uint8Array([1, 2, 3]) }]))
-    expect(names).toEqual(['a.txt', 'جانب.txt'])
-    expect(readFileSync(join(dir, 'a.txt'), 'utf8')).toBe('hello')
+    // Names are read from the central directory here: macOS's bundled unzip and
+    // zipinfo mangle UTF-8 names, so they can only check the archive itself.
+    const bytes = makeZip([{ name: 'a.txt', data: 'hello' }, { name: 'جانب.txt', data: new Uint8Array([1, 2, 3]) }])
+    const file = join(mkdtempSync(join(tmpdir(), 'cnc-')), 'out.zip')
+    writeFileSync(file, bytes)
+    execFileSync('unzip', ['-tq', file]) // throws on a bad archive or CRC
+    expect(execFileSync('unzip', ['-p', file, 'a.txt']).toString()).toBe('hello')
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
+    const entries = []
+    for (let i = 0; i + 46 <= bytes.length; i++) {
+      if (view.getUint32(i, true) !== 0x02014b50) continue
+      const len = view.getUint16(i + 28, true)
+      entries.push({ utf8: (view.getUint16(i + 8, true) & 0x800) !== 0, name: new TextDecoder().decode(bytes.subarray(i + 46, i + 46 + len)) })
+    }
+    expect(entries).toEqual([{ utf8: true, name: 'a.txt' }, { utf8: true, name: 'جانب.txt' }])
   })
 })
