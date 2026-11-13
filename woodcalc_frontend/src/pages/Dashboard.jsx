@@ -104,6 +104,7 @@ function getCards(userType, navigate, isVerified, t) {
       return [
         { icon: 'clients', title: t('dashboard.mfgCustomersTitle'), description: t('dashboard.mfgCustomersDesc'), cta: t('dashboard.mfgCustomersCta'), ctaAction: () => navigate('/customers'), accent: '#C8902A' },
         { icon: 'design', title: t('dashboard.mfgPlannerTitle'), description: t('dashboard.mfgPlannerDesc'), cta: t('dashboard.mfgPlannerCta'), ctaAction: () => navigate('/kitchen-planner'), accent: '#2AC87A' },
+        { icon: 'design', title: t('dashboard.mfgWardrobeTitle'), description: t('dashboard.mfgWardrobeDesc'), cta: t('dashboard.mfgWardrobeCta'), ctaAction: () => navigate('/wardrobe-builder'), accent: '#C8902A' },
         { icon: 'clients', title: t('dashboard.mfgLeadsTitle'), description: t('dashboard.mfgLeadsDesc'), cta: t('dashboard.mfgLeadsCta'), ctaAction: () => navigate('/leads'), accent: '#2A6ACC' },
         { icon: 'materials', title: t('dashboard.mfgCatalogTitle'), description: t('dashboard.mfgCatalogDesc'), cta: t('dashboard.mfgCatalogCta'), ctaAction: () => navigate('/catalog'), accent: '#C8902A' },
         { icon: 'suppliers', title: t('dashboard.mfgSuppliersTitle'), description: t('dashboard.mfgSuppliersDesc'), cta: t('dashboard.mfgSuppliersCta'), ctaAction: () => navigate('/suppliers'), accent: '#8A2AC8' },
