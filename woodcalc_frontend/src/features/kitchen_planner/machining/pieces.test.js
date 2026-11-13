@@ -75,6 +75,8 @@ describe('part codes', () => {
     expect(['side-left', 'top', 'shelf-2', 'door-3', 'drawer-front-1', 'blind-stile-2', 'blind-panel'].map(partCode))
       .toEqual(['SL', 'TOP', 'SH2', 'D3', 'DF1', 'BS2', 'BP'])
     expect(pieceId('WO125', 2, 3, 'SL')).toBe('WO125-R2-03-SL')
+    expect(pieceId('WO-٤٢', 1, 1, 'SL')).toBe('WO-42-R1-01-SL')
+    expect(pieceId('طلب', 1, 1, 'رف')).toBe('WO-R1-01-PC')
   })
 })
 

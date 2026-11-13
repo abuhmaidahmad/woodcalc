@@ -47,7 +47,21 @@ const DRAWER_CODES = {
 };
 
 const pad2 = (n) => String(n).padStart(2, '0');
-export const pieceId = (woNumber, roomNumber, badge, code) => `${woNumber}-R${roomNumber ?? 0}-${pad2(badge)}-${code}`;
+// Piece IDs are also the CNC file names, and CNC controllers often can't read
+// non-Latin names, so every part of an ID is plain ASCII: Arabic-Indic digits
+// become 0-9 and anything else outside A-Z, a-z, 0-9 and '-' is dropped.
+const ARABIC_DIGIT = /[٠-٩۰-۹]/g;
+export function asciiIdPart(value, fallback) {
+  const s = String(value ?? '')
+    .replace(ARABIC_DIGIT, d => String(d.charCodeAt(0) & 0xF))
+    .normalize('NFKD')
+    .replace(/[^A-Za-z0-9-]+/g, '')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '');
+  return s || fallback;
+}
+export const pieceId = (woNumber, roomNumber, badge, code) =>
+  `${asciiIdPart(woNumber, 'WO')}-R${roomNumber ?? 0}-${pad2(badge)}-${asciiIdPart(code, 'PC')}`;
 
 const allRound = (m) => ({ T: m, B: m, L: m, R: m });
 const NONE = { T: 'None', B: 'None', L: 'None', R: 'None' };
