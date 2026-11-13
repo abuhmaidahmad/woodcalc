@@ -1,6 +1,7 @@
 import React, { lazy, Suspense, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
+import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
 import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
 import { computeWardrobe, defaultDesign, withSectionCount, autoSectionCount, presetZones, newZone, sectionWidths, cutListCsv, PRESET_IDS, ZONE_TYPES, DOOR_TYPES } from '../features/wardrobe/wardrobeEngine'
@@ -292,9 +293,11 @@ export default function WardrobeBuilder() {
                   onSelectZone={(i, zi) => setSelected({ section: i, zone: zi })}
                   zoneLabel={zoneLabel} />
               ) : (
-                <Suspense fallback={<div style={{ height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
-                  <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} />
-                </Suspense>
+                <ErrorBoundary>
+                  <Suspense fallback={<div style={{ height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
+                    <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} />
+                  </Suspense>
+                </ErrorBoundary>
               )}
               <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>{view === 'front' ? t('wardrobe.frontHint') : t('wardrobe.orbitHint')}</div>
             </div>
