@@ -7,8 +7,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from tenants.mixins import TenantScopedMixin, PublicOrTenantScopedMixin
 from tenants.permissions import BlocksAuditorWrites, HasActiveCompany
-from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
-from .serializers import MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer, CabinetTemplateSerializer
+from tenants.utils import get_company_for_user
+from .models import CoreMaterial, Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
+from .serializers import CoreMaterialSerializer, MaterialSerializer, SupplierSerializer, StockMovementSerializer, StockAlertSerializer, DrawerSystemSerializer, SinkSerializer, CabinetTemplateSerializer
 
 
 class MaterialViewSet(PublicOrTenantScopedMixin, ModelViewSet):
@@ -39,6 +40,20 @@ class MaterialViewSet(PublicOrTenantScopedMixin, ModelViewSet):
                 reference='Stock count',
                 note=f'Set from {old_qty} to {material.quantity_on_hand} by {self.request.user.email or self.request.user.username}',
             )
+
+
+class CoreMaterialViewSet(TenantScopedMixin, ModelViewSet):
+    queryset = CoreMaterial.objects.all().order_by('name')
+    serializer_class = CoreMaterialSerializer
+    permission_classes = [IsAuthenticated, HasActiveCompany]
+
+    def create(self, request, *args, **kwargs):
+        company = getattr(request, 'company', None) or get_company_for_user(request.user)
+        name = (request.data.get('name') or '').strip()
+        existing = CoreMaterial.objects.filter(tenant=company, name__iexact=name).first() if name else None
+        if existing:
+            return Response(self.get_serializer(existing).data, status=status.HTTP_200_OK)
+        return super().create(request, *args, **kwargs)
 
 
 class SupplierViewSet(TenantScopedMixin, ModelViewSet):

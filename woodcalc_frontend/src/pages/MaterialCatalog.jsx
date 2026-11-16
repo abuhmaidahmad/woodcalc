@@ -19,11 +19,13 @@ const FINISH_KEYS = {
   matt: 'materialCatalog.finishMatt', gloss: 'materialCatalog.finishGloss', wood: 'materialCatalog.finishWood',
   metal: 'materialCatalog.finishMetal', other: 'materialCatalog.finishOther',
 }
-// Must exactly match Material.core_material's choices in woodcalc_backend/inventory/models.py
-const CORE_MATERIAL_OPTIONS = ['particleboard', 'mdf', 'hdf', 'plywood', 'solid_wood', 'compact']
+// Must match BUILTIN_CORE_MATERIALS in woodcalc_backend/inventory/models.py; each company's
+// own extra core materials come from /api/inventory/core-materials/ and are stored by name.
+const CORE_MATERIAL_OPTIONS = ['particleboard', 'mdf', 'hdf', 'plywood', 'solid_wood', 'compact', 'quartz', 'natural_stone', 'porcelain']
 const CORE_MATERIAL_KEYS = {
   particleboard: 'materialCatalog.coreParticleboard', mdf: 'materialCatalog.coreMdf', hdf: 'materialCatalog.coreHdf',
   plywood: 'materialCatalog.corePlywood', solid_wood: 'materialCatalog.coreSolidWood', compact: 'materialCatalog.coreCompact',
+  quartz: 'materialCatalog.coreQuartz', natural_stone: 'materialCatalog.coreNaturalStone', porcelain: 'materialCatalog.corePorcelain',
 }
 
 const PRICE_UNIT_KEYS = {
@@ -79,6 +81,10 @@ export default function MaterialCatalog() {
   const [showSupplierModal, setShowSupplierModal] = useState(false)
   const [supplierForm, setSupplierForm] = useState(EMPTY_SUPPLIER)
   const [savingSupplier, setSavingSupplier] = useState(false)
+  const [coreMaterials, setCoreMaterials] = useState([])
+  const [showCoreInput, setShowCoreInput] = useState(false)
+  const [newCoreName, setNewCoreName] = useState('')
+  const [savingCore, setSavingCore] = useState(false)
   const fileRef = useRef()
 
   // Drawer Systems tab -- hardware catalog (LEGRABOX/TANDEMBOX/etc.) with the
@@ -108,7 +114,35 @@ export default function MaterialCatalog() {
       setSuppliers(Array.isArray(sData) ? sData : (sData.results || []))
       setDrawerSystems(Array.isArray(dData) ? dData : (dData.results || []))
     } catch {}
+    try {
+      const cRes = await authFetch(API + '/api/inventory/core-materials/')
+      if (cRes.ok) {
+        const cData = await cRes.json()
+        setCoreMaterials(Array.isArray(cData) ? cData : (cData.results || []))
+      }
+    } catch {}
     setLoading(false)
+  }
+
+  const addCoreMaterial = async () => {
+    const name = newCoreName.trim()
+    if (!name) return
+    setSavingCore(true)
+    try {
+      const res = await authFetch(API + '/api/inventory/core-materials/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      })
+      if (res.ok) {
+        const created = await res.json()
+        setCoreMaterials(prev => prev.some(c => c.id === created.id) ? prev : [...prev, created].sort((a, b) => a.name.localeCompare(b.name)))
+        setForm(f => ({ ...f, core_material: created.name }))
+        setNewCoreName('')
+        setShowCoreInput(false)
+      }
+    } catch {}
+    setSavingCore(false)
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -186,6 +220,8 @@ export default function MaterialCatalog() {
     setImageFile(null)
     setImagePreview(null)
     setSaveError('')
+    setShowCoreInput(false)
+    setNewCoreName('')
     setShowModal(true)
   }
 
@@ -551,11 +587,39 @@ export default function MaterialCatalog() {
             {needsCore(form) && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 600 }}>{t('materialCatalog.coreMaterialLabel')}</div>
-              <select value={form.core_material} onChange={e => setForm(f => ({ ...f, core_material: e.target.value }))}
-                style={{ ...selectStyle, borderColor: form.core_material ? '#E0DAD4' : '#E7A8A8' }}>
-                <option value="" disabled>{t('materialCatalog.coreMaterialPlaceholder')}</option>
-                {CORE_MATERIAL_OPTIONS.map(o => <option key={o} value={o}>{t(CORE_MATERIAL_KEYS[o])}</option>)}
-              </select>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <select value={form.core_material} onChange={e => setForm(f => ({ ...f, core_material: e.target.value }))}
+                  style={{ ...selectStyle, flex: 1, borderColor: form.core_material ? '#E0DAD4' : '#E7A8A8' }}>
+                  <option value="" disabled>{t('materialCatalog.coreMaterialPlaceholder')}</option>
+                  {CORE_MATERIAL_OPTIONS.map(o => <option key={o} value={o}>{t(CORE_MATERIAL_KEYS[o])}</option>)}
+                  {coreMaterials.length > 0 && (
+                    <optgroup label={t('materialCatalog.coreCustomGroup')}>
+                      {coreMaterials.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                    </optgroup>
+                  )}
+                  {form.core_material && !CORE_MATERIAL_OPTIONS.includes(form.core_material) && !coreMaterials.some(c => c.name === form.core_material) && (
+                    <option value={form.core_material}>{form.core_material}</option>
+                  )}
+                </select>
+                {!readOnly && (
+                  <button type="button" onClick={() => setShowCoreInput(s => !s)} title={t('materialCatalog.addCoreMaterial')}
+                    style={{ flexShrink: 0, width: 38, height: 38, background: ACCENT + '18', border: `1.5px solid ${ACCENT}55`, borderRadius: 7, cursor: 'pointer', fontSize: 18, color: ACCENT, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    +
+                  </button>
+                )}
+              </div>
+              {showCoreInput && (
+                <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                  <input value={newCoreName} onChange={e => setNewCoreName(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCoreMaterial() } }}
+                    placeholder={t('materialCatalog.newCoreMaterialPlaceholder')} maxLength={60} autoFocus
+                    style={{ ...inputStyle, flex: 1 }} />
+                  <button type="button" onClick={addCoreMaterial} disabled={savingCore || !newCoreName.trim()}
+                    style={{ flexShrink: 0, padding: '0 14px', background: newCoreName.trim() ? ACCENT : '#E0DAD4', color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+                    {t('materialCatalog.coreAdd')}
+                  </button>
+                </div>
+              )}
             </div>
             )}
 

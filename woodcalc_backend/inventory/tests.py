@@ -5,7 +5,7 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from tenants.models import Company, CompanyMembership
-from .models import Material
+from .models import CoreMaterial, Material
 
 
 class MaterialStockEditTests(TestCase):
@@ -71,3 +71,35 @@ class DrawerSystemBackSizeTests(TestCase):
         res = self.api.post('/api/inventory/drawer-systems/', {'name': 'Plain', 'box_construction': 'metal_sided'}, format='json')
         self.assertEqual(res.status_code, 201, res.content)
         self.assertIsNone(res.json()['back_width_deduction'])
+
+
+class CoreMaterialTests(TestCase):
+    def setUp(self):
+        self.company = Company.objects.create(name='A', slug='a', status=Company.Status.ACTIVE)
+        user = get_user_model().objects.create_user(username='u', email='u@x.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.api = APIClient()
+        self.api.force_authenticate(user)
+
+    def test_add_core_material_and_use_it_on_a_material(self):
+        res = self.api.post('/api/inventory/core-materials/', {'name': '  Quartz Slab '}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual(res.data['name'], 'Quartz Slab')
+        res = self.api.post('/api/inventory/materials/', {'sku': '5329', 'name': 'Mocca Mousse',
+                            'material_type': 'worktop', 'core_material': 'Quartz Slab'}, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        self.assertEqual(Material.objects.get(sku='5329').core_material, 'Quartz Slab')
+
+    def test_adding_the_same_name_again_returns_the_existing_one(self):
+        first = self.api.post('/api/inventory/core-materials/', {'name': 'Acrylic'}, format='json')
+        again = self.api.post('/api/inventory/core-materials/', {'name': 'acrylic'}, format='json')
+        self.assertEqual(again.status_code, 200, again.content)
+        self.assertEqual(again.data['id'], first.data['id'])
+        self.assertEqual(CoreMaterial.objects.filter(tenant=self.company).count(), 1)
+
+    def test_core_materials_are_per_company(self):
+        other = Company.objects.create(name='B', slug='b', status=Company.Status.ACTIVE)
+        CoreMaterial.objects.create(tenant=other, name='Secret Stone')
+        res = self.api.get('/api/inventory/core-materials/')
+        names = [c['name'] for c in (res.data if isinstance(res.data, list) else res.data['results'])]
+        self.assertNotIn('Secret Stone', names)

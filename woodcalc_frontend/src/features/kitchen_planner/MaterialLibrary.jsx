@@ -15,6 +15,7 @@ const ACCENT = '#C8902A'
 const CORE_LABEL_KEYS = {
   particleboard: 'materialLibrary.coreParticleboard', mdf: 'materialLibrary.coreMdf', hdf: 'materialLibrary.coreHdf',
   plywood: 'materialLibrary.corePlywood', solid_wood: 'materialLibrary.coreSolidWood', compact: 'materialLibrary.coreCompact',
+  quartz: 'materialLibrary.coreQuartz', natural_stone: 'materialLibrary.coreNaturalStone', porcelain: 'materialLibrary.corePorcelain',
 }
 
 const FINISH_BADGE = {
