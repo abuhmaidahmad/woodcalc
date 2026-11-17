@@ -61,6 +61,7 @@ export function setCompanyDrawerMaterials({ boxMaterialCode, boxThickness, botto
 // sized from its catalog entry; the defaults are the formula used before those
 // fields existed (W - 2T - 25 x D - 80, 8mm).
 export const DRAWER_BOTTOM_DEFAULTS = { widthDeduction: 25, depthDeduction: 80, thickness: 8 };
+export const DEFAULT_RUNNER_SIDE_CLEARANCE = 12.5;
 let drawerSystemCatalog = [];
 export function setDrawerSystemCatalog(list) {
   drawerSystemCatalog = Array.isArray(list) ? list : [];
@@ -87,6 +88,13 @@ export function drawerBottomSpec(config) {
     depthDeduction: pick(sys?.bottom_depth_deduction, DRAWER_BOTTOM_DEFAULTS.depthDeduction),
     thickness: pick(sys?.bottom_thickness, DRAWER_BOTTOM_DEFAULTS.thickness) || DRAWER_BOTTOM_DEFAULTS.thickness,
   };
+}
+
+export function drawerRunnerClearance(config) {
+  const sys = drawerSystemFor(config.drawerSystem, config.drawerSystemSpec ? [config.drawerSystemSpec] : null);
+  const v = sys?.runner_side_clearance;
+  const n = Number(v);
+  return v !== null && v !== undefined && v !== '' && Number.isFinite(n) && n >= 0 ? n : DEFAULT_RUNNER_SIDE_CLEARANCE;
 }
 
 // Glass shelves: the company's glass material (Settings page, glass_shelf_material_sku)
@@ -1158,14 +1166,13 @@ export function calculateCabinet(config) {
   let drawerBox = null;
   if (drawerCount > 0) {
     if (!systemHasIntegratedBox && drawerType.toLowerCase().includes('wood')) {
-      // Wood box outer dims per drawer (runner clearance 2x12.5mm for side-mount).
       // The sides run the box's depth; the back and front sit between them, so
       // they're the box width less two board thicknesses; the base goes under
       // the whole box. Board and base thicknesses are the company's drawer box
       // board and bottom material (Settings), or the room's frozen ones.
       const { box: boxMat, bottom: bottomMat } = resolveDrawerMaterials();
       const t = boxMat.thickness, b = bottomMat.thickness;
-      const boxW = round2(W - 2 * T - 25);
+      const boxW = round2(W - 2 * T - 2 * drawerRunnerClearance(config));
       const boxD = round2(D - 30 - 50);
       drawerBox = {
         type: 'Wood Box',

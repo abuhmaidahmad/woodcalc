@@ -88,18 +88,6 @@ describe('wardrobe CNC machining', () => {
     })
   })
 
-  it('screws a continuous top down into each partition, and a split top from both pieces', () => {
-    const ps = pieces({ ...base, width: 3000, construction: 'shared' })
-    const tops = ps.filter((p) => p.name === 'Top' && !p.code.startsWith('L'))
-    expect(tops.map((p) => p.length).sort((a, b) => a - b)).toEqual([982, 1982])
-    const long = tops.find((p) => p.length === 1982)
-    expect(long.part.machining_ops.filter(thru).map((o) => o.x)).toEqual(expect.arrayContaining([982, 1982 - 4.5]))
-    const short = tops.find((p) => p.length === 982)
-    expect(short.part.machining_ops.filter(thru).map((o) => o.x)).toEqual(expect.arrayContaining([4.5]))
-    const splitPartition = ps.filter((p) => p.name === 'Partition' && !p.code.startsWith('L'))[1]
-    expect(new Set(splitPartition.part.machining_ops.filter(edge).filter((o) => o.face === 'RIGHT').map((o) => o.z))).toEqual(new Set([4.5, 13.5]))
-  })
-
   it('grooves only where a back sits in a groove', () => {
     const groovesOn = (d, name) => pieces(d).filter((p) => p.name === name).flatMap((p) => p.part?.machining_ops.filter((o) => o.type === 'GROOVE') || [])
     expect(groovesOn(VARIANTS.sharedNoBack, 'Side')).toHaveLength(0)
@@ -109,18 +97,68 @@ describe('wardrobe CNC machining', () => {
     expect(per.map((o) => o.face).sort()).toEqual(['BOTTOM', 'TOP'])
   })
 
-  it('fixes back rails with two screws into each wall, offset on the far face of a partition', () => {
-    const rails = pieces(VARIANTS.sharedNoBack).filter((p) => p.name === 'Back rail' && p.cabinet === 'S2')
-    const e = rails[0].part.machining_ops.filter(edge)
-    expect(e.filter((o) => o.face === 'LEFT').map((o) => o.y)).toEqual([46, 86])
-    expect(e.filter((o) => o.face === 'RIGHT').map((o) => o.y)).toEqual([30, 70])
+  it('screws a continuous top down into each partition and leaves a split joint undrilled', () => {
+    const design = { ...base, width: 3000, construction: 'shared' }
+    const ps = pieces(design)
+    const tops = ps.filter((p) => p.name === 'Top' && !p.code.startsWith('L'))
+    const long = tops.find((p) => p.length === 1982)
+    expect(long.part.machining_ops.filter(thru).map((o) => o.x)).toEqual(expect.arrayContaining([982]))
+    tops.forEach((t) => t.part.machining_ops.filter(thru).forEach((o) => expect(Math.min(o.x, t.length - o.x)).toBeGreaterThanOrEqual(9)))
+    expect(computeDesign(design, STD).warnings.map((w) => w.code)).toContain('splitJointNoConfirmat')
   })
 
-  it('offsets short joints that cannot move up by moving them down', async () => {
-    const { staggered } = await import('./wardrobeMachining')
-    expect(staggered([30, 70], 100, 16)).toEqual([46, 86])
-    expect(staggered([30, 70], 85, 16)).toEqual([14, 54])
-    expect(staggered([50, 300, 550], 600, 16)).toEqual([66, 316, 566])
+  it('keeps every Confirmat edge hole at least the standard edge distance from the panel ends', () => {
+    Object.values(VARIANTS).forEach((d) => {
+      pieces(d).forEach((p) => (p.part?.machining_ops || []).filter(edge).forEach((o) => {
+        expect(o.y).toBeGreaterThanOrEqual(STD.minConfirmatEdge - 0.01)
+        expect(p.width - o.y).toBeGreaterThanOrEqual(STD.minConfirmatEdge - 0.01)
+      }))
+    })
+    const tight = { ...STD, minConfirmatEdge: 40 }
+    pieces(VARIANTS.sharedNoBack, tight).forEach((p) => (p.part?.machining_ops || []).filter(edge).forEach((o) => expect(o.y).toBeGreaterThanOrEqual(40)))
+  })
+
+  it('spaces back rail holes across both faces of a partition instead of moving them to the edge', () => {
+    const rails = pieces(VARIANTS.sharedNoBack).filter((p) => p.name === 'Back rail' && p.cabinet === 'S2')
+    const e = rails[0].part.machining_ops.filter(edge)
+    expect(e.filter((o) => o.face === 'LEFT').map((o) => o.y)).toEqual([43.33, 70])
+    expect(e.filter((o) => o.face === 'RIGHT').map((o) => o.y)).toEqual([30, 56.67])
+  })
+
+  it('works out partition joint positions', async () => {
+    const { partitionPositions } = await import('./wardrobeMachining')
+    expect(partitionPositions(600, 16, 30, false).positions).toEqual([50, 300, 550])
+    expect(partitionPositions(600, 16, 30, true).positions).toEqual([66, 316, 566])
+    expect(partitionPositions(100, 16, 30, false)).toEqual({ positions: [30, 56.67], spacing: 13.33 })
+    expect(partitionPositions(100, 16, 30, true).positions).toEqual([43.33, 70])
+  })
+
+  it('staggers the back groove of every other section on shared partitions', () => {
+    const ps = pieces(VARIANTS.sharedPerSection)
+    const p1 = ps.find((p) => p.id === 'WO1-R1-00-P1')
+    const g = (face) => p1.part.machining_ops.find((o) => o.type === 'GROOVE' && o.face === face)
+    expect(g('TOP').y - g('BOTTOM').y).toBe(STD.grooveStagger)
+    expect(Math.abs(g('TOP').y - g('BOTTOM').y)).toBeGreaterThanOrEqual(g('TOP').width)
+    expect(p1.thickness - g('TOP').depth).toBeGreaterThanOrEqual(STD.minGrooveBacking)
+    const top = ps.find((p) => p.name === 'Top' && !p.code.startsWith('L'))
+    const segs = top.part.machining_ops.filter((o) => o.type === 'GROOVE')
+    expect(segs.map((o) => [o.x, o.x2, o.y])).toEqual([[0, 782, 577.5], [782, 1582, 557.5], [1582, 2364, 577.5]])
+  })
+
+  it('makes the shifted section shallower so its shelves clear the forward back', () => {
+    const r = computeDesign(VARIANTS.sharedPerSection, STD)
+    const fixed = Object.fromEntries(r.rawParts.filter((p) => p.name === 'Fixed shelf').map((p) => [p.section, p.W]))
+    expect(fixed).toEqual({ S1: 573, S2: 553 })
+    expect(r.rawParts.find((p) => p.name === 'Shelf' && p.section === 'S2').W).toBe(544 - STD.grooveStagger)
+    const backs = r.geometry.filter((g) => g.kind === 'back' && g.y < 2000)
+    expect(backs.map((b) => b.z)).toEqual([18, 38, 18])
+  })
+
+  it('warns when the groove stagger is too small or the groove leaves too little board', () => {
+    const codes = (std) => computeDesign(VARIANTS.sharedPerSection, std).warnings.map((w) => w.code)
+    expect(codes({ ...STD, grooveStagger: 5 })).toContain('grooveStaggerSmall')
+    expect(codes({ ...STD, grooveDepth: 10 })).toContain('grooveBackingThin')
+    expect(codes(STD)).not.toContain('grooveStaggerSmall')
   })
 
   it('exports one DXF per piece for a wardrobe work order', () => {

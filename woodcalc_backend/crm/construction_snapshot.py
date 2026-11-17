@@ -14,7 +14,7 @@ room was confirmed with before. Both feed the confirm dialog (confirm_preview).
 from tenants.utils import (DEFAULT_DRAWER_BOTTOM_THICKNESS_MM, DEFAULT_DRAWER_BOX_THICKNESS_MM,
                            frozen_construction_settings)
 
-from .drawer_sizes import DRAWER_SIZE_FIELDS, system_sizes, used_drawer_systems
+from .drawer_sizes import DRAWER_SIZE_FIELDS, FIELD_DEFAULTS, system_sizes, used_drawer_systems
 
 DRAWER_CABINET_SUBTYPES = ('Drawers', '2Drw+Door')
 BACK_FIELDS = ('back_width_deduction', 'back_height_m', 'back_height_c', 'back_thickness')
@@ -83,7 +83,8 @@ def snapshot_changes(old, new):
         if a is None:
             continue
         for f in DRAWER_SIZE_FIELDS:
-            if a.get(f) != b.get(f):
+            before, after = a.get(f, FIELD_DEFAULTS.get(f)), b.get(f, FIELD_DEFAULTS.get(f))
+            if before != after:
                 changes.append({'setting': 'drawer_systems', 'system': name, 'field': f,
-                                'old': a.get(f), 'new': b.get(f)})
+                                'old': before, 'new': after})
     return changes

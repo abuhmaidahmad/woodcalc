@@ -68,3 +68,23 @@ class WardrobeWorkOrderTests(RoomLockTestBase):
         listed = self.api('owner').get(f'/api/manufacturing/work-orders/?room_id_ref={room.id}').data
         rows = listed['results'] if isinstance(listed, dict) else listed
         self.assertEqual(len(rows), 1)
+
+
+class RunnerClearanceSnapshotTests(RoomLockTestBase):
+    def test_old_snapshot_without_runner_clearance_is_not_a_change(self):
+        from crm.construction_snapshot import snapshot_changes
+        old = {'drawer_systems': {'Local': {'bottom_thickness': 8}}}
+        same = {'drawer_systems': {'Local': {'bottom_thickness': 8, 'runner_side_clearance': 12.5}}}
+        changed = {'drawer_systems': {'Local': {'bottom_thickness': 8, 'runner_side_clearance': 20}}}
+        systems = lambda o, n: [c for c in snapshot_changes(o, n) if c['setting'] == 'drawer_systems']
+        self.assertEqual(systems(old, same), [])
+        self.assertEqual([c['field'] for c in systems(old, changed)], ['runner_side_clearance'])
+
+    def test_confirming_freezes_the_runner_clearance(self):
+        from inventory.models import DrawerSystem
+        DrawerSystem.objects.create(tenant=self.company, name='Local', box_construction='wood_box', runner_side_clearance=20)
+        self.room.planner_data = {'cabinets': [{**self.room.planner_data['cabinets'][0], 'drawerSystem': 'Local', 'subtype': 'Drawers'}]}
+        self.room.save()
+        self.lock()
+        self.room.refresh_from_db()
+        self.assertEqual(self.room.construction_settings['drawer_systems']['Local']['runner_side_clearance'], 20)

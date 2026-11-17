@@ -2521,7 +2521,10 @@
       "islandTopOverhang": "Island top overhang",
       "minDrawerBoxH": "Min drawer box height",
       "spacerBoardSku": "Spacer board (stock)",
-      "partitionStagger": "Partition hole offset (both faces)"
+      "partitionStagger": "Partition hole offset (both faces)",
+      "grooveStagger": "Back groove stagger (shared partitions)",
+      "minGrooveBacking": "Min board behind a groove",
+      "minConfirmatEdge": "Min Confirmat distance from panel end"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2543,7 +2546,11 @@
       "backRailsDontFit": "Back rails ({{n}} × {{railH}} mm) do not fit in a {{h}} mm carcass.",
       "runTooShort": "Run {{run}} is only {{length}} mm long.",
       "walkwayNarrow": "Free floor at {{between}} is {{w}} mm, under the {{min}} mm walkway.",
-      "islandClearance": "The island is {{w}} mm from {{side}}, under the {{min}} mm walkway."
+      "islandClearance": "The island is {{w}} mm from {{side}}, under the {{min}} mm walkway.",
+      "grooveBackingThin": "A {{left}} mm back groove leaves less than {{min}} mm of board. Use a shallower groove or thicker board.",
+      "grooveStaggerSmall": "The back groove stagger {{stagger}} mm is less than the groove width {{min}} mm, so the grooves on the two faces of a partition overlap.",
+      "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart (min {{min}}).",
+      "splitJointNoConfirmat": "{{n}} top/bottom joint(s) are split over a partition with {{bearing}} mm bearing each. They are not drilled for Confirmat; fix them another way."
     },
     "construction": "Construction",
     "constructionTypes": {

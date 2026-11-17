@@ -13,7 +13,10 @@ The snapshot itself is taken by crm/construction_snapshot.py.
 DRAWER_SIZE_FIELDS = (
     'bottom_width_deduction', 'bottom_depth_deduction', 'bottom_thickness',
     'back_width_deduction', 'back_height_m', 'back_height_c', 'back_thickness',
+    'runner_side_clearance',
 )
+
+FIELD_DEFAULTS = {'runner_side_clearance': 12.5}
 
 
 def _num(v):

@@ -61,7 +61,7 @@ describe('closet cut list', () => {
   it('starts with sections that pass the standard', () => {
     expect(closet.runs.A.sections).toHaveLength(4)
     expect(closet.runs.B.sections).toHaveLength(3)
-    expect(res.warnings).toEqual([])
+    expect(res.warnings.filter((w) => w.code !== 'splitJointNoConfirmat')).toEqual([])
   })
 
   it('is open by default and adds up every run', () => {

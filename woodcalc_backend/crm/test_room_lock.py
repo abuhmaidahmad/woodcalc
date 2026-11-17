@@ -596,7 +596,8 @@ class ConstructionSettingsTests(RoomLockTestBase):
         self.room.refresh_from_db()
         self.assertEqual(self.room.construction_settings['drawer_systems'], {
             'LEGRABOX': {'bottom_width_deduction': 30, 'bottom_depth_deduction': 80, 'bottom_thickness': 8,
-                         'back_width_deduction': 75, 'back_height_m': 63, 'back_height_c': 167, 'back_thickness': 16},
+                         'back_width_deduction': 75, 'back_height_m': 63, 'back_height_c': 167, 'back_thickness': 16,
+                         'runner_side_clearance': 12.5},
             'Gone': None,  # not in the catalog: the room keeps the default sizes
         })
 
