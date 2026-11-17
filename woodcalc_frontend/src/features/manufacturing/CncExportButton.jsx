@@ -3,7 +3,6 @@ import { cncExport, cncZip } from '../kitchen_planner/machining/cncExport'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { loadCompanyStandards } from '../../api/companySettings'
 import { loadDrawerSystems } from '../../api/drawerSystems'
-import { cncSupported } from '../rooms/roomPieces'
 
 function download(bytes, name) {
   const url = window.URL.createObjectURL(new Blob([bytes], { type: 'application/zip' }))
@@ -18,7 +17,7 @@ function download(bytes, name) {
 // its piece ID, plus parts.csv. Any machining problems buildMachining found are
 // listed first, and the file is only made once someone chooses to go ahead.
 // loadRoom() returns the work order's room (or null when it has none).
-export default function CncExportButton({ workOrder, loadRoom, room: knownRoom = null, style }) {
+export default function CncExportButton({ workOrder, loadRoom, style }) {
   const { t } = useTranslation()
   const [busy, setBusy] = useState(false)
   const [review, setReview] = useState(null) // { errors, files }
@@ -30,7 +29,6 @@ export default function CncExportButton({ workOrder, loadRoom, room: knownRoom =
     try {
       const room = workOrder?.room_id_ref ? await loadRoom() : null
       if (!room) { setMessage(t('cncExport.noRoom')); return }
-      if (!cncSupported(room)) { setMessage(t('cncExport.notForWardrobes')); return }
       const [, drawerSystems] = await Promise.all([loadCompanyStandards(), loadDrawerSystems()])
       const out = cncExport(workOrder, room, { drawerSystems })
       if (out.pieces.length === 0) { setMessage(t('cncExport.noPieces')); return }
@@ -50,14 +48,12 @@ export default function CncExportButton({ workOrder, loadRoom, room: knownRoom =
     setReview(null)
   }
 
-  const blocked = !cncSupported(knownRoom)
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-      <button onClick={start} disabled={busy || !workOrder || blocked} title={blocked ? t('cncExport.notForWardrobes') : undefined} data-cnc-export
-        style={{ padding: '6px 12px', background: '#fff', color: '#2c3e50', border: '1px solid #2c3e50', borderRadius: 6, cursor: blocked ? 'not-allowed' : 'pointer', opacity: blocked ? 0.45 : 1, fontSize: 11, fontWeight: 700, ...style }}>
+      <button onClick={start} disabled={busy || !workOrder} data-cnc-export
+        style={{ padding: '6px 12px', background: '#fff', color: '#2c3e50', border: '1px solid #2c3e50', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700, ...style }}>
         {busy ? t('cncExport.working') : t('cncExport.button')}
       </button>
-      {blocked && !message && <div style={{ fontSize: 11, color: '#888' }}>{t('cncExport.notForWardrobes')}</div>}
       {message && <div style={{ fontSize: 11, color: '#888' }}>{message}</div>}
       {review && (
         <div role="alert" style={{ textAlign: 'start', maxWidth: 420, background: '#FFF8E6', border: '1.5px solid #F0C36D', borderRadius: 8, padding: 12, fontSize: 12 }}>

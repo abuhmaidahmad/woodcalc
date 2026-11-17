@@ -1,5 +1,6 @@
 import { MACHINING_CONFIG } from '../kitchen_planner/machining/config'
 import { getHingeCount } from '../kitchen_planner/formulaEngine'
+import { createKit, opList } from './wardrobeMachining'
 
 export const ZONE_TYPES = ['shelves', 'hang', 'hang2', 'drawers', 'open']
 export const PRESET_IDS = ['longHang', 'doubleHang', 'shelves', 'hangDrawers', 'shelvesDrawers']
@@ -285,6 +286,13 @@ export function computeWardrobe(design, std) {
   const backGrow = 2 * (std.grooveDepth - std.backClearance)
   const widths = sectionWidths(design)
   const { bays, bounds } = sectionBays(widths, cw, T, shared)
+  const kit = createKit(std, D, T)
+  const pinColumns = {
+    frontY: D - front,
+    backY: backType !== 'none' ? r1(kit.grooveY - kit.grooveW / 2) : r1(D - (front - usableDepth)),
+  }
+  const wallSets = { body: [], loft: [] }
+  const bayWalls = (loft) => wallSets[loft ? 'loft' : 'body']
   const sectionsOut = []
   let railMm = 0
 
@@ -297,13 +305,22 @@ export function computeWardrobe(design, std) {
   const widthSum = r1(widths.reduce((a, w) => a + w, 0))
   if (Math.abs(widthSum - cw) > 0.5) warn('widthMismatch', { sum: widthSum, total: cw }, 'error')
 
-  const carcass = (section, x, w, y0, h, loft) => {
+  const carcass = (section, si, x, w, y0, h, loft) => {
     const innerW = w - 2 * T
-    part({ name: 'Side', L: h, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section, loft })
-    part({ name: 'Top', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft })
-    part({ name: 'Bottom', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft })
+    const side = kit.wall(y0, h)
+    const topOps = opList()
+    const bottomOps = opList()
+    part({ name: 'Side', L: h, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section, loft, ops: side.ops })
+    part({ name: 'Top', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft, ops: topOps })
+    part({ name: 'Bottom', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft, ops: bottomOps })
     part({ name: 'Back', L: h - 2 * T + backGrow, W: innerW + backGrow, T: std.backT, qty: 1, material: 'Back', edges: '', section, loft })
     addHw('confirmat', 4 * confirmatPerJoint(D))
+    ;[[topOps, y0 + h - T / 2], [bottomOps, y0 + T / 2]].forEach(([ops, absY]) => {
+      ;['LEFT', 'RIGHT'].forEach((end) => kit.join(side, 'TOP', ops, end, { absY, frontZ: D, length: D, panelLength: innerW }))
+      kit.backGroove(ops, innerW)
+    })
+    kit.backGroove(side.ops, h)
+    bayWalls(loft)[si] = { left: { w: side, face: 'TOP' }, right: { w: side, face: 'TOP' } }
     box({ kind: 'carcass', x, y: y0, z: 0, w: T, h, d: D })
     box({ kind: 'carcass', x: x + w - T, y: y0, z: 0, w: T, h, d: D })
     box({ kind: 'carcass', x: x + T, y: y0, z: 0, w: innerW, h: T, d: D })
@@ -311,15 +328,19 @@ export function computeWardrobe(design, std) {
     box({ kind: 'back', x: x + T, y: y0 + T, z: std.grooveSetback, w: innerW, h: h - 2 * T, d: std.backT })
   }
 
-  const backRails = (section, left, innerW, y0, h, loft) => {
+  const backRails = (section, si, left, innerW, y0, h, loft) => {
     if (railCount <= 0 || innerW <= 0) return
     const railH = std.backRailH
     const room = h - 2 * T - railH
     if (railCount * railH > h - 2 * T) warn('backRailsDontFit', { h: r1(h), n: railCount, railH }, 'error')
-    part({ name: 'Back rail', L: innerW, W: railH, T, qty: railCount, material: 'Carcass', edges: 'F', section, loft })
+    const railOps = opList()
+    part({ name: 'Back rail', L: innerW, W: railH, T, qty: railCount, material: 'Carcass', edges: 'F', section, loft, ops: railOps })
     addHw('confirmat', 2 * railCount * confirmatPerJoint(railH))
+    const walls = bayWalls(loft)[si]
     for (let k = 0; k < railCount; k++) {
       const y = railCount === 1 ? y0 + h - T - railH : y0 + T + room - (room * k) / (railCount - 1)
+      kit.railJoin(walls.left.w, walls.left.face, railOps, 'LEFT', { absY: y, length: railH, panelLength: innerW })
+      kit.railJoin(walls.right.w, walls.right.face, railOps, 'RIGHT', { absY: y, length: railH, panelLength: innerW })
       box({ kind: 'backRail', x: left, y: r1(y), z: 0, w: innerW, h: railH, d: T })
     }
   }
@@ -333,21 +354,51 @@ export function computeWardrobe(design, std) {
     const pz = D - pD
     const sideL = sidesFull ? h : h - 2 * T
     const sideY = sidesFull ? y0 : y0 + T
-    part({ name: 'Side', L: sideL, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+    const grooved = backType !== 'none'
+    const leftSide = kit.wall(sideY, sideL)
+    const rightSide = kit.wall(sideY, sideL)
+    ;[leftSide, rightSide].forEach((w) => {
+      part({ name: 'Side', L: sideL, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops: w.ops })
+      if (grooved) kit.backGroove(w.ops, sideL)
+    })
     box({ kind: 'carcass', x: 0, y: sideY, z: 0, w: T, h: sideL, d: D })
     box({ kind: 'carcass', x: cw - T, y: sideY, z: 0, w: T, h: sideL, d: D })
     const partL = partFull ? h : h - 2 * T
     const partY = partFull ? y0 : y0 + T
+    const parts = bounds.map(() => {
+      const w = kit.wall(partY, partL, { partition: true })
+      part({ name: 'Partition', L: partL, W: pD, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops: w.ops })
+      if (backType === 'perSection') { kit.backGroove(w.ops, partL, 'TOP'); kit.backGroove(w.ops, partL, 'BOTTOM') }
+      return w
+    })
     bounds.forEach((b) => box({ kind: 'carcass', x: b - T / 2, y: partY, z: pz, w: T, h: partL, d: pD }))
-    if (bounds.length) part({ name: 'Partition', L: partL, W: pD, T, qty: bounds.length, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+    const walls = bayWalls(loft)
+    bays.forEach((bay, i) => {
+      walls[i] = {
+        left: i === 0 ? { w: leftSide, face: 'TOP' } : { w: parts[i - 1], face: 'BOTTOM' },
+        right: i === n - 1 ? { w: rightSide, face: 'TOP' } : { w: parts[i], face: 'TOP' },
+      }
+    })
     const panel = (name, a, b, y) => {
-      part({ name, L: b - a, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+      const ops = opList()
+      part({ name, L: b - a, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops })
+      if (grooved) kit.backGroove(ops, b - a)
       box({ kind: 'carcass', x: a, y, z: 0, w: r1(b - a), h: T, d: D })
+      return ops
     }
+    const ends = [[y0 + h - T, y0 + h - T / 2, 'RIGHT', 'top'], [y0, y0 + T / 2, 'LEFT', 'bottom']]
     if (partFull) {
-      bays.forEach((bay) => {
-        panel('Top', bay.left, bay.left + bay.innerW, y0 + h - T)
-        panel('Bottom', bay.left, bay.left + bay.innerW, y0)
+      bays.forEach((bay, i) => {
+        ends.forEach(([py, absY, wallEnd]) => {
+          const ops = panel(py === y0 ? 'Bottom' : 'Top', bay.left, bay.left + bay.innerW, py)
+          const L = bay.innerW
+          const outerLeft = i === 0 && !sidesFull
+          const outerRight = i === n - 1 && !sidesFull
+          if (outerLeft) kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
+          else kit.join(walls[i].left.w, walls[i].left.face, ops, 'LEFT', { absY, frontZ: D, length: walls[i].left.w.partition ? pD : D, panelLength: L })
+          if (outerRight) kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
+          else kit.join(walls[i].right.w, walls[i].right.face, ops, 'RIGHT', { absY, frontZ: D, length: walls[i].right.w.partition ? pD : D, panelLength: L })
+        })
       })
       addHw('confirmat', 4 * confirmatPerJoint(D) + 4 * (n - 1) * confirmatPerJoint(pD))
     } else {
@@ -355,9 +406,24 @@ export function computeWardrobe(design, std) {
       const b = sidesFull ? cw - T : cw
       const { pieces, tooLong } = splitRun(a, b, bounds, std.sheetL)
       if (tooLong) warn('panelTooLong', { part: 'Top', max: std.sheetL })
-      pieces.forEach(([pa, pb]) => {
-        panel('Top', pa, pb, y0 + h - T)
-        panel('Bottom', pa, pb, y0)
+      ends.forEach(([py, absY, wallEnd]) => {
+        pieces.forEach(([pa, pb]) => {
+          const ops = panel(py === y0 ? 'Bottom' : 'Top', pa, pb, py)
+          const L = pb - pa
+          if (pa === a) {
+            if (sidesFull) kit.join(leftSide, 'TOP', ops, 'LEFT', { absY, frontZ: D, length: D, panelLength: L })
+            else kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
+          }
+          if (pb === b) {
+            if (sidesFull) kit.join(rightSide, 'TOP', ops, 'RIGHT', { absY, frontZ: D, length: D, panelLength: L })
+            else kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
+          }
+          bounds.forEach((bd, k) => {
+            if (bd > pa + 0.01 && bd < pb - 0.01) kit.over(ops, bd - pa, parts[k], wallEnd, { length: pD })
+            else if (Math.abs(bd - pb) <= 0.01) kit.over(ops, L - T / 4, parts[k], wallEnd, { length: pD, z: (3 * T) / 4 })
+            else if (Math.abs(bd - pa) <= 0.01) kit.over(ops, T / 4, parts[k], wallEnd, { length: pD, z: T / 4 })
+          })
+        })
       })
       addHw('confirmat', 4 * confirmatPerJoint(D) + 2 * bounds.length * confirmatPerJoint(pD) + 2 * (pieces.length - 1) * confirmatPerJoint(pD))
     }
@@ -378,7 +444,7 @@ export function computeWardrobe(design, std) {
         box({ kind: 'back', x: bay.left, y: y0 + T, z: std.grooveSetback, w: bay.innerW, h: h - 2 * T, d: std.backT })
       })
     } else {
-      bays.forEach((bay, i) => backRails(`S${i + 1}`, bay.left, bay.innerW, y0, h, loft))
+      bays.forEach((bay, i) => backRails(`S${i + 1}`, i, bay.left, bay.innerW, y0, h, loft))
     }
   }
 
@@ -407,17 +473,21 @@ export function computeWardrobe(design, std) {
     if (w < std.minSectionW) warn('sectionTooNarrow', { section, w, min: std.minSectionW }, 'error')
     if (w > std.maxSectionW) warn('sectionTooWide', { section, w, max: std.maxSectionW })
     if (innerW > std.maxShelfSpan) warn('shelfSpan', { section, w: r1(innerW), max: std.maxShelfSpan })
-    if (!shared) carcass(section, x, w, std.plinthH, bodyH, false)
+    if (!shared) carcass(section, si, x, w, std.plinthH, bodyH, false)
 
     const { zones, autoH } = resolveZones(s.zones, innerH, std)
     if (autoH < 100) warn('zonesOverflow', { section, h: autoH }, autoH < 0 ? 'error' : 'warn')
     const base = std.plinthH + T
+    const walls = bayWalls(false)[si]
     zones.forEach((z, zi) => {
       const yb = base + z.bottom
       const yt = base + z.top
       if (zi < zones.length - 1) {
-        part({ name: 'Fixed shelf', L: innerW, W: fixedShelfDepth, T, qty: 1, material: 'Carcass', edges: 'F', section })
+        const fsOps = opList()
+        part({ name: 'Fixed shelf', L: innerW, W: fixedShelfDepth, T, qty: 1, material: 'Carcass', edges: 'F', section, ops: fsOps })
         addHw('confirmat', 2 * confirmatPerJoint(fixedShelfDepth))
+        kit.join(walls.left.w, walls.left.face, fsOps, 'LEFT', { absY: yb - T / 2, frontZ: front, length: fixedShelfDepth, panelLength: innerW })
+        kit.join(walls.right.w, walls.right.face, fsOps, 'RIGHT', { absY: yb - T / 2, frontZ: front, length: fixedShelfDepth, panelLength: innerW })
         box({ kind: 'shelf', x: left, y: yb - T, z: front - fixedShelfDepth, w: innerW, h: T, d: fixedShelfDepth })
       }
       if (z.type === 'shelves' && z.n > 0) {
@@ -426,6 +496,8 @@ export function computeWardrobe(design, std) {
         part({ name: 'Shelf', L: innerW - 2 * std.shelfSideClearance, W: shelfDepth, T, qty: z.n, material: 'Carcass', edges: 'F', section })
         addHw('shelfPin', 4 * z.n)
         for (let k = 1; k <= z.n; k++) {
+          const shelfBottom = yb + k * gap + (k - 1) * T
+          ;[walls.left, walls.right].forEach((wl) => kit.pins(wl.w, wl.face, shelfBottom, pinColumns))
           box({ kind: 'shelf', x: left + std.shelfSideClearance, y: yb + k * gap + (k - 1) * T, z: front - std.shelfFrontSetback - shelfDepth, w: innerW - 2 * std.shelfSideClearance, h: T, d: shelfDepth })
         }
       }
@@ -498,7 +570,7 @@ export function computeWardrobe(design, std) {
     }
     let loftDoors = 0
     if (loftH > 0) {
-      if (!shared) carcass(section, x, w, std.plinthH + bodyH, loftH, true)
+      if (!shared) carcass(section, si, x, w, std.plinthH + bodyH, loftH, true)
       if (design.doorType !== 'none') {
         loftDoors = hinged ? doors : Math.max(1, Math.ceil(w / std.maxDoorW))
         hingedDoors(section, si, x, w, std.plinthH + bodyH, loftH, loftDoors, true)

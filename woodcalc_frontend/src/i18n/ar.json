@@ -665,8 +665,7 @@
     "failed": "فشل التصدير",
     "errorsTitle": "{{count}} مشكلة في التشغيل — راجعها قبل الإرسال إلى CNC",
     "cancel": "إلغاء",
-    "exportAnyway": "تصدير على أي حال",
-    "notForWardrobes": "تصدير CNC غير متاح لغرف الخزائن بعد."
+    "exportAnyway": "تصدير على أي حال"
   },
   "confirmPreview": {
     "warningsTitle": "أنظمة الأدراج هذه بلا مقاسات في كتالوج المواد:",
@@ -2521,7 +2520,8 @@
       "minWalkway": "أقل ممر",
       "islandTopOverhang": "بروز سطح الجزيرة",
       "minDrawerBoxH": "أقل ارتفاع لعلبة الدرج",
-      "spacerBoardSku": "لوح التسميكات (من المخزون)"
+      "spacerBoardSku": "لوح التسميكات (من المخزون)",
+      "partitionStagger": "إزاحة ثقوب القاطع (الوجهين)"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",

@@ -665,8 +665,7 @@
     "failed": "Export failed",
     "errorsTitle": "{{count}} machining problem(s) — check before sending to the CNC",
     "cancel": "Cancel",
-    "exportAnyway": "Export anyway",
-    "notForWardrobes": "CNC export isn't available for wardrobe rooms yet."
+    "exportAnyway": "Export anyway"
   },
   "confirmPreview": {
     "warningsTitle": "These drawer systems have no sizes in the Materials Catalog:",
@@ -2521,7 +2520,8 @@
       "minWalkway": "Min walkway",
       "islandTopOverhang": "Island top overhang",
       "minDrawerBoxH": "Min drawer box height",
-      "spacerBoardSku": "Spacer board (stock)"
+      "spacerBoardSku": "Spacer board (stock)",
+      "partitionStagger": "Partition hole offset (both faces)"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",

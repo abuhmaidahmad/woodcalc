@@ -1,4 +1,5 @@
 import { asciiIdPart } from '../kitchen_planner/machining/pieces'
+import { validatePart } from '../kitchen_planner/machining/schema'
 import { normalizeStandard } from './wardrobeStandard'
 import { computeDesign } from './closetEngine'
 import { PART_NAMES_AR } from './wardrobeEngine'
@@ -67,8 +68,10 @@ export function piecesFromParts(rawParts, { woNumber = 'WO', roomNumber = 0, mat
       const n = (counters.get(key) || 0) + 1
       counters.set(key, n)
       const pieceCode = `${code}${n}`
+      const id = `${asciiIdPart(woNumber, 'WO')}-R${roomNumber ?? 0}-${group}-${pieceCode}`
+      const part = Array.isArray(p.ops) ? { id, length: p.L, width: p.W, thickness: p.T, visibleFace: 'TOP', machining_ops: [...p.ops] } : null
       out.push({
-        id: `${asciiIdPart(woNumber, 'WO')}-R${roomNumber ?? 0}-${group}-${pieceCode}`,
+        id,
         code: pieceCode,
         cabinetId: p.section,
         badge: group,
@@ -83,8 +86,8 @@ export function piecesFromParts(rawParts, { woNumber = 'WO', roomNumber = 0, mat
         materialName,
         grainLocked: kind === 'front',
         edgeBanding: p.edges ? edgeBandingFor(p.edges, band) : { T: NONE, B: NONE, L: NONE, R: NONE },
-        part: null,
-        errors: [],
+        part,
+        errors: part ? validatePart(part) : [],
       })
     }
   })

@@ -108,7 +108,6 @@ function CuttingOptimizerModule() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [bomLoading, setBomLoading] = useState(false)
-  const [bomRoom, setBomRoom] = useState(null)
   const [preselectedFromUrl, setPreselectedFromUrl] = useState(false)
   const [autoLoaded, setAutoLoaded] = useState(false)
 
@@ -352,7 +351,6 @@ function CuttingOptimizerModule() {
       const res = await fetch(`${API}/api/crm/rooms/${wo.room_id_ref}/`, { headers: authHeaders })
       if (!res.ok) throw new Error(t('cuttingOptimizer.errLoadBom'))
       const room = await res.json()
-      setBomRoom({ ...room, workOrderId: wo.id })
       const [, drawerSystems] = await Promise.all([loadCompanyStandards(), loadDrawerSystems()])
       const pieces = roomPieces(wo, room, { drawerSystems })
       if (pieces.length === 0) {
@@ -455,7 +453,7 @@ function CuttingOptimizerModule() {
             </select>
             {selectedWorkOrder && (
               <div style={{ marginTop: 8 }}>
-                <CncExportButton workOrder={selectedWorkOrder} loadRoom={loadWorkOrderRoom} room={bomRoom && String(bomRoom.workOrderId) === String(workOrderId) ? bomRoom : null} />
+                <CncExportButton workOrder={selectedWorkOrder} loadRoom={loadWorkOrderRoom} />
               </div>
             )}
           </div>

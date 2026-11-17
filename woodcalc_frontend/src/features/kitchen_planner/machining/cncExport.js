@@ -4,7 +4,7 @@
 // Pieces the CNC doesn't drill still get a DXF (their outline), so every piece
 // in the cut list has a file. errors lists buildMachining's problems, piece by
 // piece, so they can be shown before anything is sent to the machine.
-import { workOrderPieces } from './pieces';
+import { roomPieces } from '../../rooms/roomPieces';
 import { partToDxf } from './dxf';
 import { makeZip } from './zip';
 
@@ -30,7 +30,7 @@ export function pieceDxf(p) {
 
 // { pieces, errors: [{ id, message }], files: [{ name, data }] }
 export function cncExport(workOrder, room, options = {}) {
-  const pieces = workOrderPieces(workOrder, room, options);
+  const pieces = roomPieces(workOrder, room, options);
   const errors = pieces.flatMap(p => p.errors.map(message => ({ id: p.id, message })));
   const files = [
     ...pieces.map(p => ({ name: `${p.id}.dxf`, data: pieceDxf(p) })),

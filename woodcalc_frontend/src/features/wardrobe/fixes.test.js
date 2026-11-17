@@ -5,7 +5,6 @@ import { defaultCloset, computeCloset } from './closetEngine'
 import { priceWardrobe, pickMaterials } from './wardrobePricing'
 import { materialSnapshot } from './wardrobeRoom'
 import { materialFor } from './wardrobePieces'
-import { cncSupported } from '../rooms/roomPieces'
 
 const islandPart = (r, name) => r.parts.find((p) => p.name === name && p.sections.every((s) => s.startsWith('I')))
 
@@ -56,13 +55,5 @@ describe('spacer stock board', () => {
     const snap = materialSnapshot({ Carcass: carcass, spacer })
     expect(materialFor('Carcass', 25, snap)).toEqual({ sku: 'CHIP25', materialName: 'Chipboard 25' })
     expect(materialFor('Carcass', 18, snap)).toEqual({ sku: 'EG-W980', materialName: 'White' })
-  })
-})
-
-describe('CNC export guard', () => {
-  it('is blocked for wardrobe rooms only', () => {
-    expect(cncSupported({ room_type: 'wardrobe', planner_data: {} })).toBe(false)
-    expect(cncSupported({ room_type: 'kitchen', planner_data: { cabinets: [{ id: 1 }] } })).toBe(true)
-    expect(cncSupported(null)).toBe(true)
   })
 })
