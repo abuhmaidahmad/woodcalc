@@ -2450,7 +2450,8 @@
       "sliding": "الأبواب الجرارة",
       "shared": "القواطع المشتركة",
       "prices": "الأسعار (دينار)",
-      "closet": "غرفة الملابس"
+      "closet": "غرفة الملابس",
+      "cnc": "ثقوب CNC"
     },
     "std": {
       "carcassT": "سماكة الهيكل",
@@ -2532,7 +2533,23 @@
       "connectorDiameter": "قطر ثقب الوصلة",
       "connectorEdge": "بعد الوصلة عن طرفي اللوح",
       "connectorInset": "بعد الوصلة عن الأمام/الخلف",
-      "priceCarcassConnector": "وصلة هيكل"
+      "priceCarcassConnector": "وصلة هيكل",
+      "hingeStagger": "إزاحة المفصلات (قواطع مشتركة)",
+      "hingePlateFront": "ثقوب قاعدة المفصلة من الأمام",
+      "hingePlateSpacing": "تباعد ثقوب قاعدة المفصلة",
+      "hingePlateDiameter": "قطر ثقوب قاعدة المفصلة",
+      "hingePlateDepth": "عمق ثقوب قاعدة المفصلة",
+      "runnerLine": "خط السكة فوق قاعدة الدرج",
+      "runnerHoleFront": "أول ثقب سكة من الأمام",
+      "runnerHolePitch": "تباعد ثقوب السكة",
+      "runnerHoleDiameter": "قطر ثقوب السكة",
+      "runnerHoleDepth": "عمق ثقوب السكة",
+      "runnerStagger": "إزاحة ثقوب السكة (قواطع مشتركة)",
+      "railSocketHoles": "ثقوب لكل حامل ماسورة",
+      "railSocketSpacing": "تباعد ثقوب حامل الماسورة",
+      "railSocketDiameter": "قطر ثقوب حامل الماسورة",
+      "railSocketDepth": "عمق ثقوب حامل الماسورة",
+      "railSocketStagger": "إزاحة حوامل المواسير (قواطع مشتركة)"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2558,7 +2575,8 @@
       "grooveBackingThin": "مجرى الظهر يترك {{left}} مم من اللوح، أقل من {{min}} مم. استخدم مجرى أقل عمقاً أو لوحاً أسمك.",
       "grooveStaggerSmall": "إزاحة مجرى الظهر {{stagger}} مم أقل من عرض المجرى {{min}} مم، فيتداخل المجريان على وجهي القاطع.",
       "confirmatCrowded": "ثقوب الكونفيرمات على وصلة بطول {{length}} مم في القاطع متقاربة عبر وجهيه ({{spacing}} مم، الحد الأدنى {{min}}).",
-      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}})."
+      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}}).",
+      "doorNoHingeWall": "{{section}}: الباب الأوسط لا يوجد له جانب أو قاطع يركب عليه. استخدم بابين أو أضف قسماً."
     },
     "construction": "طريقة التصنيع",
     "constructionTypes": {

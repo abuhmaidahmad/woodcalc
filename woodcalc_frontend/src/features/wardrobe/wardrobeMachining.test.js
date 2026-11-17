@@ -7,6 +7,7 @@ import { buildWardrobePlannerData } from './wardrobeRoom'
 import { piecesFromParts } from './wardrobePieces'
 import { cncExport } from '../kitchen_planner/machining/cncExport'
 import { MACHINING_CONFIG } from '../kitchen_planner/machining/config'
+import { holeClashes } from './wardrobeMachining'
 
 const pieces = (design, std = STD) => piecesFromParts(computeDesign(design, std).rawParts, { woNumber: 'WO1', roomNumber: 1 })
 const ops = (ps, pred) => ps.flatMap((p) => (p.part ? p.part.machining_ops.filter(pred).map((op) => ({ ...op, piece: p })) : []))
@@ -189,6 +190,81 @@ describe('wardrobe CNC machining', () => {
     expect(codes({ ...STD, grooveStagger: 5 })).toContain('grooveStaggerSmall')
     expect(codes({ ...STD, grooveDepth: 10 })).toContain('grooveBackingThin')
     expect(codes(STD)).not.toContain('grooveStaggerSmall')
+  })
+
+  it('drills hinge cups on each door and the mounting plates on the wall it hangs on, on one 32 mm grid', () => {
+    const ps = pieces(base)
+    const doors = ps.filter((p) => p.name === 'Door' && p.cabinet === 'S1' && !p.code.startsWith('LD'))
+    const H = MACHINING_CONFIG.hinge
+    const cups = (p) => p.part.machining_ops.filter((o) => o.rule === 'hinge')
+    expect(doors.map((d) => cups(d).length)).toEqual([4, 4])
+    expect(cups(doors[0])[0]).toEqual(expect.objectContaining({ face: 'TOP', y: H.edgeDistance, diameter: H.cupDiameter, depth: H.cupDepth }))
+    expect(cups(doors[1])[0].y).toBe(doors[1].width - H.edgeDistance)
+    const side = ps.find((p) => p.name === 'Side' && p.cabinet === 'S1' && !p.code.startsWith('L'))
+    const plates = side.part.machining_ops.filter((o) => o.rule === 'hinge_plate')
+    expect(plates).toHaveLength(8)
+    expect(plates.every((o) => o.y === STD.hingePlateFront && o.face === 'TOP')).toBe(true)
+    const doorBottom = 100 + STD.doorGap / 2
+    cups(doors[0]).forEach((c) => {
+      const centre = doorBottom + c.x - 100
+      expect(plates.some((o) => Math.abs(o.x - (centre - 16)) < 0.01)).toBe(true)
+      expect(((centre - 18 - 16) % 32 + 32) % 32).toBeCloseTo(0, 5)
+    })
+  })
+
+  it('moves hinges of every other section on shared partitions so plates never meet', () => {
+    const d = { ...base, construction: 'shared' }
+    const ps = pieces(d)
+    const p1 = ps.find((p) => p.id === 'WO1-R1-00-P1')
+    const top = p1.part.machining_ops.filter((o) => o.rule === 'hinge_plate' && o.face === 'TOP')
+    const bottom = p1.part.machining_ops.filter((o) => o.rule === 'hinge_plate' && o.face === 'BOTTOM')
+    expect(top.length).toBeGreaterThan(0)
+    expect(bottom.length).toBeGreaterThan(0)
+    top.forEach((a) => bottom.forEach((b) => expect(Math.abs(a.x - b.x)).toBeGreaterThanOrEqual(16)))
+  })
+
+  it('drills runner holes on the spacers of internal drawers', () => {
+    const spacer = pieces(base).find((p) => p.name === 'Drawer spacer')
+    const holes = spacer.part.machining_ops.filter((o) => o.rule === 'runner')
+    const perDrawer = [37, 165, 293, 421].length
+    expect(holes).toHaveLength(3 * perDrawer)
+    expect(holes.filter((o) => o.x === STD.runnerLine).map((o) => o.y)).toEqual([37, 165, 293, 421].map((y) => y + STD.frontT))
+    expect(holes[0]).toEqual(expect.objectContaining({ face: 'TOP', diameter: STD.runnerHoleDiameter, depth: STD.runnerHoleDepth }))
+  })
+
+  it('drills external drawer runners into the island walls, offset in alternate sections', () => {
+    const closet = defaultCloset(STD)
+    const d = { ...base, mode: 'closet', closet: { ...closet, island: { ...closet.island, enabled: true } } }
+    const ps = pieces(d).filter((p) => p.cabinet.startsWith('I1'))
+    const part = ps.find((p) => p.name === 'Partition')
+    const r = (f) => part.part.machining_ops.filter((o) => o.rule === 'runner' && o.face === f)
+    expect(r('TOP').length).toBe(3 * 2)
+    expect(r('BOTTOM')[0].y - r('TOP')[0].y).toBe(STD.runnerStagger)
+  })
+
+  it('drills rail sockets on both walls of each hanging rail', () => {
+    const ps = pieces(base)
+    const side = ps.find((p) => p.name === 'Side' && p.cabinet === 'S1' && !p.code.startsWith('L'))
+    const sockets = side.part.machining_ops.filter((o) => o.rule === 'rail_socket')
+    expect(sockets).toHaveLength(STD.railSocketHoles)
+    expect(sockets.map((o) => o.y)).toEqual([574 / 2 - 16, 574 / 2 + 16])
+  })
+
+  it('reports holes that overlap or meet through the board, and lets identical holes share', () => {
+    const part = { id: 'X', length: 500, width: 500, thickness: 18, machining_ops: [
+      { type: 'HOLE', face: 'TOP', x: 100, y: 37, diameter: 5, depth: 12, through: false, rule: 'shelf_pin' },
+      { type: 'HOLE', face: 'TOP', x: 100, y: 37, diameter: 5, depth: 12, through: false, rule: 'hinge_plate' },
+      { type: 'HOLE', face: 'TOP', x: 200, y: 37, diameter: 5, depth: 12, through: false, rule: 'shelf_pin' },
+      { type: 'HOLE', face: 'TOP', x: 203, y: 37, diameter: 5, depth: 12, through: false, rule: 'hinge_plate' },
+      { type: 'HOLE', face: 'BOTTOM', x: 300, y: 37, diameter: 5, depth: 12, through: false, rule: 'runner' },
+      { type: 'HOLE', face: 'TOP', x: 300, y: 37, diameter: 5, depth: 5, through: false, rule: 'shelf_pin' },
+      { type: 'HOLE', face: 'BOTTOM', x: 400, y: 37, diameter: 5, depth: 12, through: false, rule: 'runner' },
+      { type: 'HOLE', face: 'TOP', x: 400, y: 37, diameter: 5, depth: 12, through: false, rule: 'shelf_pin' },
+    ] }
+    const out = holeClashes(part)
+    expect(out).toHaveLength(2)
+    expect(out[0]).toContain('(200, 37)')
+    expect(out[1]).toContain('(400, 37)')
   })
 
   it('exports one DXF per piece for a wardrobe work order', () => {

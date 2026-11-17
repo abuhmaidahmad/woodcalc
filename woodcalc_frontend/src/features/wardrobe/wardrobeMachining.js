@@ -1,5 +1,6 @@
 import { MACHINING_CONFIG } from '../kitchen_planner/machining/config'
 import { confirmatPositions } from '../kitchen_planner/machining/rules/confirmat'
+import { hingePositions } from '../kitchen_planner/machining/rules/hinge'
 import { hole, edgeHole, groove } from '../kitchen_planner/machining/schema'
 
 const r2 = (v) => Math.round((v + Number.EPSILON) * 100) / 100
@@ -41,7 +42,7 @@ export function createKit(std, D, T, warn = () => {}) {
   const other = (face) => (face === 'TOP' ? 'BOTTOM' : 'TOP')
   const minFaceGap = std.minConfirmatSpacing
 
-  const wall = (y0, length, { partition = false } = {}) => ({ ops: opList(), y0, length, frontZ: D, partition })
+  const wall = (y0, length, { partition = false, frontZ = D } = {}) => ({ ops: opList(), y0, length, frontZ, partition })
 
   const positionsFor = (w, face, length) => {
     if (!w.partition) return jointPositions(length, minEdge)
@@ -78,13 +79,60 @@ export function createKit(std, D, T, warn = () => {}) {
     ops.add(groove({ face, x: r2(x0), y, x2: r2(x1), y2: y, width: grooveW, depth: std.grooveDepth, rule: 'back_groove' }))
   }
 
-  const pins = (w, face, shelfBottomAbs, { frontY, backY }) => {
+  const pins = (w, face, shelfBottomAbs, { frontY, backY }, base) => {
     const shift = w.partition && face === 'BOTTOM' ? std.partitionStagger : 0
-    const mid = shelfBottomAbs - w.y0 - PIN.shelfPinOffset
+    const mid = snap(shelfBottomAbs - PIN.shelfPinOffset, base, faceGrid(w, face)) - w.y0
     ;[mid - PIN.pitch, mid, mid + PIN.pitch].forEach((x) => {
       [frontY + PIN.frontDistance + shift, backY - PIN.backDistance + shift].forEach((y) => {
         w.ops.add(hole({ face, x, y, diameter: PIN.diameter, depth: PIN.depth, rule: 'shelf_pin' }))
       })
+    })
+  }
+
+  const HINGE = MACHINING_CONFIG.hinge
+  const snap = (abs, base, offset = 0) => r2(base + offset + PIN.pitch * Math.round((abs - base - offset) / PIN.pitch))
+  const gridShift = (v) => PIN.pitch * Math.round(v / PIN.pitch)
+
+  const faceGrid = (w, face) => (w && w.partition && face === 'BOTTOM' ? PIN.pitch / 2 : 0)
+
+  const hingeCentres = (doorH, doorBottom, base, shift = 0, gridOffset = 0) => {
+    const lo = doorBottom + HINGE.cupDiameter
+    const hi = doorBottom + doorH - HINGE.cupDiameter
+    return hingePositions(doorH, HINGE).map((x) => {
+      let c = snap(doorBottom + x + gridShift(shift), base, std.hingePlateSpacing / 2 + gridOffset)
+      while (c > hi) c -= PIN.pitch
+      while (c < lo) c += PIN.pitch
+      return c
+    })
+  }
+
+  const hingeCups = (ops, centres, doorBottom, doorW, side) => {
+    const y = side === 'right' ? doorW - HINGE.edgeDistance : HINGE.edgeDistance
+    centres.forEach((c) => ops.add(hole({ face: 'TOP', x: r2(c - doorBottom), y, diameter: HINGE.cupDiameter, depth: HINGE.cupDepth, rule: 'hinge' })))
+  }
+
+  const hingePlate = (w, face, absY) => {
+    ;[-std.hingePlateSpacing / 2, std.hingePlateSpacing / 2].forEach((dx) => {
+      w.ops.add(hole({ face, x: r2(absY - w.y0 + dx), y: r2(std.hingePlateFront), diameter: std.hingePlateDiameter, depth: std.hingePlateDepth, rule: 'hinge_plate' }))
+    })
+  }
+
+  const runnerYs = (runnerLen) => {
+    const ys = []
+    for (let y = std.runnerHoleFront; y <= runnerLen - 10; y += std.runnerHolePitch) ys.push(y)
+    return ys
+  }
+
+  const runnerHoles = (w, face, absY, startY, runnerLen, shift = 0) => {
+    runnerYs(runnerLen).forEach((y) => {
+      w.ops.add(hole({ face, x: r2(absY - w.y0), y: r2(startY + y + shift), diameter: std.runnerHoleDiameter, depth: std.runnerHoleDepth, rule: 'runner' }))
+    })
+  }
+
+  const railSocket = (w, face, absY, centreY) => {
+    const n = Math.max(1, Math.round(std.railSocketHoles))
+    Array.from({ length: n }, (_, k) => centreY + (k - (n - 1) / 2) * std.railSocketSpacing).forEach((y) => {
+      w.ops.add(hole({ face, x: r2(absY - w.y0), y: r2(y), diameter: std.railSocketDiameter, depth: std.railSocketDepth, rule: 'rail_socket' }))
     })
   }
 
@@ -105,5 +153,25 @@ export function createKit(std, D, T, warn = () => {}) {
     return spots.length
   }
 
-  return { wall, join, railJoin, over, backGroove, pins, connect, railHoleGap, minFaceGap, grooveY, grooveW }
+  return { wall, join, railJoin, over, backGroove, pins, connect, snap, faceGrid, hingeCentres, hingeCups, hingePlate, runnerHoles, railSocket, railHoleGap, minFaceGap, grooveY, grooveW }
+}
+
+export function holeClashes(part) {
+  const holes = part.machining_ops.filter((o) => o.type === 'HOLE')
+  const out = []
+  const reach = (o, face) => (o.through || o.face === face ? o.depth : 0)
+  for (let i = 0; i < holes.length; i++) {
+    for (let j = i + 1; j < holes.length; j++) {
+      const a = holes[i]
+      const b = holes[j]
+      const d = Math.hypot(a.x - b.x, a.y - b.y)
+      if (d >= (a.diameter + b.diameter) / 2) continue
+      const same = d < 0.01 && a.diameter === b.diameter && a.face === b.face && a.depth === b.depth && a.through === b.through
+      if (same) continue
+      const sameFace = a.face === b.face || a.through || b.through
+      const meet = reach(a, 'TOP') + reach(b, 'BOTTOM') > part.thickness - 0.01 || reach(a, 'BOTTOM') + reach(b, 'TOP') > part.thickness - 0.01
+      if (sameFace || meet) out.push(`${part.id}: ${a.rule} hole at (${a.x}, ${a.y}) ${a.face} clashes with ${b.rule} hole at (${b.x}, ${b.y}) ${b.face}`)
+    }
+  }
+  return out
 }

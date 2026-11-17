@@ -1,5 +1,6 @@
 import { asciiIdPart } from '../kitchen_planner/machining/pieces'
 import { validatePart } from '../kitchen_planner/machining/schema'
+import { holeClashes } from './wardrobeMachining'
 import { normalizeStandard } from './wardrobeStandard'
 import { computeDesign } from './closetEngine'
 import { PART_NAMES_AR } from './wardrobeEngine'
@@ -70,7 +71,7 @@ export function piecesFromParts(rawParts, { woNumber = 'WO', roomNumber = 0, mat
       counters.set(key, n)
       const pieceCode = `${code}${n}`
       const id = `${asciiIdPart(woNumber, 'WO')}-R${roomNumber ?? 0}-${group}-${pieceCode}`
-      const part = Array.isArray(p.ops) ? { id, length: p.L, width: p.W, thickness: p.T, visibleFace: 'TOP', machining_ops: [...p.ops] } : null
+      const part = Array.isArray(p.ops) ? { id, length: p.L, width: p.W, thickness: p.T, visibleFace: p.face || 'TOP', machining_ops: [...p.ops] } : null
       out.push({
         id,
         code: pieceCode,
@@ -88,7 +89,7 @@ export function piecesFromParts(rawParts, { woNumber = 'WO', roomNumber = 0, mat
         grainLocked: kind === 'front',
         edgeBanding: p.edges ? edgeBandingFor(p.edges, band) : { T: NONE, B: NONE, L: NONE, R: NONE },
         part,
-        errors: part ? validatePart(part) : [],
+        errors: part ? [...validatePart(part), ...holeClashes(part)] : [],
       })
     }
   })
