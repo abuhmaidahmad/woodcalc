@@ -848,8 +848,12 @@
     "confirmDeleteDrawerSystem": "حذف نظام الأدراج هذا؟ الخزائن التي تستخدمه حاليًا ستعود للسعر الافتراضي.",
     "woodBoxChip": "صندوق خشبي",
     "metalSidedChip": "صندوق معدني",
-    "drawerSystemRunnerClearanceLabel": "خلوص السكة لكل جهة (مم)",
-    "drawerSystemRunnerClearanceHint": "المسافة بين علبة الدرج وجانب الخزانة لهذه السكة. تستخدم في مصمم الخزائن."
+    "drawerSystemRunnerClearanceLabel": "السكة",
+    "drawerSystemRunnerClearanceHint": "خلوص العلبة ونمط ثقوب البراغي لهذه السكة. يستخدم في مصمم الخزائن وعلب أدراج المطبخ.",
+    "drawerSystem_runner_side_clearance": "الخلوص لكل جهة (مم)",
+    "drawerSystem_runner_hole_front": "أول ثقب من الأمام (مم)",
+    "drawerSystem_runner_hole_pitch": "تباعد الثقوب (مم)",
+    "drawerSystem_runner_line": "خط السكة فوق قاعدة الدرج (مم)"
   },
   "leadList": {
     "title": "العملاء المحتملون",
@@ -2539,9 +2543,6 @@
       "hingePlateSpacing": "تباعد ثقوب قاعدة المفصلة",
       "hingePlateDiameter": "قطر ثقوب قاعدة المفصلة",
       "hingePlateDepth": "عمق ثقوب قاعدة المفصلة",
-      "runnerLine": "خط السكة فوق قاعدة الدرج",
-      "runnerHoleFront": "أول ثقب سكة من الأمام",
-      "runnerHolePitch": "تباعد ثقوب السكة",
       "runnerHoleDiameter": "قطر ثقوب السكة",
       "runnerHoleDepth": "عمق ثقوب السكة",
       "runnerStagger": "إزاحة ثقوب السكة (قواطع مشتركة)",
@@ -2575,8 +2576,7 @@
       "grooveBackingThin": "مجرى الظهر يترك {{left}} مم من اللوح، أقل من {{min}} مم. استخدم مجرى أقل عمقاً أو لوحاً أسمك.",
       "grooveStaggerSmall": "إزاحة مجرى الظهر {{stagger}} مم أقل من عرض المجرى {{min}} مم، فيتداخل المجريان على وجهي القاطع.",
       "confirmatCrowded": "ثقوب الكونفيرمات على وصلة بطول {{length}} مم في القاطع متقاربة عبر وجهيه ({{spacing}} مم، الحد الأدنى {{min}}).",
-      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}}).",
-      "doorNoHingeWall": "{{section}}: الباب الأوسط لا يوجد له جانب أو قاطع يركب عليه. استخدم بابين أو أضف قسماً."
+      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}})."
     },
     "construction": "طريقة التصنيع",
     "constructionTypes": {

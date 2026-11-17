@@ -79,9 +79,9 @@ export function createKit(std, D, T, warn = () => {}) {
     ops.add(groove({ face, x: r2(x0), y, x2: r2(x1), y2: y, width: grooveW, depth: std.grooveDepth, rule: 'back_groove' }))
   }
 
-  const pins = (w, face, shelfBottomAbs, { frontY, backY }, base) => {
+  const pins = (w, face, shelfBottomAbs, { frontY, backY }, base, gridOffset = 0) => {
     const shift = w.partition && face === 'BOTTOM' ? std.partitionStagger : 0
-    const mid = snap(shelfBottomAbs - PIN.shelfPinOffset, base, faceGrid(w, face)) - w.y0
+    const mid = snap(shelfBottomAbs - PIN.shelfPinOffset, base, gridOffset) - w.y0
     ;[mid - PIN.pitch, mid, mid + PIN.pitch].forEach((x) => {
       [frontY + PIN.frontDistance + shift, backY - PIN.backDistance + shift].forEach((y) => {
         w.ops.add(hole({ face, x, y, diameter: PIN.diameter, depth: PIN.depth, rule: 'shelf_pin' }))
@@ -92,8 +92,6 @@ export function createKit(std, D, T, warn = () => {}) {
   const HINGE = MACHINING_CONFIG.hinge
   const snap = (abs, base, offset = 0) => r2(base + offset + PIN.pitch * Math.round((abs - base - offset) / PIN.pitch))
   const gridShift = (v) => PIN.pitch * Math.round(v / PIN.pitch)
-
-  const faceGrid = (w, face) => (w && w.partition && face === 'BOTTOM' ? PIN.pitch / 2 : 0)
 
   const hingeCentres = (doorH, doorBottom, base, shift = 0, gridOffset = 0) => {
     const lo = doorBottom + HINGE.cupDiameter
@@ -117,14 +115,14 @@ export function createKit(std, D, T, warn = () => {}) {
     })
   }
 
-  const runnerYs = (runnerLen) => {
+  const runnerYs = (runnerLen, { front, pitch }) => {
     const ys = []
-    for (let y = std.runnerHoleFront; y <= runnerLen - 10; y += std.runnerHolePitch) ys.push(y)
+    for (let y = front; y <= runnerLen - 10; y += pitch) ys.push(y)
     return ys
   }
 
-  const runnerHoles = (w, face, absY, startY, runnerLen, shift = 0) => {
-    runnerYs(runnerLen).forEach((y) => {
+  const runnerHoles = (w, face, absY, startY, runnerLen, pattern, shift = 0) => {
+    runnerYs(runnerLen, pattern).forEach((y) => {
       w.ops.add(hole({ face, x: r2(absY - w.y0), y: r2(startY + y + shift), diameter: std.runnerHoleDiameter, depth: std.runnerHoleDepth, rule: 'runner' }))
     })
   }
@@ -153,7 +151,7 @@ export function createKit(std, D, T, warn = () => {}) {
     return spots.length
   }
 
-  return { wall, join, railJoin, over, backGroove, pins, connect, snap, faceGrid, hingeCentres, hingeCups, hingePlate, runnerHoles, railSocket, railHoleGap, minFaceGap, grooveY, grooveW }
+  return { wall, join, railJoin, over, backGroove, pins, connect, snap, halfPitch: PIN.pitch / 2, hingeCentres, hingeCups, hingePlate, runnerHoles, railSocket, railHoleGap, minFaceGap, grooveY, grooveW }
 }
 
 export function holeClashes(part) {

@@ -848,8 +848,12 @@
     "confirmDeleteDrawerSystem": "Delete this drawer system? Cabinets already using it will fall back to the default runner price.",
     "woodBoxChip": "Wood box",
     "metalSidedChip": "Metal-sided",
-    "drawerSystemRunnerClearanceLabel": "Runner clearance per side (mm)",
-    "drawerSystemRunnerClearanceHint": "Gap between the drawer box and the cabinet side for this runner. Used by the Wardrobe Builder."
+    "drawerSystemRunnerClearanceLabel": "Runner",
+    "drawerSystemRunnerClearanceHint": "Box clearance and screw hole pattern for this runner. Used by the Wardrobe Builder and the kitchen drawer boxes.",
+    "drawerSystem_runner_side_clearance": "Clearance per side (mm)",
+    "drawerSystem_runner_hole_front": "First hole from front (mm)",
+    "drawerSystem_runner_hole_pitch": "Hole pitch (mm)",
+    "drawerSystem_runner_line": "Runner line above drawer bottom (mm)"
   },
   "leadList": {
     "title": "Leads",
@@ -2539,9 +2543,6 @@
       "hingePlateSpacing": "Hinge plate hole spacing",
       "hingePlateDiameter": "Hinge plate hole diameter",
       "hingePlateDepth": "Hinge plate hole depth",
-      "runnerLine": "Runner line above drawer bottom",
-      "runnerHoleFront": "First runner hole from front",
-      "runnerHolePitch": "Runner hole pitch",
       "runnerHoleDiameter": "Runner hole diameter",
       "runnerHoleDepth": "Runner hole depth",
       "runnerStagger": "Runner hole stagger (shared partitions)",
@@ -2575,8 +2576,7 @@
       "grooveBackingThin": "A {{left}} mm back groove leaves less than {{min}} mm of board. Use a shallower groove or thicker board.",
       "grooveStaggerSmall": "The back groove stagger {{stagger}} mm is less than the groove width {{min}} mm, so the grooves on the two faces of a partition overlap.",
       "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart across its faces (min {{min}}).",
-      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}}).",
-      "doorNoHingeWall": "{{section}}: a middle door has no side or partition to hinge on. Use two doors or add a section."
+      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}})."
     },
     "construction": "Construction",
     "constructionTypes": {

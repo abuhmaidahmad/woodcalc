@@ -9,10 +9,22 @@ export const CONSTRUCTION_TYPES = ['boxes', 'shared']
 export const BACK_TYPES = ['none', 'full', 'perSection']
 export const DRAWER_STYLES = ['internal', 'external']
 
+export const RUNNER_DEFAULTS = { runnerSideClearance: 12.5, runnerHoleFront: 37, runnerHolePitch: 128, runnerLine: 30 }
+
 export function drawerSystemSnapshot(sys) {
   if (!sys) return null
-  const c = Number(sys.runner_side_clearance)
-  return { id: sys.id, name: sys.name, runnerSideClearance: Number.isFinite(c) && c >= 0 ? c : 12.5 }
+  const pick = (v, d, positive = false) => {
+    const n = Number(v)
+    return v !== null && v !== undefined && v !== '' && Number.isFinite(n) && (positive ? n > 0 : n >= 0) ? n : d
+  }
+  return {
+    id: sys.id,
+    name: sys.name,
+    runnerSideClearance: pick(sys.runner_side_clearance, RUNNER_DEFAULTS.runnerSideClearance),
+    runnerHoleFront: pick(sys.runner_hole_front, RUNNER_DEFAULTS.runnerHoleFront),
+    runnerHolePitch: pick(sys.runner_hole_pitch, RUNNER_DEFAULTS.runnerHolePitch, true),
+    runnerLine: pick(sys.runner_line, RUNNER_DEFAULTS.runnerLine),
+  }
 }
 
 export const PART_NAMES_AR = {
@@ -144,9 +156,12 @@ export function confirmatPerJoint(L) {
   return n
 }
 
+export const MAX_DOORS_PER_SECTION = 2
+
 export function hingedDoorCount(section, w, std) {
   const forced = Math.round(num(section.doors))
-  return forced > 0 ? forced : Math.max(1, Math.ceil(w / std.maxDoorW))
+  const n = forced > 0 ? forced : Math.ceil(w / std.maxDoorW)
+  return Math.min(MAX_DOORS_PER_SECTION, Math.max(1, n))
 }
 
 export function runnerLengthFor(depth, std) {
@@ -294,6 +309,11 @@ export function computeWardrobe(design, std) {
   const railCount = noBack ? Math.max(0, Math.round(num(std.backRailCount))) : 0
   const externalDrawers = design.drawerStyle === 'external'
   const runnerClear = num(design.drawerSystem?.runnerSideClearance, std.runnerClearance)
+  const runnerPattern = {
+    front: num(design.drawerSystem?.runnerHoleFront, RUNNER_DEFAULTS.runnerHoleFront),
+    pitch: Math.max(1, num(design.drawerSystem?.runnerHolePitch, RUNNER_DEFAULTS.runnerHolePitch)),
+    line: num(design.drawerSystem?.runnerLine, RUNNER_DEFAULTS.runnerLine),
+  }
   const sliding = design.doorType === 'sliding'
   const hinged = design.doorType === 'hinged'
   const D = num(design.depth)
@@ -326,6 +346,7 @@ export function computeWardrobe(design, std) {
   const kit = createKit(std, D, T, warnOnce)
   const perSectionShared = shared && backType === 'perSection'
   const bayShift = (i) => (perSectionShared && i % 2 === 1 ? std.grooveStagger : 0)
+  const sectionGrid = (i) => (shared && i % 2 === 1 ? kit.halfPitch : 0)
   if (backType !== 'none' && T - std.grooveDepth < std.minGrooveBacking) warn('grooveBackingThin', { left: r1(T - std.grooveDepth), min: std.minGrooveBacking })
   if (shared && railCount > 0 && bays.length > 1 && kit.railHoleGap(std.backRailH, std.railStagger) < kit.minFaceGap) {
     warn('railStaggerSmall', { stagger: std.railStagger, gap: kit.railHoleGap(std.backRailH, std.railStagger), min: kit.minFaceGap })
@@ -530,14 +551,10 @@ export function computeWardrobe(design, std) {
       if (!ks.length) return
       const ops = opList()
       const wl = side === 'left' ? walls.left : walls.right
-      const centres = kit.hingeCentres(doorH, doorBottom, y0 + T, hingeShift, kit.faceGrid(wl?.w, wl?.face))
+      const centres = kit.hingeCentres(doorH, doorBottom, y0 + T, hingeShift, sectionGrid(si))
       kit.hingeCups(ops, centres, doorBottom, doorW, side)
       part({ name: 'Door', L: doorH, W: doorW, T: FT, qty: ks.length, material: 'Front', edges: EDGE_ALL, section, loft, ops, face: 'BOTTOM' })
-      ks.forEach((k) => {
-        const onWall = side === 'left' ? k === 0 : k === n - 1
-        if (!onWall) { warnOnce('doorNoHingeWall', { section }); return }
-        if (wl) centres.forEach((c) => kit.hingePlate(wl.w, wl.face, c))
-      })
+      if (wl) centres.forEach((c) => kit.hingePlate(wl.w, wl.face, c))
     })
     for (let k = 0; k < n; k++) {
       const hinge = sideOf(k)
@@ -587,7 +604,7 @@ export function computeWardrobe(design, std) {
         addHw('shelfPin', 4 * z.n)
         for (let k = 1; k <= z.n; k++) {
           const shelfBottom = yb + k * gap + (k - 1) * T
-          ;[walls.left, walls.right].forEach((wl) => kit.pins(wl.w, wl.face, shelfBottom, bayPins, base))
+          ;[walls.left, walls.right].forEach((wl) => kit.pins(wl.w, wl.face, shelfBottom, bayPins, base, sectionGrid(si)))
           box({ kind: 'shelf', x: left + std.shelfSideClearance, y: yb + k * gap + (k - 1) * T, z: front - std.shelfFrontSetback - bayShelf, w: innerW - 2 * std.shelfSideClearance, h: T, d: bayShelf })
         }
       }
@@ -627,7 +644,7 @@ export function computeWardrobe(design, std) {
         const fy = yb - coverBottom
         const runnerShift = shared && si % 2 === 1 ? std.runnerStagger : 0
         for (let k = 0; k < z.n; k++) {
-          ;[walls.left, walls.right].forEach((wl) => kit.runnerHoles(wl.w, wl.face, yb + k * opening + std.runnerLine, D - front, runner, runnerShift))
+          ;[walls.left, walls.right].forEach((wl) => kit.runnerHoles(wl.w, wl.face, yb + k * opening + runnerPattern.line, D - front, runner, runnerPattern, runnerShift))
           box({ kind: 'drawerBox', x: left + runnerClear, y: r1(yb + k * opening + 10), z: front - runner, w: boxW, h: boxH, d: runner })
           box({ kind: 'drawerFront', x: x + std.doorGap / 2, y: r1(fy + k * pitch + std.drawerFrontGap / 2), z: D, w: r1(frontW), h: r1(frontH), d: FT })
         }
@@ -642,7 +659,7 @@ export function computeWardrobe(design, std) {
         const boxW = innerW - 2 * sp - 2 * runnerClear
         const boxH = std.drawerH - std.drawerBoxHDeduction
         const spacer = kit.wall(yb, z.h, { frontZ: front })
-        for (let k = 0; k < z.n; k++) kit.runnerHoles(spacer, 'TOP', yb + k * std.drawerH + std.runnerLine, FT, runner)
+        for (let k = 0; k < z.n; k++) kit.runnerHoles(spacer, 'TOP', yb + k * std.drawerH + runnerPattern.line, FT, runner, runnerPattern)
         part({ name: 'Drawer spacer', L: z.h, W: spacerDepth, T: sp, qty: 2, material: 'Carcass', edges: 'F', section, ops: spacer.ops })
         part({ name: 'Drawer front', L: frontW, W: frontH, T: FT, qty: z.n, material: 'Front', edges: EDGE_ALL, section })
         part({ name: 'Drawer side', L: runner, W: boxH, T: std.drawerBoxT, qty: 2 * z.n, material: 'Drawer box', edges: 'F', section })
@@ -669,7 +686,7 @@ export function computeWardrobe(design, std) {
     if (loftH > 0) {
       if (!shared) carcass(section, si, x, w, std.plinthH + bodyH, loftH, true)
       if (design.doorType !== 'none') {
-        loftDoors = hinged ? doors : Math.max(1, Math.ceil(w / std.maxDoorW))
+        loftDoors = hinged ? doors : hingedDoorCount({}, w, std)
         hingedDoors(section, si, x, w, std.plinthH + bodyH, loftH, loftDoors, true)
       }
     }

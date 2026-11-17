@@ -19,7 +19,7 @@ describe('drawer system runner clearance', () => {
 
   it('uses the picked drawer system clearance for the island boxes', () => {
     const sys = drawerSystemSnapshot({ id: 4, name: 'Local 45', runner_side_clearance: '20.0' })
-    expect(sys).toEqual({ id: 4, name: 'Local 45', runnerSideClearance: 20 })
+    expect(sys).toEqual({ id: 4, name: 'Local 45', runnerSideClearance: 20, runnerHoleFront: 37, runnerHolePitch: 128, runnerLine: 30 })
     const r = computeCloset({ ...closet, island: { ...isl, drawerSystem: sys } }, STD)
     expect(islandPart(r, 'Drawer bottom').W).toBe(573 - 40)
     expect(islandPart(r, 'Drawer front/back').L).toBe(573 - 40 - 2 * STD.drawerBoxT)

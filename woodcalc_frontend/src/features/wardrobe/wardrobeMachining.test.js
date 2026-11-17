@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { DEFAULT_WARDROBE_STANDARD as STD } from './wardrobeStandard'
-import { computeWardrobe, defaultDesign } from './wardrobeEngine'
+import { computeWardrobe, defaultDesign, drawerSystemSnapshot, RUNNER_DEFAULTS, hingedDoorCount } from './wardrobeEngine'
 import { defaultCloset, computeDesign } from './closetEngine'
 import { priceWardrobe } from './wardrobePricing'
 import { buildWardrobePlannerData } from './wardrobeRoom'
@@ -228,8 +228,37 @@ describe('wardrobe CNC machining', () => {
     const holes = spacer.part.machining_ops.filter((o) => o.rule === 'runner')
     const perDrawer = [37, 165, 293, 421].length
     expect(holes).toHaveLength(3 * perDrawer)
-    expect(holes.filter((o) => o.x === STD.runnerLine).map((o) => o.y)).toEqual([37, 165, 293, 421].map((y) => y + STD.frontT))
+    expect(holes.filter((o) => o.x === RUNNER_DEFAULTS.runnerLine).map((o) => o.y)).toEqual([37, 165, 293, 421].map((y) => y + STD.frontT))
     expect(holes[0]).toEqual(expect.objectContaining({ face: 'TOP', diameter: STD.runnerHoleDiameter, depth: STD.runnerHoleDepth }))
+  })
+
+  it('takes the runner hole pattern from the picked drawer system', () => {
+    const sys = drawerSystemSnapshot({ id: 2, name: 'Grass 500', runner_side_clearance: '13.0', runner_hole_front: '32.0', runner_hole_pitch: '96.0', runner_line: '42.0' })
+    const spacer = pieces({ ...base, drawerSystem: sys }).find((p) => p.name === 'Drawer spacer')
+    const holes = spacer.part.machining_ops.filter((o) => o.rule === 'runner' && o.x === 42)
+    expect(holes.map((o) => o.y)).toEqual([32, 128, 224, 320, 416, 512].map((y) => y + STD.frontT))
+  })
+
+  it('never hangs more than two doors in a section', () => {
+    expect(hingedDoorCount({ doors: 3 }, 1200, STD)).toBe(2)
+    expect(hingedDoorCount({}, 1500, STD)).toBe(2)
+    expect(hingedDoorCount({}, 500, STD)).toBe(1)
+    const d = { ...base, sections: [{ ...base.sections[0], w: 1300, doors: 3 }, ...base.sections.slice(1, 2)] , width: 2100 }
+    const r = computeWardrobe(d, STD)
+    expect(r.sections[0].doors).toBe(2)
+    expect(r.warnings.map((w) => w.code)).toContain('doorTooWide')
+  })
+
+  it('hangs paired doors level: both walls of a section share its grid', () => {
+    const d = { ...base, construction: 'shared' }
+    const ps = pieces(d)
+    ;['S1', 'S2', 'S3'].forEach((sec) => {
+      const doors = ps.filter((p) => p.name === 'Door' && p.cabinet === sec && !p.code.startsWith('LD'))
+      const xs = doors.map((p) => p.part.machining_ops.filter((o) => o.rule === 'hinge').map((o) => o.x))
+      expect(xs[0]).toEqual(xs[1])
+    })
+    const sidePlates = (id, face) => ps.find((p) => p.id === id).part.machining_ops.filter((o) => o.rule === 'hinge_plate' && (!face || o.face === face)).map((o) => o.x)
+    expect(sidePlates('WO1-R1-00-P1', 'BOTTOM')).toEqual(sidePlates('WO1-R1-00-P2', 'TOP'))
   })
 
   it('drills external drawer runners into the island walls, offset in alternate sections', () => {
