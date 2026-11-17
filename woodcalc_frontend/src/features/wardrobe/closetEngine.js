@@ -49,7 +49,7 @@ export function defaultCloset(std) {
     height: 2400,
     corners: { AB: 'back', AC: 'back' },
     runs: { A: newRun('A'), B: newRun('B'), C: newRun('C') },
-    island: { enabled: false, width: 1200, depth: 600, height: 900, bays: 2, drawers: 3, doubleSided: true, construction: 'shared', dx: 0, dy: 0 },
+    island: { enabled: false, width: 1200, depth: 600, height: 900, bays: 2, drawers: 3, doubleSided: true, construction: 'shared', drawerStyle: 'external', dx: 0, dy: 0 },
   }
   const layout = closetLayout(closet, std)
   WALL_IDS.forEach((id) => {
@@ -173,6 +173,7 @@ export function islandDesigns(island, std) {
     loft: false,
     loftH: 0,
     doorType: 'none',
+    drawerStyle: island.drawerStyle === 'internal' ? 'internal' : 'external',
     construction: island.construction,
     backType: 'full',
     sections: Array.from({ length: bays }, () => ({ preset: null, zones: [{ type: 'drawers', n, h: n * std.drawerH, auto: true }], w: null, doors: null })),

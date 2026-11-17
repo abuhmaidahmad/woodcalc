@@ -6,6 +6,7 @@ export const PRESET_IDS = ['longHang', 'doubleHang', 'shelves', 'hangDrawers', '
 export const DOOR_TYPES = ['hinged', 'sliding', 'none']
 export const CONSTRUCTION_TYPES = ['boxes', 'shared']
 export const BACK_TYPES = ['none', 'full', 'perSection']
+export const DRAWER_STYLES = ['internal', 'external']
 
 export const PART_NAMES_AR = {
   'Side': 'جانب',
@@ -260,6 +261,7 @@ export function computeWardrobe(design, std) {
   const shared = construction === 'shared'
   const noBack = backType === 'none'
   const railCount = noBack ? Math.max(0, Math.round(num(std.backRailCount))) : 0
+  const externalDrawers = design.drawerStyle === 'external'
   const sliding = design.doorType === 'sliding'
   const hinged = design.doorType === 'hinged'
   const D = num(design.depth)
@@ -433,7 +435,29 @@ export function computeWardrobe(design, std) {
           box({ kind: 'rail', x: left + std.railDeduction / 2, y: ry, z: front - usableDepth / 2, w: railLen, h: std.railDiameter, d: std.railDiameter })
         })
       }
-      if (z.type === 'drawers') {
+      if (z.type === 'drawers' && externalDrawers) {
+        const coverBottom = zi === zones.length - 1 ? T : T / 2
+        const coverTop = zi === 0 ? T : T / 2
+        const pitch = (z.h + coverTop + coverBottom) / z.n
+        const opening = z.h / z.n
+        const runner = runnerLengthFor(runnerDepth, std)
+        const frontW = w - std.doorGap
+        const frontH = pitch - std.drawerFrontGap
+        const boxW = innerW - 2 * std.runnerClearance
+        const boxH = opening - std.drawerBoxHDeduction
+        if (boxH < std.minDrawerBoxH) warn('drawersDontFit', { section, h: z.h, need: z.n * (std.minDrawerBoxH + std.drawerBoxHDeduction) })
+        part({ name: 'Drawer front', L: frontW, W: frontH, T: FT, qty: z.n, material: 'Front', edges: EDGE_ALL, section })
+        part({ name: 'Drawer side', L: runner, W: boxH, T: std.drawerBoxT, qty: 2 * z.n, material: 'Drawer box', edges: 'F', section })
+        part({ name: 'Drawer front/back', L: boxW - 2 * std.drawerBoxT, W: boxH, T: std.drawerBoxT, qty: 2 * z.n, material: 'Drawer box', edges: 'F', section })
+        part({ name: 'Drawer bottom', L: runner, W: boxW, T: std.drawerBottomT, qty: z.n, material: 'Back', edges: '', section })
+        addHw('runnerPair', z.n)
+        addHw('drawerHandle', z.n)
+        const fy = yb - coverBottom
+        for (let k = 0; k < z.n; k++) {
+          box({ kind: 'drawerBox', x: left + std.runnerClearance, y: r1(yb + k * opening + 10), z: front - runner, w: boxW, h: boxH, d: runner })
+          box({ kind: 'drawerFront', x: x + std.doorGap / 2, y: r1(fy + k * pitch + std.drawerFrontGap / 2), z: D, w: r1(frontW), h: r1(frontH), d: FT })
+        }
+      } else if (z.type === 'drawers') {
         const need = z.n * std.drawerH
         if (z.h + 0.5 < need) warn('drawersDontFit', { section, h: z.h, need })
         const spacerDepth = usableDepth - 1

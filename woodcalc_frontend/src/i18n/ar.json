@@ -2392,7 +2392,8 @@
       "marginPct": "نسبة الربح الافتراضية %",
       "closetCornerGap": "مسافة الزاوية",
       "minWalkway": "أقل ممر",
-      "islandTopOverhang": "بروز سطح الجزيرة"
+      "islandTopOverhang": "بروز سطح الجزيرة",
+      "minDrawerBoxH": "أقل ارتفاع لعلبة الدرج"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2554,7 +2555,12 @@
         "length": "طول الوحدات (مم)"
       },
       "sectionsCount": "{{count}} أقسام",
-      "islandDrawers": "{{count}} أدراج"
+      "islandDrawers": "{{count}} أدراج",
+      "drawerStyle": "الأدراج",
+      "drawerStyles": {
+        "external": "خارجية، واجهة كاملة",
+        "internal": "داخلية، خلف تسميكات"
+      }
     }
   }
 }

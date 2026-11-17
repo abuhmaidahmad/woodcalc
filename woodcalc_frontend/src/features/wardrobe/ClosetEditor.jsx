@@ -1,7 +1,7 @@
 import React, { lazy, Suspense, useState } from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
 import ErrorBoundary from '../../components/ErrorBoundary'
-import { DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES, withSectionCount } from './wardrobeEngine'
+import { DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES, DRAWER_STYLES, withSectionCount } from './wardrobeEngine'
 import { CLOSET_SHAPES, CORNER_RULES, fitRunSections } from './closetEngine'
 import WardrobeElevation from './WardrobeElevation'
 import ClosetPlan from './ClosetPlan'
@@ -159,6 +159,10 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
               <div style={{ marginTop: 10 }}>
                 <span style={label}>{t('wardrobe.construction')}</span>
                 <Seg options={CONSTRUCTION_TYPES} value={isl.construction} onChange={(v) => setIsland({ construction: v })} labelOf={(o) => t(`wardrobe.constructionTypes.${o}`)} />
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span style={label}>{t('wardrobe.closet.drawerStyle')}</span>
+                <Seg options={DRAWER_STYLES} value={isl.drawerStyle === 'internal' ? 'internal' : 'external'} onChange={(v) => setIsland({ drawerStyle: v })} labelOf={(o) => t(`wardrobe.closet.drawerStyles.${o}`)} />
               </div>
             </>
           )}

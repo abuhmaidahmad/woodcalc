@@ -2392,7 +2392,8 @@
       "marginPct": "Default margin %",
       "closetCornerGap": "Corner gap",
       "minWalkway": "Min walkway",
-      "islandTopOverhang": "Island top overhang"
+      "islandTopOverhang": "Island top overhang",
+      "minDrawerBoxH": "Min drawer box height"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2554,7 +2555,12 @@
         "length": "Run length (mm)"
       },
       "sectionsCount": "{{count}} sections",
-      "islandDrawers": "{{count}} drawers"
+      "islandDrawers": "{{count}} drawers",
+      "drawerStyle": "Drawers",
+      "drawerStyles": {
+        "external": "External, full overlay",
+        "internal": "Internal, behind spacers"
+      }
     }
   }
 }
