@@ -460,7 +460,7 @@ const MAX_OPEN_CABINETS = 3
 // crossing into each other.
 const DOOR_OPEN_ANGLE = Math.PI / 2
 const NO_OPEN_KEYS = []
-const CabinetFrontsContext = createContext({ enabled: false, openKeys: NO_OPEN_KEYS, toggle: () => {} })
+const CabinetFrontsContext = createContext({ enabled: false, openKeys: NO_OPEN_KEYS, toggle: () => {}, carcassColor: '#F0EDE8' })
 
 // Moves its children as one front: hinge 'left'/'right' swings around that
 // vertical edge, 'drawer' slides straight out. Animates only while moving and
@@ -527,7 +527,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
   // Each drawer slice shifts into a different part of the texture so grain reads as continuous.
   const offV  = drawerIndex * rV
 
-  const { enabled: openMode, openKeys } = useContext(CabinetFrontsContext)
+  const { enabled: openMode, openKeys, carcassColor } = useContext(CabinetFrontsContext)
   const isOpen = openMode && frontKey != null && openKeys.includes(frontKey)
   const canOpen = openMode && frontKey != null && hinge != null
   // A drawer front pulls a plain box out with it (12mm sides, back and bottom).
@@ -603,7 +603,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
       {!isOpen && (
         <mesh position={[0, 0, D / 2 + 0.001]}>
           <boxGeometry args={[panelW + GAP * 2 + 0.002, panelH + GAP * 2 + 0.002, 0.002]} />
-          <meshStandardMaterial color="#111111" roughness={1} />
+          <meshStandardMaterial color={carcassColor} roughness={0.8} />
         </mesh>
       )}
       {canOpen ? (
@@ -2120,7 +2120,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
     enabled: openMode,
     openKeys,
     toggle: (key) => onToggleFront && onToggleFront(cabId, key),
-  }), [openMode, openKeys, onToggleFront, cabId])
+    carcassColor,
+  }), [openMode, openKeys, onToggleFront, cabId, carcassColor])
   // An opened cabinet shows its real panels (sides, bottom, top or rails, back,
   // shelves) instead of the solid block every closed cabinet is drawn as.
   const showInterior = openMode && openKeys.length > 0
