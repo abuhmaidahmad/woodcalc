@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import KitchenPlannerModule from '../features/kitchen_planner/KitchenPlannerModule'
+import WardrobeBuilder from './WardrobeBuilder'
+import { isWardrobeRoom } from '../features/wardrobe/wardrobeRoom'
 import { authFetch } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
 
@@ -90,6 +92,32 @@ export default function RoomDetail() {
     </div>
   )
 
+  const lock = {
+    isLocked: room.is_locked,
+    revisionNumber: room.revision_number,
+    revisionStatus: room.revision_status,
+    parentRevision: room.parent_revision,
+    rejectionReason: room.rejection_reason,
+    isVariant: room.is_variant,
+    sourceRoomName: room.source_room_name,
+    sourceRoomRevision: room.source_room_revision,
+    constructionSettings: room.construction_settings,
+  }
+
+  if (isWardrobeRoom(room)) {
+    return (
+      <WardrobeBuilder
+        key={room.id}
+        roomId={id}
+        room={room}
+        lock={lock}
+        onRoomAction={roomAction}
+        onBack={() => navigate(`/projects/${room.project}`)}
+        onSaved={(patch) => setRoom((r) => ({ ...r, ...patch }))}
+      />
+    )
+  }
+
   return (
     <KitchenPlannerModule
       key={room.id}
@@ -104,17 +132,7 @@ export default function RoomDetail() {
       shareMsg={shareMsg}
       onShare={shareView}
       onRevokeShare={revokeShareView}
-      lock={{
-        isLocked: room.is_locked,
-        revisionNumber: room.revision_number,
-        revisionStatus: room.revision_status,
-        parentRevision: room.parent_revision,
-        rejectionReason: room.rejection_reason,
-        isVariant: room.is_variant,
-        sourceRoomName: room.source_room_name,
-        sourceRoomRevision: room.source_room_revision,
-        constructionSettings: room.construction_settings,
-      }}
+      lock={lock}
       onRoomAction={roomAction}
     />
   )

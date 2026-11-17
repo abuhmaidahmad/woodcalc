@@ -34,7 +34,7 @@ function MaterialPicker({ role, value, materials, onChange, t }) {
   )
 }
 
-export default function WardrobePriceTab({ design, std, result, materialsState, onPricingChange, onOpenStandard }) {
+export default function WardrobePriceTab({ design, std, result, materialsState, onPricingChange, onOpenStandard, readOnly = false }) {
   const { t } = useTranslation()
   const { materials, loading, error } = materialsState
   const settings = design.pricing || {}
@@ -63,7 +63,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
 
   return (
     <div className="wb-grid">
-      <div className="wb-noprint">
+      <fieldset className="wb-noprint" disabled={readOnly} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
         <div style={card}>
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{t('wardrobe.price.materialsTitle')}</div>
           {loading && <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>{t('wardrobe.price.loading')}</div>}
@@ -88,7 +88,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
           <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>{t('wardrobe.price.hardwareHint')}</div>
           <button style={{ ...ghost, marginTop: 8 }} onClick={onOpenStandard}>{t('wardrobe.price.editPrices')}</button>
         </div>
-      </div>
+      </fieldset>
 
       <div className="wb-print-full" style={{ minWidth: 0 }}>
         {errors.length > 0 && <div style={{ ...card, color: '#9b2c2c', fontSize: 12 }}>{t('wardrobe.fixErrors')}</div>}

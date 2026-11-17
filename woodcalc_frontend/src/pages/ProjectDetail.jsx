@@ -31,11 +31,11 @@ const CHEQUE_STATUS_KEYS = {
 
 const ROOM_ICONS = {
   kitchen: '🍳', bathroom: '🚿', bedroom: '🛏', living: '🛋',
-  office: '💼', laundry: '👕', other: '📦',
+  office: '💼', laundry: '👕', wardrobe: '🚪', closet: '👔', other: '📦',
 }
 const ROOM_TYPE_KEYS = {
   kitchen: 'projectDetail.roomKitchen', bathroom: 'projectDetail.roomBathroom', bedroom: 'projectDetail.roomBedroom',
-  living: 'projectDetail.roomLiving', office: 'projectDetail.roomOffice', laundry: 'projectDetail.roomLaundry', other: 'projectDetail.roomOther',
+  living: 'projectDetail.roomLiving', office: 'projectDetail.roomOffice', laundry: 'projectDetail.roomLaundry', wardrobe: 'projectDetail.roomWardrobe', closet: 'projectDetail.roomCloset', other: 'projectDetail.roomOther',
 }
 
 export default function ProjectDetail() {
@@ -553,7 +553,7 @@ export default function ProjectDetail() {
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }}>{t('projectDetail.roomType')}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-                {[['kitchen','🍳'],['bathroom','🚿'],['bedroom','🛏'],['living','🛋'],['office','💼'],['laundry','👕'],['other','📦']].map(([type, icon]) => (
+                {[['kitchen','🍳'],['bathroom','🚿'],['bedroom','🛏'],['living','🛋'],['office','💼'],['laundry','👕'],['wardrobe','🚪'],['closet','👔'],['other','📦']].map(([type, icon]) => (
                   <div key={type} onClick={() => setForm(f => ({ ...f, room_type: type }))}
                     style={{ padding: '8px 4px', border: `1.5px solid ${form.room_type === type ? ACCENT : '#E0DAD4'}`, borderRadius: 7, cursor: 'pointer', textAlign: 'center', background: form.room_type === type ? ACCENT + '12' : '#FAFAFA' }}>
                     <div style={{ fontSize: 16 }}>{icon}</div>

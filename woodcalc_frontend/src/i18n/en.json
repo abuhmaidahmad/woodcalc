@@ -1457,7 +1457,8 @@
     "nicheLowerDoorH": "Lower door height (mm)",
     "nicheUpperDoorH": "Upper door height (mm)",
     "nicheOpening": "Opening: {{mm}} mm",
-    "nicheNoOpening": "Doors leave no opening — reduce a door height"
+    "nicheNoOpening": "Doors leave no opening — reduce a door height",
+    "roomTypeWardrobe": "Wardrobe"
   },
   "roomCanvas": {
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",
@@ -1643,7 +1644,9 @@
     "chequeReceived": "RECEIVED",
     "chequeDeposited": "DEPOSITED",
     "chequeCleared": "CLEARED",
-    "chequeBounced": "BOUNCED"
+    "chequeBounced": "BOUNCED",
+    "roomWardrobe": "Wardrobe",
+    "roomCloset": "Walk-in closet"
   },
   "cuttingOptimizer": {
     "downloadLabels": "Labels",
@@ -2429,7 +2432,8 @@
     },
     "tab": {
       "design": "Design",
-      "price": "Price"
+      "price": "Price",
+      "contract": "Contract"
     },
     "price": {
       "materialsTitle": "Materials",
@@ -2478,6 +2482,19 @@
         "confirmat": "Confirmat screws",
         "shelfPin": "Shelf pins"
       }
+    },
+    "room": {
+      "saveToProject": "Save to project",
+      "defaultName": "Wardrobe",
+      "lockedTip": "This wardrobe is confirmed and locked. Request a change to edit it as a new revision.",
+      "confirmLockPrompt": "Confirm this wardrobe with the customer and lock it? It will be saved first, and nobody can edit it afterwards without a revision.",
+      "variantConfirmPrompt": "This is a design variant of a confirmed wardrobe. Why are you confirming it?",
+      "unlockPrompt": "Why are you unlocking this confirmed wardrobe?",
+      "sendNewRevisionNotice": "Send the new cut list to the workshop.",
+      "savedStandard": "This room uses the construction standard saved with it.",
+      "useCurrentStandard": "Use my current standard",
+      "contractTerms": "1. SCOPE OF WORK\nThe Contractor agrees to supply and install the fitted wardrobe as specified in this contract. All dimensions are subject to final site measurements before production.\n\n2. MATERIALS\nAll materials shall be as specified in the Bill of Materials. Any substitutions require written approval from the Client.\n\n3. PAYMENT TERMS\nPayments shall be made according to the schedule outlined in this contract. Work will not commence until the deposit is received.\n\n4. DELIVERY & INSTALLATION\nDelivery and installation dates are estimates and may vary due to production scheduling or site conditions. The Contractor will notify the Client of any delays.\n\n5. WARRANTIES\nThe Contractor warrants all cabinets against manufacturing defects for a period of one (1) year from the date of installation.\n\n6. CHANGES & MODIFICATIONS\nAny changes to the agreed scope of work must be submitted in writing and may result in additional charges and timeline adjustments.\n\n7. CANCELLATION\nIn the event of cancellation by the Client after production has commenced, the deposit is non-refundable.\n\n8. DISPUTE RESOLUTION\nAny disputes arising from this contract shall be resolved through mutual negotiation. If unresolved, disputes shall be referred to the competent courts of Jordan.\n\n9. GOVERNING LAW\nThis contract is governed by the laws of the Hashemite Kingdom of Jordan.",
+      "contractList": "Project: {{name}} · {{count}} sections"
     }
   }
 }

@@ -87,6 +87,8 @@ class Room(models.Model):
         ('living', 'Living Room'),
         ('office', 'Office'),
         ('laundry', 'Laundry'),
+        ('wardrobe', 'Wardrobe'),
+        ('closet', 'Walk-in closet'),
         ('other', 'Other'),
     ]
     project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='rooms')

@@ -127,7 +127,7 @@ function PaymentRow({ item, onChange, onDelete }) {
   )
 }
 
-export default function ContractTab({ cabinets, projectName, countertopId, grandTotal, customer: propCustomer }) {
+export default function ContractTab({ cabinets, projectName, countertopId, grandTotal, customer: propCustomer, defaultTerms, listTitle }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
@@ -139,7 +139,7 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
     { id: 2, label: t('contractTab.onDeliveryLabel'),  pct: 40, dueDate: '' },
     { id: 3, label: t('contractTab.onCompletionLabel'),pct: 20, dueDate: '' },
   ])
-  const [terms, setTerms] = useState(t('contractTab.defaultTerms'))
+  const [terms, setTerms] = useState(defaultTerms || t('contractTab.defaultTerms'))
   const [signature, setSignature] = useState(null)
   const [signedDate, setSignedDate] = useState('')
   const [showTermsEdit, setShowTermsEdit] = useState(false)
@@ -390,9 +390,9 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
           {/* Cabinet list */}
           <div style={{ background: '#fff', borderRadius: 12, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 16 }}>
             <div style={{ padding: '14px 16px', borderBottom: '1px solid #F0EBE5', fontWeight: 700, fontSize: 13, color: DARK }}>
-              {cabinets.length === 1
+              {listTitle || (cabinets.length === 1
                 ? t('contractTab.projectCabinets', { name: projectName })
-                : t('contractTab.projectCabinetsPlural', { name: projectName, count: cabinets.length })}
+                : t('contractTab.projectCabinetsPlural', { name: projectName, count: cabinets.length }))}
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
