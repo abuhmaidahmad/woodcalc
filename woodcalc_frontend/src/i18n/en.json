@@ -2322,7 +2322,8 @@
       "drawers": "Internal drawers",
       "sliding": "Sliding doors",
       "shared": "Shared partitions",
-      "prices": "Prices (JD)"
+      "prices": "Prices (JD)",
+      "closet": "Walk-in closet"
     },
     "std": {
       "carcassT": "Carcass thickness",
@@ -2388,7 +2389,10 @@
       "priceConfirmat": "Confirmat screw",
       "priceShelfPin": "Shelf pin",
       "labourPct": "Default labour %",
-      "marginPct": "Default margin %"
+      "marginPct": "Default margin %",
+      "closetCornerGap": "Corner gap",
+      "minWalkway": "Min walkway",
+      "islandTopOverhang": "Island top overhang"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2407,12 +2411,16 @@
       "doorTooWide": "{{section}}: doors are {{w}} mm, over the {{max}} mm maximum.",
       "slidingDoorTooWide": "Sliding doors are {{w}} mm, over the {{max}} mm maximum.",
       "panelTooLong": "{{part}} is longer than the sheet ({{max}} mm) and has no partition to split on. Add a section.",
-      "backRailsDontFit": "Back rails ({{n}} × {{railH}} mm) do not fit in a {{h}} mm carcass."
+      "backRailsDontFit": "Back rails ({{n}} × {{railH}} mm) do not fit in a {{h}} mm carcass.",
+      "runTooShort": "Run {{run}} is only {{length}} mm long.",
+      "walkwayNarrow": "Free floor at {{between}} is {{w}} mm, under the {{min}} mm walkway.",
+      "islandClearance": "The island is {{w}} mm from {{side}}, under the {{min}} mm walkway."
     },
     "construction": "Construction",
     "constructionTypes": {
       "boxes": "Separate boxes",
-      "shared": "Shared partitions"
+      "shared": "Shared partitions",
+      "mixed": "Mixed construction"
     },
     "backType": "Back",
     "backTypes": {
@@ -2494,7 +2502,59 @@
       "savedStandard": "This room uses the construction standard saved with it.",
       "useCurrentStandard": "Use my current standard",
       "contractTerms": "1. SCOPE OF WORK\nThe Contractor agrees to supply and install the fitted wardrobe as specified in this contract. All dimensions are subject to final site measurements before production.\n\n2. MATERIALS\nAll materials shall be as specified in the Bill of Materials. Any substitutions require written approval from the Client.\n\n3. PAYMENT TERMS\nPayments shall be made according to the schedule outlined in this contract. Work will not commence until the deposit is received.\n\n4. DELIVERY & INSTALLATION\nDelivery and installation dates are estimates and may vary due to production scheduling or site conditions. The Contractor will notify the Client of any delays.\n\n5. WARRANTIES\nThe Contractor warrants all cabinets against manufacturing defects for a period of one (1) year from the date of installation.\n\n6. CHANGES & MODIFICATIONS\nAny changes to the agreed scope of work must be submitted in writing and may result in additional charges and timeline adjustments.\n\n7. CANCELLATION\nIn the event of cancellation by the Client after production has commenced, the deposit is non-refundable.\n\n8. DISPUTE RESOLUTION\nAny disputes arising from this contract shall be resolved through mutual negotiation. If unresolved, disputes shall be referred to the competent courts of Jordan.\n\n9. GOVERNING LAW\nThis contract is governed by the laws of the Hashemite Kingdom of Jordan.",
-      "contractList": "Project: {{name}} · {{count}} sections"
+      "contractList": "Project: {{name}} · {{count}} sections",
+      "contractListCloset": "Project: {{name}} · {{count}} items"
+    },
+    "mode": {
+      "wardrobe": "Wardrobe",
+      "closet": "Walk-in closet"
+    },
+    "closet": {
+      "title": "Walk-in closet",
+      "outlineTitle": "Room outline (mm)",
+      "shape": "Shape",
+      "shapes": {
+        "straight": "Straight",
+        "L": "L-shape",
+        "U": "U-shape"
+      },
+      "width": "Back wall",
+      "roomDepth": "Room depth",
+      "corner": "Corner with {{side}}",
+      "cornerRules": {
+        "empty": "Leave the corner empty",
+        "back": "Back wall run goes into the corner",
+        "side": "{{side}} run goes into the corner"
+      },
+      "wall": {
+        "A": "A · Back wall",
+        "B": "B · Left wall",
+        "C": "C · Right wall",
+        "I": "Island",
+        "E": "Entrance"
+      },
+      "runsTitle": "Runs",
+      "runLength": "Run length {{l}} mm after corners",
+      "endGap": "Gap at entrance",
+      "islandSelected": "The island settings are below.",
+      "island": "Island with drawers",
+      "bays": "Drawer columns",
+      "drawersPerBay": "Drawers per column",
+      "doubleSided": "Both sides",
+      "moveX": "Move sideways",
+      "moveY": "Move front/back",
+      "view": {
+        "plan": "Plan",
+        "3d": "3D"
+      },
+      "pickRun": "Pick a run to see its front view.",
+      "planHint": "Click a run or the island to edit it. Runs are open unless you give them doors.",
+      "stat": {
+        "runs": "Runs",
+        "length": "Run length (mm)"
+      },
+      "sectionsCount": "{{count}} sections",
+      "islandDrawers": "{{count}} drawers"
     }
   }
 }

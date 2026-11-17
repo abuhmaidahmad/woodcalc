@@ -26,6 +26,7 @@ export const PART_NAMES_AR = {
   'Plinth': 'بانيل',
   'Filler': 'سدة',
   'Top filler': 'سدة علوية',
+  'Island top': 'سطح الجزيرة',
 }
 
 const r1 = (n) => Math.round(n * 10) / 10
@@ -196,6 +197,49 @@ function aggregate(parts) {
     }
   })
   return [...map.values()]
+}
+
+export function mergeParts(parts) {
+  const map = new Map()
+  parts.forEach((p) => {
+    const key = [p.name, p.L, p.W, p.T, p.material, p.edges, p.loft ? 1 : 0].join('|')
+    const e = map.get(key)
+    if (e) {
+      e.qty += p.qty
+      p.sections.forEach((sec) => { if (!e.sections.includes(sec)) e.sections.push(sec) })
+    } else {
+      map.set(key, { ...p, sections: [...p.sections] })
+    }
+  })
+  return [...map.values()]
+}
+
+export function summarizeParts(parts, std) {
+  const matMap = new Map()
+  const edgeMap = new Map()
+  parts.forEach((p) => {
+    const mk = `${p.material}|${p.T}`
+    const m = matMap.get(mk) || { material: p.material, T: p.T, areaM2: 0 }
+    m.areaM2 += (p.qty * p.L * p.W) / 1e6
+    matMap.set(mk, m)
+    const edges = p.edges ? p.edges.split(',') : []
+    const mm = edges.reduce((a, e) => a + (e === 'F' || e === 'B' ? p.L : p.W), 0) * p.qty
+    if (mm > 0) {
+      const thickness = p.material === 'Front' ? std.edgeFront : std.edgeCarcass
+      const ek = `${p.material}|${thickness}`
+      const e = edgeMap.get(ek) || { material: p.material, thickness, meters: 0 }
+      e.meters += mm / 1000
+      edgeMap.set(ek, e)
+    }
+  })
+  const sheetArea = (std.sheetL * std.sheetW) / 1e6
+  const materials = [...matMap.values()].map((m) => ({
+    ...m,
+    areaM2: Math.round(m.areaM2 * 100) / 100,
+    sheets: sheetArea > 0 ? Math.ceil((m.areaM2 * std.wasteFactor) / sheetArea) : 0,
+  }))
+  const edgeBanding = [...edgeMap.values()].map((e) => ({ ...e, meters: Math.round(e.meters * 10) / 10 }))
+  return { materials, edgeBanding }
 }
 
 const EDGE_ALL = 'F,B,L,R'
@@ -474,31 +518,7 @@ export function computeWardrobe(design, std) {
   }
 
   const parts = aggregate(rawParts).map((p) => ({ ...p, nameAr: PART_NAMES_AR[p.name] || '' }))
-
-  const matMap = new Map()
-  const edgeMap = new Map()
-  parts.forEach((p) => {
-    const mk = `${p.material}|${p.T}`
-    const m = matMap.get(mk) || { material: p.material, T: p.T, areaM2: 0 }
-    m.areaM2 += (p.qty * p.L * p.W) / 1e6
-    matMap.set(mk, m)
-    const edges = p.edges ? p.edges.split(',') : []
-    const mm = edges.reduce((a, e) => a + (e === 'F' || e === 'B' ? p.L : p.W), 0) * p.qty
-    if (mm > 0) {
-      const thickness = p.material === 'Front' ? std.edgeFront : std.edgeCarcass
-      const ek = `${p.material}|${thickness}`
-      const e = edgeMap.get(ek) || { material: p.material, thickness, meters: 0 }
-      e.meters += mm / 1000
-      edgeMap.set(ek, e)
-    }
-  })
-  const sheetArea = (std.sheetL * std.sheetW) / 1e6
-  const materials = [...matMap.values()].map((m) => ({
-    ...m,
-    areaM2: Math.round(m.areaM2 * 100) / 100,
-    sheets: sheetArea > 0 ? Math.ceil((m.areaM2 * std.wasteFactor) / sheetArea) : 0,
-  }))
-  const edgeBanding = [...edgeMap.values()].map((e) => ({ ...e, meters: Math.round(e.meters * 10) / 10 }))
+  const { materials, edgeBanding } = summarizeParts(parts, std)
   if (railMm > 0) hardware.railMeters = Math.round(railMm / 100) / 10
 
   const summary = {

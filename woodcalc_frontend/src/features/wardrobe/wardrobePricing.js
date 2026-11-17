@@ -119,14 +119,11 @@ export function pickMaterials(picks = {}, materials = []) {
 
 export const fmt = (n) => (Number(n) || 0).toFixed(2)
 
-export function otherConstruction(design) {
-  return design.construction === 'shared'
-    ? { ...design, construction: 'boxes' }
-    : { ...design, construction: 'shared', backType: design.backType || 'none' }
-}
-
-export function constructionName(t, design) {
-  return design.construction === 'shared'
-    ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${design.backType || 'none'}`)}`
-    : t('wardrobe.constructionTypes.boxes')
+export function constructionName(t, info) {
+  if (info.construction === 'shared') {
+    return info.backType === 'mixed'
+      ? t('wardrobe.constructionTypes.shared')
+      : `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${info.backType || 'none'}`)}`
+  }
+  return t(`wardrobe.constructionTypes.${info.construction === 'mixed' ? 'mixed' : 'boxes'}`)
 }

@@ -4,9 +4,16 @@ import Logo from '../components/Logo'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
 import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, DECIMAL_FIELDS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
-import { computeWardrobe, defaultDesign, withSectionCount, autoSectionCount, presetZones, newZone, sectionWidths, cutListCsv, PRESET_IDS, ZONE_TYPES, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
+import { defaultDesign, withSectionCount, autoSectionCount, sectionWidths, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
 import WardrobeElevation from '../features/wardrobe/WardrobeElevation'
+import SectionEditor from '../features/wardrobe/SectionEditor'
+import ChecksCard from '../features/wardrobe/ChecksCard'
+import CutListPanel from '../features/wardrobe/CutListPanel'
+import NumField from '../features/wardrobe/NumField'
+import { ACCENT, DARK, FIELDSET, card, label, input, btn, ghost } from '../features/wardrobe/ui'
 import WardrobePriceTab from '../features/wardrobe/WardrobePriceTab'
+import ClosetEditor from '../features/wardrobe/ClosetEditor'
+import { computeDesign, defaultCloset } from '../features/wardrobe/closetEngine'
 import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 import { usePricing } from '../features/wardrobe/useWardrobePricing'
 import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom } from '../features/wardrobe/wardrobeRoom'
@@ -19,11 +26,8 @@ import { authFetch } from '../api/auth'
 
 const Wardrobe3D = lazy(() => import('../features/wardrobe/Wardrobe3D'))
 
-const ACCENT = '#C8902A'
-const DARK = '#1A1A1A'
 const DESIGN_KEY = 'woodcalc.wardrobeDesign.v1'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-const FIELDSET = { border: 0, padding: 0, margin: 0, minWidth: 0 }
 
 const FRONT_COLORS = [
   { id: 'white', hex: '#f3f1ec' },
@@ -35,14 +39,6 @@ const FRONT_COLORS = [
   { id: 'black', hex: '#2c2c2c' },
 ]
 
-const card = { background: '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 14 }
-const label = { fontSize: 11, color: '#777', marginBottom: 4, display: 'block' }
-const input = { width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: '1px solid #ddd6cc', borderRadius: 7, fontSize: 13, background: '#fff' }
-const btn = { padding: '7px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }
-const ghost = { padding: '6px 10px', background: '#fff', color: DARK, border: '1px solid #ddd6cc', borderRadius: 7, cursor: 'pointer', fontSize: 12 }
-const th = { textAlign: 'start', padding: '7px 8px', fontSize: 11, color: '#777', fontWeight: 600, borderBottom: '1px solid #eee7dd', whiteSpace: 'nowrap' }
-const td = { padding: '7px 8px', fontSize: 12, borderBottom: '1px solid #f3eee7', whiteSpace: 'nowrap' }
-
 function loadDesign(std) {
   try {
     const d = JSON.parse(localStorage.getItem(DESIGN_KEY) || 'null')
@@ -51,23 +47,18 @@ function loadDesign(std) {
   return defaultDesign(std)
 }
 
-function NumField({ title, value, onChange, placeholder, min = 0, step = 1, disabled }) {
-  return (
-    <label style={{ display: 'block' }}>
-      <span style={label}>{title}</span>
-      <input type="number" min={min} step={step} style={{ ...input, background: disabled ? '#f5f2ed' : '#fff' }} value={value ?? ''} placeholder={placeholder}
-        disabled={disabled} onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))} />
-    </label>
-  )
-}
-
 export default function WardrobeBuilder({ roomId = null, room = null, lock = null, onRoomAction, onBack, onSaved }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const navigate = useNavigate()
   const [saved] = useState(() => savedWardrobe(room))
   const [std, setStd] = useState(() => (saved?.standard ? normalizeStandard(saved.standard) : loadStandard()))
-  const [design, setDesign] = useState(() => saved?.design || (roomId ? defaultDesign(loadStandard()) : loadDesign(loadStandard())))
+  const [design, setDesign] = useState(() => {
+    if (saved?.design) return saved.design
+    if (!roomId) return loadDesign(loadStandard())
+    const fresh = defaultDesign(loadStandard())
+    return room?.room_type === 'closet' ? { ...fresh, mode: 'closet', closet: defaultCloset(loadStandard()) } : fresh
+  })
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [showLink, setShowLink] = useState(false)
@@ -85,7 +76,8 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     try { localStorage.setItem(DESIGN_KEY, JSON.stringify(design)) } catch {}
   }, [design, roomId])
 
-  const result = useMemo(() => computeWardrobe(design, std), [design, std])
+  const result = useMemo(() => computeDesign(design, std), [design, std])
+  const closetMode = design.mode === 'closet' && !!design.closet
   const { price, picked } = usePricing(design, std, materialsState.materials, result)
   const lockSt = roomLockState(lock)
   const readOnly = !!roomId && lockSt.readOnly
@@ -127,41 +119,10 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     if (await saveToRoom(newRoomId, projectId)) navigate(`/rooms/${newRoomId}`)
   }
   const widths = useMemo(() => sectionWidths(design), [design])
-  const si = Math.min(selected.section, design.sections.length - 1)
-  const sec = design.sections[si]
-  const secOut = result.sections[si]
-
   const setField = (k, v) => setDesign((d) => ({ ...d, [k]: v }))
-  const setSection = (i, patch) => setDesign((d) => ({ ...d, sections: d.sections.map((s, j) => (j === i ? { ...s, ...patch } : s)) }))
-  const setZones = (i, fn) => setDesign((d) => ({ ...d, sections: d.sections.map((s, j) => (j === i ? { ...s, preset: null, zones: fn(s.zones || []) } : s)) }))
   const setCount = (n) => setDesign((d) => withSectionCount(d, n, std))
   const zoneLabel = (z) => t(`wardrobe.zone.${z.type}`)
-
-  const updateZone = (zi, patch) => setZones(si, (zs) => zs.map((z, j) => (j === zi ? { ...z, ...patch } : z)))
-  const setAuto = (zi) => setZones(si, (zs) => zs.map((z, j) => ({ ...z, auto: j === zi, h: j === zi ? z.h : (z.auto ? Math.round(secOut?.zones?.[j]?.h || z.h || 400) : z.h) })))
-  const moveZone = (zi, by) => setZones(si, (zs) => {
-    const out = [...zs]
-    const j = zi + by
-    if (j < 0 || j >= out.length) return zs
-    ;[out[zi], out[j]] = [out[j], out[zi]]
-    return out
-  })
-  const removeZone = (zi) => {
-    setZones(si, (zs) => (zs.length > 1 ? zs.filter((_, j) => j !== zi) : zs))
-    setSelected((s) => ({ ...s, zone: null }))
-  }
-  const addZone = (type) => setZones(si, (zs) => [newZone(type, std), ...zs])
-
-  const exportCsv = () => {
-    const csv = cutListCsv(result)
-    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
-    const a = document.createElement('a')
-    a.href = URL.createObjectURL(blob)
-    a.download = `wardrobe-cut-list-${Math.round(design.width)}x${Math.round(design.height)}.csv`
-    a.click()
-    URL.revokeObjectURL(a.href)
-  }
-
+  const si = Math.min(selected.section, design.sections.length - 1)
   const saveStd = () => {
     if (readOnly) return
     const clean = normalizeStandard(stdDraft)
@@ -176,12 +137,20 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     setSelected({ section: 0, zone: null })
   }
 
-  const partName = (p) => (language === 'ar' && p.nameAr ? p.nameAr : p.name)
-  const edgeText = (e) => (e ? e.split(',').map((c) => t(`wardrobe.edge.${c}`)).join(' · ') : '—')
-  const errors = result.warnings.filter((w) => w.level === 'error')
+  const setMode = (mode) => setDesign((d) => ({ ...d, mode, closet: mode === 'closet' ? d.closet || defaultCloset(std) : d.closet }))
+
   const constructionLabel = result.summary.construction === 'shared'
     ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${result.summary.backType}`)}`
-    : t('wardrobe.constructionTypes.boxes')
+    : t(`wardrobe.constructionTypes.${result.summary.construction}`)
+  const rows = contractRows(design, result, widths, t, picked.Carcass?.name || t('wardrobe.price.standardBoard'))
+  const colorPicker = (
+    <div style={{ display: 'flex', gap: 4, marginInlineStart: 6 }}>
+      {FRONT_COLORS.map((c) => (
+        <button key={c.id} title={t(`wardrobe.colors.${c.id}`)} onClick={() => setFrontColor(c.hex)}
+          style={{ width: 22, height: 22, borderRadius: 11, background: c.hex, cursor: 'pointer', border: frontColor === c.hex ? `2px solid ${ACCENT}` : '1px solid #ccc' }} />
+      ))}
+    </div>
+  )
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
@@ -242,15 +211,28 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
             <button style={ghost} onClick={() => setStd(localStd)}>{t('wardrobe.room.useCurrentStandard')}</button>
           </div>
         )}
+        {tab === 'design' && (
+          <div className="wb-noprint" style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {['wardrobe', 'closet'].map((m) => (
+              <button key={m} disabled={readOnly} onClick={() => setMode(m)}
+                style={{ ...ghost, padding: '7px 14px', fontWeight: 700, background: (closetMode ? 'closet' : 'wardrobe') === m ? DARK : '#fff', color: (closetMode ? 'closet' : 'wardrobe') === m ? '#fff' : DARK }}>
+                {t(`wardrobe.mode.${m}`)}
+              </button>
+            ))}
+          </div>
+        )}
         {tab === 'contract' ? (
-          <ContractTab cabinets={contractRows(design, widths, t, picked.Carcass?.name || t('wardrobe.price.standardBoard'))}
+          <ContractTab cabinets={rows}
             projectName={room?.name || t('wardrobe.title')} grandTotal={price.grandTotal}
             defaultTerms={t('wardrobe.room.contractTerms')}
-            listTitle={t('wardrobe.room.contractList', { name: room?.name || t('wardrobe.title'), count: design.sections.length })} />
+            listTitle={t(closetMode ? 'wardrobe.room.contractListCloset' : 'wardrobe.room.contractList', { name: room?.name || t('wardrobe.title'), count: rows.length })} />
         ) : tab === 'price' ? (
           <WardrobePriceTab design={design} std={std} result={result} materialsState={materialsState} readOnly={readOnly}
             onPricingChange={(pricing) => setField('pricing', pricing)}
             onOpenStandard={() => { setStdDraft(std); setShowStd(true) }} />
+        ) : closetMode ? (
+          <ClosetEditor design={design} setDesign={setDesign} result={result} std={std} readOnly={readOnly}
+            frontColor={frontColor} constructionLabel={constructionLabel} colorPicker={colorPicker} />
         ) : (
         <div className="wb-grid">
           <fieldset className="wb-noprint" disabled={readOnly} style={FIELDSET}>
@@ -315,86 +297,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
               </div>
             </div>
 
-            {sec && (
-              <div style={card}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{t('wardrobe.sectionTitle', { n: si + 1 })}</div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    {design.sections.map((_, i) => (
-                      <button key={i} onClick={() => setSelected({ section: i, zone: null })}
-                        style={{ width: 26, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: i === si ? ACCENT : '#eee7dd', color: i === si ? '#fff' : DARK }}>{i + 1}</button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  <NumField title={t('wardrobe.sectionWidth')} value={sec.w} placeholder={`${t('wardrobe.auto')} ${widths[si] ?? ''}`} onChange={(v) => setSection(si, { w: v })} />
-                  <NumField title={t('wardrobe.doorCount')} value={sec.doors} disabled={design.doorType !== 'hinged'}
-                    placeholder={`${t('wardrobe.auto')} ${secOut?.doors ?? ''}`} onChange={(v) => setSection(si, { doors: v })} />
-                </div>
-                <div style={{ marginTop: 10 }}>
-                  <span style={label}>{t('wardrobe.presetsTitle')}</span>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    {PRESET_IDS.map((p) => (
-                      <button key={p} onClick={() => { setSection(si, { preset: p, zones: presetZones(p, std) }); setSelected({ section: si, zone: null }) }}
-                        style={{ ...ghost, borderColor: sec.preset === p ? ACCENT : '#ddd6cc', color: sec.preset === p ? ACCENT : DARK, fontWeight: sec.preset === p ? 700 : 400 }}>
-                        {t(`wardrobe.presets.${p}`)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div style={{ marginTop: 12 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={label}>{t('wardrobe.zonesTitle')}</span>
-                    <select style={{ ...input, width: 'auto', padding: '4px 6px', fontSize: 12 }} value="" onChange={(e) => { if (e.target.value) addZone(e.target.value) }}>
-                      <option value="">{t('wardrobe.addZone')}</option>
-                      {ZONE_TYPES.map((zt) => <option key={zt} value={zt}>{t(`wardrobe.zone.${zt}`)}</option>)}
-                    </select>
-                  </div>
-                  {(sec.zones || []).map((z, zi) => {
-                    const rz = secOut?.zones?.[zi]
-                    const active = selected.zone === zi
-                    return (
-                      <div key={zi} onClick={() => setSelected({ section: si, zone: zi })}
-                        style={{ border: `1px solid ${active ? ACCENT : '#eee7dd'}`, background: active ? '#fdf8ef' : '#fff', borderRadius: 8, padding: 8, marginTop: 6, cursor: 'pointer' }}>
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <select style={{ ...input, padding: '4px 6px', fontSize: 12 }} value={z.type}
-                            onChange={(e) => updateZone(zi, e.target.value === 'drawers' ? { type: 'drawers', n: 2, h: 2 * std.drawerH } : { type: e.target.value, n: e.target.value === 'shelves' ? null : undefined })}>
-                            {ZONE_TYPES.map((zt) => <option key={zt} value={zt}>{t(`wardrobe.zone.${zt}`)}</option>)}
-                          </select>
-                          <button style={{ ...ghost, padding: '3px 7px' }} title={t('wardrobe.moveUp')} onClick={(e) => { e.stopPropagation(); moveZone(zi, -1) }}>↑</button>
-                          <button style={{ ...ghost, padding: '3px 7px' }} title={t('wardrobe.moveDown')} onClick={(e) => { e.stopPropagation(); moveZone(zi, 1) }}>↓</button>
-                          <button style={{ ...ghost, padding: '3px 7px', color: '#b23b3b' }} title={t('wardrobe.remove')} onClick={(e) => { e.stopPropagation(); removeZone(zi) }}>×</button>
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 6, marginTop: 6, alignItems: 'end' }}>
-                          <NumField title={t('wardrobe.zoneHeight')} value={rz?.auto ? null : z.h} placeholder={rz ? `${t('wardrobe.auto')} ${Math.round(rz.h)}` : ''}
-                            disabled={rz?.auto} onChange={(v) => updateZone(zi, { h: v ?? 0 })} />
-                          {z.type === 'shelves' || z.type === 'drawers' ? (
-                            <NumField title={z.type === 'shelves' ? t('wardrobe.shelfCount') : t('wardrobe.drawerCount')} value={z.n}
-                              placeholder={rz ? `${t('wardrobe.auto')} ${rz.n}` : ''}
-                              onChange={(v) => updateZone(zi, z.type === 'drawers' ? { n: v || 1, h: (v || 1) * std.drawerH } : { n: v })} />
-                          ) : <div />}
-                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, paddingBottom: 8 }} onClick={(e) => e.stopPropagation()}>
-                            <input type="radio" checked={!!rz?.auto} onChange={() => setAuto(zi)} />
-                            {t('wardrobe.fillRest')}
-                          </label>
-                        </div>
-                      </div>
-                    )
-                  })}
-                  <div style={{ fontSize: 11, color: '#999', marginTop: 8 }}>{t('wardrobe.zonesHint')}</div>
-                </div>
-              </div>
-            )}
+            <SectionEditor design={design} setDesign={setDesign} result={result} std={std} selected={selected} setSelected={setSelected} />
 
-            <div style={card}>
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t('wardrobe.checksTitle')}</div>
-              {result.warnings.length === 0 && <div style={{ fontSize: 12, color: '#2f7d4f' }}>{t('wardrobe.allGood')}</div>}
-              {result.warnings.map((w, i) => (
-                <div key={i} style={{ fontSize: 12, padding: '6px 8px', borderRadius: 6, marginBottom: 6, background: w.level === 'error' ? '#fdecec' : '#fff6e5', color: w.level === 'error' ? '#9b2c2c' : '#7a5410' }}>
-                  {t(`wardrobe.warn.${w.code}`, w.params)}
-                </div>
-              ))}
-            </div>
+            <ChecksCard warnings={result.warnings} />
           </fieldset>
 
           <div className="wb-print-full" style={{ minWidth: 0 }}>
@@ -410,12 +315,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
                     {['closed', 'open', 'hidden'].map((m) => (
                       <button key={m} onClick={() => setDoorMode(m)} style={{ ...ghost, borderColor: doorMode === m ? ACCENT : '#ddd6cc', color: doorMode === m ? ACCENT : DARK }}>{t(`wardrobe.doorMode.${m}`)}</button>
                     ))}
-                    <div style={{ display: 'flex', gap: 4, marginInlineStart: 6 }}>
-                      {FRONT_COLORS.map((c) => (
-                        <button key={c.id} title={t(`wardrobe.colors.${c.id}`)} onClick={() => setFrontColor(c.hex)}
-                          style={{ width: 22, height: 22, borderRadius: 11, background: c.hex, cursor: 'pointer', border: frontColor === c.hex ? `2px solid ${ACCENT}` : '1px solid #ccc' }} />
-                      ))}
-                    </div>
+                    {colorPicker}
                   </div>
                 )}
               </div>
@@ -450,85 +350,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
               ))}
             </div>
 
-            <div style={card}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>{t('wardrobe.cutListTitle')}</div>
-                  <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
-                    {t('wardrobe.construction')}: <b>{constructionLabel}</b> · {Math.round(design.width)} × {Math.round(design.height)} × {Math.round(design.depth)} · {t(`wardrobe.doorTypes.${design.doorType}`)}
-                  </div>
-                </div>
-                <div className="wb-noprint" style={{ display: 'flex', gap: 6 }}>
-                  <button style={ghost} onClick={exportCsv} disabled={errors.length > 0}>{t('wardrobe.exportCsv')}</button>
-                  <button style={btn} onClick={() => window.print()}>{t('wardrobe.print')}</button>
-                </div>
-              </div>
-              {errors.length > 0 && <div style={{ fontSize: 12, color: '#9b2c2c', marginBottom: 8 }}>{t('wardrobe.fixErrors')}</div>}
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      {['#', 'part', 'section', 'length', 'width', 'thickness', 'qty', 'material', 'edges'].map((h) => (
-                        <th key={h} style={th}>{h === '#' ? '#' : t(`wardrobe.col.${h}`)}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {result.parts.map((p, i) => (
-                      <tr key={i}>
-                        <td style={td}>{i + 1}</td>
-                        <td style={{ ...td, fontWeight: 600 }}>
-                          <span>{partName(p)}</span>
-                          {p.loft && <span style={{ display: 'inline-block', marginInlineStart: 8, fontSize: 10, color: ACCENT }}>{t('wardrobe.loft')}</span>}
-                          <div style={{ fontSize: 10, color: '#aaa', fontWeight: 400 }}>{language === 'ar' ? p.name : p.nameAr}</div>
-                        </td>
-                        <td style={td}>{p.sections.map((s) => (s === 'ALL' ? t('wardrobe.all') : s)).join(' ')}</td>
-                        <td style={td}>{p.L}</td>
-                        <td style={td}>{p.W}</td>
-                        <td style={td}>{p.T}</td>
-                        <td style={{ ...td, fontWeight: 700 }}>{p.qty}</td>
-                        <td style={td}>{t(`wardrobe.material.${p.material}`)}</td>
-                        <td style={td}>{edgeText(p.edges)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
-              <div style={card}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t('wardrobe.hardwareTitle')}</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <tbody>
-                    {Object.entries(result.hardware).map(([k, v]) => (
-                      <tr key={k}><td style={td}>{t(`wardrobe.hw.${k}`)}</td><td style={{ ...td, fontWeight: 700, textAlign: 'end' }}>{v}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div style={card}>
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t('wardrobe.materialsTitle')}</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr><th style={th}>{t('wardrobe.col.material')}</th><th style={th}>{t('wardrobe.col.thickness')}</th><th style={th}>m²</th><th style={th}>{t('wardrobe.sheetsCol', { l: std.sheetL, w: std.sheetW })}</th></tr>
-                  </thead>
-                  <tbody>
-                    {result.materials.map((m) => (
-                      <tr key={`${m.material}-${m.T}`}><td style={td}>{t(`wardrobe.material.${m.material}`)}</td><td style={td}>{m.T}</td><td style={td}>{m.areaM2}</td><td style={{ ...td, fontWeight: 700 }}>{m.sheets}</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-                <div style={{ fontWeight: 700, fontSize: 13, margin: '12px 0 6px' }}>{t('wardrobe.edgeTitle')}</div>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <tbody>
-                    {result.edgeBanding.map((e) => (
-                      <tr key={`${e.material}-${e.thickness}`}><td style={td}>{t(`wardrobe.material.${e.material}`)} · {e.thickness} mm</td><td style={{ ...td, fontWeight: 700, textAlign: 'end' }}>{e.meters} m</td></tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <CutListPanel result={result} std={std}
+              subtitle={<>{t('wardrobe.construction')}: <b>{constructionLabel}</b> · {Math.round(design.width)} × {Math.round(design.height)} × {Math.round(design.depth)} · {t(`wardrobe.doorTypes.${design.doorType}`)}</>}
+              csvName={`wardrobe-cut-list-${Math.round(design.width)}x${Math.round(design.height)}.csv`} />
           </div>
         </div>
         )}
@@ -536,7 +360,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
 
       {showLink && (
         <LinkProjectModal onClose={() => setShowLink(false)} onLinked={onLinked}
-          defaultRoomName={t('wardrobe.room.defaultName')} defaultRoomType="wardrobe" roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
+          defaultRoomName={t('wardrobe.room.defaultName')} defaultRoomType={closetMode ? 'closet' : 'wardrobe'} roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
           canUseRoom={(r) => isWardrobeRoom({ room_type: r.room_type, planner_data: {} })} />
       )}
 

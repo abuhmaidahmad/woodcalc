@@ -67,6 +67,9 @@ export const DEFAULT_WARDROBE_STANDARD = {
   priceShelfPin: 0.05,
   labourPct: 20,
   marginPct: 30,
+  closetCornerGap: 50,
+  minWalkway: 700,
+  islandTopOverhang: 20,
 }
 
 export const STANDARD_ENUMS = {
@@ -82,6 +85,7 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction'] },
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
   { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance'] },
+  { id: 'closet', fields: ['closetCornerGap', 'minWalkway', 'islandTopOverhang'] },
   { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'labourPct', 'marginPct'] },
 ]
 

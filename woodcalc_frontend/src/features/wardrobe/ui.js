@@ -1,0 +1,10 @@
+export const ACCENT = '#C8902A'
+export const DARK = '#1A1A1A'
+export const FIELDSET = { border: 0, padding: 0, margin: 0, minWidth: 0 }
+export const card = { background: '#fff', borderRadius: 12, padding: '14px 16px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 14 }
+export const label = { fontSize: 11, color: '#777', marginBottom: 4, display: 'block' }
+export const input = { width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: '1px solid #ddd6cc', borderRadius: 7, fontSize: 13, background: '#fff' }
+export const btn = { padding: '7px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }
+export const ghost = { padding: '6px 10px', background: '#fff', color: DARK, border: '1px solid #ddd6cc', borderRadius: 7, cursor: 'pointer', fontSize: 12 }
+export const th = { textAlign: 'start', padding: '7px 8px', fontSize: 11, color: '#777', fontWeight: 600, borderBottom: '1px solid #eee7dd', whiteSpace: 'nowrap' }
+export const td = { padding: '7px 8px', fontSize: 12, borderBottom: '1px solid #f3eee7', whiteSpace: 'nowrap' }

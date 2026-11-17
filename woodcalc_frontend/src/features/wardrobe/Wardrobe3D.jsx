@@ -2,7 +2,7 @@ import React, { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, ContactShadows } from '@react-three/drei'
 
-const S = 0.001
+export const S = 0.001
 
 const FIXED_COLORS = {
   back: '#e4dccf',
@@ -12,7 +12,7 @@ const FIXED_COLORS = {
 
 const tag = { position: 'absolute', top: 10, insetInlineStart: 10, background: 'rgba(255,255,255,0.85)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#5c5348', pointerEvents: 'none' }
 
-function Panel({ g, color, roughness = 0.75 }) {
+export function Panel({ g, color, roughness = 0.75 }) {
   return (
     <mesh position={[(g.x + g.w / 2) * S, (g.y + g.h / 2) * S, (g.z + g.d / 2) * S]} castShadow receiveShadow>
       <boxGeometry args={[g.w * S, g.h * S, g.d * S]} />
@@ -77,14 +77,12 @@ function SlidingDoor({ g, color, open }) {
   )
 }
 
-function Scene({ result, design, frontColor, carcassColor, doorMode }) {
-  const cw = result.summary.carcassW || 0
-  const D = Number(design.depth) || 600
+export function RunGeometry({ geometry, frontColor, carcassColor, doorMode }) {
   const open = doorMode === 'open'
   const showDoors = doorMode !== 'hidden'
-  const items = useMemo(() => result.geometry.map((g, i) => ({ ...g, key: `${g.kind}-${i}` })), [result])
+  const items = useMemo(() => geometry.map((g, i) => ({ ...g, key: `${g.kind}-${i}` })), [geometry])
   return (
-    <group position={[(-cw / 2) * S, 0, (-D / 2) * S]}>
+    <>
       {items.map((g) => {
         if (g.kind === 'rail') return <Rail key={g.key} g={g} />
         if (g.kind === 'door') return showDoors ? <HingedDoor key={g.key} g={g} color={frontColor} open={open} /> : null
@@ -100,6 +98,16 @@ function Scene({ result, design, frontColor, carcassColor, doorMode }) {
         const color = g.kind === 'plinth' || g.kind === 'filler' ? frontColor : FIXED_COLORS[g.kind] || carcassColor
         return <Panel key={g.key} g={g} color={color} />
       })}
+    </>
+  )
+}
+
+function Scene({ result, design, frontColor, carcassColor, doorMode }) {
+  const cw = result.summary.carcassW || 0
+  const D = Number(design.depth) || 600
+  return (
+    <group position={[(-cw / 2) * S, 0, (-D / 2) * S]}>
+      <RunGeometry geometry={result.geometry} frontColor={frontColor} carcassColor={carcassColor} doorMode={doorMode} />
     </group>
   )
 }

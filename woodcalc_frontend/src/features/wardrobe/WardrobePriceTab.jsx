@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
-import { computeWardrobe } from './wardrobeEngine'
-import { priceWardrobe, MATERIAL_ROLES, ROLE_TYPES, USD_RATE, fmt, otherConstruction, constructionName } from './wardrobePricing'
+import { computeDesign, withConstruction } from './closetEngine'
+import { priceWardrobe, MATERIAL_ROLES, ROLE_TYPES, USD_RATE, fmt, constructionName } from './wardrobePricing'
 import { usePricing } from './useWardrobePricing'
 
 const ACCENT = '#C8902A'
@@ -39,14 +39,13 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
   const { materials, loading, error } = materialsState
   const settings = design.pricing || {}
   const { price, opts } = usePricing(design, std, materials, result)
-  const other = useMemo(() => otherConstruction(design), [design])
-  const otherPrice = useMemo(() => priceWardrobe(computeWardrobe(other, std), std, opts), [other, std, opts])
+  const boxes = useMemo(() => priceWardrobe(computeDesign(withConstruction(design, 'boxes'), std), std, opts), [design, std, opts])
+  const sharedDesign = useMemo(() => withConstruction(design, 'shared'), [design])
+  const shared = useMemo(() => priceWardrobe(computeDesign(sharedDesign, std), std, opts), [sharedDesign, std, opts])
+  const current = result.summary.construction
   const set = (patch) => onPricingChange({ ...settings, ...patch })
   const setPick = (role, sku) => set({ picks: { ...(settings.picks || {}), [role]: sku } })
-  const shared = design.construction === 'shared' ? price : otherPrice
-  const boxes = design.construction === 'shared' ? otherPrice : price
   const saving = boxes.grandTotal - shared.grandTotal
-  const sharedDesign = design.construction === 'shared' ? design : other
   const errors = result.warnings.filter((w) => w.level === 'error')
 
   const totalRows = [
@@ -95,7 +94,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
         <div style={card}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
             <div style={{ fontWeight: 700, fontSize: 14 }}>{t('wardrobe.price.breakdownTitle')}</div>
-            <div style={{ fontSize: 12, color: '#777' }}>{t('wardrobe.construction')}: <b>{constructionName(t, design)}</b></div>
+            <div style={{ fontSize: 12, color: '#777' }}>{t('wardrobe.construction')}: <b>{constructionName(t, result.summary)}</b></div>
           </div>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -168,7 +167,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
                 <tr>
                   <th style={th} />
                   <th style={{ ...th, textAlign: 'end' }}>{t('wardrobe.constructionTypes.boxes')}</th>
-                  <th style={{ ...th, textAlign: 'end' }}>{constructionName(t, sharedDesign)}</th>
+                  <th style={{ ...th, textAlign: 'end' }}>{design.mode === 'closet' ? t('wardrobe.constructionTypes.shared') : constructionName(t, sharedDesign)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -182,8 +181,8 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
                 ].map(([k, a, b, money]) => (
                   <tr key={k}>
                     <td style={td}>{k}</td>
-                    <td style={{ ...td, textAlign: 'end', fontWeight: design.construction !== 'shared' ? 700 : 400 }}>{money ? `${fmt(a)} JD` : a}</td>
-                    <td style={{ ...td, textAlign: 'end', fontWeight: design.construction === 'shared' ? 700 : 400 }}>{money ? `${fmt(b)} JD` : b}</td>
+                    <td style={{ ...td, textAlign: 'end', fontWeight: current === 'boxes' ? 700 : 400 }}>{money ? `${fmt(a)} JD` : a}</td>
+                    <td style={{ ...td, textAlign: 'end', fontWeight: current === 'shared' ? 700 : 400 }}>{money ? `${fmt(b)} JD` : b}</td>
                   </tr>
                 ))}
               </tbody>
