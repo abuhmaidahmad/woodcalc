@@ -75,6 +75,7 @@ export function hardwareLines(hw, std) {
     ['slidingKit', hw.slidingKit, std.priceSlidingKit],
     ['handles', num(hw.handle) + num(hw.drawerHandle), std.priceHandle],
     ['confirmat', hw.confirmat, std.priceConfirmat],
+    ['carcassConnector', hw.carcassConnector, std.priceCarcassConnector],
     ['shelfPin', hw.shelfPin, std.priceShelfPin],
   ]
   return lines

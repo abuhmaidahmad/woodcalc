@@ -2431,7 +2431,8 @@
       "drawerHandle": "مقابض أدراج",
       "slidingKit": "أطقم أبواب جرارة",
       "slidingTrack": "سكك جرار",
-      "backRail": "مرابط خلفية"
+      "backRail": "مرابط خلفية",
+      "carcassConnector": "وصلات هياكل"
     },
     "materialsTitle": "الألواح",
     "sheetsCol": "ألواح {{l}}×{{w}}",
@@ -2524,7 +2525,14 @@
       "partitionStagger": "إزاحة ثقوب القاطع (الوجهين)",
       "grooveStagger": "إزاحة مجرى الظهر (قواطع مشتركة)",
       "minGrooveBacking": "أقل سماكة خلف المجرى",
-      "minConfirmatEdge": "أقل مسافة للكونفيرمات من طرف اللوح"
+      "minConfirmatEdge": "أقل مسافة للكونفيرمات من طرف اللوح",
+      "minConfirmatSpacing": "أقل تباعد للكونفيرمات عبر القاطع",
+      "railStagger": "إزاحة المرابط الخلفية (قواطع مشتركة)",
+      "connectorsPerJoint": "عدد الوصلات لكل قاطع مزدوج",
+      "connectorDiameter": "قطر ثقب الوصلة",
+      "connectorEdge": "بعد الوصلة عن طرفي اللوح",
+      "connectorInset": "بعد الوصلة عن الأمام/الخلف",
+      "priceCarcassConnector": "وصلة هيكل"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2549,8 +2557,8 @@
       "islandClearance": "الجزيرة تبعد {{w}} مم عن {{side}}، أقل من ممر {{min}} مم.",
       "grooveBackingThin": "مجرى الظهر يترك {{left}} مم من اللوح، أقل من {{min}} مم. استخدم مجرى أقل عمقاً أو لوحاً أسمك.",
       "grooveStaggerSmall": "إزاحة مجرى الظهر {{stagger}} مم أقل من عرض المجرى {{min}} مم، فيتداخل المجريان على وجهي القاطع.",
-      "confirmatCrowded": "ثقوب الكونفيرمات على وصلة بطول {{length}} مم في القاطع متقاربة ({{spacing}} مم، الحد الأدنى {{min}}).",
-      "splitJointNoConfirmat": "{{n}} وصلة سقف/قاعدة مقسومة فوق قاطع بارتكاز {{bearing}} مم لكل قطعة. لم تُثقب للكونفيرمات؛ ثبّتها بطريقة أخرى."
+      "confirmatCrowded": "ثقوب الكونفيرمات على وصلة بطول {{length}} مم في القاطع متقاربة عبر وجهيه ({{spacing}} مم، الحد الأدنى {{min}}).",
+      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}})."
     },
     "construction": "طريقة التصنيع",
     "constructionTypes": {
@@ -2624,7 +2632,8 @@
         "slidingKit": "أطقم أبواب جرارة",
         "handles": "مقابض",
         "confirmat": "براغي كونفيرمات",
-        "shelfPin": "حوامل رفوف"
+        "shelfPin": "حوامل رفوف",
+        "carcassConnector": "وصلات هياكل"
       }
     },
     "room": {

@@ -8,6 +8,7 @@ import { savedWardrobe } from './wardrobeRoom'
 export const WARDROBE_PART_CODES = {
   'Side': 'SD',
   'Partition': 'P',
+  'Double partition': 'DP',
   'Top': 'TOP',
   'Bottom': 'BOT',
   'Back': 'BK',

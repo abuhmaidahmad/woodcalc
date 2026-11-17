@@ -25,11 +25,8 @@ export function jointPositions(length, minEdge) {
   })
 }
 
-export function partitionPositions(length, shift, minEdge, fromRight) {
-  const base = jointPositions(length, minEdge)
-  const up = base.map((p) => p + shift)
-  if (up.every((p) => p <= length - minEdge)) return { positions: (fromRight ? up : base).map(r2), spacing: shift }
-  const n = base.length
+export function partitionPositions(length, minEdge, fromRight) {
+  const n = jointPositions(length, minEdge).length
   const step = (length - 2 * minEdge) / (2 * n - 1)
   const all = Array.from({ length: 2 * n }, (_, i) => r2(minEdge + i * step))
   return { positions: all.filter((_, i) => i % 2 === (fromRight ? 1 : 0)), spacing: r2(step) }
@@ -42,14 +39,14 @@ export function createKit(std, D, T, warn = () => {}) {
   const grooveW = std.backT + MACHINING_CONFIG.backGroove.widthClearance
   const grooveY = r2(D - std.grooveSetback - grooveW / 2)
   const other = (face) => (face === 'TOP' ? 'BOTTOM' : 'TOP')
-  const minSpacing = C.faceDiameter + 3
+  const minFaceGap = std.minConfirmatSpacing
 
   const wall = (y0, length, { partition = false } = {}) => ({ ops: opList(), y0, length, frontZ: D, partition })
 
   const positionsFor = (w, face, length) => {
     if (!w.partition) return jointPositions(length, minEdge)
-    const { positions, spacing } = partitionPositions(length, std.partitionStagger, minEdge, face === 'BOTTOM')
-    if (spacing < minSpacing) warn('confirmatCrowded', { length: r2(length), spacing, min: minSpacing })
+    const { positions, spacing } = partitionPositions(length, minEdge, face === 'BOTTOM')
+    if (spacing < minFaceGap) warn('confirmatCrowded', { length: r2(length), spacing, min: minFaceGap })
     return positions
   }
 
@@ -63,7 +60,7 @@ export function createKit(std, D, T, warn = () => {}) {
 
   const railJoin = (w, face, railOps, end, { absY, length, panelLength }) => {
     const x = end === 'LEFT' ? 0 : panelLength
-    positionsFor(w, face, length).forEach((pos) => {
+    jointPositions(length, minEdge).forEach((pos) => {
       railOps.add(edgeHole({ face: end, x, y: pos, z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
       w.ops.add(hole({ face: other(face), x: absY - w.y0 + pos, y: w.frontZ - T / 2, diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
     })
@@ -91,5 +88,22 @@ export function createKit(std, D, T, warn = () => {}) {
     })
   }
 
-  return { wall, join, railJoin, over, backGroove, pins, grooveY, grooveW }
+  const railHoleGap = (railH, s) => {
+    const ps = jointPositions(railH, minEdge)
+    return r2(Math.min(...ps.flatMap((a) => ps.map((b) => Math.abs(s + b - a)))))
+  }
+
+  const connect = (a, b) => {
+    const n = Math.max(0, Math.round(std.connectorsPerJoint))
+    const rows = Math.ceil(n / 2)
+    const L = a.length
+    const xs = rows <= 1 ? [L / 2] : Array.from({ length: rows }, (_, k) => std.connectorEdge + ((L - 2 * std.connectorEdge) * k) / (rows - 1))
+    const spots = xs.flatMap((x) => [[x, std.connectorInset], [x, D - std.connectorInset]]).slice(0, n)
+    spots.forEach(([x, y]) => [a, b].forEach((w) => {
+      w.ops.add(hole({ face: 'BOTTOM', x: r2(x), y: r2(y), diameter: std.connectorDiameter, depth: T, through: true, rule: 'carcass_connector' }))
+    }))
+    return spots.length
+  }
+
+  return { wall, join, railJoin, over, backGroove, pins, connect, railHoleGap, minFaceGap, grooveY, grooveW }
 }

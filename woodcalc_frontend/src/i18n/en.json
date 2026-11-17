@@ -2431,7 +2431,8 @@
       "drawerHandle": "Drawer handles",
       "slidingKit": "Sliding door kits",
       "slidingTrack": "Sliding tracks",
-      "backRail": "Back rails"
+      "backRail": "Back rails",
+      "carcassConnector": "Carcass connectors"
     },
     "materialsTitle": "Boards",
     "sheetsCol": "Sheets {{l}}×{{w}}",
@@ -2524,7 +2525,14 @@
       "partitionStagger": "Partition hole offset (both faces)",
       "grooveStagger": "Back groove stagger (shared partitions)",
       "minGrooveBacking": "Min board behind a groove",
-      "minConfirmatEdge": "Min Confirmat distance from panel end"
+      "minConfirmatEdge": "Min Confirmat distance from panel end",
+      "minConfirmatSpacing": "Min Confirmat spacing across a partition",
+      "railStagger": "Back rail stagger (shared partitions)",
+      "connectorsPerJoint": "Connectors per double partition",
+      "connectorDiameter": "Connector hole diameter",
+      "connectorEdge": "Connector distance from panel ends",
+      "connectorInset": "Connector inset from front/back",
+      "priceCarcassConnector": "Carcass connector"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2549,8 +2557,8 @@
       "islandClearance": "The island is {{w}} mm from {{side}}, under the {{min}} mm walkway.",
       "grooveBackingThin": "A {{left}} mm back groove leaves less than {{min}} mm of board. Use a shallower groove or thicker board.",
       "grooveStaggerSmall": "The back groove stagger {{stagger}} mm is less than the groove width {{min}} mm, so the grooves on the two faces of a partition overlap.",
-      "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart (min {{min}}).",
-      "splitJointNoConfirmat": "{{n}} top/bottom joint(s) are split over a partition with {{bearing}} mm bearing each. They are not drilled for Confirmat; fix them another way."
+      "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart across its faces (min {{min}}).",
+      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}})."
     },
     "construction": "Construction",
     "constructionTypes": {
@@ -2624,7 +2632,8 @@
         "slidingKit": "Sliding door kits",
         "handles": "Handles",
         "confirmat": "Confirmat screws",
-        "shelfPin": "Shelf pins"
+        "shelfPin": "Shelf pins",
+        "carcassConnector": "Carcass connectors"
       }
     },
     "room": {

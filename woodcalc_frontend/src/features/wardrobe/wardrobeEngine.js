@@ -18,6 +18,7 @@ export function drawerSystemSnapshot(sys) {
 export const PART_NAMES_AR = {
   'Side': 'جانب',
   'Partition': 'قاطع',
+  'Double partition': 'قاطع مزدوج',
   'Back rail': 'مرباط خلفي',
   'Top': 'سقف',
   'Bottom': 'قاعدة',
@@ -177,14 +178,37 @@ export function constructionOf(design) {
   return { construction, backType }
 }
 
-export function sectionBays(widths, cw, T, shared) {
+export function sectionBounds(widths) {
   const bounds = []
   let acc = 0
   widths.forEach((w, i) => { acc += w; if (i < widths.length - 1) bounds.push(acc) })
+  return bounds
+}
+
+export function chooseDoubles(bounds, xa, xb, T, sidesFull, sheetL, k0 = 0) {
+  const topLen = (a, b) => (b - a) - (sidesFull ? 2 * T : 0)
+  if (topLen(xa, xb) <= sheetL + 0.01) return []
+  const inside = bounds.map((b, k) => ({ b, k })).filter(({ b, k }) => k >= k0 && b > xa + 0.01 && b < xb - 0.01)
+  if (!inside.length) return []
+  const fits = inside.filter(({ b }) => topLen(xa, b) <= sheetL + 0.01 && topLen(b, xb) <= sheetL + 0.01)
+  const pool = fits.length ? fits : inside
+  const mid = (xa + xb) / 2
+  const pick = pool.reduce((best, c) => (Math.abs(c.b - mid) < Math.abs(best.b - mid) ? c : best))
+  return [
+    ...chooseDoubles(bounds, xa, pick.b, T, sidesFull, sheetL, k0),
+    pick.k,
+    ...chooseDoubles(bounds, pick.b, xb, T, sidesFull, sheetL, pick.k + 1),
+  ]
+}
+
+export function sectionBays(widths, cw, T, shared, doubles = []) {
+  const bounds = sectionBounds(widths)
+  const dbl = new Set(doubles)
+  const half = (k) => (dbl.has(k) ? T : T / 2)
   let x = 0
   const bays = widths.map((w, i) => {
-    const left = shared ? (i === 0 ? T : bounds[i - 1] + T / 2) : x + T
-    const right = shared ? (i === widths.length - 1 ? cw - T : bounds[i] - T / 2) : x + w - T
+    const left = shared ? (i === 0 ? T : bounds[i - 1] + half(i - 1)) : x + T
+    const right = shared ? (i === widths.length - 1 ? cw - T : bounds[i] - half(i)) : x + w - T
     const out = { x, w, left: r1(left), innerW: r1(right - left) }
     x += w
     return out
@@ -285,7 +309,15 @@ export function computeWardrobe(design, std) {
   const runnerDepth = usableDepth - (noBack ? std.wallClearance : 0)
   const backGrow = 2 * (std.grooveDepth - std.backClearance)
   const widths = sectionWidths(design)
-  const { bays, bounds } = sectionBays(widths, cw, T, shared)
+  const doubles = shared && std.partitionJoin !== 'full'
+    ? chooseDoubles(sectionBounds(widths), 0, cw, T, std.sideJoin !== 'between', std.sheetL)
+    : []
+  const { bays, bounds } = sectionBays(widths, cw, T, shared, doubles)
+  const groups = []
+  ;[...doubles, bounds.length].reduce((i0, k) => {
+    groups.push({ i0, i1: k, xa: i0 === 0 ? 0 : bounds[i0 - 1], xb: k === bounds.length ? cw : bounds[k] })
+    return k + 1
+  }, 0)
   const warnedOnce = new Set()
   const warnOnce = (code, params) => {
     const key = code + JSON.stringify(params)
@@ -295,6 +327,9 @@ export function computeWardrobe(design, std) {
   const perSectionShared = shared && backType === 'perSection'
   const bayShift = (i) => (perSectionShared && i % 2 === 1 ? std.grooveStagger : 0)
   if (backType !== 'none' && T - std.grooveDepth < std.minGrooveBacking) warn('grooveBackingThin', { left: r1(T - std.grooveDepth), min: std.minGrooveBacking })
+  if (shared && railCount > 0 && bays.length > 1 && kit.railHoleGap(std.backRailH, std.railStagger) < kit.minFaceGap) {
+    warn('railStaggerSmall', { stagger: std.railStagger, gap: kit.railHoleGap(std.backRailH, std.railStagger), min: kit.minFaceGap })
+  }
   if (perSectionShared && bays.length > 1 && std.grooveStagger < kit.grooveW) warn('grooveStaggerSmall', { stagger: std.grooveStagger, min: kit.grooveW }, 'error')
   const pinColumns = {
     frontY: D - front,
@@ -341,21 +376,29 @@ export function computeWardrobe(design, std) {
     if (railCount <= 0 || innerW <= 0) return
     const railH = std.backRailH
     const room = h - 2 * T - railH
-    if (railCount * railH > h - 2 * T) warn('backRailsDontFit', { h: r1(h), n: railCount, railH }, 'error')
+    const s = si % 2 === 1 ? std.railStagger : 0
+    const ys = Array.from({ length: railCount }, (_, k) => {
+      if (railCount === 1) return y0 + h - T - railH - s
+      if (k === railCount - 1) return y0 + T + s
+      return y0 + T + room - (room * k) / (railCount - 1) - s
+    }).sort((a, b) => a - b)
+    const overlap = ys.some((y, k) => k > 0 && y - ys[k - 1] < railH - 0.01) || ys[0] < y0 + T - 0.01 || ys[ys.length - 1] + railH > y0 + h - T + 0.01
+    if (railCount * railH > h - 2 * T || overlap) warn('backRailsDontFit', { h: r1(h), n: railCount, railH }, 'error')
     const railOps = opList()
     part({ name: 'Back rail', L: innerW, W: railH, T, qty: railCount, material: 'Carcass', edges: 'F', section, loft, ops: railOps })
     addHw('confirmat', 2 * railCount * confirmatPerJoint(railH))
     const walls = bayWalls(loft)[si]
-    for (let k = 0; k < railCount; k++) {
-      const y = railCount === 1 ? y0 + h - T - railH : y0 + T + room - (room * k) / (railCount - 1)
+    for (const y of ys) {
       kit.railJoin(walls.left.w, walls.left.face, railOps, 'LEFT', { absY: y, length: railH, panelLength: innerW })
       kit.railJoin(walls.right.w, walls.right.face, railOps, 'RIGHT', { absY: y, length: railH, panelLength: innerW })
       box({ kind: 'backRail', x: left, y: r1(y), z: 0, w: innerW, h: railH, d: T })
     }
   }
 
-  const sharedCarcass = (y0, h, loft) => {
-    const n = bays.length
+  const sharedGroup = (y0, h, loft, g) => {
+    const gb = bays.slice(g.i0, g.i1 + 1)
+    const n = gb.length
+    const local = bounds.slice(g.i0, g.i1)
     const sidesFull = std.sideJoin !== 'between'
     const partFull = std.partitionJoin === 'full'
     const backZ = std.grooveSetback + std.backT
@@ -366,18 +409,19 @@ export function computeWardrobe(design, std) {
     const grooved = backType !== 'none'
     const leftSide = kit.wall(sideY, sideL)
     const rightSide = kit.wall(sideY, sideL)
-    ;[leftSide, rightSide].forEach((w) => {
-      part({ name: 'Side', L: sideL, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops: w.ops })
+    ;[[leftSide, g.xa === 0], [rightSide, g.xb === cw]].forEach(([w, outer]) => {
+      part({ name: outer ? 'Side' : 'Double partition', L: sideL, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops: w.ops })
     })
     if (grooved) {
-      kit.backGroove(leftSide.ops, sideL, { shift: bayShift(0) })
-      kit.backGroove(rightSide.ops, sideL, { shift: bayShift(n - 1) })
+      kit.backGroove(leftSide.ops, sideL, { shift: bayShift(g.i0) })
+      kit.backGroove(rightSide.ops, sideL, { shift: bayShift(g.i1) })
     }
-    box({ kind: 'carcass', x: 0, y: sideY, z: 0, w: T, h: sideL, d: D })
-    box({ kind: 'carcass', x: cw - T, y: sideY, z: 0, w: T, h: sideL, d: D })
+    box({ kind: 'carcass', x: g.xa, y: sideY, z: 0, w: T, h: sideL, d: D })
+    box({ kind: 'carcass', x: g.xb - T, y: sideY, z: 0, w: T, h: sideL, d: D })
     const partL = partFull ? h : h - 2 * T
     const partY = partFull ? y0 : y0 + T
-    const parts = bounds.map((_, k) => {
+    const parts = local.map((_, j) => {
+      const k = g.i0 + j
       const w = kit.wall(partY, partL, { partition: true })
       part({ name: 'Partition', L: partL, W: pD, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops: w.ops })
       if (backType === 'perSection') {
@@ -386,87 +430,89 @@ export function computeWardrobe(design, std) {
       }
       return w
     })
-    bounds.forEach((b) => box({ kind: 'carcass', x: b - T / 2, y: partY, z: pz, w: T, h: partL, d: pD }))
+    local.forEach((b) => box({ kind: 'carcass', x: b - T / 2, y: partY, z: pz, w: T, h: partL, d: pD }))
     const walls = bayWalls(loft)
-    bays.forEach((bay, i) => {
-      walls[i] = {
-        left: i === 0 ? { w: leftSide, face: 'TOP' } : { w: parts[i - 1], face: 'BOTTOM' },
-        right: i === n - 1 ? { w: rightSide, face: 'TOP' } : { w: parts[i], face: 'TOP' },
+    gb.forEach((bay, j) => {
+      walls[g.i0 + j] = {
+        left: j === 0 ? { w: leftSide, face: 'TOP' } : { w: parts[j - 1], face: 'BOTTOM' },
+        right: j === n - 1 ? { w: rightSide, face: 'TOP' } : { w: parts[j], face: 'TOP' },
       }
     })
     const panel = (name, a, b, y) => {
       const ops = opList()
       part({ name, L: b - a, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft, ops })
       if (grooved) {
-        bays.forEach((bay, i) => {
-          const segA = Math.max(a, i === 0 ? -Infinity : bounds[i - 1])
-          const segB = Math.min(b, i === n - 1 ? Infinity : bounds[i])
-          if (segB - segA > 0.01) kit.backGroove(ops, b - a, { shift: bayShift(i), x0: segA - a, x1: segB - a })
+        gb.forEach((bay, j) => {
+          const segA = Math.max(a, j === 0 ? -Infinity : local[j - 1])
+          const segB = Math.min(b, j === n - 1 ? Infinity : local[j])
+          if (segB - segA > 0.01) kit.backGroove(ops, b - a, { shift: bayShift(g.i0 + j), x0: segA - a, x1: segB - a })
         })
       }
       box({ kind: 'carcass', x: a, y, z: 0, w: r1(b - a), h: T, d: D })
       return ops
     }
-    const ends = [[y0 + h - T, y0 + h - T / 2, 'RIGHT', 'top'], [y0, y0 + T / 2, 'LEFT', 'bottom']]
+    const ends = [[y0 + h - T, y0 + h - T / 2, 'RIGHT'], [y0, y0 + T / 2, 'LEFT']]
     if (partFull) {
-      bays.forEach((bay, i) => {
+      gb.forEach((bay, j) => {
+        const wl = walls[g.i0 + j]
         ends.forEach(([py, absY, wallEnd]) => {
           const ops = panel(py === y0 ? 'Bottom' : 'Top', bay.left, bay.left + bay.innerW, py)
           const L = bay.innerW
-          const outerLeft = i === 0 && !sidesFull
-          const outerRight = i === n - 1 && !sidesFull
-          if (outerLeft) kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
-          else kit.join(walls[i].left.w, walls[i].left.face, ops, 'LEFT', { absY, frontZ: D, length: walls[i].left.w.partition ? pD : D, panelLength: L })
-          if (outerRight) kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
-          else kit.join(walls[i].right.w, walls[i].right.face, ops, 'RIGHT', { absY, frontZ: D, length: walls[i].right.w.partition ? pD : D, panelLength: L })
+          if (j === 0 && !sidesFull) kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
+          else kit.join(wl.left.w, wl.left.face, ops, 'LEFT', { absY, frontZ: D, length: wl.left.w.partition ? pD : D, panelLength: L })
+          if (j === n - 1 && !sidesFull) kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
+          else kit.join(wl.right.w, wl.right.face, ops, 'RIGHT', { absY, frontZ: D, length: wl.right.w.partition ? pD : D, panelLength: L })
         })
       })
       addHw('confirmat', 4 * confirmatPerJoint(D) + 4 * (n - 1) * confirmatPerJoint(pD))
     } else {
-      const a = sidesFull ? T : 0
-      const b = sidesFull ? cw - T : cw
-      const { pieces, tooLong } = splitRun(a, b, bounds, std.sheetL)
-      if (tooLong) warn('panelTooLong', { part: 'Top', max: std.sheetL })
+      const a = sidesFull ? g.xa + T : g.xa
+      const b = sidesFull ? g.xb - T : g.xb
+      if (b - a > std.sheetL + 0.01) warnOnce('panelTooLong', { part: 'Top', max: std.sheetL })
       ends.forEach(([py, absY, wallEnd]) => {
-        pieces.forEach(([pa, pb]) => {
-          const ops = panel(py === y0 ? 'Bottom' : 'Top', pa, pb, py)
-          const L = pb - pa
-          if (pa === a) {
-            if (sidesFull) kit.join(leftSide, 'TOP', ops, 'LEFT', { absY, frontZ: D, length: D, panelLength: L })
-            else kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
-          }
-          if (pb === b) {
-            if (sidesFull) kit.join(rightSide, 'TOP', ops, 'RIGHT', { absY, frontZ: D, length: D, panelLength: L })
-            else kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
-          }
-          bounds.forEach((bd, k) => {
-            if (bd > pa + 0.01 && bd < pb - 0.01) kit.over(ops, bd - pa, parts[k], wallEnd, { length: pD })
-          })
-        })
+        const ops = panel(py === y0 ? 'Bottom' : 'Top', a, b, py)
+        const L = b - a
+        if (sidesFull) {
+          kit.join(leftSide, 'TOP', ops, 'LEFT', { absY, frontZ: D, length: D, panelLength: L })
+          kit.join(rightSide, 'TOP', ops, 'RIGHT', { absY, frontZ: D, length: D, panelLength: L })
+        } else {
+          kit.over(ops, T / 2, leftSide, wallEnd, { length: D })
+          kit.over(ops, L - T / 2, rightSide, wallEnd, { length: D })
+        }
+        local.forEach((bd, j) => kit.over(ops, bd - a, parts[j], wallEnd, { length: pD }))
       })
-      const splits = pieces.length - 1
-      if (splits > 0) warn('splitJointNoConfirmat', { n: splits, bearing: r1(T / 2) })
-      addHw('confirmat', 4 * confirmatPerJoint(D) + 2 * (bounds.length - splits) * confirmatPerJoint(pD))
+      addHw('confirmat', 4 * confirmatPerJoint(D) + 2 * local.length * confirmatPerJoint(pD))
     }
     const backH = h - 2 * T + backGrow
     if (backType === 'full') {
       const maxW = backH <= std.sheetW ? std.sheetL : std.sheetW
-      if (backH > std.sheetL) warn('panelTooLong', { part: 'Back', max: std.sheetL })
-      const { pieces, tooLong } = splitRun(T, cw - T, bounds, maxW - backGrow)
-      if (tooLong) warn('panelTooLong', { part: 'Back', max: maxW })
+      if (backH > std.sheetL) warnOnce('panelTooLong', { part: 'Back', max: std.sheetL })
+      const { pieces, tooLong } = splitRun(g.xa + T, g.xb - T, local, maxW - backGrow)
+      if (tooLong) warnOnce('panelTooLong', { part: 'Back', max: maxW })
       pieces.forEach(([pa, pb], k) => {
         const grow = (k === 0 ? backGrow / 2 : 0) + (k === pieces.length - 1 ? backGrow / 2 : 0)
         part({ name: 'Back', L: backH, W: pb - pa + grow, T: std.backT, qty: 1, material: 'Back', edges: '', section: 'ALL', loft })
         box({ kind: 'back', x: pa, y: y0 + T, z: std.grooveSetback, w: r1(pb - pa), h: h - 2 * T, d: std.backT })
       })
     } else if (backType === 'perSection') {
-      bays.forEach((bay, i) => {
+      gb.forEach((bay, j) => {
+        const i = g.i0 + j
         part({ name: 'Back', L: backH, W: bay.innerW + backGrow, T: std.backT, qty: 1, material: 'Back', edges: '', section: `S${i + 1}`, loft })
         box({ kind: 'back', x: bay.left, y: y0 + T, z: std.grooveSetback + bayShift(i), w: bay.innerW, h: h - 2 * T, d: std.backT })
       })
     } else {
-      bays.forEach((bay, i) => backRails(`S${i + 1}`, i, bay.left, bay.innerW, y0, h, loft))
+      gb.forEach((bay, j) => backRails(`S${g.i0 + j + 1}`, g.i0 + j, bay.left, bay.innerW, y0, h, loft))
     }
+    return { leftSide, rightSide }
+  }
+
+  const sharedCarcass = (y0, h, loft) => {
+    const built = groups.map((g) => sharedGroup(y0, h, loft, g))
+    built.slice(0, -1).forEach((left, k) => {
+      const right = built[k + 1]
+      const n = kit.connect(left.rightSide, right.leftSide)
+      addHw('carcassConnector', n)
+    })
   }
 
   const hingedDoors = (section, si, x, w, y0, h, n, loft) => {
@@ -606,7 +652,7 @@ export function computeWardrobe(design, std) {
     if (!shared) addHw('leg', std.legsPerSection)
     sectionsOut.push({ section, w: r1(w), x: r1(x), bayX: left, innerW: r1(innerW), zones, doors, loftDoors, autoH })
   })
-  if (shared) addHw('leg', Math.ceil(std.legsPerSection / 2) * (design.sections.length + 1))
+  if (shared) addHw('leg', Math.ceil(std.legsPerSection / 2) * (design.sections.length + 1 + doubles.length))
 
   let slidingCount = 0
   if (sliding) {

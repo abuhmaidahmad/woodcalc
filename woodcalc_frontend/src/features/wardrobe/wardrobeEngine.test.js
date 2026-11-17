@@ -209,11 +209,27 @@ describe('shared partitions, no back', () => {
 })
 
 describe('shared partitions, other options', () => {
-  it('splits a long top with the joint centred on a partition', () => {
+  it('turns the partition nearest the middle into a double partition when the top is longer than a sheet', () => {
     const d = withSectionCount({ ...defaultDesign(STD), width: 3000, construction: 'shared' }, 3, STD)
     const res = computeWardrobe(d, STD)
-    expect(find(res, 'Top', { loft: false }).map((p) => p.L).sort((a, b) => a - b)).toEqual([982, 1982])
+    expect(find(res, 'Top', { loft: false }).map((p) => p.L).sort((a, b) => a - b)).toEqual([964, 1964])
+    expect(qty(find(res, 'Double partition', { loft: false }))).toBe(2)
+    expect(qty(find(res, 'Partition', { loft: false }))).toBe(1)
+    expect(qty(find(res, 'Side', { loft: false }))).toBe(2)
+    expect(res.sections.map((s) => s.innerW)).toEqual([964, 973, 973])
+    expect(res.hardware.carcassConnector).toBe(2 * STD.connectorsPerJoint)
+    expect(res.hardware.leg).toBe(2 * (3 + 1 + 1))
     expect(res.warnings.map((w) => w.code)).not.toContain('panelTooLong')
+  })
+
+  it('picks the split nearest the middle that keeps both pieces within a sheet', async () => {
+    const { chooseDoubles } = await import('./wardrobeEngine')
+    expect(chooseDoubles([1000, 2000], 0, 3000, 18, true, 2440)).toEqual([0])
+    expect(chooseDoubles([800, 1600, 2400], 0, 3200, 18, true, 2440)).toEqual([1])
+    expect(chooseDoubles([500, 2600], 0, 3200, 18, true, 2440)).toEqual([0, 1])
+    expect(chooseDoubles([1000, 2000], 0, 2400, 18, true, 2440)).toEqual([])
+    const six = chooseDoubles([1000, 2000, 3000, 4000, 5000], 0, 6000, 18, true, 2440)
+    expect(six).toEqual([0, 2, 3])
   })
 
   it('splits a full back on partitions and shortens partitions for it', () => {

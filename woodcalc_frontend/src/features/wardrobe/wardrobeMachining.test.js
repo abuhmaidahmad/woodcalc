@@ -97,16 +97,6 @@ describe('wardrobe CNC machining', () => {
     expect(per.map((o) => o.face).sort()).toEqual(['BOTTOM', 'TOP'])
   })
 
-  it('screws a continuous top down into each partition and leaves a split joint undrilled', () => {
-    const design = { ...base, width: 3000, construction: 'shared' }
-    const ps = pieces(design)
-    const tops = ps.filter((p) => p.name === 'Top' && !p.code.startsWith('L'))
-    const long = tops.find((p) => p.length === 1982)
-    expect(long.part.machining_ops.filter(thru).map((o) => o.x)).toEqual(expect.arrayContaining([982]))
-    tops.forEach((t) => t.part.machining_ops.filter(thru).forEach((o) => expect(Math.min(o.x, t.length - o.x)).toBeGreaterThanOrEqual(9)))
-    expect(computeDesign(design, STD).warnings.map((w) => w.code)).toContain('splitJointNoConfirmat')
-  })
-
   it('keeps every Confirmat edge hole at least the standard edge distance from the panel ends', () => {
     Object.values(VARIANTS).forEach((d) => {
       pieces(d).forEach((p) => (p.part?.machining_ops || []).filter(edge).forEach((o) => {
@@ -118,19 +108,59 @@ describe('wardrobe CNC machining', () => {
     pieces(VARIANTS.sharedNoBack, tight).forEach((p) => (p.part?.machining_ops || []).filter(edge).forEach((o) => expect(o.y).toBeGreaterThanOrEqual(40)))
   })
 
-  it('spaces back rail holes across both faces of a partition instead of moving them to the edge', () => {
-    const rails = pieces(VARIANTS.sharedNoBack).filter((p) => p.name === 'Back rail' && p.cabinet === 'S2')
-    const e = rails[0].part.machining_ops.filter(edge)
-    expect(e.filter((o) => o.face === 'LEFT').map((o) => o.y)).toEqual([43.33, 70])
-    expect(e.filter((o) => o.face === 'RIGHT').map((o) => o.y)).toEqual([30, 56.67])
+  it('builds a split run as two carcasses with full panels and connectors', () => {
+    const design = { ...base, width: 3000, construction: 'shared' }
+    const ps = pieces(design)
+    const tops = ps.filter((p) => p.name === 'Top' && !p.code.startsWith('L'))
+    expect(tops.map((p) => p.length).sort((a, b) => a - b)).toEqual([964, 1964])
+    tops.forEach((t) => {
+      const e = t.part.machining_ops.filter(edge)
+      expect(e.filter((o) => o.face === 'LEFT')).toHaveLength(3)
+      expect(e.filter((o) => o.face === 'RIGHT')).toHaveLength(3)
+    })
+    const dbl = ps.filter((p) => p.name === 'Double partition' && !p.code.startsWith('L'))
+    expect(dbl.map((p) => p.code)).toEqual(['DP1', 'DP2'])
+    const con = (p) => p.part.machining_ops.filter((o) => o.rule === 'carcass_connector').map((o) => [o.x, o.y])
+    expect(con(dbl[0])).toEqual(con(dbl[1]))
+    expect(con(dbl[0])).toEqual([[100, 50], [100, 550], [1900, 50], [1900, 550]])
+    expect(dbl[0].part.machining_ops.find((o) => o.rule === 'carcass_connector')).toEqual(expect.objectContaining({ diameter: STD.connectorDiameter, through: true }))
   })
 
-  it('works out partition joint positions', async () => {
-    const { partitionPositions } = await import('./wardrobeMachining')
-    expect(partitionPositions(600, 16, 30, false).positions).toEqual([50, 300, 550])
-    expect(partitionPositions(600, 16, 30, true).positions).toEqual([66, 316, 566])
-    expect(partitionPositions(100, 16, 30, false)).toEqual({ positions: [30, 56.67], spacing: 13.33 })
-    expect(partitionPositions(100, 16, 30, true).positions).toEqual([43.33, 70])
+  it('prices the extra panels and connectors of a split run', () => {
+    const short = computeDesign({ ...base, width: 2400, construction: 'shared' }, STD)
+    const long = computeDesign({ ...base, width: 3000, construction: 'shared' }, STD)
+    expect(short.hardware.carcassConnector).toBeUndefined()
+    const line = priceWardrobe(long, STD).hardware.find((h) => h.key === 'carcassConnector')
+    expect(line).toEqual(expect.objectContaining({ qty: 8, unit: STD.priceCarcassConnector }))
+  })
+
+  it('keeps every top within a sheet on a very long run', () => {
+    const d = { ...base, width: 6000, construction: 'shared', sections: Array.from({ length: 6 }, () => base.sections[0]) }
+    const r = computeDesign(d, STD)
+    r.rawParts.filter((p) => p.name === 'Top').forEach((p) => expect(p.L).toBeLessThanOrEqual(STD.sheetL))
+    expect(r.rawParts.filter((p) => p.name === 'Double partition' && !p.loft)).toHaveLength(6)
+    expect(r.warnings.map((w) => w.code)).not.toContain('panelTooLong')
+  })
+
+  it('staggers back rails vertically on shared partitions and keeps their normal hole positions', () => {
+    const ps = pieces(VARIANTS.sharedNoBack)
+    const rail = ps.find((p) => p.name === 'Back rail' && p.cabinet === 'S2')
+    expect(rail.part.machining_ops.filter(edge).map((o) => o.y)).toEqual([30, 70, 30, 70])
+    const r = computeDesign(VARIANTS.sharedNoBack, STD)
+    const rails = r.geometry.filter((g) => g.kind === 'backRail' && g.y < 2100)
+    const ys = (x0, x1) => rails.filter((g) => g.x > x0 && g.x < x1).map((g) => g.y).sort((a, b) => a - b)
+    expect(ys(0, 800)).toEqual([118, 1982])
+    expect(ys(800, 1600)).toEqual([118 + STD.railStagger, 1982 - STD.railStagger])
+    const p1 = ps.find((p) => p.id === 'WO1-R1-00-P1')
+    const face = (f) => p1.part.machining_ops.filter((o) => thru(o) && o.face === f)
+    face('TOP').forEach((a) => face('BOTTOM').forEach((b) => expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(STD.minConfirmatSpacing)))
+  })
+
+  it('warns when the rail stagger brings holes too close', () => {
+    const codes = (std) => computeDesign(VARIANTS.sharedNoBack, std).warnings.map((w) => w.code)
+    expect(codes({ ...STD, railStagger: 0 })).toContain('railStaggerSmall')
+    expect(codes({ ...STD, railStagger: 20 })).toContain('railStaggerSmall')
+    expect(codes(STD)).not.toContain('railStaggerSmall')
   })
 
   it('staggers the back groove of every other section on shared partitions', () => {
