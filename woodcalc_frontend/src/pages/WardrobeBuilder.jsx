@@ -16,7 +16,8 @@ import ClosetEditor from '../features/wardrobe/ClosetEditor'
 import { computeDesign, defaultCloset } from '../features/wardrobe/closetEngine'
 import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 import { usePricing } from '../features/wardrobe/useWardrobePricing'
-import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom } from '../features/wardrobe/wardrobeRoom'
+import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot } from '../features/wardrobe/wardrobeRoom'
+import { piecesFromParts, workOrderItems } from '../features/wardrobe/wardrobePieces'
 import WardrobeRoomBar from '../features/wardrobe/WardrobeRoomBar'
 import LinkProjectModal from '../features/rooms/LinkProjectModal'
 import { roomLockState } from '../features/rooms/useRoomLockActions'
@@ -62,6 +63,8 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
   const [showLink, setShowLink] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sentMsg, setSentMsg] = useState('')
   const [selected, setSelected] = useState({ section: 0, zone: null })
   const [view, setView] = useState('front')
   const [doorMode, setDoorMode] = useState('closed')
@@ -94,7 +97,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     setSaving(true)
     let ok = false
     try {
-      const planner_data = buildWardrobePlannerData({ design, std, price, result })
+      const planner_data = buildWardrobePlannerData({ design, std, price, result, picked })
       const grand_total = planner_data.grandTotal
       const res = await authFetch(API + `/api/crm/rooms/${targetRoomId}/`, { method: 'PATCH', body: JSON.stringify({ planner_data, grand_total }) })
       ok = res.ok
@@ -112,6 +115,49 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     }
     setSaving(false)
     return ok
+  }
+
+  const sendToProduction = async () => {
+    setSending(true)
+    setSentMsg('')
+    try {
+      const priorRes = await authFetch(API + `/api/manufacturing/work-orders/?room_id_ref=${roomId}`)
+      const priorData = priorRes.ok ? await priorRes.json() : []
+      const prior = (Array.isArray(priorData) ? priorData : (priorData.results || [])).filter((o) => o.status !== 'CANCELLED')
+      if (prior.length) {
+        setSentMsg(t('wardrobe.room.alreadySent', { orders: prior.map((o) => o.order_number).join(', ') }))
+        return
+      }
+      let customerName = 'N/A'
+      try {
+        const pRes = await authFetch(API + `/api/crm/projects/${room.project}/`)
+        if (pRes.ok) customerName = (await pRes.json()).client_name || 'N/A'
+      } catch {}
+      const pieces = piecesFromParts(result.rawParts, { materials: room?.planner_data?.materials || materialSnapshot(picked) })
+      const res = await authFetch(API + '/api/manufacturing/work-orders/', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_name: `${room?.name || t('wardrobe.title')} (${t('wardrobe.room.pieceCount', { count: pieces.length })})`,
+          customer_name: customerName,
+          quantity: closetMode ? result.summary.sectionCount : design.sections.length,
+          status: 'NEW',
+          room_id_ref: roomId,
+          is_back_order: false,
+          sent_cabinet_ids: [],
+        }),
+      })
+      if (!res.ok) {
+        setSentMsg(t('kitchenPlannerModule.sendFailed', { status: res.status }))
+        return
+      }
+      const wo = await res.json()
+      await authFetch(API + `/api/manufacturing/work-orders/${wo.id}/items/`, { method: 'POST', body: JSON.stringify({ items: workOrderItems(pieces) }) })
+      setSentMsg(t('wardrobe.room.workOrderSent', { orderNumber: wo.order_number, count: pieces.length }))
+    } catch {
+      setSentMsg(t('kitchenPlannerModule.sendCannotConnect'))
+    } finally {
+      setSending(false)
+    }
   }
 
   const onLinked = async (projectId, newRoomId) => {
@@ -183,7 +229,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {roomId ? (
             <WardrobeRoomBar roomId={roomId} lock={lock} onRoomAction={onRoomAction} onSave={() => saveToRoom()} saving={saving} savedMsg={savedMsg}
-              canSave={!materialsState.loading} />
+              canSave={!materialsState.loading} onSend={sendToProduction} sending={sending} sentMsg={sentMsg} />
           ) : (
             <button onClick={() => setShowLink(true)} disabled={materialsState.loading}
               style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: `1px solid ${ACCENT}`, color: ACCENT, borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>

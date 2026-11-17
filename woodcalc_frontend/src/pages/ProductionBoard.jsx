@@ -5,7 +5,7 @@ import { authFetch, isReadOnly } from '../api/auth'
 import { useTranslation } from '../i18n/LanguageContext'
 import { useCompanyStandards } from '../api/companySettings'
 import { loadDrawerSystems } from '../api/drawerSystems'
-import { workOrderPieces } from '../features/kitchen_planner/machining/pieces'
+import { roomPieces } from '../features/rooms/roomPieces'
 import PieceCutList from '../features/manufacturing/PieceCutList'
 import CncExportButton from '../features/manufacturing/CncExportButton'
 
@@ -133,7 +133,7 @@ export default function ProductionBoard() {
 
   const pieces = useMemo(() => {
     if (!selected || !room || room.workOrderId !== selected.id) return null
-    try { return workOrderPieces(selected, room, { drawerSystems }) } catch { return null }
+    try { return roomPieces(selected, room, { drawerSystems }) } catch { return null }
   }, [selected, room, standards, drawerSystems])
 
   const getStationStatus = (stationId) => {

@@ -186,12 +186,13 @@ function relabel(result, prefix) {
     ...p,
     sections: p.sections.map((s) => (s === 'ALL' ? prefix : `${prefix}·${s}`)),
   }))
+  const rawParts = result.rawParts.map((p) => ({ ...p, section: p.section === 'ALL' ? prefix : `${prefix}·${p.section}` }))
   const warnings = result.warnings.map((w) => ({
     ...w,
     run: prefix,
     params: w.params?.section ? { ...w.params, section: `${prefix}·${w.params.section}` } : w.params,
   }))
-  return { parts, warnings }
+  return { parts, rawParts, warnings }
 }
 
 function addHardware(into, hw) {
@@ -202,6 +203,7 @@ export function computeCloset(closet, std) {
   const layout = closetLayout(closet, std)
   const runs = []
   let parts = []
+  let rawParts = []
   const hardware = {}
   const warnings = layout.warnings.map((w) => ({ ...w }))
 
@@ -212,6 +214,7 @@ export function computeCloset(closet, std) {
     const result = computeWardrobe(design, std)
     const lab = relabel(result, id)
     parts = parts.concat(lab.parts)
+    rawParts = rawParts.concat(lab.rawParts)
     warnings.push(...lab.warnings)
     addHardware(hardware, result.hardware)
     runs.push({ id, design, result, place })
@@ -224,6 +227,7 @@ export function computeCloset(closet, std) {
       const result = computeWardrobe(design, std)
       const lab = relabel(result, designs.length > 1 ? `I${k + 1}` : 'I')
       parts = parts.concat(lab.parts)
+      rawParts = rawParts.concat(lab.rawParts)
       warnings.push(...lab.warnings)
       addHardware(hardware, result.hardware)
       return { design, result }
@@ -231,6 +235,7 @@ export function computeCloset(closet, std) {
     const ov = num(std.islandTopOverhang)
     const top = { name: 'Island top', nameAr: PART_NAMES_AR['Island top'], L: r1(num(closet.island.width) + 2 * ov), W: r1(num(closet.island.depth) + 2 * ov), T: std.frontT, qty: 1, material: 'Front', edges: 'F,B,L,R', sections: ['I'], loft: false }
     parts.push(top)
+    rawParts.push({ name: top.name, L: top.L, W: top.W, T: top.T, qty: 1, material: 'Front', edges: top.edges, section: 'I', loft: false })
     island = { place: layout.island, halves, top }
   }
 
@@ -251,7 +256,7 @@ export function computeCloset(closet, std) {
     depth: layout.depth,
     height: num(closet.height),
   }
-  return { mode: 'closet', parts: merged, hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [] }
+  return { mode: 'closet', parts: merged, rawParts, hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [] }
 }
 
 export function computeDesign(design, std) {

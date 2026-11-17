@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { isBackPanelMaterial } from '../kitchen_planner/formulaEngine'
-import { workOrderPieces } from '../kitchen_planner/machining/pieces'
+import { roomPieces } from '../rooms/roomPieces'
 import CncExportButton from './CncExportButton'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { isReadOnly } from '../../api/auth'
@@ -351,15 +351,13 @@ function CuttingOptimizerModule() {
       const res = await fetch(`${API}/api/crm/rooms/${wo.room_id_ref}/`, { headers: authHeaders })
       if (!res.ok) throw new Error(t('cuttingOptimizer.errLoadBom'))
       const room = await res.json()
-      const cabinets = room.planner_data?.cabinets || []
-      if (cabinets.length === 0) {
+      const [, drawerSystems] = await Promise.all([loadCompanyStandards(), loadDrawerSystems()])
+      const pieces = roomPieces(wo, room, { drawerSystems })
+      if (pieces.length === 0) {
         setError(t('cuttingOptimizer.errNoCabinets'))
         return
       }
-      // One part per physical piece of the work order's cabinets, each with its
-      // ID (a confirmed room is cut with the settings and numbers frozen on it).
-      const [, drawerSystems] = await Promise.all([loadCompanyStandards(), loadDrawerSystems()])
-      const bomGroups = piecesToGroups(workOrderPieces(wo, room, { drawerSystems }), group)
+      const bomGroups = piecesToGroups(pieces, group)
       if (bomGroups.length === 0) {
         setError(t('cuttingOptimizer.errNoPartsInGroup', { group }))
         return

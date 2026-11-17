@@ -16,12 +16,21 @@ export function savedWardrobe(room) {
 
 const round2 = (n) => Math.round((Number(n) || 0) * 100) / 100
 
-export function buildWardrobePlannerData({ design, std, price, result }) {
+export function materialSnapshot(picked = {}) {
+  const out = {}
+  Object.entries(picked).forEach(([role, m]) => {
+    if (m?.sku) out[role] = { sku: m.sku, name: m.name || m.sku, thickness: Number(m.board_thickness) || null }
+  })
+  return out
+}
+
+export function buildWardrobePlannerData({ design, std, price, result, picked }) {
   return {
     kind: WARDROBE_DATA_KIND,
     version: 1,
     design,
     standard: std,
+    materials: materialSnapshot(picked),
     grandTotal: round2(price.grandTotal),
     summary: {
       mode: design.mode === 'closet' ? 'closet' : 'wardrobe',

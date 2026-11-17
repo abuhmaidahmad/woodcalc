@@ -51,3 +51,20 @@ class WardrobeRoomTests(RoomLockTestBase):
         self.assertEqual(res.status_code, 200, res.content)
         self.project.refresh_from_db()
         self.assertEqual(self.project.total_value, Decimal('650.00'))
+
+
+class WardrobeWorkOrderTests(RoomLockTestBase):
+    def test_confirmed_wardrobe_room_gets_a_work_order_with_items(self):
+        room = Room.objects.create(project=self.project, name='Wardrobe', room_type='wardrobe', planner_data=WARDROBE_DATA)
+        body = {'product_name': 'Wardrobe (62 pieces)', 'customer_name': 'C', 'quantity': 1, 'status': 'NEW',
+                'room_id_ref': room.id, 'is_back_order': False, 'sent_cabinet_ids': []}
+        self.assertEqual(self.api('owner').post('/api/manufacturing/work-orders/', body, format='json').status_code, 400)
+        self.lock(room)
+        res = self.api('owner').post('/api/manufacturing/work-orders/', body, format='json')
+        self.assertEqual(res.status_code, 201, res.content)
+        items = {'items': [{'description': 'Side 2000x600x18mm (White)', 'quantity': 2, 'unit': 'pcs'}]}
+        res = self.api('owner').post(f"/api/manufacturing/work-orders/{res.data['id']}/items/", items, format='json')
+        self.assertIn(res.status_code, (200, 201), res.content)
+        listed = self.api('owner').get(f'/api/manufacturing/work-orders/?room_id_ref={room.id}').data
+        rows = listed['results'] if isinstance(listed, dict) else listed
+        self.assertEqual(len(rows), 1)

@@ -12,7 +12,7 @@ const LOCK_KEYS = {
 }
 const bar = { padding: '6px 12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }
 
-export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, saving, savedMsg, canSave }) {
+export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, saving, savedMsg, canSave, onSend, sending, sentMsg }) {
   const { t } = useTranslation()
   const [showHistory, setShowHistory] = useState(false)
   const st = roomLockState(lock)
@@ -22,6 +22,11 @@ export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, sa
     <>
       {!st.locked && !st.isRevision && !st.auditor && st.canConfirm && (
         <button onClick={actions.confirmAndLock} disabled={saving || !canSave} style={accent}>{t('kitchenPlannerModule.confirmLock')}</button>
+      )}
+      {st.locked && lock.revisionStatus === 'approved' && !st.auditor && onSend && (
+        <button onClick={onSend} disabled={sending} style={{ ...bar, color: '#2AC87A', borderColor: '#2AC87A' }}>
+          {sending ? t('kitchenPlannerModule.sending') : sentMsg || t('kitchenPlannerModule.sendToManufacturing')}
+        </button>
       )}
       {st.locked && lock.revisionStatus === 'approved' && !st.auditor && (
         <button onClick={actions.requestChange} style={accent}>{t('kitchenPlannerModule.requestChange')}</button>

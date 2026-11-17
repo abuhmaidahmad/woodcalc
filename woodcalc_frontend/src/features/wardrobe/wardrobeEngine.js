@@ -283,7 +283,7 @@ export function computeWardrobe(design, std) {
 
   if (bodyH < 400 || innerH < 200) {
     warn('heightTooSmall', { h: r1(bodyH) }, 'error')
-    return { parts: [], hardware, geometry, warnings, summary: { bodyH: r1(bodyH), carcassW: cw, construction, backType }, sections: [], materials: [], edgeBanding: [] }
+    return { parts: [], rawParts: [], hardware, geometry, warnings, summary: { bodyH: r1(bodyH), carcassW: cw, construction, backType }, sections: [], materials: [], edgeBanding: [] }
   }
   if (bodyH > std.maxCarcassH) warn('bodyTooTall', { h: r1(bodyH), max: std.maxCarcassH })
   if (design.loft && loftH < std.minLoftH) warn('loftTooSmall', { h: loftH, min: std.minLoftH })
@@ -558,7 +558,7 @@ export function computeWardrobe(design, std) {
     partCount: parts.reduce((a, p) => a + p.qty, 0),
   }
 
-  return { parts, hardware, geometry, warnings, summary, sections: sectionsOut, materials, edgeBanding }
+  return { parts, rawParts, hardware, geometry, warnings, summary, sections: sectionsOut, materials, edgeBanding }
 }
 
 export function cutListCsv(result, partLabel = (p) => p.name) {
