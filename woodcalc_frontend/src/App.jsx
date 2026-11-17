@@ -30,6 +30,7 @@ const RegisterSupplier = lazy(() => import('./pages/auth/RegisterSupplier'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const KitchenPlannerModule = lazy(() => import('./features/kitchen_planner/KitchenPlannerModule'));
 const CuttingOptimizerModule = lazy(() => import('./features/manufacturing/CuttingOptimizerModule'));
+const WardrobeBuilder = lazy(() => import('./pages/WardrobeBuilder'));
 const CadCamImport = lazy(() => import('./pages/CadCamImport'));
 const CustomerList = lazy(() => import('./pages/CustomerList'));
 const RoomDetail = lazy(() => import('./pages/RoomDetail'));
@@ -177,6 +178,10 @@ export default function App() {
         {/* Cutting Optimizer */}
         <Route path="/cutting-optimizer" element={
           <PrivateRoute><CuttingOptimizerModule /></PrivateRoute>
+        } />
+
+        <Route path="/wardrobe-builder" element={
+          <PrivateRoute><WardrobeBuilder /></PrivateRoute>
         } />
 
         {/* CAD/CAM Import */}
