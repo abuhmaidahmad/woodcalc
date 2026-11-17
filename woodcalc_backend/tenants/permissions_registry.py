@@ -6,6 +6,9 @@ PERMISSIONS = [
     {"code": "hr.edit_salary", "label": "Edit salary & run payroll"},
     {"code": "hr.manage_attendance", "label": "Record/edit attendance"},
     {"code": "hr.manage_leave", "label": "Approve/reject leave requests"},
+    {"code": "hr.approve_payroll", "label": "Approve & lock payroll runs"},
+    {"code": "hr.manage_settings", "label": "Edit payroll settings, allowance & piece rates"},
+    {"code": "hr.manage_advances", "label": "Approve salary advances & loans"},
     {"code": "field_ops.manage", "label": "Manage installations & field crews"},
 ]
 

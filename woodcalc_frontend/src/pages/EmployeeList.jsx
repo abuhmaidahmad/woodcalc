@@ -8,7 +8,7 @@ import { useTranslation } from '../i18n/LanguageContext'
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 
-const EMPTY_FORM = { first_name: '', last_name: '', job_title: '', department: '', email: '', phone: '', hire_date: '', salary: '' }
+const EMPTY_FORM = { first_name: '', last_name: '', job_title: '', department: '', email: '', phone: '', hire_date: '', base_salary: '' }
 
 export default function EmployeeList() {
   const { t, language } = useTranslation()
@@ -25,6 +25,8 @@ export default function EmployeeList() {
   const canView = hasPermission('hr.view_employees')
   const canManage = hasPermission('hr.manage_employees')
   const canViewSalary = hasPermission('hr.view_salary')
+  const canEditSalary = hasPermission('hr.edit_salary')
+  const canOpenPayrollSettings = canViewSalary || hasPermission('hr.manage_settings')
 
   const fetchEmployees = async () => {
     setLoading(true)
@@ -58,7 +60,7 @@ export default function EmployeeList() {
     setSaving(true)
     try {
       const body = { ...form }
-      if (!canViewSalary || !body.salary) delete body.salary
+      if (!canEditSalary || !body.base_salary) delete body.base_salary
       if (!body.hire_date) delete body.hire_date
       if (!body.department) delete body.department
       const res = await createEmployee(body)
@@ -92,6 +94,12 @@ export default function EmployeeList() {
             <button onClick={() => navigate('/hr/payroll')}
               style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
               {t('hrPayroll.title')}
+            </button>
+          )}
+          {canOpenPayrollSettings && (
+            <button onClick={() => navigate('/hr/settings')}
+              style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+              {t('hrSettings.title')}
             </button>
           )}
           <button onClick={() => navigate('/dashboard')}
@@ -147,7 +155,7 @@ export default function EmployeeList() {
                       </span>
                     </td>
                     {canViewSalary && (
-                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{emp.salary != null ? `${emp.salary} JD` : '—'}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, fontWeight: 600 }}>{emp.base_salary != null ? `${emp.base_salary} JD` : '—'}</td>
                     )}
                   </tr>
                 ))}
@@ -182,7 +190,7 @@ export default function EmployeeList() {
             </div>
             <div className="m-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
               <Field label={t('hr.hireDate')} type="date" value={form.hire_date} onChange={v => setForm(f => ({ ...f, hire_date: v }))} />
-              {canViewSalary && <Field label={t('hr.salary')} type="number" value={form.salary} onChange={v => setForm(f => ({ ...f, salary: v }))} />}
+              {canEditSalary && <Field label={t('hr.salary')} type="number" value={form.base_salary} onChange={v => setForm(f => ({ ...f, base_salary: v }))} />}
             </div>
             <div style={{ display: 'flex', gap: 10 }}>
               <button onClick={() => { setShowAdd(false); setForm(EMPTY_FORM) }}
