@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
-import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
+import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, DECIMAL_FIELDS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
 import { computeWardrobe, defaultDesign, withSectionCount, autoSectionCount, presetZones, newZone, sectionWidths, cutListCsv, PRESET_IDS, ZONE_TYPES, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
 import WardrobeElevation from '../features/wardrobe/WardrobeElevation'
+import WardrobePriceTab from '../features/wardrobe/WardrobePriceTab'
+import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 
 const Wardrobe3D = lazy(() => import('../features/wardrobe/Wardrobe3D'))
 
@@ -61,6 +63,8 @@ export default function WardrobeBuilder() {
   const [frontColor, setFrontColor] = useState(FRONT_COLORS[2].hex)
   const [showStd, setShowStd] = useState(false)
   const [stdDraft, setStdDraft] = useState(std)
+  const [tab, setTab] = useState('design')
+  const materialsState = useInventoryMaterials()
 
   useEffect(() => {
     try { localStorage.setItem(DESIGN_KEY, JSON.stringify(design)) } catch {}
@@ -130,6 +134,14 @@ export default function WardrobeBuilder() {
           <Logo forDarkBg onClick={() => navigate('/dashboard')} height={22} />
           <span style={{ color: '#666', fontSize: 12 }}>|</span>
           <span style={{ color: '#fff', fontWeight: 600, fontSize: 14 }}>{t('wardrobe.title')}</span>
+          <div style={{ display: 'flex', gap: 4, marginInlineStart: 8 }}>
+            {['design', 'price'].map((k) => (
+              <button key={k} onClick={() => setTab(k)}
+                style={{ padding: '5px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600, border: 'none', background: tab === k ? '#fff' : 'transparent', color: tab === k ? DARK : '#bbb' }}>
+                {t(`wardrobe.tab.${k}`)}
+              </button>
+            ))}
+          </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
           <button onClick={() => { setStdDraft(std); setShowStd(true) }} style={{ padding: '6px 14px', background: ACCENT, border: 'none', color: '#fff', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
@@ -142,6 +154,11 @@ export default function WardrobeBuilder() {
       </div>
 
       <div className="app-content" style={{ maxWidth: 1360, margin: '0 auto', padding: 20 }}>
+        {tab === 'price' ? (
+          <WardrobePriceTab design={design} std={std} result={result} materialsState={materialsState}
+            onPricingChange={(pricing) => setField('pricing', pricing)}
+            onOpenStandard={() => { setStdDraft(std); setShowStd(true) }} />
+        ) : (
         <div className="wb-grid">
           <div className="wb-noprint">
             <div style={card}>
@@ -421,6 +438,7 @@ export default function WardrobeBuilder() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {showStd && (
@@ -443,7 +461,7 @@ export default function WardrobeBuilder() {
                       </select>
                     </label>
                   ) : (
-                    <NumField key={f} title={t(`wardrobe.std.${f}`)} value={stdDraft[f]} step={f === 'wasteFactor' ? 0.01 : 1}
+                    <NumField key={f} title={t(`wardrobe.std.${f}`)} value={stdDraft[f]} step={DECIMAL_FIELDS.has(f) ? 0.01 : 1}
                       placeholder={`${DEFAULT_WARDROBE_STANDARD[f]}`} onChange={(v) => setStdDraft((s) => ({ ...s, [f]: v }))} />
                   ))}
                 </div>

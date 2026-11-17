@@ -2318,7 +2318,8 @@
       "interior": "الرفوف والتعليق",
       "drawers": "الأدراج الداخلية",
       "sliding": "الأبواب الجرارة",
-      "shared": "القواطع المشتركة"
+      "shared": "القواطع المشتركة",
+      "prices": "الأسعار (دينار)"
     },
     "std": {
       "carcassT": "سماكة الهيكل",
@@ -2367,7 +2368,24 @@
       "partitionJoin": "تجميع القواطع",
       "backRailCount": "عدد المرابط الخلفية لكل قسم",
       "backRailH": "ارتفاع المربط الخلفي",
-      "wallClearance": "مسافة عن الحائط (بدون ظهر)"
+      "wallClearance": "مسافة عن الحائط (بدون ظهر)",
+      "priceBoardCarcass": "لوح الهيكل (بدون سعر في الكتالوج)",
+      "priceBoardFront": "لوح الواجهات (بدون سعر في الكتالوج)",
+      "priceBoardBack": "لوح الظهر (بدون سعر في الكتالوج)",
+      "priceBoardDrawer": "لوح علبة الدرج (بدون سعر في الكتالوج)",
+      "priceEdgeM": "شريط الحواف للمتر",
+      "priceHinge": "مفصلة",
+      "priceRunnerPair": "زوج سكك درج",
+      "priceRailM": "ماسورة تعليق للمتر",
+      "priceRailSocket": "حامل ماسورة",
+      "priceLeg": "رجل",
+      "priceSlidingTrackSet": "طقم سكة جرار",
+      "priceSlidingKit": "طقم عجلات باب جرار",
+      "priceHandle": "مقبض",
+      "priceConfirmat": "برغي كونفيرمات",
+      "priceShelfPin": "حامل رف",
+      "labourPct": "نسبة العمالة الافتراضية %",
+      "marginPct": "نسبة الربح الافتراضية %"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2407,6 +2425,58 @@
       "partitionJoin": {
         "between": "بين السقف والقاعدة",
         "full": "بكامل الارتفاع، السقف مقسوم لكل قسم"
+      }
+    },
+    "tab": {
+      "design": "التصميم",
+      "price": "السعر"
+    },
+    "price": {
+      "materialsTitle": "المواد",
+      "loading": "جاري تحميل المواد…",
+      "loadError": "تعذر تحميل كتالوج المواد. تُستخدم أسعار الألواح القياسية.",
+      "standardBoard": "لوح قياسي",
+      "standardPrice": "سعر قياسي",
+      "matching": "النوع المطابق",
+      "otherMaterials": "مواد أخرى",
+      "noPrice": "بدون سعر",
+      "materialsHint": "يُحسب عدد الألواح على مقاس اللوح المختار. السماكة غير المطابقة للوح تُسعّر بالسعر القياسي.",
+      "marginTitle": "العمالة والربح",
+      "labourPct": "العمالة %",
+      "marginPct": "الربح %",
+      "hardwareHint": "أسعار الإكسسوارات والألواح الاحتياطية محفوظة في معيار التصنيع.",
+      "editPrices": "تعديل الأسعار",
+      "breakdownTitle": "تفصيل التكلفة",
+      "board": "اللوح",
+      "sheets": "الألواح",
+      "unit": "الوحدة",
+      "cost": "التكلفة",
+      "boards": "الألواح",
+      "edge": "شريط الحواف",
+      "hardware": "الإكسسوارات",
+      "materialSubtotal": "المواد والإكسسوارات",
+      "labourRow": "العمالة ({{pct}}%)",
+      "costSubtotal": "مجموع التكلفة",
+      "marginRow": "الربح ({{pct}}%)",
+      "afterMargin": "المجموع بعد الربح",
+      "vat16": "ضريبة المبيعات (16%)",
+      "summaryTitle": "الملخص",
+      "sellingPrice": "سعر البيع",
+      "compareTitle": "مقارنة طريقة التصنيع",
+      "saving": "القواطع المشتركة توفر {{amount}} دينار ({{pct}}%)",
+      "costsMore": "القواطع المشتركة أغلى بـ {{amount}} دينار",
+      "compareHint": "نفس التصميم والمواد والعمالة والربح. فقط طريقة التصنيع تتغير.",
+      "hw": {
+        "hinge": "مفصلات",
+        "runnerPair": "سكك أدراج (أزواج)",
+        "railMeters": "ماسورة تعليق (م)",
+        "railBracket": "حوامل مواسير",
+        "leg": "أرجل",
+        "slidingTrackSet": "أطقم سكك جرار",
+        "slidingKit": "أطقم أبواب جرارة",
+        "handles": "مقابض",
+        "confirmat": "براغي كونفيرمات",
+        "shelfPin": "حوامل رفوف"
       }
     }
   }

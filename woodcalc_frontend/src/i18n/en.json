@@ -2318,7 +2318,8 @@
       "interior": "Shelves and hanging",
       "drawers": "Internal drawers",
       "sliding": "Sliding doors",
-      "shared": "Shared partitions"
+      "shared": "Shared partitions",
+      "prices": "Prices (JD)"
     },
     "std": {
       "carcassT": "Carcass thickness",
@@ -2367,7 +2368,24 @@
       "partitionJoin": "Partition joint",
       "backRailCount": "Back rails per bay",
       "backRailH": "Back rail height",
-      "wallClearance": "Wall clearance (no back)"
+      "wallClearance": "Wall clearance (no back)",
+      "priceBoardCarcass": "Carcass board (no catalog price)",
+      "priceBoardFront": "Front board (no catalog price)",
+      "priceBoardBack": "Back board (no catalog price)",
+      "priceBoardDrawer": "Drawer box board (no catalog price)",
+      "priceEdgeM": "Edge band per meter",
+      "priceHinge": "Hinge",
+      "priceRunnerPair": "Drawer runner pair",
+      "priceRailM": "Hanging rail per meter",
+      "priceRailSocket": "Rail socket",
+      "priceLeg": "Leg",
+      "priceSlidingTrackSet": "Sliding track set",
+      "priceSlidingKit": "Sliding door roller kit",
+      "priceHandle": "Handle",
+      "priceConfirmat": "Confirmat screw",
+      "priceShelfPin": "Shelf pin",
+      "labourPct": "Default labour %",
+      "marginPct": "Default margin %"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2407,6 +2425,58 @@
       "partitionJoin": {
         "between": "Between top and bottom",
         "full": "Full height, top split per bay"
+      }
+    },
+    "tab": {
+      "design": "Design",
+      "price": "Price"
+    },
+    "price": {
+      "materialsTitle": "Materials",
+      "loading": "Loading materials…",
+      "loadError": "Could not load the materials catalog. Standard board prices are used.",
+      "standardBoard": "Standard board",
+      "standardPrice": "standard price",
+      "matching": "Matching type",
+      "otherMaterials": "Other materials",
+      "noPrice": "no price",
+      "materialsHint": "Sheets are counted on the picked board size. A thickness that does not match the board uses the standard price.",
+      "marginTitle": "Labour and margin",
+      "labourPct": "Labour %",
+      "marginPct": "Margin %",
+      "hardwareHint": "Hardware and fallback board prices are saved in the construction standard.",
+      "editPrices": "Edit prices",
+      "breakdownTitle": "Cost breakdown",
+      "board": "Board",
+      "sheets": "Sheets",
+      "unit": "Unit",
+      "cost": "Cost",
+      "boards": "Boards",
+      "edge": "Edge banding",
+      "hardware": "Hardware",
+      "materialSubtotal": "Materials and hardware",
+      "labourRow": "Labour ({{pct}}%)",
+      "costSubtotal": "Cost subtotal",
+      "marginRow": "Margin ({{pct}}%)",
+      "afterMargin": "Subtotal after margin",
+      "vat16": "VAT (16%)",
+      "summaryTitle": "Summary",
+      "sellingPrice": "Selling price",
+      "compareTitle": "Compare construction",
+      "saving": "Shared partitions save {{amount}} JD ({{pct}}%)",
+      "costsMore": "Shared partitions cost {{amount}} JD more",
+      "compareHint": "Same design, materials, labour and margin. Only the construction changes.",
+      "hw": {
+        "hinge": "Hinges",
+        "runnerPair": "Drawer runners (pairs)",
+        "railMeters": "Hanging rail (m)",
+        "railBracket": "Rail sockets",
+        "leg": "Legs",
+        "slidingTrackSet": "Sliding track sets",
+        "slidingKit": "Sliding door kits",
+        "handles": "Handles",
+        "confirmat": "Confirmat screws",
+        "shelfPin": "Shelf pins"
       }
     }
   }

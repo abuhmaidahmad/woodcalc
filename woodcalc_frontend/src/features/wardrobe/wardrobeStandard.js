@@ -50,6 +50,23 @@ export const DEFAULT_WARDROBE_STANDARD = {
   wallClearance: 10,
   sideJoin: 'full',
   partitionJoin: 'between',
+  priceBoardCarcass: 28,
+  priceBoardFront: 45,
+  priceBoardBack: 9,
+  priceBoardDrawer: 26,
+  priceEdgeM: 0.25,
+  priceHinge: 1.2,
+  priceRunnerPair: 8,
+  priceRailM: 3,
+  priceRailSocket: 0.4,
+  priceLeg: 0.8,
+  priceSlidingTrackSet: 25,
+  priceSlidingKit: 6,
+  priceHandle: 3.5,
+  priceConfirmat: 0.1,
+  priceShelfPin: 0.05,
+  labourPct: 20,
+  marginPct: 30,
 }
 
 export const STANDARD_ENUMS = {
@@ -65,7 +82,10 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction'] },
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
   { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance'] },
+  { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'labourPct', 'marginPct'] },
 ]
+
+export const DECIMAL_FIELDS = new Set(['wasteFactor', 'priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin'])
 
 const STORAGE_KEY = 'woodcalc.wardrobeStandard.v1'
 
