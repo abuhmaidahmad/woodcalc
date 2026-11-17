@@ -36,6 +36,7 @@ export const DEFAULT_WARDROBE_STANDARD = {
   runnerClearance: 13,
   drawerBoxHDeduction: 50,
   minDrawerBoxH: 70,
+  spacerBoardSku: '',
   runnerLengths: [250, 300, 350, 400, 450, 500, 550],
   slidingOverlap: 40,
   slidingTrackDepth: 100,
@@ -73,6 +74,8 @@ export const DEFAULT_WARDROBE_STANDARD = {
   islandTopOverhang: 20,
 }
 
+export const STANDARD_STRINGS = new Set(['spacerBoardSku'])
+
 export const STANDARD_ENUMS = {
   sideJoin: ['full', 'between'],
   partitionJoin: ['between', 'full'],
@@ -83,7 +86,7 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'construction', fields: ['grooveDepth', 'grooveSetback', 'backClearance', 'plinthH', 'plinthSetback', 'legsPerSection', 'maxCarcassH', 'minLoftH'] },
   { id: 'sizes', fields: ['maxSectionW', 'minSectionW', 'maxDoorW', 'doorGap', 'maxShelfSpan', 'shelfSpacing', 'minShelfGap'] },
   { id: 'interior', fields: ['shelfFrontSetback', 'shelfBackClearance', 'shelfSideClearance', 'minHangDepth', 'railDrop', 'railDeduction', 'minLongHangH', 'minDoubleHangH'] },
-  { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction', 'minDrawerBoxH'] },
+  { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction', 'minDrawerBoxH', 'spacerBoardSku'] },
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
   { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance'] },
   { id: 'closet', fields: ['closetCornerGap', 'minWalkway', 'islandTopOverhang'] },
@@ -100,6 +103,10 @@ export function normalizeStandard(raw) {
   Object.keys(DEFAULT_WARDROBE_STANDARD).forEach((k) => {
     if (k === 'runnerLengths') {
       if (Array.isArray(raw[k]) && raw[k].every((n) => Number(n) > 0)) out[k] = raw[k].map(Number).sort((a, b) => a - b)
+      return
+    }
+    if (STANDARD_STRINGS.has(k)) {
+      if (typeof raw[k] === 'string') out[k] = raw[k].trim()
       return
     }
     if (STANDARD_ENUMS[k]) {

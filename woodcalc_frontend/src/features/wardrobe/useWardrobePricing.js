@@ -3,7 +3,7 @@ import { priceWardrobe, pickMaterials } from './wardrobePricing'
 
 export function usePricing(design, std, materials, result) {
   const settings = design.pricing || {}
-  const picked = useMemo(() => pickMaterials(settings.picks, materials), [settings.picks, materials])
+  const picked = useMemo(() => pickMaterials(settings.picks, materials, std), [settings.picks, materials, std])
   const labourPct = settings.labourPct ?? std.labourPct
   const marginPct = settings.marginPct ?? std.marginPct
   const opts = useMemo(() => ({ picked, labourPct, marginPct }), [picked, labourPct, marginPct])

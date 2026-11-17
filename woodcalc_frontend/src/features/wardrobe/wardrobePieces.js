@@ -44,9 +44,9 @@ export function edgeBandingFor(edges, band) {
 }
 
 export function materialFor(role, T, snapshot) {
-  const snap = snapshot?.[role]
-  const thick = Number(snap?.thickness) || 0
-  if (snap?.sku && (!thick || thick === T)) return { sku: snap.sku, materialName: snap.name || snap.sku }
+  const candidates = [snapshot?.[role], role === 'Carcass' ? snapshot?.spacer : null]
+  const snap = candidates.find((s) => s?.sku && (!(Number(s.thickness) || 0) || Number(s.thickness) === T))
+  if (snap) return { sku: snap.sku, materialName: snap.name || snap.sku }
   return { sku: null, materialName: `${role} ${T}mm` }
 }
 

@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
-import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, DECIMAL_FIELDS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
+import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, STANDARD_STRINGS, DECIMAL_FIELDS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
 import { defaultDesign, withSectionCount, autoSectionCount, sectionWidths, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
 import WardrobeElevation from '../features/wardrobe/WardrobeElevation'
 import SectionEditor from '../features/wardrobe/SectionEditor'
 import ChecksCard from '../features/wardrobe/ChecksCard'
 import CutListPanel from '../features/wardrobe/CutListPanel'
 import NumField from '../features/wardrobe/NumField'
+import DrawerSystemPicker from '../features/wardrobe/DrawerSystemPicker'
 import { ACCENT, DARK, FIELDSET, card, label, input, btn, ghost } from '../features/wardrobe/ui'
 import WardrobePriceTab from '../features/wardrobe/WardrobePriceTab'
 import ClosetEditor from '../features/wardrobe/ClosetEditor'
@@ -314,6 +315,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
                 </div>
               </div>
               <div style={{ marginTop: 10 }}>
+                <DrawerSystemPicker value={design.drawerSystem} onChange={(v) => setField('drawerSystem', v)} std={std} />
+              </div>
+              <div style={{ marginTop: 10 }}>
                 <span style={label}>{t('wardrobe.construction')}</span>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {CONSTRUCTION_TYPES.map((ct) => (
@@ -422,7 +426,17 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
               <div key={g.id} style={card}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t(`wardrobe.stdGroup.${g.id}`)}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
-                  {g.fields.map((f) => STANDARD_ENUMS[f] ? (
+                  {g.fields.map((f) => STANDARD_STRINGS.has(f) ? (
+                    <label key={f} style={{ display: 'block' }}>
+                      <span style={label}>{t(`wardrobe.std.${f}`)}</span>
+                      <select style={input} value={stdDraft[f] || ''} onChange={(e) => setStdDraft((s) => ({ ...s, [f]: e.target.value }))}>
+                        <option value="">{t('wardrobe.price.standardBoard')}</option>
+                        {[...materialsState.materials]
+                          .sort((a, b) => (Number(b.board_thickness) === Number(stdDraft.drawerSpacerT)) - (Number(a.board_thickness) === Number(stdDraft.drawerSpacerT)))
+                          .map((m) => <option key={m.sku} value={m.sku}>{m.name} · {m.sku}{m.board_thickness ? ` · ${m.board_thickness}mm` : ''}</option>)}
+                      </select>
+                    </label>
+                  ) : STANDARD_ENUMS[f] ? (
                     <label key={f} style={{ display: 'block' }}>
                       <span style={label}>{t(`wardrobe.std.${f}`)}</span>
                       <select style={input} value={stdDraft[f] ?? DEFAULT_WARDROBE_STANDARD[f]} onChange={(e) => setStdDraft((s) => ({ ...s, [f]: e.target.value }))}>

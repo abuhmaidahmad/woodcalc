@@ -9,6 +9,7 @@ import SectionEditor from './SectionEditor'
 import ChecksCard from './ChecksCard'
 import CutListPanel from './CutListPanel'
 import NumField from './NumField'
+import DrawerSystemPicker from './DrawerSystemPicker'
 import { ACCENT, DARK, FIELDSET, card, label, input, ghost } from './ui'
 
 const Closet3D = lazy(() => import('./Closet3D'))
@@ -67,6 +68,9 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
             <NumField title={t('wardrobe.closet.width')} value={closet.width} onChange={(v) => setC('width', v ?? 0)} />
             <NumField title={t('wardrobe.closet.roomDepth')} value={closet.roomDepth} onChange={(v) => setC('roomDepth', v ?? 0)} />
             <NumField title={t('wardrobe.height')} value={closet.height} onChange={(v) => setC('height', v ?? 0)} />
+          </div>
+          <div style={{ marginTop: 8 }}>
+            <DrawerSystemPicker value={closet.drawerSystem} onChange={(v) => setC('drawerSystem', v)} std={std} />
           </div>
           {['AB', 'AC'].filter((k) => runIds.includes(k[1])).map((k) => (
             <label key={k} style={{ display: 'block', marginTop: 8 }}>
@@ -163,6 +167,9 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
               <div style={{ marginTop: 10 }}>
                 <span style={label}>{t('wardrobe.closet.drawerStyle')}</span>
                 <Seg options={DRAWER_STYLES} value={isl.drawerStyle === 'internal' ? 'internal' : 'external'} onChange={(v) => setIsland({ drawerStyle: v })} labelOf={(o) => t(`wardrobe.closet.drawerStyles.${o}`)} />
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <DrawerSystemPicker value={isl.drawerSystem} onChange={(v) => setIsland({ drawerSystem: v })} std={std} />
               </div>
             </>
           )}

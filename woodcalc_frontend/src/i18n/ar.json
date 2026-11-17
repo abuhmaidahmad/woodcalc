@@ -665,7 +665,8 @@
     "failed": "فشل التصدير",
     "errorsTitle": "{{count}} مشكلة في التشغيل — راجعها قبل الإرسال إلى CNC",
     "cancel": "إلغاء",
-    "exportAnyway": "تصدير على أي حال"
+    "exportAnyway": "تصدير على أي حال",
+    "notForWardrobes": "تصدير CNC غير متاح لغرف الخزائن بعد."
   },
   "confirmPreview": {
     "warningsTitle": "أنظمة الأدراج هذه بلا مقاسات في كتالوج المواد:",
@@ -847,7 +848,9 @@
     "drawerSystemCountPlural": "{{count}} أنظمة أدراج",
     "confirmDeleteDrawerSystem": "حذف نظام الأدراج هذا؟ الخزائن التي تستخدمه حاليًا ستعود للسعر الافتراضي.",
     "woodBoxChip": "صندوق خشبي",
-    "metalSidedChip": "صندوق معدني"
+    "metalSidedChip": "صندوق معدني",
+    "drawerSystemRunnerClearanceLabel": "خلوص السكة لكل جهة (مم)",
+    "drawerSystemRunnerClearanceHint": "المسافة بين علبة الدرج وجانب الخزانة لهذه السكة. تستخدم في مصمم الخزائن."
   },
   "leadList": {
     "title": "العملاء المحتملون",
@@ -2517,7 +2520,8 @@
       "closetCornerGap": "مسافة الزاوية",
       "minWalkway": "أقل ممر",
       "islandTopOverhang": "بروز سطح الجزيرة",
-      "minDrawerBoxH": "أقل ارتفاع لعلبة الدرج"
+      "minDrawerBoxH": "أقل ارتفاع لعلبة الدرج",
+      "spacerBoardSku": "لوح التسميكات (من المخزون)"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2688,6 +2692,9 @@
         "external": "خارجية، واجهة كاملة",
         "internal": "داخلية، خلف تسميكات"
       }
-    }
+    },
+    "drawerSystem": "نظام الأدراج",
+    "drawerSystemNone": "قياسي ({{c}} مم لكل جهة)",
+    "drawerSystemOption": "{{name}} · {{c}} مم لكل جهة"
   }
 }

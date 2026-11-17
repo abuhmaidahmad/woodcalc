@@ -47,6 +47,7 @@ const EMPTY_DRAWER_SYSTEM = {
   back_width_deduction: '', back_height_m: '', back_height_c: '', back_thickness: '',
   // Defaults: the bottom formula used before these were editable.
   bottom_width_deduction: '25', bottom_depth_deduction: '80', bottom_thickness: '8',
+  runner_side_clearance: '12.5',
 }
 // Metal-sided systems' shop-cut bottom (mm): inner width / depth less these, this thick.
 const DS_BOTTOM_FIELDS = ['bottom_width_deduction', 'bottom_depth_deduction', 'bottom_thickness']
@@ -131,6 +132,7 @@ export default function MaterialCatalog() {
       price_per_set_c: sys.price_per_set_c ?? '',
       ...Object.fromEntries(DS_BACK_FIELDS.map(k => [k, sys[k] ?? ''])),
       ...Object.fromEntries(DS_BOTTOM_FIELDS.map(k => [k, sys[k] ?? EMPTY_DRAWER_SYSTEM[k]])),
+      runner_side_clearance: sys.runner_side_clearance ?? EMPTY_DRAWER_SYSTEM.runner_side_clearance,
     })
     setDsSaveError('')
     setShowDsModal(true)
@@ -149,6 +151,7 @@ export default function MaterialCatalog() {
         ...Object.fromEntries(DS_BACK_FIELDS.map(k => [k, dsForm[k] === '' ? null : dsForm[k]])),
         // Blank falls back to the default formula.
         ...Object.fromEntries(DS_BOTTOM_FIELDS.map(k => [k, dsForm[k] === '' ? EMPTY_DRAWER_SYSTEM[k] : dsForm[k]])),
+        runner_side_clearance: dsForm.runner_side_clearance === '' ? EMPTY_DRAWER_SYSTEM.runner_side_clearance : dsForm.runner_side_clearance,
       }
       // Name is locked once created (see dsForm's name field below) -- cabinets
       // reference a drawer system by its name string, so renaming one here would
@@ -731,6 +734,14 @@ export default function MaterialCatalog() {
                   ))}
                 </div>
                 <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemBottomHint')}</div>
+              </div>
+            )}
+
+            {dsForm.box_construction === 'wood_box' && (
+              <div style={{ marginBottom: 12 }}>
+                <Field label={t('materialCatalog.drawerSystemRunnerClearanceLabel')} value={dsForm.runner_side_clearance} type="number"
+                  onChange={v => setDsForm(f => ({ ...f, runner_side_clearance: v }))} placeholder="12.5" />
+                <div style={{ fontSize: 10.5, color: '#aaa', marginTop: 4 }}>{t('materialCatalog.drawerSystemRunnerClearanceHint')}</div>
               </div>
             )}
 

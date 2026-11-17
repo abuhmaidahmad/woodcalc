@@ -22,6 +22,11 @@ const num = (v) => {
   return Number.isFinite(n) ? n : 0
 }
 
+export function boardForPart(picked, role, T) {
+  const candidates = [picked[role], role === 'Carcass' ? picked.spacer : null]
+  return candidates.find((m) => m && (!num(m.board_thickness) || num(m.board_thickness) === T)) || null
+}
+
 export function boardOf(mat, std) {
   const L = num(mat?.board_width) || std.sheetL
   const W = num(mat?.board_height) || std.sheetW
@@ -38,9 +43,8 @@ export function boardPrice(mat, std) {
 
 export function boardLines(result, std, picked = {}) {
   return result.materials.map((m) => {
-    const mat = picked[m.material] || null
-    const thick = num(mat?.board_thickness)
-    const fits = mat && (!thick || thick === m.T)
+    const mat = boardForPart(picked, m.material, m.T)
+    const fits = !!mat
     const board = boardOf(fits ? mat : null, std)
     const catalog = fits ? boardPrice(mat, std) : null
     const unit = catalog ?? num(std[FALLBACK_KEY[m.material]])
@@ -110,10 +114,11 @@ export function priceWardrobe(result, std, { picked = {}, labourPct = std.labour
   }
 }
 
-export function pickMaterials(picks = {}, materials = []) {
+export function pickMaterials(picks = {}, materials = [], std = null) {
   const bySku = new Map(materials.map((m) => [m.sku, m]))
   const out = {}
   MATERIAL_ROLES.forEach((r) => { if (picks[r] && bySku.has(picks[r])) out[r] = bySku.get(picks[r]) })
+  if (std?.spacerBoardSku && bySku.has(std.spacerBoardSku)) out.spacer = bySku.get(std.spacerBoardSku)
   return out
 }
 

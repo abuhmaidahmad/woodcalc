@@ -8,6 +8,12 @@ export const CONSTRUCTION_TYPES = ['boxes', 'shared']
 export const BACK_TYPES = ['none', 'full', 'perSection']
 export const DRAWER_STYLES = ['internal', 'external']
 
+export function drawerSystemSnapshot(sys) {
+  if (!sys) return null
+  const c = Number(sys.runner_side_clearance)
+  return { id: sys.id, name: sys.name, runnerSideClearance: Number.isFinite(c) && c >= 0 ? c : 12.5 }
+}
+
 export const PART_NAMES_AR = {
   'Side': 'جانب',
   'Partition': 'قاطع',
@@ -262,6 +268,7 @@ export function computeWardrobe(design, std) {
   const noBack = backType === 'none'
   const railCount = noBack ? Math.max(0, Math.round(num(std.backRailCount))) : 0
   const externalDrawers = design.drawerStyle === 'external'
+  const runnerClear = num(design.drawerSystem?.runnerSideClearance, std.runnerClearance)
   const sliding = design.doorType === 'sliding'
   const hinged = design.doorType === 'hinged'
   const D = num(design.depth)
@@ -443,7 +450,7 @@ export function computeWardrobe(design, std) {
         const runner = runnerLengthFor(runnerDepth, std)
         const frontW = w - std.doorGap
         const frontH = pitch - std.drawerFrontGap
-        const boxW = innerW - 2 * std.runnerClearance
+        const boxW = innerW - 2 * runnerClear
         const boxH = opening - std.drawerBoxHDeduction
         if (boxH < std.minDrawerBoxH) warn('drawersDontFit', { section, h: z.h, need: z.n * (std.minDrawerBoxH + std.drawerBoxHDeduction) })
         part({ name: 'Drawer front', L: frontW, W: frontH, T: FT, qty: z.n, material: 'Front', edges: EDGE_ALL, section })
@@ -454,7 +461,7 @@ export function computeWardrobe(design, std) {
         addHw('drawerHandle', z.n)
         const fy = yb - coverBottom
         for (let k = 0; k < z.n; k++) {
-          box({ kind: 'drawerBox', x: left + std.runnerClearance, y: r1(yb + k * opening + 10), z: front - runner, w: boxW, h: boxH, d: runner })
+          box({ kind: 'drawerBox', x: left + runnerClear, y: r1(yb + k * opening + 10), z: front - runner, w: boxW, h: boxH, d: runner })
           box({ kind: 'drawerFront', x: x + std.doorGap / 2, y: r1(fy + k * pitch + std.drawerFrontGap / 2), z: D, w: r1(frontW), h: r1(frontH), d: FT })
         }
       } else if (z.type === 'drawers') {
@@ -465,7 +472,7 @@ export function computeWardrobe(design, std) {
         const runner = runnerLengthFor(runnerDepth, std)
         const frontW = innerW - 2 * sp - 4
         const frontH = std.drawerH - std.drawerFrontGap
-        const boxW = innerW - 2 * sp - 2 * std.runnerClearance
+        const boxW = innerW - 2 * sp - 2 * runnerClear
         const boxH = std.drawerH - std.drawerBoxHDeduction
         part({ name: 'Drawer spacer', L: z.h, W: spacerDepth, T: sp, qty: 2, material: 'Carcass', edges: 'F', section })
         part({ name: 'Drawer front', L: frontW, W: frontH, T: FT, qty: z.n, material: 'Front', edges: EDGE_ALL, section })
@@ -478,7 +485,7 @@ export function computeWardrobe(design, std) {
         box({ kind: 'spacer', x: left + innerW - sp, y: yb, z: front - spacerDepth, w: sp, h: z.h, d: spacerDepth })
         for (let k = 0; k < z.n; k++) {
           const dy = yb + k * std.drawerH + std.drawerFrontGap / 2
-          box({ kind: 'drawerBox', x: left + sp + std.runnerClearance, y: dy + 10, z: front - FT - runner, w: boxW, h: boxH, d: runner })
+          box({ kind: 'drawerBox', x: left + sp + runnerClear, y: dy + 10, z: front - FT - runner, w: boxW, h: boxH, d: runner })
           box({ kind: 'drawerFront', x: left + sp + 2, y: dy, z: front - FT, w: frontW, h: frontH, d: FT })
         }
       }

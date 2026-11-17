@@ -224,7 +224,7 @@ export default function ProductionBoard() {
                       style={{ padding: '6px 12px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                       {t('productionBoard.cuttingOptimizer')}
                     </button>
-                    <CncExportButton workOrder={selected} loadRoom={loadRoom} />
+                    <CncExportButton workOrder={selected} loadRoom={loadRoom} room={room?.workOrderId === selected.id ? room : null} />
                   </div>
                 </div>
               </div>

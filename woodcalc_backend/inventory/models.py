@@ -197,6 +197,7 @@ class DrawerSystem(models.Model):
     bottom_width_deduction = models.DecimalField(max_digits=6, decimal_places=1, default=25)
     bottom_depth_deduction = models.DecimalField(max_digits=6, decimal_places=1, default=80)
     bottom_thickness = models.PositiveIntegerField(default=8)
+    runner_side_clearance = models.DecimalField(max_digits=5, decimal_places=1, default=12.5)
     is_active = models.BooleanField(default=True)
     sort_order = models.PositiveIntegerField(default=0)
 
