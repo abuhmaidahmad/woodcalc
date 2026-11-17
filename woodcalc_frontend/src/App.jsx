@@ -45,6 +45,7 @@ const PurchaseOrderDetail = lazy(() => import('./pages/PurchaseOrderDetail'));
 const EmployeeList = lazy(() => import('./pages/EmployeeList'));
 const EmployeeDetail = lazy(() => import('./pages/EmployeeDetail'));
 const PayrollRun = lazy(() => import('./pages/PayrollRun'));
+const PayrollSettings = lazy(() => import('./pages/PayrollSettings'));
 const MaterialList = lazy(() => import('./pages/MaterialList'));
 const Settings = lazy(() => import('./pages/Settings'));
 const BillingReturn = lazy(() => import('./pages/BillingReturn'));
@@ -218,6 +219,9 @@ export default function App() {
         } />
         <Route path="/hr/payroll" element={
           <PrivateRoute><PayrollRun /></PrivateRoute>
+        } />
+        <Route path="/hr/settings" element={
+          <PrivateRoute><PayrollSettings /></PrivateRoute>
         } />
         <Route path="/billing/return" element={
           <PrivateRoute><BillingReturn /></PrivateRoute>
