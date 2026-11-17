@@ -2301,7 +2301,8 @@
       "runnerPair": "Drawer runners (pairs)",
       "drawerHandle": "Drawer handles",
       "slidingKit": "Sliding door kits",
-      "slidingTrack": "Sliding tracks"
+      "slidingTrack": "Sliding tracks",
+      "backRail": "Back rails"
     },
     "materialsTitle": "Boards",
     "sheetsCol": "Sheets {{l}}×{{w}}",
@@ -2316,7 +2317,8 @@
       "sizes": "Sizes and limits",
       "interior": "Shelves and hanging",
       "drawers": "Internal drawers",
-      "sliding": "Sliding doors"
+      "sliding": "Sliding doors",
+      "shared": "Shared partitions"
     },
     "std": {
       "carcassT": "Carcass thickness",
@@ -2360,7 +2362,12 @@
       "slidingOverlap": "Door overlap",
       "slidingTrackDepth": "Track depth",
       "slidingHDeduction": "Height deduction",
-      "maxSlidingDoorW": "Max sliding door width"
+      "maxSlidingDoorW": "Max sliding door width",
+      "sideJoin": "Outer side joint",
+      "partitionJoin": "Partition joint",
+      "backRailCount": "Back rails per bay",
+      "backRailH": "Back rail height",
+      "wallClearance": "Wall clearance (no back)"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2377,7 +2384,30 @@
       "doubleHangShort": "{{section}}: double hang is {{h}} mm, under {{min}} mm.",
       "drawersDontFit": "{{section}}: drawers need {{need}} mm but the zone is {{h}} mm.",
       "doorTooWide": "{{section}}: doors are {{w}} mm, over the {{max}} mm maximum.",
-      "slidingDoorTooWide": "Sliding doors are {{w}} mm, over the {{max}} mm maximum."
+      "slidingDoorTooWide": "Sliding doors are {{w}} mm, over the {{max}} mm maximum.",
+      "panelTooLong": "{{part}} is longer than the sheet ({{max}} mm) and has no partition to split on. Add a section.",
+      "backRailsDontFit": "Back rails ({{n}} × {{railH}} mm) do not fit in a {{h}} mm carcass."
+    },
+    "construction": "Construction",
+    "constructionTypes": {
+      "boxes": "Separate boxes",
+      "shared": "Shared partitions"
+    },
+    "backType": "Back",
+    "backTypes": {
+      "none": "No back (rails)",
+      "full": "Full back in groove",
+      "perSection": "Back per section"
+    },
+    "stdOption": {
+      "sideJoin": {
+        "full": "Sides full height",
+        "between": "Top/bottom over sides"
+      },
+      "partitionJoin": {
+        "between": "Between top and bottom",
+        "full": "Full height, top split per bay"
+      }
     }
   }
 }

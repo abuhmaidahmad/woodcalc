@@ -4,9 +4,13 @@ import { getHingeCount } from '../kitchen_planner/formulaEngine'
 export const ZONE_TYPES = ['shelves', 'hang', 'hang2', 'drawers', 'open']
 export const PRESET_IDS = ['longHang', 'doubleHang', 'shelves', 'hangDrawers', 'shelvesDrawers']
 export const DOOR_TYPES = ['hinged', 'sliding', 'none']
+export const CONSTRUCTION_TYPES = ['boxes', 'shared']
+export const BACK_TYPES = ['none', 'full', 'perSection']
 
 export const PART_NAMES_AR = {
   'Side': 'جانب',
+  'Partition': 'قاطع',
+  'Back rail': 'مرباط خلفي',
   'Top': 'سقف',
   'Bottom': 'قاعدة',
   'Back': 'ظهر',
@@ -77,6 +81,8 @@ export function defaultDesign(std) {
     fillerLeft: 0, fillerRight: 0, topFiller: 0,
     loft: true, loftH: 500,
     doorType: 'hinged',
+    construction: 'boxes',
+    backType: 'none',
     sections: [],
   }
   return withSectionCount(d, autoSectionCount(d, std), std, ['longHang', 'shelvesDrawers', 'doubleHang'])
@@ -138,6 +144,45 @@ export function runnerLengthFor(depth, std) {
   return fits.length ? fits[fits.length - 1] : std.runnerLengths[0]
 }
 
+export function splitRun(start, end, cuts, maxL) {
+  const inner = cuts.filter((c) => c > start + 0.01 && c < end - 0.01)
+  const pieces = []
+  let s = start
+  let tooLong = false
+  while (end - s > maxL + 0.01) {
+    const fit = inner.filter((c) => c > s + 0.01 && c - s <= maxL + 0.01)
+    const c = fit.length ? fit[fit.length - 1] : inner.find((v) => v > s + 0.01)
+    if (c == null) { tooLong = true; break }
+    if (!fit.length) tooLong = true
+    pieces.push([s, c])
+    s = c
+  }
+  pieces.push([s, end])
+  if (pieces.some(([a, b]) => b - a > maxL + 0.01)) tooLong = true
+  return { pieces, tooLong }
+}
+
+export function constructionOf(design) {
+  const construction = design.construction === 'shared' ? 'shared' : 'boxes'
+  const backType = construction === 'shared' ? (BACK_TYPES.includes(design.backType) ? design.backType : 'none') : 'full'
+  return { construction, backType }
+}
+
+export function sectionBays(widths, cw, T, shared) {
+  const bounds = []
+  let acc = 0
+  widths.forEach((w, i) => { acc += w; if (i < widths.length - 1) bounds.push(acc) })
+  let x = 0
+  const bays = widths.map((w, i) => {
+    const left = shared ? (i === 0 ? T : bounds[i - 1] + T / 2) : x + T
+    const right = shared ? (i === widths.length - 1 ? cw - T : bounds[i] - T / 2) : x + w - T
+    const out = { x, w, left: r1(left), innerW: r1(right - left) }
+    x += w
+    return out
+  })
+  return { bays, bounds }
+}
+
 function aggregate(parts) {
   const map = new Map()
   parts.forEach((p) => {
@@ -167,6 +212,10 @@ export function computeWardrobe(design, std) {
   const part = (p) => { if (p.qty > 0 && p.L > 0 && p.W > 0) rawParts.push({ ...p, L: r1(p.L), W: r1(p.W) }) }
   const box = (g) => geometry.push(g)
 
+  const { construction, backType } = constructionOf(design)
+  const shared = construction === 'shared'
+  const noBack = backType === 'none'
+  const railCount = noBack ? Math.max(0, Math.round(num(std.backRailCount))) : 0
   const sliding = design.doorType === 'sliding'
   const hinged = design.doorType === 'hinged'
   const D = num(design.depth)
@@ -176,17 +225,19 @@ export function computeWardrobe(design, std) {
   const bodyH = num(design.height) - std.plinthH - topFiller - loftH
   const innerH = bodyH - 2 * T
   const front = D - (sliding ? std.slidingTrackDepth : 0)
-  const usableDepth = front - std.grooveSetback - std.backT
+  const usableDepth = front - (noBack ? (railCount > 0 ? T : 0) : std.grooveSetback + std.backT)
   const fixedShelfDepth = usableDepth - 1
-  const shelfDepth = usableDepth - std.shelfBackClearance - std.shelfFrontSetback
+  const shelfDepth = usableDepth - (noBack ? std.wallClearance : std.shelfBackClearance) - std.shelfFrontSetback
+  const runnerDepth = usableDepth - (noBack ? std.wallClearance : 0)
   const backGrow = 2 * (std.grooveDepth - std.backClearance)
   const widths = sectionWidths(design)
+  const { bays, bounds } = sectionBays(widths, cw, T, shared)
   const sectionsOut = []
   let railMm = 0
 
   if (bodyH < 400 || innerH < 200) {
     warn('heightTooSmall', { h: r1(bodyH) }, 'error')
-    return { parts: [], hardware, geometry, warnings, summary: { bodyH: r1(bodyH), carcassW: cw }, sections: [], materials: [], edgeBanding: [] }
+    return { parts: [], hardware, geometry, warnings, summary: { bodyH: r1(bodyH), carcassW: cw, construction, backType }, sections: [], materials: [], edgeBanding: [] }
   }
   if (bodyH > std.maxCarcassH) warn('bodyTooTall', { h: r1(bodyH), max: std.maxCarcassH })
   if (design.loft && loftH < std.minLoftH) warn('loftTooSmall', { h: loftH, min: std.minLoftH })
@@ -207,6 +258,77 @@ export function computeWardrobe(design, std) {
     box({ kind: 'back', x: x + T, y: y0 + T, z: std.grooveSetback, w: innerW, h: h - 2 * T, d: std.backT })
   }
 
+  const backRails = (section, left, innerW, y0, h, loft) => {
+    if (railCount <= 0 || innerW <= 0) return
+    const railH = std.backRailH
+    const room = h - 2 * T - railH
+    if (railCount * railH > h - 2 * T) warn('backRailsDontFit', { h: r1(h), n: railCount, railH }, 'error')
+    part({ name: 'Back rail', L: innerW, W: railH, T, qty: railCount, material: 'Carcass', edges: 'F', section, loft })
+    addHw('confirmat', 2 * railCount * confirmatPerJoint(railH))
+    for (let k = 0; k < railCount; k++) {
+      const y = railCount === 1 ? y0 + h - T - railH : y0 + T + room - (room * k) / (railCount - 1)
+      box({ kind: 'backRail', x: left, y: r1(y), z: 0, w: innerW, h: railH, d: T })
+    }
+  }
+
+  const sharedCarcass = (y0, h, loft) => {
+    const n = bays.length
+    const sidesFull = std.sideJoin !== 'between'
+    const partFull = std.partitionJoin === 'full'
+    const backZ = std.grooveSetback + std.backT
+    const pD = backType === 'full' ? D - backZ : D
+    const pz = D - pD
+    const sideL = sidesFull ? h : h - 2 * T
+    const sideY = sidesFull ? y0 : y0 + T
+    part({ name: 'Side', L: sideL, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+    box({ kind: 'carcass', x: 0, y: sideY, z: 0, w: T, h: sideL, d: D })
+    box({ kind: 'carcass', x: cw - T, y: sideY, z: 0, w: T, h: sideL, d: D })
+    const partL = partFull ? h : h - 2 * T
+    const partY = partFull ? y0 : y0 + T
+    bounds.forEach((b) => box({ kind: 'carcass', x: b - T / 2, y: partY, z: pz, w: T, h: partL, d: pD }))
+    if (bounds.length) part({ name: 'Partition', L: partL, W: pD, T, qty: bounds.length, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+    const panel = (name, a, b, y) => {
+      part({ name, L: b - a, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section: 'ALL', loft })
+      box({ kind: 'carcass', x: a, y, z: 0, w: r1(b - a), h: T, d: D })
+    }
+    if (partFull) {
+      bays.forEach((bay) => {
+        panel('Top', bay.left, bay.left + bay.innerW, y0 + h - T)
+        panel('Bottom', bay.left, bay.left + bay.innerW, y0)
+      })
+      addHw('confirmat', 4 * confirmatPerJoint(D) + 4 * (n - 1) * confirmatPerJoint(pD))
+    } else {
+      const a = sidesFull ? T : 0
+      const b = sidesFull ? cw - T : cw
+      const { pieces, tooLong } = splitRun(a, b, bounds, std.sheetL)
+      if (tooLong) warn('panelTooLong', { part: 'Top', max: std.sheetL })
+      pieces.forEach(([pa, pb]) => {
+        panel('Top', pa, pb, y0 + h - T)
+        panel('Bottom', pa, pb, y0)
+      })
+      addHw('confirmat', 4 * confirmatPerJoint(D) + 2 * bounds.length * confirmatPerJoint(pD) + 2 * (pieces.length - 1) * confirmatPerJoint(pD))
+    }
+    const backH = h - 2 * T + backGrow
+    if (backType === 'full') {
+      const maxW = backH <= std.sheetW ? std.sheetL : std.sheetW
+      if (backH > std.sheetL) warn('panelTooLong', { part: 'Back', max: std.sheetL })
+      const { pieces, tooLong } = splitRun(T, cw - T, bounds, maxW - backGrow)
+      if (tooLong) warn('panelTooLong', { part: 'Back', max: maxW })
+      pieces.forEach(([pa, pb], k) => {
+        const grow = (k === 0 ? backGrow / 2 : 0) + (k === pieces.length - 1 ? backGrow / 2 : 0)
+        part({ name: 'Back', L: backH, W: pb - pa + grow, T: std.backT, qty: 1, material: 'Back', edges: '', section: 'ALL', loft })
+        box({ kind: 'back', x: pa, y: y0 + T, z: std.grooveSetback, w: r1(pb - pa), h: h - 2 * T, d: std.backT })
+      })
+    } else if (backType === 'perSection') {
+      bays.forEach((bay, i) => {
+        part({ name: 'Back', L: backH, W: bay.innerW + backGrow, T: std.backT, qty: 1, material: 'Back', edges: '', section: `S${i + 1}`, loft })
+        box({ kind: 'back', x: bay.left, y: y0 + T, z: std.grooveSetback, w: bay.innerW, h: h - 2 * T, d: std.backT })
+      })
+    } else {
+      bays.forEach((bay, i) => backRails(`S${i + 1}`, bay.left, bay.innerW, y0, h, loft))
+    }
+  }
+
   const hingedDoors = (section, si, x, w, y0, h, n, loft) => {
     const doorW = w / n - std.doorGap
     const doorH = h - std.doorGap
@@ -220,15 +342,19 @@ export function computeWardrobe(design, std) {
     }
   }
 
-  let x = 0
+  if (shared) {
+    sharedCarcass(std.plinthH, bodyH, false)
+    if (loftH > 0) sharedCarcass(std.plinthH + bodyH, loftH, true)
+  }
+
   design.sections.forEach((s, si) => {
     const w = widths[si]
+    const { x, left, innerW } = bays[si]
     const section = `S${si + 1}`
-    const innerW = w - 2 * T
     if (w < std.minSectionW) warn('sectionTooNarrow', { section, w, min: std.minSectionW }, 'error')
     if (w > std.maxSectionW) warn('sectionTooWide', { section, w, max: std.maxSectionW })
     if (innerW > std.maxShelfSpan) warn('shelfSpan', { section, w: r1(innerW), max: std.maxShelfSpan })
-    carcass(section, x, w, std.plinthH, bodyH, false)
+    if (!shared) carcass(section, x, w, std.plinthH, bodyH, false)
 
     const { zones, autoH } = resolveZones(s.zones, innerH, std)
     if (autoH < 100) warn('zonesOverflow', { section, h: autoH }, autoH < 0 ? 'error' : 'warn')
@@ -239,7 +365,7 @@ export function computeWardrobe(design, std) {
       if (zi < zones.length - 1) {
         part({ name: 'Fixed shelf', L: innerW, W: fixedShelfDepth, T, qty: 1, material: 'Carcass', edges: 'F', section })
         addHw('confirmat', 2 * confirmatPerJoint(fixedShelfDepth))
-        box({ kind: 'shelf', x: x + T, y: yb - T, z: front - fixedShelfDepth, w: innerW, h: T, d: fixedShelfDepth })
+        box({ kind: 'shelf', x: left, y: yb - T, z: front - fixedShelfDepth, w: innerW, h: T, d: fixedShelfDepth })
       }
       if (z.type === 'shelves' && z.n > 0) {
         const gap = (z.h - z.n * T) / (z.n + 1)
@@ -247,7 +373,7 @@ export function computeWardrobe(design, std) {
         part({ name: 'Shelf', L: innerW - 2 * std.shelfSideClearance, W: shelfDepth, T, qty: z.n, material: 'Carcass', edges: 'F', section })
         addHw('shelfPin', 4 * z.n)
         for (let k = 1; k <= z.n; k++) {
-          box({ kind: 'shelf', x: x + T + std.shelfSideClearance, y: yb + k * gap + (k - 1) * T, z: front - std.shelfFrontSetback - shelfDepth, w: innerW - 2 * std.shelfSideClearance, h: T, d: shelfDepth })
+          box({ kind: 'shelf', x: left + std.shelfSideClearance, y: yb + k * gap + (k - 1) * T, z: front - std.shelfFrontSetback - shelfDepth, w: innerW - 2 * std.shelfSideClearance, h: T, d: shelfDepth })
         }
       }
       if (z.type === 'hang' || z.type === 'hang2') {
@@ -260,7 +386,7 @@ export function computeWardrobe(design, std) {
           railMm += railLen
           addHw('rail', 1)
           addHw('railBracket', 2)
-          box({ kind: 'rail', x: x + T + std.railDeduction / 2, y: ry, z: front - usableDepth / 2, w: railLen, h: std.railDiameter, d: std.railDiameter })
+          box({ kind: 'rail', x: left + std.railDeduction / 2, y: ry, z: front - usableDepth / 2, w: railLen, h: std.railDiameter, d: std.railDiameter })
         })
       }
       if (z.type === 'drawers') {
@@ -268,7 +394,7 @@ export function computeWardrobe(design, std) {
         if (z.h + 0.5 < need) warn('drawersDontFit', { section, h: z.h, need })
         const spacerDepth = usableDepth - 1
         const sp = std.drawerSpacerT
-        const runner = runnerLengthFor(usableDepth, std)
+        const runner = runnerLengthFor(runnerDepth, std)
         const frontW = innerW - 2 * sp - 4
         const frontH = std.drawerH - std.drawerFrontGap
         const boxW = innerW - 2 * sp - 2 * std.runnerClearance
@@ -280,12 +406,12 @@ export function computeWardrobe(design, std) {
         part({ name: 'Drawer bottom', L: runner, W: boxW, T: std.drawerBottomT, qty: z.n, material: 'Back', edges: '', section })
         addHw('runnerPair', z.n)
         addHw('drawerHandle', z.n)
-        box({ kind: 'spacer', x: x + T, y: yb, z: front - spacerDepth, w: sp, h: z.h, d: spacerDepth })
-        box({ kind: 'spacer', x: x + w - T - sp, y: yb, z: front - spacerDepth, w: sp, h: z.h, d: spacerDepth })
+        box({ kind: 'spacer', x: left, y: yb, z: front - spacerDepth, w: sp, h: z.h, d: spacerDepth })
+        box({ kind: 'spacer', x: left + innerW - sp, y: yb, z: front - spacerDepth, w: sp, h: z.h, d: spacerDepth })
         for (let k = 0; k < z.n; k++) {
           const dy = yb + k * std.drawerH + std.drawerFrontGap / 2
-          box({ kind: 'drawerBox', x: x + T + sp + std.runnerClearance, y: dy + 10, z: front - FT - runner, w: boxW, h: boxH, d: runner })
-          box({ kind: 'drawerFront', x: x + T + sp + 2, y: dy, z: front - FT, w: frontW, h: frontH, d: FT })
+          box({ kind: 'drawerBox', x: left + sp + std.runnerClearance, y: dy + 10, z: front - FT - runner, w: boxW, h: boxH, d: runner })
+          box({ kind: 'drawerFront', x: left + sp + 2, y: dy, z: front - FT, w: frontW, h: frontH, d: FT })
         }
       }
     })
@@ -297,16 +423,16 @@ export function computeWardrobe(design, std) {
     }
     let loftDoors = 0
     if (loftH > 0) {
-      carcass(section, x, w, std.plinthH + bodyH, loftH, true)
+      if (!shared) carcass(section, x, w, std.plinthH + bodyH, loftH, true)
       if (design.doorType !== 'none') {
         loftDoors = hinged ? doors : Math.max(1, Math.ceil(w / std.maxDoorW))
         hingedDoors(section, si, x, w, std.plinthH + bodyH, loftH, loftDoors, true)
       }
     }
-    addHw('leg', std.legsPerSection)
-    sectionsOut.push({ section, w: r1(w), innerW: r1(innerW), zones, doors, loftDoors, autoH })
-    x += w
+    if (!shared) addHw('leg', std.legsPerSection)
+    sectionsOut.push({ section, w: r1(w), x: r1(x), bayX: left, innerW: r1(innerW), zones, doors, loftDoors, autoH })
   })
+  if (shared) addHw('leg', Math.ceil(std.legsPerSection / 2) * (design.sections.length + 1))
 
   let slidingCount = 0
   if (sliding) {
@@ -376,6 +502,8 @@ export function computeWardrobe(design, std) {
   if (railMm > 0) hardware.railMeters = Math.round(railMm / 100) / 10
 
   const summary = {
+    construction,
+    backType,
     carcassW: r1(cw),
     bodyH: r1(bodyH),
     innerH: r1(innerH),

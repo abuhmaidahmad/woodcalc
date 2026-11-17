@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { DEFAULT_WARDROBE_STANDARD as STD, normalizeStandard } from './wardrobeStandard'
-import { computeWardrobe, defaultDesign, sectionWidths, resolveZones, confirmatPerJoint, withSectionCount, presetZones, cutListCsv, runnerLengthFor } from './wardrobeEngine'
+import { computeWardrobe, defaultDesign, sectionWidths, resolveZones, confirmatPerJoint, withSectionCount, presetZones, cutListCsv, runnerLengthFor, splitRun } from './wardrobeEngine'
 
 const find = (res, name, extra = {}) => res.parts.filter((p) => p.name === name && Object.entries(extra).every(([k, v]) => p[k] === v))
 const qty = (rows) => rows.reduce((a, p) => a + p.qty, 0)
@@ -146,5 +146,124 @@ describe('helpers', () => {
   it('writes a CSV with quoted fields', () => {
     const csv = cutListCsv({ parts: [{ name: 'Side, left', nameAr: 'جانب', sections: ['S1'], L: 1, W: 2, T: 18, qty: 2, material: 'Carcass', edges: 'F' }] })
     expect(csv.split('\n')[1]).toBe('1,"Side, left",جانب,S1,1,2,18,2,Carcass,F')
+  })
+})
+
+describe('shared partitions, no back', () => {
+  const d = { ...defaultDesign(STD), construction: 'shared', backType: 'none' }
+  const res = computeWardrobe(d, STD)
+  const boxes = computeWardrobe(defaultDesign(STD), STD)
+
+  it('uses 2 full-height outer sides and 2 partitions between top and bottom', () => {
+    expect(qty(find(res, 'Side', { loft: false }))).toBe(2)
+    expect(find(res, 'Side', { loft: false })[0].L).toBe(2000)
+    const p = find(res, 'Partition', { loft: false })
+    expect(qty(p)).toBe(2)
+    expect(p[0].L).toBe(1964)
+    expect(p[0].W).toBe(600)
+    expect(qty(find(res, 'Partition', { loft: true }))).toBe(2)
+  })
+
+  it('makes one continuous top and bottom between the outer sides', () => {
+    expect(find(res, 'Top', { loft: false })).toEqual([expect.objectContaining({ L: 2364, W: 600, qty: 1 })])
+    expect(find(res, 'Bottom', { loft: false })).toEqual([expect.objectContaining({ L: 2364, qty: 1 })])
+  })
+
+  it('has no back but 2 rails of 100 per bay, and gains depth', () => {
+    expect(find(res, 'Back')).toHaveLength(0)
+    const rails = find(res, 'Back rail', { loft: false })
+    expect(qty(rails)).toBe(6)
+    expect(rails.map((r) => r.L).sort()).toEqual([773, 782])
+    expect(rails[0].W).toBe(100)
+    expect(rails[0].material).toBe('Carcass')
+    expect(res.summary.usableDepth).toBe(582)
+    expect(res.summary.usableDepth).toBeGreaterThan(boxes.summary.usableDepth)
+    expect(res.sections.map((s) => s.innerW)).toEqual([773, 782, 773])
+  })
+
+  it('cuts shelves to the bay and the extra depth less wall clearance', () => {
+    const shelf = find(res, 'Shelf')[0]
+    expect(shelf.W).toBe(582 - STD.wallClearance - STD.shelfFrontSetback)
+    find(res, 'Fixed shelf').forEach((p) => expect([773, 782]).toContain(p.L))
+    expect(find(res, 'Drawer front')[0].L).toBe(782 - 50 - 4)
+  })
+
+  it('counts each partition once for confirmat and legs', () => {
+    const fixedShelves = qty(find(res, 'Fixed shelf'))
+    const shelfScrews = fixedShelves * 2 * confirmatPerJoint(581)
+    const carcass = 2 * (4 * 3 + 2 * 2 * 3)
+    const rails = 12 * 2 * 2
+    expect(res.hardware.confirmat).toBe(carcass + rails + shelfScrews)
+    expect(res.hardware.leg).toBe(8)
+  })
+
+  it('needs fewer carcass sheets than separate boxes', () => {
+    const carc = (r) => r.materials.filter((m) => m.material === 'Carcass').reduce((a, m) => a + m.areaM2, 0)
+    expect(carc(res)).toBeLessThan(carc(boxes))
+    expect(res.summary.construction).toBe('shared')
+  })
+
+  it('keeps door sizes the same as boxes', () => {
+    expect(find(res, 'Door', { loft: false })[0]).toEqual(expect.objectContaining({ W: 397, L: 1997, qty: 6 }))
+  })
+})
+
+describe('shared partitions, other options', () => {
+  it('splits a long top with the joint centred on a partition', () => {
+    const d = withSectionCount({ ...defaultDesign(STD), width: 3000, construction: 'shared' }, 3, STD)
+    const res = computeWardrobe(d, STD)
+    expect(find(res, 'Top', { loft: false }).map((p) => p.L).sort((a, b) => a - b)).toEqual([982, 1982])
+    expect(res.warnings.map((w) => w.code)).not.toContain('panelTooLong')
+  })
+
+  it('splits a full back on partitions and shortens partitions for it', () => {
+    const d = { ...defaultDesign(STD), construction: 'shared', backType: 'full' }
+    const res = computeWardrobe(d, STD)
+    const backs = find(res, 'Back', { loft: false })
+    expect(backs.map((b) => b.W).sort((a, b) => a - b)).toEqual([789, 800])
+    expect(qty(backs)).toBe(3)
+    expect(backs[0].L).toBe(1978)
+    expect(find(res, 'Partition', { loft: false })[0].W).toBe(600 - STD.grooveSetback - STD.backT)
+    expect(find(res, 'Back rail')).toHaveLength(0)
+    expect(res.summary.usableDepth).toBe(574)
+  })
+
+  it('gives one back per bay', () => {
+    const d = { ...defaultDesign(STD), construction: 'shared', backType: 'perSection' }
+    const res = computeWardrobe(d, STD)
+    expect(find(res, 'Back', { loft: false }).map((b) => b.W).sort()).toEqual([787, 796])
+    expect(find(res, 'Partition', { loft: false })[0].W).toBe(600)
+  })
+
+  it('still loses track depth with sliding doors', () => {
+    const d = { ...defaultDesign(STD), construction: 'shared', doorType: 'sliding' }
+    expect(computeWardrobe(d, STD).summary.usableDepth).toBe(600 - 100 - 18)
+  })
+
+  it('follows the editable join rules', () => {
+    const d = { ...defaultDesign(STD), construction: 'shared' }
+    const over = computeWardrobe(d, { ...STD, sideJoin: 'between' })
+    expect(find(over, 'Side', { loft: false })[0].L).toBe(1964)
+    expect(find(over, 'Top', { loft: false })[0].L).toBe(2400)
+    const full = computeWardrobe(d, { ...STD, partitionJoin: 'full' })
+    expect(find(full, 'Partition', { loft: false })[0].L).toBe(2000)
+    expect(qty(find(full, 'Top', { loft: false }))).toBe(3)
+  })
+
+  it('takes rail count and height from the standard', () => {
+    const d = { ...defaultDesign(STD), construction: 'shared', loft: false, height: 2100 }
+    const res = computeWardrobe(d, { ...STD, backRailCount: 3, backRailH: 120 })
+    expect(qty(find(res, 'Back rail'))).toBe(9)
+    expect(find(res, 'Back rail')[0].W).toBe(120)
+    expect(qty(find(computeWardrobe(d, { ...STD, backRailCount: 0 }), 'Back rail'))).toBe(0)
+  })
+
+  it('splits runs greedily at cuts', () => {
+    expect(splitRun(0, 3000, [1000, 2000], 2440).pieces).toEqual([[0, 2000], [2000, 3000]])
+    expect(splitRun(0, 3000, [], 2440).tooLong).toBe(true)
+  })
+
+  it('reads join rules from a stored standard', () => {
+    expect(normalizeStandard({ sideJoin: 'between', partitionJoin: 'junk' })).toEqual(expect.objectContaining({ sideJoin: 'between', partitionJoin: 'between' }))
   })
 })

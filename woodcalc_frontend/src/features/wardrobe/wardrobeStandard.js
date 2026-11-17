@@ -45,6 +45,16 @@ export const DEFAULT_WARDROBE_STANDARD = {
   sheetL: 2440,
   sheetW: 1220,
   wasteFactor: 1.15,
+  backRailH: 100,
+  backRailCount: 2,
+  wallClearance: 10,
+  sideJoin: 'full',
+  partitionJoin: 'between',
+}
+
+export const STANDARD_ENUMS = {
+  sideJoin: ['full', 'between'],
+  partitionJoin: ['between', 'full'],
 }
 
 export const STANDARD_FIELD_GROUPS = [
@@ -54,6 +64,7 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'interior', fields: ['shelfFrontSetback', 'shelfBackClearance', 'shelfSideClearance', 'minHangDepth', 'railDrop', 'railDeduction', 'minLongHangH', 'minDoubleHangH'] },
   { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction'] },
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
+  { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance'] },
 ]
 
 const STORAGE_KEY = 'woodcalc.wardrobeStandard.v1'
@@ -64,6 +75,10 @@ export function normalizeStandard(raw) {
   Object.keys(DEFAULT_WARDROBE_STANDARD).forEach((k) => {
     if (k === 'runnerLengths') {
       if (Array.isArray(raw[k]) && raw[k].every((n) => Number(n) > 0)) out[k] = raw[k].map(Number).sort((a, b) => a - b)
+      return
+    }
+    if (STANDARD_ENUMS[k]) {
+      if (STANDARD_ENUMS[k].includes(raw[k])) out[k] = raw[k]
       return
     }
     if (raw[k] === null || raw[k] === undefined || raw[k] === '') return

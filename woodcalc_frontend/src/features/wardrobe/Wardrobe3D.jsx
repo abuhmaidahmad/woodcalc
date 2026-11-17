@@ -10,6 +10,8 @@ const FIXED_COLORS = {
   rail: '#b9bdc1',
 }
 
+const tag = { position: 'absolute', top: 10, insetInlineStart: 10, background: 'rgba(255,255,255,0.85)', borderRadius: 6, padding: '4px 8px', fontSize: 11, color: '#5c5348', pointerEvents: 'none' }
+
 function Panel({ g, color, roughness = 0.75 }) {
   return (
     <mesh position={[(g.x + g.w / 2) * S, (g.y + g.h / 2) * S, (g.z + g.d / 2) * S]} castShadow receiveShadow>
@@ -102,12 +104,13 @@ function Scene({ result, design, frontColor, carcassColor, doorMode }) {
   )
 }
 
-export default function Wardrobe3D({ result, design, frontColor, carcassColor, doorMode, height = 520 }) {
+export default function Wardrobe3D({ result, design, frontColor, carcassColor, doorMode, height = 520, label }) {
   const W = Math.max(600, Number(design.width) || 2400)
   const H = Math.max(600, Number(design.height) || 2600)
   const span = Math.max(W, H) * S
   return (
-    <div style={{ height, borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(#f4f1ec, #e7e1d8)' }}>
+    <div style={{ position: 'relative', height, borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(#f4f1ec, #e7e1d8)' }}>
+      {label && <div style={tag}>{label}</div>}
       <Canvas shadows dpr={[1, 2]} camera={{ position: [span * 0.45, H * S * 0.62, span * 1.55], fov: 40 }}>
         <hemisphereLight args={['#ffffff', '#b9a98f', 0.85]} />
         <directionalLight position={[2.5, 4, 3.5]} intensity={1.15} castShadow shadow-mapSize={[2048, 2048]} />

@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
-import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
-import { computeWardrobe, defaultDesign, withSectionCount, autoSectionCount, presetZones, newZone, sectionWidths, cutListCsv, PRESET_IDS, ZONE_TYPES, DOOR_TYPES } from '../features/wardrobe/wardrobeEngine'
+import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
+import { computeWardrobe, defaultDesign, withSectionCount, autoSectionCount, presetZones, newZone, sectionWidths, cutListCsv, PRESET_IDS, ZONE_TYPES, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
 import WardrobeElevation from '../features/wardrobe/WardrobeElevation'
 
 const Wardrobe3D = lazy(() => import('../features/wardrobe/Wardrobe3D'))
@@ -118,6 +118,9 @@ export default function WardrobeBuilder() {
   const partName = (p) => (language === 'ar' && p.nameAr ? p.nameAr : p.name)
   const edgeText = (e) => (e ? e.split(',').map((c) => t(`wardrobe.edge.${c}`)).join(' · ') : '—')
   const errors = result.warnings.filter((w) => w.level === 'error')
+  const constructionLabel = result.summary.construction === 'shared'
+    ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${result.summary.backType}`)}`
+    : t('wardrobe.constructionTypes.boxes')
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
@@ -171,6 +174,25 @@ export default function WardrobeBuilder() {
                     </button>
                   ))}
                 </div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span style={label}>{t('wardrobe.construction')}</span>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {CONSTRUCTION_TYPES.map((ct) => (
+                    <button key={ct} onClick={() => setField('construction', ct)}
+                      style={{ ...ghost, flex: 1, background: (design.construction || 'boxes') === ct ? DARK : '#fff', color: (design.construction || 'boxes') === ct ? '#fff' : DARK }}>
+                      {t(`wardrobe.constructionTypes.${ct}`)}
+                    </button>
+                  ))}
+                </div>
+                {design.construction === 'shared' && (
+                  <div style={{ marginTop: 8 }}>
+                    <span style={label}>{t('wardrobe.backType')}</span>
+                    <select style={input} value={design.backType || 'none'} onChange={(e) => setField('backType', e.target.value)}>
+                      {BACK_TYPES.map((bt) => <option key={bt} value={bt}>{t(`wardrobe.backTypes.${bt}`)}</option>)}
+                    </select>
+                  </div>
+                )}
               </div>
               <div style={{ marginTop: 10 }}>
                 <span style={label}>{t('wardrobe.sections')}</span>
@@ -291,11 +313,11 @@ export default function WardrobeBuilder() {
                 <WardrobeElevation result={result} design={design} std={std} selected={{ section: si, zone: selected.zone }}
                   onSelectSection={(i) => setSelected({ section: i, zone: null })}
                   onSelectZone={(i, zi) => setSelected({ section: i, zone: zi })}
-                  zoneLabel={zoneLabel} />
+                  zoneLabel={zoneLabel} constructionLabel={constructionLabel} />
               ) : (
                 <ErrorBoundary>
                   <Suspense fallback={<div style={{ height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
-                    <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} />
+                    <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} label={constructionLabel} />
                   </Suspense>
                 </ErrorBoundary>
               )}
@@ -320,7 +342,12 @@ export default function WardrobeBuilder() {
 
             <div style={card}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{t('wardrobe.cutListTitle')}</div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{t('wardrobe.cutListTitle')}</div>
+                  <div style={{ fontSize: 12, color: '#777', marginTop: 2 }}>
+                    {t('wardrobe.construction')}: <b>{constructionLabel}</b> · {Math.round(design.width)} × {Math.round(design.height)} × {Math.round(design.depth)} · {t(`wardrobe.doorTypes.${design.doorType}`)}
+                  </div>
+                </div>
                 <div className="wb-noprint" style={{ display: 'flex', gap: 6 }}>
                   <button style={ghost} onClick={exportCsv} disabled={errors.length > 0}>{t('wardrobe.exportCsv')}</button>
                   <button style={btn} onClick={() => window.print()}>{t('wardrobe.print')}</button>
@@ -408,7 +435,14 @@ export default function WardrobeBuilder() {
               <div key={g.id} style={card}>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t(`wardrobe.stdGroup.${g.id}`)}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))', gap: 8 }}>
-                  {g.fields.map((f) => (
+                  {g.fields.map((f) => STANDARD_ENUMS[f] ? (
+                    <label key={f} style={{ display: 'block' }}>
+                      <span style={label}>{t(`wardrobe.std.${f}`)}</span>
+                      <select style={input} value={stdDraft[f] ?? DEFAULT_WARDROBE_STANDARD[f]} onChange={(e) => setStdDraft((s) => ({ ...s, [f]: e.target.value }))}>
+                        {STANDARD_ENUMS[f].map((o) => <option key={o} value={o}>{t(`wardrobe.stdOption.${f}.${o}`)}</option>)}
+                      </select>
+                    </label>
+                  ) : (
                     <NumField key={f} title={t(`wardrobe.std.${f}`)} value={stdDraft[f]} step={f === 'wasteFactor' ? 0.01 : 1}
                       placeholder={`${DEFAULT_WARDROBE_STANDARD[f]}`} onChange={(v) => setStdDraft((s) => ({ ...s, [f]: v }))} />
                   ))}

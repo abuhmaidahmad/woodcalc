@@ -27,7 +27,7 @@ function Dim({ x1, y1, x2, y2, label, fs, vertical }) {
   )
 }
 
-export default function WardrobeElevation({ result, design, std, selected, onSelectSection, onSelectZone, zoneLabel }) {
+export default function WardrobeElevation({ result, design, std, selected, onSelectSection, onSelectZone, zoneLabel, constructionLabel }) {
   const H = Number(design.height) || 0
   const cw = result.summary.carcassW || 0
   const fl = Number(design.fillerLeft) || 0
@@ -52,16 +52,16 @@ export default function WardrobeElevation({ result, design, std, selected, onSel
 
   return (
     <svg viewBox={`0 0 ${vbW} ${vbH}`} style={{ width: '100%', height: 'auto', maxHeight: 560, display: 'block', background: '#fff', borderRadius: 12 }}>
-      {sectionRects.map(({ i, x, w, s }) => (
+      {sectionRects.map(({ i, s }) => (
         <g key={`sec-${i}`} onClick={() => onSelectSection(i)} style={{ cursor: 'pointer' }}>
-          <rect x={X(x + T)} y={Y(bodyTop - T)} width={Math.max(0, w - 2 * T)} height={Math.max(0, result.summary.innerH)}
+          <rect x={X(s.bayX)} y={Y(bodyTop - T)} width={Math.max(0, s.innerW)} height={Math.max(0, result.summary.innerH)}
             fill={selected.section === i ? '#fbf3e4' : '#faf8f5'} />
           {s.zones.map((z, zi) => {
             const yb = std.plinthH + T + z.bottom
             const active = selected.section === i && selected.zone === zi
             return (
               <g key={`z-${zi}`} onClick={(e) => { e.stopPropagation(); onSelectZone(i, zi) }}>
-                <rect x={X(x + T)} y={Y(yb + Math.max(0, z.h))} width={Math.max(0, w - 2 * T)} height={Math.max(0, z.h)}
+                <rect x={X(s.bayX)} y={Y(yb + Math.max(0, z.h))} width={Math.max(0, s.innerW)} height={Math.max(0, z.h)}
                   fill={active ? 'rgba(200,144,42,0.18)' : 'transparent'} stroke={active ? ACCENT : 'none'} strokeWidth={fs * 0.12} strokeDasharray={`${fs * 0.4} ${fs * 0.3}`} />
               </g>
             )
@@ -77,6 +77,9 @@ export default function WardrobeElevation({ result, design, std, selected, onSel
               <line x1={X(g.x)} y1={Y(g.y)} x2={X(g.x + g.w)} y2={Y(g.y)} stroke="#7c8186" strokeWidth={g.h * 0.8} strokeLinecap="round" />
             </g>
           )
+        }
+        if (g.kind === 'backRail') {
+          return <rect key={i} pointerEvents="none" x={X(g.x)} y={Y(g.y + g.h)} width={g.w} height={g.h} fill="#d6ccbc" fillOpacity={0.6} stroke="#9a8f80" strokeWidth={fs * 0.04} strokeDasharray={`${fs * 0.3} ${fs * 0.2}`} />
         }
         const fill = g.kind === 'carcass' ? '#e9e2d6' : g.kind === 'shelf' ? '#efe9df' : g.kind === 'drawerFront' ? '#f4ede1' : g.kind === 'spacer' ? '#e2dbcf' : '#ddd5c8'
         return (
@@ -106,6 +109,9 @@ export default function WardrobeElevation({ result, design, std, selected, onSel
         </g>
       ))}
 
+      {constructionLabel && (
+        <text x={X(cw + fr)} y={padT - fs * 2.9} fontSize={fs * 0.8} fill="#8a7f70" textAnchor="end">{constructionLabel}</text>
+      )}
       <Dim x1={X(-fl)} y1={padT - fs * 1.6} x2={X(cw + fr)} y2={padT - fs * 1.6} label={`${Math.round(cw + fl + fr)}`} fs={fs} />
       {sectionRects.map(({ i, x, w }) => (
         <Dim key={`dw-${i}`} x1={X(x)} y1={Y(0) + fs * 2} x2={X(x + w)} y2={Y(0) + fs * 2} label={`${w}`} fs={fs * 0.85} />

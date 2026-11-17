@@ -2301,7 +2301,8 @@
       "runnerPair": "سكك أدراج (زوج)",
       "drawerHandle": "مقابض أدراج",
       "slidingKit": "أطقم أبواب جرارة",
-      "slidingTrack": "سكك جرار"
+      "slidingTrack": "سكك جرار",
+      "backRail": "مرابط خلفية"
     },
     "materialsTitle": "الألواح",
     "sheetsCol": "ألواح {{l}}×{{w}}",
@@ -2316,7 +2317,8 @@
       "sizes": "المقاسات والحدود",
       "interior": "الرفوف والتعليق",
       "drawers": "الأدراج الداخلية",
-      "sliding": "الأبواب الجرارة"
+      "sliding": "الأبواب الجرارة",
+      "shared": "القواطع المشتركة"
     },
     "std": {
       "carcassT": "سماكة الهيكل",
@@ -2360,7 +2362,12 @@
       "slidingOverlap": "تداخل الأبواب",
       "slidingTrackDepth": "عمق السكة",
       "slidingHDeduction": "خصم الارتفاع",
-      "maxSlidingDoorW": "أقصى عرض للباب الجرار"
+      "maxSlidingDoorW": "أقصى عرض للباب الجرار",
+      "sideJoin": "تجميع الجوانب الخارجية",
+      "partitionJoin": "تجميع القواطع",
+      "backRailCount": "عدد المرابط الخلفية لكل قسم",
+      "backRailH": "ارتفاع المربط الخلفي",
+      "wallClearance": "مسافة عن الحائط (بدون ظهر)"
     },
     "warn": {
       "heightTooSmall": "ارتفاع الجسم {{h}} مم صغير جداً. راجع الارتفاع والبانيل والصندرة والسدة العلوية.",
@@ -2377,7 +2384,30 @@
       "doubleHangShort": "{{section}}: التعليق المزدوج {{h}} مم أقل من {{min}} مم.",
       "drawersDontFit": "{{section}}: الأدراج تحتاج {{need}} مم والتقسيم {{h}} مم.",
       "doorTooWide": "{{section}}: عرض الباب {{w}} مم أكبر من {{max}} مم.",
-      "slidingDoorTooWide": "عرض الأبواب الجرارة {{w}} مم أكبر من {{max}} مم."
+      "slidingDoorTooWide": "عرض الأبواب الجرارة {{w}} مم أكبر من {{max}} مم.",
+      "panelTooLong": "{{part}} أطول من اللوح ({{max}} مم) ولا يوجد قاطع للقص عليه. أضف قسماً.",
+      "backRailsDontFit": "المرابط الخلفية ({{n}} × {{railH}} مم) لا تتسع في هيكل بارتفاع {{h}} مم."
+    },
+    "construction": "طريقة التصنيع",
+    "constructionTypes": {
+      "boxes": "علب منفصلة",
+      "shared": "قواطع مشتركة"
+    },
+    "backType": "الظهر",
+    "backTypes": {
+      "none": "بدون ظهر (مرابط)",
+      "full": "ظهر كامل في مجرى",
+      "perSection": "ظهر لكل قسم"
+    },
+    "stdOption": {
+      "sideJoin": {
+        "full": "الجوانب بكامل الارتفاع",
+        "between": "السقف والقاعدة فوق الجوانب"
+      },
+      "partitionJoin": {
+        "between": "بين السقف والقاعدة",
+        "full": "بكامل الارتفاع، السقف مقسوم لكل قسم"
+      }
     }
   }
 }
