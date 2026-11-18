@@ -181,6 +181,7 @@ export function buildLibrary(baseHeight) {
     // to the top of the run it covers (wall cabinets at their default 4th height step,
     // tall units at 2220 + leg height) and stays editable like any other elevation.
     { id: 'acc_toppanel_wall', label: 'Top Panel Wall', subtype: 'Top Panel', width: 600, height: 18, depth: 321, icon: 'accessory_shelf', category: 'accessories', elevation: wallElevation + wallHeights[3] },
+    { id: 'acc_toppanel_hood', label: 'Top Panel Hood', subtype: 'Top Panel', width: 900, height: 18, depth: 320, icon: 'accessory_shelf', category: 'accessories', elevation: wallElevation + 850 },
     { id: 'acc_toppanel_tall', label: 'Top Panel Tall', subtype: 'Top Panel', width: 600, height: 18, depth: 581, icon: 'accessory_shelf', category: 'accessories', elevation: 2220 + (baseHeight === 720 ? 150 : 80) },
     { id: 'acc_filler_50',   label: 'Filler 50mm',   subtype: 'Filler',    width: 50,   height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
     { id: 'acc_filler_100',  label: 'Filler 100mm',  subtype: 'Filler',    width: 100,  height: baseHeight, depth: 560, icon: 'accessory_filler', category: 'accessories' },
