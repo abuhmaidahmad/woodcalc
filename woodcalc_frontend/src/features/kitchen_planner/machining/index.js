@@ -9,7 +9,7 @@
 // (a confirmed room's frozen Room.construction_settings) when it has them.
 // Each rule adds schema.js ops to the parts' machining_ops; errors lists any op
 // that fails validation (empty when everything fits its board).
-import { calculateCabinet, withRoomBackPanel } from '../formulaEngine';
+import { calculateCabinet, withRoomBackPanel, isHoodCabinet, hoodCabinetSpec } from '../formulaEngine';
 import { MACHINING_CONFIG, mergeConfig } from './config';
 import { buildParts } from './parts';
 import { validatePart } from './schema';
@@ -24,11 +24,12 @@ export const RULES = [hingeRule, confirmatRule, backGrooveRule, shelfPinRule];
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
   const side = result.panels.find(p => p.name === 'Side panel');
-  const bottom = result.panels.find(p => p.name === 'Bottom panel');
+  const hoodCab = isHoodCabinet(config);
+  const bottom = result.panels.find(p => p.name === (hoodCab ? 'Fixed panel' : 'Bottom panel'));
   const back = result.panels.find(p => p.name === 'Back panel (HDF)');
   const carcassH = side ? side.width : Number(config.height);
   const bottomD = bottom ? bottom.depth : Number(config.depth);
-  const fixedPanelZ = (Number(config.baseHeight) || 800) - 18;
+  const fixedPanelZ = hoodCab ? hoodCabinetSpec(config).shelfZ : (Number(config.baseHeight) || 800) - 18;
   const g = result.backGroove;
   if (g) {
     // Grooved: the back's rear face sits on the groove's rear wall, its lower
@@ -39,7 +40,7 @@ export function carcassLayout(result, config) {
     return {
       carcassH,
       backFrontY: grooveRear - (back ? back.thickness : 0),
-      backBottomZ: 18 - g.backInto,
+      backBottomZ: hoodCab ? 0 : 18 - g.backInto,
       backRailBackY: grooveRear - g.width,
       // The face the interior stops at: the groove's front wall.
       backInnerY: grooveRear - g.width,

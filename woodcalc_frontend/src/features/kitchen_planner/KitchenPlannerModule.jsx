@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import { useRoomLockActions } from '../rooms/useRoomLockActions'
 import LinkProjectModal from '../rooms/LinkProjectModal'
@@ -1965,12 +1965,12 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   )
                 })()}
                 <div style={s.propSection}>{t('kitchenPlannerModule.materialStyle')}</div>
-                {[...APPLIANCE_SUBTYPES, 'Hob + Oven'].includes(selCab.subtype) && (() => {
+                {[...APPLIANCE_SUBTYPES, 'Hob + Oven', 'Hood Cabinet'].includes(selCab.subtype) && (() => {
                   // Purchased/built-in appliances render in two hardware-contrast finishes
                   // (see applianceFinish() in KitchenPlanner3D.jsx); each appliance component
                   // defaults to whichever finish matches its historical look, so an unset
                   // value here highlights that same default rather than nothing at all.
-                  const defaultFinish = ['Fridge', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood', 'Appliance'].includes(selCab.subtype) ? 'silver' : 'black'
+                  const defaultFinish = ['Fridge', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood', 'Appliance', 'Hood Cabinet'].includes(selCab.subtype) ? 'silver' : 'black'
                   const current = selCab.applianceFinish || defaultFinish
                   return (
                     <div style={{ marginBottom: 10 }}>
@@ -2078,6 +2078,20 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       <DimInput value={upper} onCommit={v => updateCab('nicheUpperDoorH', v)} style={s.propInput} />
                       <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: opening > 0 ? '#F5F0E8' : '#FEF2F2', fontSize: 12, fontWeight: 700, color: opening > 0 ? DARK : '#E74C3C' }}>
                         {opening > 0 ? t('kitchenPlannerModule.nicheOpening', { mm: opening }) : t('kitchenPlannerModule.nicheNoOpening')}
+                      </div>
+                    </div>
+                  )
+                })()}
+                {isHoodCabinet(selCab) && (() => {
+                  const { frontH, shelfZ, doorH } = hoodCabinetSpec(selCab)
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.hoodFrontH')}</div>
+                      <DimInput value={frontH} onCommit={v => updateCab('hoodFrontH', v)} style={s.propInput} />
+                      <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.hoodShelfH')}</div>
+                      <DimInput value={shelfZ} onCommit={v => updateCab('hoodShelfH', v)} style={s.propInput} />
+                      <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: '#F5F0E8', fontSize: 12, fontWeight: 700, color: DARK }}>
+                        {t('kitchenPlannerModule.hoodDoorH', { mm: doorH })}
                       </div>
                     </div>
                   )
