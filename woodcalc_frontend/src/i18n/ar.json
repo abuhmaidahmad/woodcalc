@@ -1462,6 +1462,9 @@
     "stairWarnNoWallSupport": "جانب الدعم للسلم المعلّق ليس ملاصقًا لحائط",
     "nicheLowerDoorH": "ارتفاع الباب السفلي (مم)",
     "nicheUpperDoorH": "ارتفاع الباب العلوي (مم)",
+    "hoodFrontH": "ارتفاع واجهة الشفاط (مم)",
+    "hoodShelfH": "ارتفاع رف الشفاط من أسفل الخزانة (مم)",
+    "hoodDoorH": "ارتفاع الباب فوق الشفاط: {{mm}} مم",
     "nicheOpening": "الفتحة: {{mm}} مم",
     "nicheNoOpening": "لا تبقى فتحة بين البابين — قلل ارتفاع أحد البابين",
     "roomTypeWardrobe": "خزانة"

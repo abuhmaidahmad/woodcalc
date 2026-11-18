@@ -1462,6 +1462,9 @@
     "stairWarnNoWallSupport": "Floating stair's support side isn't against a wall",
     "nicheLowerDoorH": "Lower door height (mm)",
     "nicheUpperDoorH": "Upper door height (mm)",
+    "hoodFrontH": "Hood front height (mm)",
+    "hoodShelfH": "Hood shelf height from cabinet bottom (mm)",
+    "hoodDoorH": "Door height above the hood: {{mm}} mm",
     "nicheOpening": "Opening: {{mm}} mm",
     "nicheNoOpening": "Doors leave no opening — reduce a door height",
     "roomTypeWardrobe": "Wardrobe"

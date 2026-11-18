@@ -500,7 +500,7 @@ const CabinetShape2D = React.memo(function CabinetShape2D({ cab, isSelected, isB
           fill="transparent" style={{ pointerEvents: 'all' }} />
       )}
       <rect x={0} y={0} width={w} height={h} fill={fill} stroke={outlineColor} strokeWidth={isSelected || isBulkSelected ? 2.5 : 1.5} strokeDasharray={(cab.category === 'wall' || cab.subtype === 'Freestanding Hood' || cab.subtype === 'Top Panel') ? '5,3' : undefined} rx={2} />
-      {cab.subtype === 'Freestanding Hood' && (() => {
+      {(cab.subtype === 'Freestanding Hood' || cab.subtype === 'Hood Cabinet') && (() => {
         // Plan-view extractor symbol (inset duct outline + fan cross) so a hood
         // reads as a hood from above, not a generic labeled box -- dashed edge
         // above already signals it's suspended, not floor-standing.

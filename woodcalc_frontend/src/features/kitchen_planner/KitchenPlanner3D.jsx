@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -1470,6 +1470,52 @@ function applianceFinish(name) {
   return APPLIANCE_FINISHES[name] || APPLIANCE_FINISHES.black
 }
 
+function BuiltInHoodFront({ W, D, frontH, finish = 'silver' }) {
+  const { body: metalColor, hardware } = applianceFinish(finish)
+  const FT = 0.019
+  const z = D / 2 + 0.001 + FT / 2
+  const stripH = Math.max(0.01, frontH - 0.004)
+  const filterW = Math.max(0.05, W - 0.04)
+  const filterD = Math.max(0.05, D - 0.03)
+  const buttonXs = [W / 2 - 0.04, W / 2 - 0.065, W / 2 - 0.09]
+  return (
+    <group>
+      <mesh position={[0, frontH / 2, z]} castShadow receiveShadow>
+        <boxGeometry args={[W - 0.004, stripH, FT]} />
+        <meshPhysicalMaterial color={metalColor} metalness={0.8} roughness={0.25} envMapIntensity={1.3} />
+      </mesh>
+      <mesh position={[W / 2 - 0.065, frontH / 2, z + FT / 2 + 0.0004]}>
+        <boxGeometry args={[0.09, Math.min(0.016, stripH * 0.5), 0.0008]} />
+        <meshStandardMaterial color="#0d0d0d" roughness={0.3} />
+      </mesh>
+      {buttonXs.map((bx, i) => (
+        <mesh key={i} position={[bx, frontH / 2, z + FT / 2 + 0.001]}>
+          <boxGeometry args={[0.006, 0.004, 0.0008]} />
+          <meshStandardMaterial color={hardware} emissive={i === 0 ? '#ffffff' : '#000000'} emissiveIntensity={i === 0 ? 0.6 : 0} />
+        </mesh>
+      ))}
+      <group position={[0, -0.0015, -0.005]}>
+        <mesh>
+          <boxGeometry args={[filterW, 0.003, filterD]} />
+          <meshStandardMaterial color="#2a2a2a" metalness={0.6} roughness={0.45} />
+        </mesh>
+        {Array.from({ length: 9 }).map((_, j) => (
+          <mesh key={j} position={[0, -0.0018, (j - 4) * (filterD / 10)]}>
+            <boxGeometry args={[filterW * 0.94, 0.0008, 0.003]} />
+            <meshStandardMaterial color="#555555" metalness={0.7} roughness={0.35} />
+          </mesh>
+        ))}
+        {[-W / 4, W / 4].map((lx, i) => (
+          <mesh key={`l-${i}`} position={[lx, -0.0022, filterD / 2 - 0.02]} rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.012, 0.012, 0.001, 20]} />
+            <meshStandardMaterial color="#fffbe8" emissive="#fff4d6" emissiveIntensity={0.9} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  )
+}
+
 function FridgeAppliance({ W, H, D, finish = 'silver' }) {
   const { body: bodyColor, hardware: handleColor } = applianceFinish(finish)
   const seamColor = '#9aa0a4'
@@ -2094,6 +2140,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
     cab.subtype === 'Freestanding Hood' ? 'freestandingHood' :
     null
   const showLegs  = (isBase || isTall) && (cab.elevation || 0) === 0
+  const isHoodCab = isHoodCabinet(cab)
+  const hoodSpec = isHoodCab ? hoodCabinetSpec(cab) : null
 
   const isBlindCab = cab.subtype === 'Blind'
   const requestedDoorCount = cab.doorCount ?? getDefaultDoorCount(cab.width)
@@ -2189,7 +2237,31 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           })()}
           <HollowGlassCarcass W={W} H={H} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} shelfCount={0} />
         </>
-      ) : isPanel ? (
+      ) : isHoodCab ? (() => {
+        const frontH = hoodSpec.frontH / 1000
+        const doorZoneH = H - frontH
+        return (
+          <>
+            <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+              color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={0.5} />
+            <BuiltInHoodFront W={W} D={D} frontH={frontH} finish={cab.applianceFinish || 'silver'} />
+            <group position={[0, frontH + doorZoneH / 2, 0]}>
+              <CabinetDoors W={W} H={doorZoneH} D={D}
+                doorStyle={doorStyle === 'Gola' ? 'Push' : doorStyle}
+                frontColor={frontColor}
+                frontMaterial={frontMaterial}
+                frontMaterialCode={cab.frontMaterialCode}
+                textureMap={textureMap}
+                numDoors={numDoors}
+                handlePosition={cab.handlePosition || 'bottom'}
+                golaColor={cab.golaColor || 'black'}
+                isWallCabinet
+                hingeSide={cab.hingeSide || 'left'}
+              />
+            </group>
+          </>
+        )
+      })() : isPanel ? (
         <SidePanelSlab W={W} H={H} D={D} cab={cab} frontColor={frontColor} frontMaterial={frontMaterial} textureMap={textureMap} lift={panelLift} />
       ) : showInterior && !isShelf ? (() => {
         const golaWallLift = isWall && doorStyle === 'Gola' ? GOLA_CH : 0
@@ -2301,7 +2373,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <LEDStripLight length={Math.max(0.05, W - 0.04)} rotation={[0, Math.PI / 2, 0]}
           position={[0, -0.01, -D / 2 + 0.030]} />
       )}
-      {!isShelf && !isPanel && !applianceKind && (
+      {!isShelf && !isPanel && !applianceKind && !isHoodCab && (
         <group position={[0, H/2, 0]}>
           {isGlass ? (
             <GlassDoor
