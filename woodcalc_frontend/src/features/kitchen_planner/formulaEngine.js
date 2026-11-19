@@ -338,6 +338,7 @@ export function isShelfEligible(cab) {
   if (['Filler', 'Panel', 'Toe Kick', 'Side Panel', 'Top Panel'].includes(cab.subtype)) return false;
   // The oven(s) occupy the cavity — no room for adjustable shelves.
   if (['Oven Tower', 'Double Oven'].includes(cab.subtype)) return false;
+  if (cab.subtype === HOOD_CABINET) return false;
   return ['base', 'wall', 'tall', 'corner'].includes(cab.category);
 }
 
@@ -379,6 +380,20 @@ export function nicheDoorHeights(c) {
     ? Number(c.nicheUpperDoorH)
     : Math.max(0, H - 3 - lower - NICHE_DEFAULT_OPENING);
   return { lower: round2(lower), upper: round2(upper), opening: round2(H - 3 - lower - upper) };
+}
+
+export const HOOD_CABINET = 'Hood Cabinet';
+export const HOOD_FRONT_DEFAULT = 70;
+export const HOOD_SHELF_DEFAULT = 300;
+export const isHoodCabinet = (c) => c?.subtype === HOOD_CABINET;
+
+export function hoodCabinetSpec(c) {
+  const H = Number(c.height);
+  const frontRaw = Number(c.hoodFrontH) > 0 ? Number(c.hoodFrontH) : HOOD_FRONT_DEFAULT;
+  const frontH = round2(Math.min(Math.max(frontRaw, 20), Math.max(20, H - 100)));
+  const shelfRaw = Number(c.hoodShelfH) > 0 ? Number(c.hoodShelfH) : HOOD_SHELF_DEFAULT;
+  const shelfZ = round2(Math.min(Math.max(shelfRaw, frontH), Math.max(frontH, H - 2 * T - 50)));
+  return { frontH, shelfZ, doorH: round2(H - frontH - 3) };
 }
 
 export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
@@ -446,6 +461,8 @@ export function cabinetConfig(c) {
     openBoxMaterialSource: c.openBoxMaterialSource,
     nicheLowerDoorH: c.nicheLowerDoorH,
     nicheUpperDoorH: c.nicheUpperDoorH,
+    hoodFrontH: c.hoodFrontH,
+    hoodShelfH: c.hoodShelfH,
   };
 }
 
@@ -747,7 +764,9 @@ export function calculateCabinet(config) {
   const H = Number(config.height);
   const D = Number(config.depth);
   const material = (config.material || 'particleboard').toLowerCase();
-  const doorStyle = (config.doorStyle || 'Handle');
+  const isHoodCab = isHoodCabinet(config);
+  const hoodSpec = isHoodCab ? hoodCabinetSpec(config) : null;
+  const doorStyle = isHoodCab && config.doorStyle === 'Gola' ? 'Push' : (config.doorStyle || 'Handle');
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
   const isNiche = config.subtype === APPLIANCE_NICHE;
@@ -816,6 +835,16 @@ export function calculateCabinet(config) {
     notes: isWallGola ? `Vertical sides (H - ${GOLA_CHANNEL_MM}, Gola finger pull)` : 'Vertical sides',
   });
 
+  if (isHoodCab) {
+    panels.push({
+      name: 'Fixed panel',
+      qty: 1,
+      width: bottomW,
+      depth: grooved ? grooveFrontD : bottomD,
+      thickness: T,
+      notes: `(W - 2T) × ${grooved ? `(D - ${backGroove.setback} - ${backGroove.width})` : bottomFormula}, hood shelf ${hoodSpec.shelfZ}mm up: the hood mounts under it, duct hole cut to the hood`,
+    });
+  } else {
   panels.push({
     name: 'Bottom panel',
     qty: 1,
@@ -824,6 +853,7 @@ export function calculateCabinet(config) {
     thickness: T,
     notes: `(W - 2T) × ${bottomFormula}`,
   });
+  }
 
   // Wall and tall cabinets (incl. pantry) don't get front/back rails —
   // they get a top panel matching the bottom panel instead. Base cabinets
@@ -891,6 +921,7 @@ export function calculateCabinet(config) {
     // bottom grooves, or with rails (no top) from the bottom groove to the top edge.
     const backW = grooved ? round2(bottomW + 2 * backInto) : round2(bottomW + 16);
     const backH = !grooved ? round2(carcassH - 2)
+      : isHoodCab ? round2(carcassH - T + backInto)
       : usesTopPanel ? round2(carcassH - 2 * T + 2 * backInto)
       : round2(carcassH - T + backInto);
     panels.push({
@@ -1015,6 +1046,14 @@ export function calculateCabinet(config) {
         width: round2(W - 3), height: h, style: doorStyle,
         hinges: getHingeCount(h), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
         notes: `${where} ${opening}mm appliance opening`,
+      });
+    });
+  } else if (isHoodCab) {
+    doorWidths.forEach((dw) => {
+      doors.push({
+        width: round2(dw), height: hoodSpec.doorH, style: doorStyle,
+        hinges: getHingeCount(hoodSpec.doorH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+        notes: `Door above the built-in hood (${hoodSpec.frontH}mm hood front)`,
       });
     });
   } else if (isDrawerCab) {
