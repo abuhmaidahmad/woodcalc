@@ -2433,7 +2433,6 @@
       "railMeters": "Rail length (m)",
       "runnerPair": "Drawer runners (pairs)",
       "drawerHandle": "Drawer handles",
-      "slidingKit": "Sliding door kits",
       "slidingTrack": "Sliding tracks",
       "backRail": "Back rails",
       "carcassConnector": "Carcass connectors"
@@ -2496,10 +2495,7 @@
       "drawerBottomT": "Drawer bottom thickness",
       "runnerClearance": "Runner clearance (each side)",
       "drawerBoxHDeduction": "Box height deduction",
-      "slidingOverlap": "Door overlap",
-      "slidingTrackDepth": "Track depth",
       "slidingHDeduction": "Height deduction",
-      "maxSlidingDoorW": "Max sliding door width",
       "sideJoin": "Outer side joint",
       "partitionJoin": "Partition joint",
       "backRailCount": "Back rails per bay",
@@ -2516,7 +2512,6 @@
       "priceRailSocket": "Rail socket",
       "priceLeg": "Leg",
       "priceSlidingTrackSet": "Sliding track set",
-      "priceSlidingKit": "Sliding door roller kit",
       "priceHandle": "Handle",
       "priceConfirmat": "Confirmat screw",
       "priceShelfPin": "Shelf pin",
@@ -2567,7 +2562,6 @@
       "doubleHangShort": "{{section}}: double hang is {{h}} mm, under {{min}} mm.",
       "drawersDontFit": "{{section}}: drawers need {{need}} mm but the zone is {{h}} mm.",
       "doorTooWide": "{{section}}: doors are {{w}} mm, over the {{max}} mm maximum.",
-      "slidingDoorTooWide": "Sliding doors are {{w}} mm, over the {{max}} mm maximum.",
       "panelTooLong": "{{part}} is longer than the sheet ({{max}} mm) and has no partition to split on. Add a section.",
       "backRailsDontFit": "Back rails ({{n}} × {{railH}} mm) do not fit in a {{h}} mm carcass.",
       "runTooShort": "Run {{run}} is only {{length}} mm long.",
@@ -2576,7 +2570,9 @@
       "grooveBackingThin": "A {{left}} mm back groove leaves less than {{min}} mm of board. Use a shallower groove or thicker board.",
       "grooveStaggerSmall": "The back groove stagger {{stagger}} mm is less than the groove width {{min}} mm, so the grooves on the two faces of a partition overlap.",
       "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart across its faces (min {{min}}).",
-      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}})."
+      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}}).",
+      "slidingDoorTooTall": "Sliding doors are {{h}} mm tall, over the {{max}} mm maximum.",
+      "slidingDoorWide": "Sliding doors are {{w}} mm wide, over {{max}} mm: priced as wide doors. Add a door to stay within the standard width."
     },
     "construction": "Construction",
     "constructionTypes": {
@@ -2647,7 +2643,6 @@
         "railBracket": "Rail sockets",
         "leg": "Legs",
         "slidingTrackSet": "Sliding track sets",
-        "slidingKit": "Sliding door kits",
         "handles": "Handles",
         "confirmat": "Confirmat screws",
         "shelfPin": "Shelf pins",
@@ -2729,6 +2724,53 @@
     },
     "drawerSystem": "Drawer system",
     "drawerSystemNone": "Standard ({{c}} mm per side)",
-    "drawerSystemOption": "{{name}} · {{c}} mm per side"
+    "drawerSystemOption": "{{name}} · {{c}} mm per side",
+    "sliding": {
+      "cover": "Cover panel over the channel",
+      "mirror": "Inside mirror",
+      "doors": "Sliding doors",
+      "row": {
+        "slidingDoor": "Sliding door",
+        "slidingMirror": "Inside mirror"
+      },
+      "standardPrice": "standard price",
+      "widePrice": "wider than max: wide door price",
+      "mirrorOnDoors": "on every door",
+      "boughtRow": "Sliding doors and mirror",
+      "boughtTitle": "Bought-in items"
+    }
+  },
+  "slidingSettings": {
+    "title": "Sliding doors",
+    "subtitle": "Sizes and prices used for sliding wardrobe doors in every design. Saved for your company.",
+    "cardDesc": "Door limits, door and mirror prices, the upper channel and the cover panel.",
+    "open": "Edit sliding door settings",
+    "back": "← Settings",
+    "group": {
+      "doors": "Door sizes",
+      "prices": "Prices",
+      "channel": "Channel and cover panel"
+    },
+    "field": {
+      "max_door_width_mm": "Standard door max width",
+      "max_door_height_mm": "Standard door max height",
+      "door_overlap_mm": "Door overlap",
+      "standard_door_price": "Price per standard door",
+      "wide_door_price": "Price per door wider than max width",
+      "mirror_price_m2": "Inside mirror price",
+      "channel_width_mm": "Upper sliding channel width",
+      "cover_panel_thickness_mm": "Cover panel thickness",
+      "cover_panel_height_mm": "Cover panel height",
+      "partition_tolerance_mm": "Partition tolerance"
+    },
+    "preview": "Partition depth reduction",
+    "reduction": "Without cover panel: {{mm}} mm (channel + tolerance)",
+    "reductionCover": "With cover panel: {{mm}} mm (channel + cover panel + tolerance)",
+    "save": "Save",
+    "saving": "Saving…",
+    "saved": "Saved.",
+    "saveError": "Could not save. Check the values marked in red.",
+    "loadError": "Could not load the settings.",
+    "readOnly": "Only the owner or an admin can change these settings."
   }
 }

@@ -52,6 +52,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
     [t('wardrobe.price.boards'), price.boardsCost],
     [t('wardrobe.price.edge'), price.edge.cost],
     [t('wardrobe.price.hardware'), price.hardwareCost],
+    ...(price.boughtCost > 0 ? [[t('wardrobe.sliding.boughtRow'), price.boughtCost]] : []),
     [t('wardrobe.price.materialSubtotal'), price.materialSubtotal, true],
     [t('wardrobe.price.labourRow', { pct: price.labourPct }), price.labourAmount],
     [t('wardrobe.price.costSubtotal'), price.costSubtotal, true],
@@ -130,6 +131,19 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
                   <td style={td}>{fmt(price.edge.unit)} JD</td>
                   <td style={{ ...td, textAlign: 'end', fontWeight: 600 }}>{fmt(price.edge.cost)} JD</td>
                 </tr>
+                {price.bought.map((b) => (
+                  <tr key={`${b.key}-${b.W}-${b.H}-${b.wide ? 1 : 0}`}>
+                    <td style={td} colSpan={4}>
+                      {t(`wardrobe.sliding.row.${b.key}`)}
+                      <div style={{ fontSize: 10, color: '#aaa' }}>
+                        {b.W} × {b.H} mm · {b.key === 'slidingDoor' ? t(b.wide ? 'wardrobe.sliding.widePrice' : 'wardrobe.sliding.standardPrice') : t('wardrobe.sliding.mirrorOnDoors')}
+                      </div>
+                    </td>
+                    <td style={{ ...td, fontWeight: 700 }}>{b.key === 'slidingMirror' ? `${b.qty} m²` : b.qty}</td>
+                    <td style={td}>{fmt(b.unit)} JD{b.key === 'slidingMirror' ? '/m²' : ''}</td>
+                    <td style={{ ...td, textAlign: 'end', fontWeight: 600 }}>{fmt(b.cost)} JD</td>
+                  </tr>
+                ))}
                 {price.hardware.map((h) => (
                   <tr key={h.key}>
                     <td style={td} colSpan={4}>{t(`wardrobe.price.hw.${h.key}`)}</td>
@@ -176,6 +190,7 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
                   [t('wardrobe.price.boards'), boxes.boardsCost, shared.boardsCost, true],
                   [t('wardrobe.price.edge'), boxes.edge.cost, shared.edge.cost, true],
                   [t('wardrobe.price.hardware'), boxes.hardwareCost, shared.hardwareCost, true],
+                  ...(price.boughtCost > 0 ? [[t('wardrobe.sliding.boughtRow'), boxes.boughtCost, shared.boughtCost, true]] : []),
                   [t('wardrobe.price.costSubtotal'), boxes.costSubtotal, shared.costSubtotal, true],
                   [t('wardrobe.price.sellingPrice'), boxes.grandTotal, shared.grandTotal, true],
                 ].map(([k, a, b, money]) => (

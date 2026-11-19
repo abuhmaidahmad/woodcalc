@@ -38,10 +38,17 @@ export const DEFAULT_WARDROBE_STANDARD = {
   minDrawerBoxH: 70,
   spacerBoardSku: '',
   runnerLengths: [250, 300, 350, 400, 450, 500, 550],
-  slidingOverlap: 40,
-  slidingTrackDepth: 100,
   slidingHDeduction: 50,
-  maxSlidingDoorW: 1100,
+  slidingMaxDoorW: 1000,
+  slidingMaxDoorH: 2750,
+  slidingDoorPrice: 60,
+  slidingWideDoorPrice: 70,
+  slidingMirrorPriceM2: 15,
+  slidingChannelW: 80,
+  slidingCoverT: 18,
+  slidingCoverH: 100,
+  slidingTolerance: 1,
+  slidingOverlap: 45,
   edgeCarcass: 1,
   edgeFront: 1,
   sheetL: 2440,
@@ -87,7 +94,6 @@ export const DEFAULT_WARDROBE_STANDARD = {
   priceRailSocket: 0.4,
   priceLeg: 0.8,
   priceSlidingTrackSet: 25,
-  priceSlidingKit: 6,
   priceHandle: 3.5,
   priceConfirmat: 0.1,
   priceShelfPin: 0.05,
@@ -111,14 +117,14 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'sizes', fields: ['maxSectionW', 'minSectionW', 'maxDoorW', 'doorGap', 'maxShelfSpan', 'shelfSpacing', 'minShelfGap'] },
   { id: 'interior', fields: ['shelfFrontSetback', 'shelfBackClearance', 'shelfSideClearance', 'minHangDepth', 'railDrop', 'railDeduction', 'minLongHangH', 'minDoubleHangH'] },
   { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction', 'minDrawerBoxH', 'spacerBoardSku'] },
-  { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
+  { id: 'sliding', fields: ['slidingHDeduction'] },
   { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance', 'partitionStagger', 'grooveStagger', 'minGrooveBacking', 'minConfirmatEdge', 'minConfirmatSpacing', 'railStagger', 'connectorsPerJoint', 'connectorDiameter', 'connectorEdge', 'connectorInset'] },
   { id: 'closet', fields: ['closetCornerGap', 'minWalkway', 'islandTopOverhang'] },
   { id: 'cnc', fields: ['hingeStagger', 'hingePlateFront', 'hingePlateSpacing', 'hingePlateDiameter', 'hingePlateDepth', 'runnerHoleDiameter', 'runnerHoleDepth', 'runnerStagger', 'railSocketHoles', 'railSocketSpacing', 'railSocketDiameter', 'railSocketDepth', 'railSocketStagger'] },
-  { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'priceCarcassConnector', 'labourPct', 'marginPct'] },
+  { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'priceCarcassConnector', 'labourPct', 'marginPct'] },
 ]
 
-export const DECIMAL_FIELDS = new Set(['wasteFactor', 'priceCarcassConnector', 'priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin'])
+export const DECIMAL_FIELDS = new Set(['wasteFactor', 'priceCarcassConnector', 'priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceHandle', 'priceConfirmat', 'priceShelfPin'])
 
 const STORAGE_KEY = 'woodcalc.wardrobeStandard.v1'
 
@@ -157,4 +163,27 @@ export function saveStandard(std) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(std))
   } catch {}
+}
+
+export const TENANT_SLIDING_FIELDS = {
+  max_door_width_mm: 'slidingMaxDoorW',
+  max_door_height_mm: 'slidingMaxDoorH',
+  standard_door_price: 'slidingDoorPrice',
+  wide_door_price: 'slidingWideDoorPrice',
+  mirror_price_m2: 'slidingMirrorPriceM2',
+  channel_width_mm: 'slidingChannelW',
+  cover_panel_thickness_mm: 'slidingCoverT',
+  cover_panel_height_mm: 'slidingCoverH',
+  partition_tolerance_mm: 'slidingTolerance',
+  door_overlap_mm: 'slidingOverlap',
+}
+
+export function slidingStd(settings) {
+  const out = {}
+  if (!settings) return out
+  Object.entries(TENANT_SLIDING_FIELDS).forEach(([api, key]) => {
+    const n = Number(settings[api])
+    if (Number.isFinite(n) && n >= 0) out[key] = n
+  })
+  return out
 }

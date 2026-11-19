@@ -93,3 +93,22 @@ class CompanySettings(models.Model):
 
     def __str__(self):
         return f"Settings for {self.company}"
+
+
+class SlidingDoorSettings(models.Model):
+    company = models.OneToOneField(Company, on_delete=models.CASCADE, related_name="sliding_door_settings")
+    max_door_width_mm = models.DecimalField(max_digits=7, decimal_places=1, default=1000)
+    max_door_height_mm = models.DecimalField(max_digits=7, decimal_places=1, default=2750)
+    standard_door_price = models.DecimalField(max_digits=10, decimal_places=2, default=60)
+    wide_door_price = models.DecimalField(max_digits=10, decimal_places=2, default=70)
+    mirror_price_m2 = models.DecimalField(max_digits=10, decimal_places=2, default=15)
+    channel_width_mm = models.DecimalField(max_digits=6, decimal_places=1, default=80)
+    cover_panel_thickness_mm = models.DecimalField(max_digits=6, decimal_places=1, default=18)
+    cover_panel_height_mm = models.DecimalField(max_digits=6, decimal_places=1, default=100)
+    partition_tolerance_mm = models.DecimalField(max_digits=6, decimal_places=1, default=1)
+    door_overlap_mm = models.DecimalField(max_digits=6, decimal_places=1, default=45)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Sliding door settings for {self.company}"
+

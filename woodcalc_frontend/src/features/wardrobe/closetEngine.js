@@ -153,6 +153,9 @@ export function runDesign(closet, id, length) {
     loft: !!run.loft,
     loftH: run.loftH,
     doorType: run.doorType || 'none',
+    slidingCover: !!run.slidingCover,
+    slidingMirror: !!run.slidingMirror,
+    slidingDoors: run.slidingDoors ?? null,
     drawerSystem: closet.drawerSystem || null,
     construction: run.construction,
     backType: run.backType,
@@ -201,11 +204,25 @@ function addHardware(into, hw) {
   Object.entries(hw).forEach(([k, v]) => { into[k] = r1((into[k] || 0) + v) })
 }
 
+function mergeBought(items) {
+  const map = new Map()
+  items.forEach((b) => {
+    const key = [b.key, b.W, b.H, b.wide ? 1 : 0].join('|')
+    const e = map.get(key)
+    if (e) {
+      e.qty += b.qty
+      if (b.areaM2 != null) e.areaM2 = Math.round((e.areaM2 + b.areaM2) * 100) / 100
+    } else map.set(key, { ...b })
+  })
+  return [...map.values()]
+}
+
 export function computeCloset(closet, std) {
   const layout = closetLayout(closet, std)
   const runs = []
   let parts = []
   let rawParts = []
+  const bought = []
   const hardware = {}
   const warnings = layout.warnings.map((w) => ({ ...w }))
 
@@ -217,6 +234,7 @@ export function computeCloset(closet, std) {
     const lab = relabel(result, id)
     parts = parts.concat(lab.parts)
     rawParts = rawParts.concat(lab.rawParts)
+    bought.push(...result.bought)
     warnings.push(...lab.warnings)
     addHardware(hardware, result.hardware)
     runs.push({ id, design, result, place })
@@ -258,7 +276,7 @@ export function computeCloset(closet, std) {
     depth: layout.depth,
     height: num(closet.height),
   }
-  return { mode: 'closet', parts: merged, rawParts, hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [] }
+  return { mode: 'closet', parts: merged, rawParts, bought: mergeBought(bought), hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [] }
 }
 
 export function computeDesign(design, std) {

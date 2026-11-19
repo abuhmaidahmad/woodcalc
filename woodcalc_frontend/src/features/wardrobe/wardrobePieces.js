@@ -26,6 +26,7 @@ export const WARDROBE_PART_CODES = {
   'Plinth': 'PL',
   'Filler': 'FIL',
   'Top filler': 'TF',
+  'Cover panel': 'CV',
   'Island top': 'IT',
 }
 

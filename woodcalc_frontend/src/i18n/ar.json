@@ -2433,7 +2433,6 @@
       "railMeters": "طول المواسير (م)",
       "runnerPair": "سكك أدراج (زوج)",
       "drawerHandle": "مقابض أدراج",
-      "slidingKit": "أطقم أبواب جرارة",
       "slidingTrack": "سكك جرار",
       "backRail": "مرابط خلفية",
       "carcassConnector": "وصلات هياكل"
@@ -2496,10 +2495,7 @@
       "drawerBottomT": "سماكة قاعدة الدرج",
       "runnerClearance": "خلوص السكة (كل جهة)",
       "drawerBoxHDeduction": "خصم ارتفاع العلبة",
-      "slidingOverlap": "تداخل الأبواب",
-      "slidingTrackDepth": "عمق السكة",
       "slidingHDeduction": "خصم الارتفاع",
-      "maxSlidingDoorW": "أقصى عرض للباب الجرار",
       "sideJoin": "تجميع الجوانب الخارجية",
       "partitionJoin": "تجميع القواطع",
       "backRailCount": "عدد المرابط الخلفية لكل قسم",
@@ -2516,7 +2512,6 @@
       "priceRailSocket": "حامل ماسورة",
       "priceLeg": "رجل",
       "priceSlidingTrackSet": "طقم سكة جرار",
-      "priceSlidingKit": "طقم عجلات باب جرار",
       "priceHandle": "مقبض",
       "priceConfirmat": "برغي كونفيرمات",
       "priceShelfPin": "حامل رف",
@@ -2567,7 +2562,6 @@
       "doubleHangShort": "{{section}}: التعليق المزدوج {{h}} مم أقل من {{min}} مم.",
       "drawersDontFit": "{{section}}: الأدراج تحتاج {{need}} مم والتقسيم {{h}} مم.",
       "doorTooWide": "{{section}}: عرض الباب {{w}} مم أكبر من {{max}} مم.",
-      "slidingDoorTooWide": "عرض الأبواب الجرارة {{w}} مم أكبر من {{max}} مم.",
       "panelTooLong": "{{part}} أطول من اللوح ({{max}} مم) ولا يوجد قاطع للقص عليه. أضف قسماً.",
       "backRailsDontFit": "المرابط الخلفية ({{n}} × {{railH}} مم) لا تتسع في هيكل بارتفاع {{h}} مم.",
       "runTooShort": "الوحدة {{run}} طولها {{length}} مم فقط.",
@@ -2576,7 +2570,9 @@
       "grooveBackingThin": "مجرى الظهر يترك {{left}} مم من اللوح، أقل من {{min}} مم. استخدم مجرى أقل عمقاً أو لوحاً أسمك.",
       "grooveStaggerSmall": "إزاحة مجرى الظهر {{stagger}} مم أقل من عرض المجرى {{min}} مم، فيتداخل المجريان على وجهي القاطع.",
       "confirmatCrowded": "ثقوب الكونفيرمات على وصلة بطول {{length}} مم في القاطع متقاربة عبر وجهيه ({{spacing}} مم، الحد الأدنى {{min}}).",
-      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}})."
+      "railStaggerSmall": "إزاحة المرابط {{stagger}} مم تترك ثقوب المرابط على وجهي القاطع على بعد {{gap}} مم (الحد الأدنى {{min}}).",
+      "slidingDoorTooTall": "ارتفاع الأبواب الجرارة {{h}} مم، أكثر من الحد {{max}} مم.",
+      "slidingDoorWide": "عرض الأبواب الجرارة {{w}} مم، أكثر من {{max}} مم: تُسعّر كأبواب عريضة. أضف باباً لتبقى ضمن العرض القياسي."
     },
     "construction": "طريقة التصنيع",
     "constructionTypes": {
@@ -2647,7 +2643,6 @@
         "railBracket": "حوامل مواسير",
         "leg": "أرجل",
         "slidingTrackSet": "أطقم سكك جرار",
-        "slidingKit": "أطقم أبواب جرارة",
         "handles": "مقابض",
         "confirmat": "براغي كونفيرمات",
         "shelfPin": "حوامل رفوف",
@@ -2729,6 +2724,53 @@
     },
     "drawerSystem": "نظام الأدراج",
     "drawerSystemNone": "قياسي ({{c}} مم لكل جهة)",
-    "drawerSystemOption": "{{name}} · {{c}} مم لكل جهة"
+    "drawerSystemOption": "{{name}} · {{c}} مم لكل جهة",
+    "sliding": {
+      "cover": "لوح تغطية فوق السكة",
+      "mirror": "مرآة داخلية",
+      "doors": "الأبواب الجرارة",
+      "row": {
+        "slidingDoor": "باب جرار",
+        "slidingMirror": "مرآة داخلية"
+      },
+      "standardPrice": "السعر القياسي",
+      "widePrice": "أعرض من الحد: سعر الباب العريض",
+      "mirrorOnDoors": "على كل باب",
+      "boughtRow": "الأبواب الجرارة والمرآة",
+      "boughtTitle": "مواد مشتراة"
+    }
+  },
+  "slidingSettings": {
+    "title": "الأبواب الجرارة",
+    "subtitle": "المقاسات والأسعار المستخدمة للأبواب الجرارة في كل التصاميم. محفوظة لشركتك.",
+    "cardDesc": "حدود الأبواب، أسعار الأبواب والمرآة، السكة العلوية ولوح التغطية.",
+    "open": "تعديل إعدادات الأبواب الجرارة",
+    "back": "→ الإعدادات",
+    "group": {
+      "doors": "مقاسات الأبواب",
+      "prices": "الأسعار",
+      "channel": "السكة ولوح التغطية"
+    },
+    "field": {
+      "max_door_width_mm": "أقصى عرض للباب القياسي",
+      "max_door_height_mm": "أقصى ارتفاع للباب القياسي",
+      "door_overlap_mm": "تداخل الأبواب",
+      "standard_door_price": "سعر الباب القياسي",
+      "wide_door_price": "سعر الباب الأعرض من الحد",
+      "mirror_price_m2": "سعر المرآة الداخلية",
+      "channel_width_mm": "عرض السكة العلوية",
+      "cover_panel_thickness_mm": "سماكة لوح التغطية",
+      "cover_panel_height_mm": "ارتفاع لوح التغطية",
+      "partition_tolerance_mm": "خلوص القاطع"
+    },
+    "preview": "تقليل عمق القواطع",
+    "reduction": "بدون لوح تغطية: {{mm}} مم (السكة + الخلوص)",
+    "reductionCover": "مع لوح التغطية: {{mm}} مم (السكة + لوح التغطية + الخلوص)",
+    "save": "حفظ",
+    "saving": "جاري الحفظ…",
+    "saved": "تم الحفظ.",
+    "saveError": "تعذر الحفظ. راجع القيم المؤشرة بالأحمر.",
+    "loadError": "تعذر تحميل الإعدادات.",
+    "readOnly": "فقط المالك أو المدير يمكنه تغيير هذه الإعدادات."
   }
 }

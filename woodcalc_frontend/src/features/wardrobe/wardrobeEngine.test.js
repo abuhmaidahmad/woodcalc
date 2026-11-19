@@ -103,15 +103,14 @@ describe('rules and warnings', () => {
     expect(res.warnings.find((w) => w.code === 'zonesOverflow').level).toBe('error')
   })
 
-  it('makes sliding doors across the whole run with overlap', () => {
+  it('sizes bought-in sliding doors from the opening, overlap and max width', () => {
     const d = { ...defaultDesign(STD), doorType: 'sliding' }
     const res = computeWardrobe(d, STD)
-    const doors = find(res, 'Sliding door')[0]
-    expect(doors.qty).toBe(3)
-    expect(doors.W).toBeCloseTo((2400 + 80) / 3, 1)
-    expect(doors.L).toBe(1950)
+    expect(find(res, 'Sliding door')).toHaveLength(0)
+    expect(res.bought).toEqual([expect.objectContaining({ key: 'slidingDoor', qty: 3, W: 818, H: 1950, wide: false, unit: 60 })])
     expect(find(res, 'Door', { loft: false })).toHaveLength(0)
-    expect(res.summary.usableDepth).toBe(474)
+    expect(res.summary.usableDepth).toBe(600 - 81 - 26)
+    expect(res.hardware.slidingKit).toBeUndefined()
   })
 
   it('counts confirmat screws per joint like the machining rules', () => {
@@ -251,9 +250,16 @@ describe('shared partitions, other options', () => {
     expect(find(res, 'Partition', { loft: false })[0].W).toBe(600)
   })
 
-  it('still loses track depth with sliding doors', () => {
+  it('cuts partitions short by channel + tolerance, plus the cover panel when it is on', () => {
     const d = { ...defaultDesign(STD), construction: 'shared', doorType: 'sliding' }
-    expect(computeWardrobe(d, STD).summary.usableDepth).toBe(600 - 100 - 18)
+    const plain = computeWardrobe(d, STD)
+    expect(plain.summary.usableDepth).toBe(600 - 81 - 18)
+    expect(find(plain, 'Partition', { loft: false })[0].W).toBe(600 - 81)
+    expect(find(plain, 'Side', { loft: false })[0].W).toBe(600)
+    expect(find(plain, 'Cover panel')).toHaveLength(0)
+    const covered = computeWardrobe({ ...d, slidingCover: true }, STD)
+    expect(find(covered, 'Partition', { loft: false })[0].W).toBe(600 - 99)
+    expect(find(covered, 'Cover panel')).toEqual([expect.objectContaining({ L: 2364, W: 100, T: 18, material: 'Front', qty: 1 })])
   })
 
   it('follows the editable join rules', () => {

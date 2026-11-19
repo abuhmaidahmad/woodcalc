@@ -6,11 +6,11 @@ from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
 
 from .mixins import TenantScopedMixin
-from .models import FIELD_WORKER_ROLES, CompanyMembership, CompanySettings
+from .models import FIELD_WORKER_ROLES, CompanyMembership, CompanySettings, SlidingDoorSettings
 from .permissions import (HasActiveCompany, HasActiveCompanyForFieldManager, can_manage_field_ops,
                           user_has_permission)
 from .permissions_registry import PERMISSIONS
-from .serializers import ASSIGNABLE_ROLES, MembershipSerializer, MembershipCreateSerializer
+from .serializers import ASSIGNABLE_ROLES, MembershipSerializer, MembershipCreateSerializer, SlidingDoorSettingsSerializer
 
 
 # HDF back panel thicknesses (mm) the cut list formula supports without a stock
@@ -190,3 +190,17 @@ class MembershipViewSet(TenantScopedMixin, ModelViewSet):
         user.save(update_fields=['is_active'])
         instance.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated, HasActiveCompany])
+def sliding_door_settings(request):
+    settings, _ = SlidingDoorSettings.objects.get_or_create(company=request.company)
+    if request.method == 'PATCH':
+        if request.membership.role not in SETTINGS_ADMIN_ROLES:
+            raise PermissionDenied("Only the owner or an admin can change the sliding door settings.")
+        serializer = SlidingDoorSettingsSerializer(settings, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+    return Response(SlidingDoorSettingsSerializer(settings).data)
+

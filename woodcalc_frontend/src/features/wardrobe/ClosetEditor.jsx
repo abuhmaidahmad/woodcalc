@@ -10,6 +10,7 @@ import ChecksCard from './ChecksCard'
 import CutListPanel from './CutListPanel'
 import NumField from './NumField'
 import DrawerSystemPicker from './DrawerSystemPicker'
+import SlidingOptions from './SlidingOptions'
 import { ACCENT, DARK, FIELDSET, card, label, input, ghost } from './ui'
 
 const Closet3D = lazy(() => import('./Closet3D'))
@@ -113,6 +114,9 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
               <div style={{ marginTop: 10 }}>
                 <span style={label}>{t('wardrobe.doorType')}</span>
                 <Seg options={DOOR_TYPES} value={run.doorType || 'none'} onChange={(v) => setRun(activeId, { doorType: v })} labelOf={(o) => t(`wardrobe.doorTypes.${o}`)} />
+                {run.doorType === 'sliding' && (
+                  <SlidingOptions value={run} onChange={(patch) => setRun(activeId, patch)} autoDoors={runOut.result.bought?.find((b) => b.key === 'slidingDoor')?.qty} />
+                )}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 10, alignItems: 'end' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, paddingBottom: 8 }}>

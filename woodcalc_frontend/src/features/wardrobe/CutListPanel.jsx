@@ -63,6 +63,34 @@ export default function CutListPanel({ result, std, subtitle, csvName }) {
         </div>
       </div>
 
+      {result.bought?.length > 0 && (
+        <div style={card}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t('wardrobe.sliding.boughtTitle')}</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={th}>{t('wardrobe.col.part')}</th>
+                <th style={th}>{t('wardrobe.col.width')}</th>
+                <th style={th}>{t('wardrobe.col.length')}</th>
+                <th style={th}>{t('wardrobe.col.qty')}</th>
+                <th style={th} />
+              </tr>
+            </thead>
+            <tbody>
+              {result.bought.map((b) => (
+                <tr key={`${b.key}-${b.W}-${b.H}-${b.wide ? 1 : 0}`}>
+                  <td style={{ ...td, fontWeight: 600 }}>{t(`wardrobe.sliding.row.${b.key}`)}</td>
+                  <td style={td}>{b.W}</td>
+                  <td style={td}>{b.H}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{b.qty}</td>
+                  <td style={td}>{b.key === 'slidingMirror' ? `${b.areaM2} m²` : t(b.wide ? 'wardrobe.sliding.widePrice' : 'wardrobe.sliding.standardPrice')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 14 }}>
         <div style={card}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t('wardrobe.hardwareTitle')}</div>

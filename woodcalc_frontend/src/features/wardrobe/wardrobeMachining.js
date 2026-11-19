@@ -42,7 +42,13 @@ export function createKit(std, D, T, warn = () => {}) {
   const other = (face) => (face === 'TOP' ? 'BOTTOM' : 'TOP')
   const minFaceGap = std.minConfirmatSpacing
 
-  const wall = (y0, length, { partition = false, frontZ = D } = {}) => ({ ops: opList(), y0, length, frontZ, partition })
+  const counter = { screws: 0 }
+  const wall = (y0, length, { partition = false, frontZ = D, depth = D } = {}) => ({ ops: opList(), y0, length, frontZ, depth, partition })
+  const overlap = (w, frontZ, panelDepth) => {
+    const startZ = Math.min(frontZ, w.frontZ)
+    const endZ = Math.max(frontZ - panelDepth, w.frontZ - w.depth)
+    return { startZ, length: r2(startZ - endZ) }
+  }
 
   const positionsFor = (w, face, length) => {
     if (!w.partition) return jointPositions(length, minEdge)
@@ -51,35 +57,47 @@ export function createKit(std, D, T, warn = () => {}) {
     return positions
   }
 
-  const join = (w, face, panelOps, end, { absY, frontZ, length, panelLength }) => {
+  const join = (w, face, panelOps, end, { absY, frontZ, panelDepth, panelLength }) => {
     const x = end === 'LEFT' ? 0 : panelLength
-    positionsFor(w, face, length).forEach((pos) => {
-      panelOps.add(edgeHole({ face: end, x, y: pos, z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
-      w.ops.add(hole({ face: other(face), x: absY - w.y0, y: (w.frontZ - frontZ) + pos, diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
+    const { startZ, length } = overlap(w, frontZ, panelDepth)
+    if (length <= 0) return
+    const ps = positionsFor(w, face, length)
+    counter.screws += ps.length
+    ps.forEach((pos) => {
+      panelOps.add(edgeHole({ face: end, x, y: r2(frontZ - startZ + pos), z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
+      w.ops.add(hole({ face: other(face), x: absY - w.y0, y: r2(w.frontZ - startZ + pos), diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
     })
   }
 
   const railJoin = (w, face, railOps, end, { absY, length, panelLength }) => {
     const x = end === 'LEFT' ? 0 : panelLength
-    jointPositions(length, minEdge).forEach((pos) => {
+    const ps = jointPositions(length, minEdge)
+    counter.screws += ps.length
+    ps.forEach((pos) => {
       railOps.add(edgeHole({ face: end, x, y: pos, z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
       w.ops.add(hole({ face: other(face), x: absY - w.y0 + pos, y: w.frontZ - T / 2, diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
     })
   }
 
-  const over = (panelOps, x, w, wallEnd, { length }) => {
-    jointPositions(length, minEdge).forEach((pos) => {
-      panelOps.add(hole({ face: 'BOTTOM', x, y: pos, diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
-      w.ops.add(edgeHole({ face: wallEnd, x: wallEnd === 'LEFT' ? 0 : w.length, y: pos, z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
+  const over = (panelOps, x, w, wallEnd, { frontZ, panelDepth }) => {
+    const { startZ, length } = overlap(w, frontZ, panelDepth)
+    if (length <= 0) return
+    const ps = jointPositions(length, minEdge)
+    counter.screws += ps.length
+    ps.forEach((pos) => {
+      panelOps.add(hole({ face: 'BOTTOM', x, y: r2(frontZ - startZ + pos), diameter: C.faceDiameter, depth: T, through: true, rule: 'confirmat' }))
+      w.ops.add(edgeHole({ face: wallEnd, x: wallEnd === 'LEFT' ? 0 : w.length, y: r2(w.frontZ - startZ + pos), z: T / 2, diameter: C.edgeDiameter, depth: C.edgeDepth, rule: 'confirmat' }, T))
     })
   }
 
-  const backGroove = (ops, length, { face = 'TOP', shift = 0, x0 = 0, x1 = length } = {}) => {
-    const y = r2(grooveY - shift)
+  const backGroove = (ops, length, { face = 'TOP', shift = 0, x0 = 0, x1 = length, frontZ = D } = {}) => {
+    const y = r2(grooveY - shift - (D - frontZ))
     ops.add(groove({ face, x: r2(x0), y, x2: r2(x1), y2: y, width: grooveW, depth: std.grooveDepth, rule: 'back_groove' }))
   }
 
-  const pins = (w, face, shelfBottomAbs, { frontY, backY }, base, gridOffset = 0) => {
+  const pins = (w, face, shelfBottomAbs, { frontZ, backZ }, base, gridOffset = 0) => {
+    const frontY = w.frontZ - frontZ
+    const backY = w.frontZ - backZ
     const shift = w.partition && face === 'BOTTOM' ? std.partitionStagger : 0
     const mid = snap(shelfBottomAbs - PIN.shelfPinOffset, base, gridOffset) - w.y0
     ;[mid - PIN.pitch, mid, mid + PIN.pitch].forEach((x) => {
@@ -121,13 +139,15 @@ export function createKit(std, D, T, warn = () => {}) {
     return ys
   }
 
-  const runnerHoles = (w, face, absY, startY, runnerLen, pattern, shift = 0) => {
+  const runnerHoles = (w, face, absY, startZ, runnerLen, pattern, shift = 0) => {
+    const startY = w.frontZ - startZ
     runnerYs(runnerLen, pattern).forEach((y) => {
       w.ops.add(hole({ face, x: r2(absY - w.y0), y: r2(startY + y + shift), diameter: std.runnerHoleDiameter, depth: std.runnerHoleDepth, rule: 'runner' }))
     })
   }
 
-  const railSocket = (w, face, absY, centreY) => {
+  const railSocket = (w, face, absY, centreZ) => {
+    const centreY = w.frontZ - centreZ
     const n = Math.max(1, Math.round(std.railSocketHoles))
     Array.from({ length: n }, (_, k) => centreY + (k - (n - 1) / 2) * std.railSocketSpacing).forEach((y) => {
       w.ops.add(hole({ face, x: r2(absY - w.y0), y: r2(y), diameter: std.railSocketDiameter, depth: std.railSocketDepth, rule: 'rail_socket' }))
@@ -144,14 +164,14 @@ export function createKit(std, D, T, warn = () => {}) {
     const rows = Math.ceil(n / 2)
     const L = a.length
     const xs = rows <= 1 ? [L / 2] : Array.from({ length: rows }, (_, k) => std.connectorEdge + ((L - 2 * std.connectorEdge) * k) / (rows - 1))
-    const spots = xs.flatMap((x) => [[x, std.connectorInset], [x, D - std.connectorInset]]).slice(0, n)
+    const spots = xs.flatMap((x) => [[x, std.connectorInset], [x, Math.min(a.depth, b.depth) - std.connectorInset]]).slice(0, n)
     spots.forEach(([x, y]) => [a, b].forEach((w) => {
       w.ops.add(hole({ face: 'BOTTOM', x: r2(x), y: r2(y), diameter: std.connectorDiameter, depth: T, through: true, rule: 'carcass_connector' }))
     }))
     return spots.length
   }
 
-  return { wall, join, railJoin, over, backGroove, pins, connect, snap, halfPitch: PIN.pitch / 2, hingeCentres, hingeCups, hingePlate, runnerHoles, railSocket, railHoleGap, minFaceGap, grooveY, grooveW }
+  return { counter, wall, join, railJoin, over, backGroove, pins, connect, snap, halfPitch: PIN.pitch / 2, hingeCentres, hingeCups, hingePlate, runnerHoles, railSocket, railHoleGap, minFaceGap, grooveY, grooveW }
 }
 
 export function holeClashes(part) {

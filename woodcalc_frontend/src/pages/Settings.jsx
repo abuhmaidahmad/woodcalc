@@ -190,6 +190,21 @@ function ManufacturingStandardsCard() {
   )
 }
 
+function SlidingDoorsCard() {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginTop: 16 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('slidingSettings.title')}</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 14 }}>{t('slidingSettings.cardDesc')}</div>
+      <button onClick={() => navigate('/settings/sliding-doors')}
+        style={{ padding: '8px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
+        {t('slidingSettings.open')}
+      </button>
+    </div>
+  )
+}
+
 function ShareCatalogCard() {
   const { t } = useTranslation()
   const company = getCompany()
@@ -496,6 +511,7 @@ export default function Settings() {
         </div>
 
         <ManufacturingStandardsCard />
+        <SlidingDoorsCard />
         <ShareCatalogCard />
         <BillingCard />
         <TeamCard />

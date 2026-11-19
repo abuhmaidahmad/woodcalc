@@ -49,6 +49,7 @@ const PayrollRun = lazy(() => import('./pages/PayrollRun'));
 const PayrollSettings = lazy(() => import('./pages/PayrollSettings'));
 const MaterialList = lazy(() => import('./pages/MaterialList'));
 const Settings = lazy(() => import('./pages/Settings'));
+const SlidingDoorSettings = lazy(() => import('./pages/SlidingDoorSettings'));
 const BillingReturn = lazy(() => import('./pages/BillingReturn'));
 const PublicCatalogBrowse = lazy(() => import('./pages/PublicCatalogBrowse'));
 const KitchenShareView = lazy(() => import('./pages/KitchenShareView'));
@@ -213,6 +214,9 @@ export default function App() {
         } />
         <Route path="/settings" element={
           <PrivateRoute><Settings /></PrivateRoute>
+        } />
+        <Route path="/settings/sliding-doors" element={
+          <PrivateRoute><SlidingDoorSettings /></PrivateRoute>
         } />
 
         {/* HR */}

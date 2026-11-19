@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
-import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, STANDARD_STRINGS, DECIMAL_FIELDS, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
+import { DEFAULT_WARDROBE_STANDARD, STANDARD_FIELD_GROUPS, STANDARD_ENUMS, STANDARD_STRINGS, DECIMAL_FIELDS, slidingStd, loadStandard, saveStandard, normalizeStandard } from '../features/wardrobe/wardrobeStandard'
 import { defaultDesign, withSectionCount, autoSectionCount, sectionWidths, DOOR_TYPES, CONSTRUCTION_TYPES, BACK_TYPES } from '../features/wardrobe/wardrobeEngine'
 import WardrobeElevation from '../features/wardrobe/WardrobeElevation'
 import SectionEditor from '../features/wardrobe/SectionEditor'
@@ -11,6 +11,8 @@ import ChecksCard from '../features/wardrobe/ChecksCard'
 import CutListPanel from '../features/wardrobe/CutListPanel'
 import NumField from '../features/wardrobe/NumField'
 import DrawerSystemPicker from '../features/wardrobe/DrawerSystemPicker'
+import SlidingOptions from '../features/wardrobe/SlidingOptions'
+import { useSlidingDoorSettings } from '../api/slidingDoorSettings'
 import { ACCENT, DARK, FIELDSET, card, label, input, btn, ghost } from '../features/wardrobe/ui'
 import WardrobePriceTab from '../features/wardrobe/WardrobePriceTab'
 import ClosetEditor from '../features/wardrobe/ClosetEditor'
@@ -54,7 +56,10 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const navigate = useNavigate()
   const [saved] = useState(() => savedWardrobe(room))
-  const [std, setStd] = useState(() => (saved?.standard ? normalizeStandard(saved.standard) : loadStandard()))
+  const [baseStd, setStd] = useState(() => (saved?.standard ? normalizeStandard(saved.standard) : loadStandard()))
+  const [stdFrozen, setStdFrozen] = useState(() => !!saved?.standard)
+  const companySliding = useSlidingDoorSettings()
+  const std = useMemo(() => (stdFrozen ? baseStd : { ...baseStd, ...slidingStd(companySliding) }), [baseStd, stdFrozen, companySliding])
   const [design, setDesign] = useState(() => {
     if (saved?.design) return saved.design
     if (!roomId) return loadDesign(loadStandard())
@@ -86,7 +91,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const lockSt = roomLockState(lock)
   const readOnly = !!roomId && lockSt.readOnly
   const [localStd, setLocalStd] = useState(loadStandard)
-  const stdDiffers = !!roomId && JSON.stringify(localStd) !== JSON.stringify(std)
+  const stdDiffers = !!roomId && stdFrozen && JSON.stringify({ ...localStd, ...slidingStd(companySliding) }) !== JSON.stringify(baseStd)
 
   const flash = (msg) => {
     setSavedMsg(msg)
@@ -174,6 +179,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     if (readOnly) return
     const clean = normalizeStandard(stdDraft)
     setStd(clean)
+    setStdFrozen(false)
     setLocalStd(clean)
     saveStandard(clean)
     setShowStd(false)
@@ -255,7 +261,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
         {stdDiffers && !readOnly && (
           <div className="wb-noprint" style={{ background: '#fff', border: '1px solid #eee7dd', borderRadius: 8, padding: '6px 12px', fontSize: 12, marginBottom: 12, display: 'flex', gap: 10, alignItems: 'center', justifyContent: 'space-between' }}>
             <span>{t('wardrobe.room.savedStandard')}</span>
-            <button style={ghost} onClick={() => setStd(localStd)}>{t('wardrobe.room.useCurrentStandard')}</button>
+            <button style={ghost} onClick={() => { setStd(localStd); setStdFrozen(false) }}>{t('wardrobe.room.useCurrentStandard')}</button>
           </div>
         )}
         {tab === 'design' && (
@@ -313,6 +319,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
                     </button>
                   ))}
                 </div>
+                {design.doorType === 'sliding' && (
+                  <SlidingOptions value={design} onChange={(patch) => setDesign((d) => ({ ...d, ...patch }))} autoDoors={result.bought?.find((b) => b.key === 'slidingDoor')?.qty} />
+                )}
               </div>
               <div style={{ marginTop: 10 }}>
                 <DrawerSystemPicker value={design.drawerSystem} onChange={(v) => setField('drawerSystem', v)} std={std} />

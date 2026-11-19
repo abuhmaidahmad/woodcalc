@@ -22,6 +22,9 @@ const VARIANTS = {
   sharedFullBack: { ...base, construction: 'shared', backType: 'full' },
   sharedPerSection: { ...base, construction: 'shared', backType: 'perSection' },
   sharedWideSplit: { ...base, width: 3000, construction: 'shared' },
+  sharedSliding: { ...base, construction: 'shared', doorType: 'sliding' },
+  sharedSlidingCover: { ...base, construction: 'shared', doorType: 'sliding', slidingCover: true, backType: 'perSection' },
+  splitSliding: { ...base, width: 3000, construction: 'shared', doorType: 'sliding', backType: 'full' },
 }
 const STD_VARIANTS = {
   topOverSides: { ...STD, sideJoin: 'between' },

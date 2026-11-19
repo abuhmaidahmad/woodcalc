@@ -1,7 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from .models import FIELD_ROLES, CompanyMembership
+from .models import FIELD_ROLES, CompanyMembership, SlidingDoorSettings
 from .permissions_registry import PERMISSION_CODES
 
 User = get_user_model()
@@ -98,3 +98,28 @@ class MembershipCreateSerializer(serializers.Serializer):
         return CompanyMembership.objects.create(
             company=company, user=user, role=role, permissions=permissions,
         )
+
+
+class SlidingDoorSettingsSerializer(serializers.ModelSerializer):
+    POSITIVE = ('max_door_width_mm', 'max_door_height_mm', 'channel_width_mm', 'cover_panel_thickness_mm', 'cover_panel_height_mm')
+
+    class Meta:
+        model = SlidingDoorSettings
+        exclude = ('id', 'company')
+        read_only_fields = ('updated_at',)
+
+    def validate(self, attrs):
+        errors = {}
+        for key, value in attrs.items():
+            if key == 'updated_at' or value is None:
+                continue
+            if value < 0 or (key in self.POSITIVE and value == 0):
+                errors[key] = ['Must be greater than zero.' if key in self.POSITIVE else 'Must not be negative.']
+        overlap = attrs.get('door_overlap_mm', getattr(self.instance, 'door_overlap_mm', None))
+        width = attrs.get('max_door_width_mm', getattr(self.instance, 'max_door_width_mm', None))
+        if overlap is not None and width is not None and overlap >= width:
+            errors['door_overlap_mm'] = ['Must be smaller than the max door width.']
+        if errors:
+            raise serializers.ValidationError(errors)
+        return attrs
+

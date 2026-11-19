@@ -72,7 +72,6 @@ export function hardwareLines(hw, std) {
     ['railBracket', hw.railBracket, std.priceRailSocket],
     ['leg', hw.leg, std.priceLeg],
     ['slidingTrackSet', hw.slidingTrack ? Math.ceil(hw.slidingTrack / 2) : 0, std.priceSlidingTrackSet],
-    ['slidingKit', hw.slidingKit, std.priceSlidingKit],
     ['handles', num(hw.handle) + num(hw.drawerHandle), std.priceHandle],
     ['confirmat', hw.confirmat, std.priceConfirmat],
     ['carcassConnector', hw.carcassConnector, std.priceCarcassConnector],
@@ -81,6 +80,13 @@ export function hardwareLines(hw, std) {
   return lines
     .filter(([, qty]) => num(qty) > 0)
     .map(([key, qty, unit]) => ({ key, qty: num(qty), unit: num(unit), cost: money(num(qty) * num(unit)) }))
+}
+
+export function boughtLines(items) {
+  return items.map((b) => {
+    const qty = b.key === 'slidingMirror' ? b.areaM2 : b.qty
+    return { ...b, qty, cost: money(qty * num(b.unit)) }
+  })
 }
 
 export function totalsFrom(materialSubtotal, labourPct, marginPct) {
@@ -100,13 +106,17 @@ export function priceWardrobe(result, std, { picked = {}, labourPct = std.labour
   const hardware = hardwareLines(result.hardware, std)
   const boardsCost = boards.reduce((a, b) => a + b.cost, 0)
   const hardwareCost = hardware.reduce((a, h) => a + h.cost, 0)
-  const materialSubtotal = boardsCost + edge.cost + hardwareCost
+  const bought = boughtLines(result.bought || [])
+  const boughtCost = bought.reduce((a, b) => a + b.cost, 0)
+  const materialSubtotal = boardsCost + edge.cost + hardwareCost + boughtCost
   return {
     boards,
     edge,
     hardware,
     boardsCost,
     hardwareCost,
+    bought,
+    boughtCost,
     materialSubtotal,
     sheetCount: boards.reduce((a, b) => a + b.sheets, 0),
     labourPct: num(labourPct),
