@@ -84,6 +84,18 @@ def public_room_share_view(request, token):
         return Response({'detail': 'Link not found or no longer shared.'}, status=status.HTTP_404_NOT_FOUND)
 
     data = room.planner_data or {}
+    if isinstance(data, dict) and data.get('kind') == 'wardrobe':
+        tenant = room.project.client.tenant
+        return Response({
+            'name': room.name,
+            'room_type': room.room_type,
+            'kind': 'wardrobe',
+            'company_name': tenant.name,
+            'company_slug': tenant.slug,
+            'design': data.get('design'),
+            'standard': data.get('standard'),
+            'frontColor': data.get('frontColor'),
+        })
     return Response({
         'name': room.name,
         'room_type': room.room_type,
