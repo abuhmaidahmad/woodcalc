@@ -2676,7 +2676,9 @@
       "contractListCloset": "Project: {{name}} · {{count}} items",
       "pieceCount": "{{count}} pieces",
       "workOrderSent": "✓ Work Order {{orderNumber}} sent ({{count}} pieces)",
-      "alreadySent": "Already sent as {{orders}}"
+      "alreadySent": "Already sent as {{orders}}",
+      "shareNote": "The shared 3D link shows the last saved version. Save after changes.",
+      "stopSharing": "Stop sharing"
     },
     "mode": {
       "wardrobe": "Wardrobe",
@@ -2757,5 +2759,10 @@
       "matchZones": "Match zones",
       "hint": "Rows run top to bottom across the body. One row fills the rest. Two pieces in a row hinge on the left and right walls."
     }
+  },
+  "wardrobeShare": {
+    "wardrobe": "Wardrobe",
+    "closet": "Walk-in closet",
+    "size": "{{size}} mm"
   }
 }

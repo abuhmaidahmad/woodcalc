@@ -1,10 +1,8 @@
-import React, { useState, useEffect } from 'react'
-import { useParams } from 'react-router-dom'
+import React from 'react'
 import KitchenPlanner3D from '../features/kitchen_planner/KitchenPlanner3D'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useTranslation } from '../i18n/LanguageContext'
 
-const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
 
@@ -12,38 +10,11 @@ const DARK = '#1A1A1A'
 // Deliberately renders KitchenPlanner3D directly instead of the full
 // KitchenPlannerModule — a customer following this link should never see
 // the editing tools, pricing/proposal tab or contract tab that module has.
-export default function KitchenShareView() {
-  const { token } = useParams()
+export default function KitchenShareView({ data }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
-  const [state, setState] = useState({ loading: true, data: null, notFound: false })
 
-  useEffect(() => {
-    let cancelled = false
-    fetch(`${API}/api/crm/rooms/shared/${token}/`)
-      .then(res => {
-        if (res.status === 404) { if (!cancelled) setState({ loading: false, data: null, notFound: true }); return null }
-        if (!res.ok) throw new Error('request failed')
-        return res.json()
-      })
-      .then(data => { if (data && !cancelled) setState({ loading: false, data, notFound: false }) })
-      .catch(() => { if (!cancelled) setState({ loading: false, data: null, notFound: true }) })
-    return () => { cancelled = true }
-  }, [token])
-
-  if (state.loading) return (
-    <Centered dir={dir}>{t('kitchenShareView.loading')}</Centered>
-  )
-
-  if (state.notFound || !state.data) return (
-    <Centered dir={dir}>
-      <div style={{ fontSize: 40, marginBottom: 10 }}>🔗</div>
-      <div style={{ fontWeight: 700, color: '#eee', marginBottom: 6 }}>{t('kitchenShareView.notFound')}</div>
-      <div style={{ fontSize: 13, color: '#888' }}>{t('kitchenShareView.notFoundHint')}</div>
-    </Centered>
-  )
-
-  const room = state.data
+  const room = data
   const cabinets = room.cabinets || []
 
   return (
