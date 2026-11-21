@@ -2358,7 +2358,9 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           </group>
         )
       })()}
-      {cab.ledStripInterior && !isShelf && (() => {
+      {/* Open Shelf is in isShelf (no doors/fronts) but is a real open box with an
+          interior, so it must still get its LED strips -- the BOM already bills them. */}
+      {cab.ledStripInterior && (!isShelf || cab.subtype === 'Open Shelf') && (() => {
         const T = 0.018
         const len = Math.max(0.05, H - T * 2 - 0.02)
         const z = (-D / 2 + T) + 0.030
