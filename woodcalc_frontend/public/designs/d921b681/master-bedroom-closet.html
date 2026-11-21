@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Master Bedroom Closet · ABC Cabinet</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:#f6f3ee;color:#2b2a27}
+header{padding:18px 20px 12px;display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:8px}
+.brand{font-size:13px;letter-spacing:.08em;color:#9a7b55;font-weight:600}
+h1{font-size:21px;font-weight:600;margin-top:4px}
+.sub{font-size:13px;color:#6f6b64;margin-top:3px}
+#v3d{width:100%;height:62vh;min-height:360px;background:#ebe6de;touch-action:none;position:relative}
+.bar{display:flex;flex-wrap:wrap;gap:8px;padding:12px 20px}
+.bar button{border:1px solid #d6cec2;background:#fff;color:#2b2a27;border-radius:8px;padding:9px 14px;font-size:14px;cursor:pointer}
+.bar button.primary{background:#2b2a27;color:#fff;border-color:#2b2a27}
+.hint{font-size:12px;color:#8a857d;padding:0 20px}
+.specs{padding:18px 20px 8px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.card{background:#fff;border-radius:12px;padding:14px 16px;border:1px solid #ebe5dc}
+.card h3{font-size:15px;font-weight:600;margin-bottom:6px}
+.card p{font-size:13px;color:#5d5952;line-height:1.55}
+.card .w{font-size:12px;color:#9a7b55;font-weight:600;margin-bottom:4px}
+footer{padding:16px 20px 28px;font-size:12px;color:#8a857d;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+<div>
+<div class="brand">ABC CABINET · ARABIAN BUILD CABINETRY</div>
+<h1>Master bedroom walk-in closet</h1>
+<div class="sub">Design proposal · Wall 2500 mm · Height 2400 mm</div>
+</div>
+</header>
+<div id="v3d"></div>
+<div class="bar">
+<button id="doorBtn" class="primary" onclick="toggleDoors()">Open doors</button>
+<button onclick="setView('closet')">Wardrobe</button>
+<button onclick="setView('over')">Overview</button>
+<button onclick="setView('dress')">Dressing table</button>
+<button onclick="setView('shoes')">Shoe cabinets</button>
+<button onclick="setView('niche')">Display niche</button>
+<button onclick="setView('top')">Top view</button>
+</div>
+<div class="hint">Drag to rotate · pinch or scroll to zoom</div>
+<section class="specs">
+<div class="card"><div class="w">550 mm</div><h3>Vanity corner unit</h3><p>Shelves above the dressing table and a shoe cabinet below, behind wall-hinged doors.</p></div>
+<div class="card"><div class="w">600 mm</div><h3>Drawers and shelves</h3><p>Four soft-close internal drawers with a jewellery tray in the top drawer, and shelves above for folded clothes and bags.</p></div>
+<div class="card"><div class="w">600 mm</div><h3>Double hanging</h3><p>Upper rail for shirts and blouses, lower rail for trousers and skirts.</p></div>
+<div class="card"><div class="w">600 mm</div><h3>Long hanging</h3><p>Full-height rail for abayas, dresses and coats, with a full-length mirror inside the door.</p></div>
+<div class="card"><div class="w">820 mm</div><h3>Dressing table</h3><p>Two drawers, backlit mirror and a stool, with shoe cabinets at both ends below the top.</p></div>
+<div class="card"><div class="w">530 × 450 mm</div><h3>Lit display niche</h3><p>Open shelves with warm LED lighting for perfumes, jewellery and bags.</p></div>
+<div class="card"><div class="w">300 mm</div><h3>Top storage</h3><p>Storage above every unit for suitcases, blankets and seasonal clothes.</p></div>
+</section>
+<footer>ABC Cabinet · Arabian Build Cabinetry · Amman, Jordan · +962 79 852 5253<br>Colours and finishes in this preview are indicative. Final dimensions are confirmed at site measurement.</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+const el=document.getElementById('v3d');
+let W=el.clientWidth,H=el.clientHeight;
+const scene=new THREE.Scene();
+const root=new THREE.Group();root.scale.z=-1;scene.add(root);
+const cam=new THREE.PerspectiveCamera(45,W/H,0.05,50);
+const ren=new THREE.WebGLRenderer({antialias:true,alpha:true});
+ren.setPixelRatio(Math.min(devicePixelRatio,2));ren.setSize(W,H);el.appendChild(ren.domElement);
+scene.add(new THREE.HemisphereLight(0xffffff,0x8a8070,0.75));
+const dl=new THREE.DirectionalLight(0xffffff,0.5);dl.position.set(-2,4,-3);scene.add(dl);
+const pl=new THREE.PointLight(0xffd9a0,0.9,1.4);pl.position.set(-0.26,1.6,1.7);root.add(pl);
+const DS=THREE.DoubleSide;
+const M=c=>new THREE.MeshStandardMaterial({color:c,roughness:0.8,side:DS});
+const wood=M(0xefe6d6),plinth=M(0x8c7a62),wallM=M(0xcdc7bc),doorM=M(0xd6cab5),handleM=M(0x2a2a2a),topM=M(0xb08a62),metal=new THREE.MeshStandardMaterial({color:0xc0c0c0,metalness:0.7,roughness:0.3,side:DS});
+const mirrorM=new THREE.MeshStandardMaterial({color:0xd6e3e8,metalness:0.85,roughness:0.08,side:DS});
+const led=new THREE.MeshBasicMaterial({color:0xfff0c8,side:DS});
+const edgeMat=new THREE.LineBasicMaterial({color:0x8a7356,transparent:true,opacity:0.45});
+const t=0.018;
+function box(x0,x1,y0,y1,z0,z1,mat,edge,grp){const g=new THREE.BoxGeometry(x1-x0,y1-y0,z1-z0);const m=new THREE.Mesh(g,typeof mat==='number'?M(mat):mat);m.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);(grp||root).add(m);if(edge){const e=new THREE.LineSegments(new THREE.EdgesGeometry(g),edgeMat);e.position.copy(m.position);(grp||root).add(e);}return m;}
+function cyl(r,h,x,y,z,c){const m=new THREE.Mesh(new THREE.CylinderGeometry(r,r,h,12),M(c));m.position.set(x,y,z);root.add(m);}
+box(-3,0.2,-0.02,0,-0.2,2.3,0xd6d0c4);
+box(-2.6,0.1,0,2.6,-0.1,0,wallM);
+box(0,0.1,0,2.6,-0.1,1.97,wallM);
+box(-0.53,0.1,0,2.6,1.87,1.97,wallM);
+box(-0.865,-0.53,0,2.6,1.42,1.87,M(0xbfb8ab));
+box(-2.5,-2.35,0,2.15,0,0.025,M(0xf4f1ea),true);
+box(-2.5,-2.35,2.15,2.2,0,0.025,M(0xf4f1ea),true);
+box(-2.35,0,0,0.1,0,0.55,plinth);
+box(-2.35,0,0.1,2.4,0,0.01,wood);
+[-2.35,-1.759,-1.159,-0.559,-0.018].forEach(x=>box(x,x+t,0,2.4,0,0.6,wood,true));
+box(-2.35,0,0.1,0.118,0,0.6,wood,true);
+box(-2.35,0,2.382,2.4,0,0.6,wood,true);
+box(-2.35,0,2.1,2.118,0,0.6,wood,true);
+box(-1.141,-0.559,0.9,0.918,0,0.6,wood,true);
+[1.25,1.6,1.95].forEach(y=>box(-1.141,-0.559,y,y+t,0,0.6,wood,true));
+box(-1.741,-1.159,1.05,1.068,0,0.6,wood,true);
+[0.35,0.78,1.2,1.6].forEach(y=>box(-0.541,-0.018,y,y+t,0,0.6,wood,true));
+box(-1.141,-1.121,0.1,0.9,0.1,0.58,wood);box(-0.579,-0.559,0.1,0.9,0.1,0.58,wood);
+for(let i=0;i<4;i++){const y0=0.1+i*0.2,y1=y0+0.2;box(-1.12,-0.58,y0+0.003,y1-0.003,0.555,0.573,M(0xe6dccb),true);box(-0.94,-0.76,y1-0.03,y1-0.02,0.573,0.583,metal);}
+box(-1.1,-0.6,0.88,0.895,0.1,0.5,M(0x6e3b2e));
+function railX(x0,x1,y,z){const m=new THREE.Mesh(new THREE.CylinderGeometry(0.012,0.012,x1-x0,12),metal);m.rotation.z=Math.PI/2;m.position.set((x0+x1)/2,y,z);root.add(m);}
+railX(-2.33,-1.76,2.0,0.3);railX(-1.74,-1.16,2.0,0.3);railX(-1.74,-1.16,1.0,0.3);
+const cols=[0x3f4a5a,0x8a5a44,0xd9d4c8,0x5b6b4f,0x2f2f33,0xa88f6a,0x6e7f96,0x9b4f4f];
+function hangX(x0,x1,ytop,len,vary){let i=0;for(let x=x0+0.06;x<x1-0.04;x+=0.058){const L=len-(vary?((i*37)%5)*0.08:0);box(x-0.01,x+0.01,ytop-L,ytop-0.04,0.09,0.51,cols[i%8]);i++;}}
+hangX(-2.35,-1.75,2.0,1.55,true);hangX(-1.75,-1.15,2.0,0.85,false);hangX(-1.75,-1.15,1.0,0.6,false);
+box(-2.3,-1.85,2.118,2.36,0.06,0.5,0x4d5866);
+box(-1.7,-1.25,2.118,2.3,0.08,0.48,0xc9b48f);
+box(-1.1,-0.65,2.118,2.28,0.08,0.48,0xe8e4dc);
+[[1.268,0],[1.618,1]].forEach(([y,k])=>{box(-1.1,-0.88,y,y+0.15,0.1,0.45,cols[(k+2)%8]);box(-0.84,-0.6,y,y+0.12,0.1,0.45,cols[(k+5)%8]);});
+box(-1.05,-0.7,1.968,2.18,0.12,0.42,0x6e3b2e);
+[[0.798,0],[1.218,1],[1.618,2]].forEach(([y,k])=>{box(-0.5,-0.3,y,y+0.15,0.1,0.45,cols[(k+2)%8]);box(-0.27,-0.06,y,y+0.12,0.1,0.45,cols[(k+5)%8]);});
+const shoeC=[0x2f2f33,0x8a5a44,0xe8e4dc,0x6e3b2e,0x3f4a5a,0xa88f6a];
+function shoes(x0,x1,y,z0,z1,k){for(let x=x0;x<x1-0.17;x+=0.2){[0,0.09].forEach(d=>box(x+d,x+d+0.08,y,y+0.08,z0,z1,shoeC[k%6]));k++;}}
+[0.118,0.368].forEach((y,i)=>{shoes(-0.52,-0.04,y,0.32,0.56,i);shoes(-0.52,-0.04,y,0.04,0.28,i+3);});
+box(-0.53,-0.018,0.1,0.118,1.42,1.86,wood,true);
+box(-0.018,0,0.1,0.725,1.42,1.86,wood,true);
+box(-0.53,-0.018,0.35,0.368,1.44,1.86,wood,true);
+box(-0.5,0,0,0.1,1.44,1.86,plinth);
+[0.118,0.368].forEach((y,i)=>shoes(-0.52,-0.04,y,1.46,1.72,i+1));
+box(-0.53,0,0.725,0.75,0.618,1.42,topM,true);
+[[0.64,1.01],[1.03,1.4]].forEach(([z0,z1])=>{box(-0.53,-0.512,0.6,0.72,z0,z1,M(0xe2d2b6),true);box(-0.55,-0.53,0.655,0.665,(z0+z1)/2-0.05,(z0+z1)/2+0.05,metal);});
+box(-0.512,-0.02,0.6,0.715,0.64,1.4,wood);
+box(-0.006,0,0.93,1.87,0.7,1.34,led);
+box(-0.014,-0.006,0.95,1.85,0.72,1.32,mirrorM);
+const st=new THREE.Mesh(new THREE.CylinderGeometry(0.18,0.16,0.45,24),M(0xb9a48a));st.position.set(-0.85,0.225,1.02);root.add(st);
+[[-0.2,0.06,0.9],[-0.27,0.09,0.95],[-0.15,0.05,1.25]].forEach(([x,h,z],i)=>cyl(0.025,h,x,0.75+h/2,z,cols[i+5]));
+box(-0.53,0,0.725,0.75,1.42,1.87,topM,true);
+box(-0.53,0,0.75,2.4,1.86,1.87,M(0xc8a27a));
+[1.15,1.55,1.95].forEach(y=>{box(-0.53,0,y,y+t,1.44,1.86,wood,true);box(-0.5,-0.03,y-0.008,y,1.44,1.452,led);});
+box(-0.5,-0.03,2.37,2.382,1.44,1.452,led);
+box(-0.53,0,2.382,2.4,1.42,1.86,wood,true);
+box(-0.45,-0.2,1.168,1.42,1.55,1.8,0x6e3b2e);box(-0.15,-0.04,1.168,1.3,1.6,1.78,0xe8e4dc);
+[[-0.4,0.12],[-0.3,0.09],[-0.18,0.14],[-0.08,0.1]].forEach(([x,h],i)=>cyl(0.03,h,x,1.568+h/2,1.65,cols[(i*3)%8]));
+box(-0.42,-0.12,1.968,2.2,1.55,1.8,0x2f2f33);
+box(-0.48,-0.06,0.75,0.8,1.5,1.8,0x9b4f4f);
+box(-0.5485,-0.04,0.593,0.777,0.6,0.618,doorM,true);
+box(-0.04,0,0.1,2.4,0.6,0.618,doorM,true);
+box(-0.53,-0.04,0.593,0.725,1.402,1.42,doorM,true);
+box(-0.04,0,0.1,0.725,1.402,1.42,doorM,true);
+box(-2.35,0,2.085,2.098,0.54,0.56,led);
+const doors=[];
+function door(px,pz,w,y0,y1,dir,ang,o){const g=new THREE.Group();g.position.set(px,(y0+y1)/2,pz);root.add(g);const h=y1-y0,a0=dir>0?0:-w,a1=dir>0?w:0,c=dir*(w-0.045),s=o.back?-1:1;box(a0,a1,-h/2,h/2,-0.009,0.009,doorM,true,g);
+if(o.handle)box(c-0.007,c+0.007,-0.2,0.2,s>0?0.009:-0.032,s>0?0.032:-0.009,handleM,false,g);
+if(o.knob)box(c-0.007,c+0.007,h/2-0.17,h/2-0.05,s>0?0.009:-0.032,s>0?0.032:-0.009,handleM,false,g);
+if(o.innerMirror)box(a0+0.03,a1-0.03,-h/2+0.15,h/2-0.15,-0.013,-0.009,mirrorM,false,g);
+doors.push({g,target:(dir>0?-ang:ang)*s});}
+[[-2.35,-1.75],[-1.75,-1.15],[-1.15,-0.55]].forEach(([x0,x1],k)=>{const w=(x1-x0)-0.003;const left=k===2;const hx=left?x1-0.0015:x0+0.0015;const d=left?-1:1;door(hx,0.609,w,0.103,2.097,d,1.5,{handle:true,innerMirror:k===0});door(hx,0.609,w,2.103,2.397,d,1.5,{});});
+door(-0.0415,0.609,0.505,0.783,2.097,-1,1.45,{handle:true});
+door(-0.0415,0.609,0.505,2.103,2.397,-1,1.45,{});
+door(-0.0415,0.609,0.505,0.103,0.587,-1,1.5,{knob:true});
+door(-0.0415,1.411,0.487,0.103,0.587,-1,1.5,{knob:true,back:true});
+let open=false;
+function toggleDoors(){open=!open;document.getElementById('doorBtn').textContent=open?'Close doors':'Open doors';}
+const ctr=new THREE.OrbitControls(cam,ren.domElement);
+ctr.enableDamping=true;ctr.minDistance=0.5;ctr.maxDistance=8;ctr.maxPolarAngle=1.55;
+const views={over:[[-2.6,1.9,-2.6],[-1.0,1.1,-0.8]],closet:[[-1.25,1.3,-3.4],[-1.25,1.2,-0.3]],dress:[[-1.9,1.45,-1.0],[0,1.15,-1.0]],shoes:[[-1.35,0.6,-1.0],[0,0.3,-1.0]],niche:[[-0.75,1.55,-0.55],[-0.26,1.45,-1.65]],top:[[-1.2,5.6,-0.95],[-1.2,0,-1.0]]};
+function setView(v){const[p,tg]=views[v];cam.position.set(...p);ctr.target.set(...tg);ctr.update();}
+setView('over');
+(function loop(){requestAnimationFrame(loop);doors.forEach(d=>{const tg=open?d.target:0;d.g.rotation.y+=(tg-d.g.rotation.y)*0.1;});ctr.update();ren.render(scene,cam);})();
+new ResizeObserver(()=>{W=el.clientWidth;H=el.clientHeight;cam.aspect=W/H;cam.updateProjectionMatrix();ren.setSize(W,H);}).observe(el);
+</script>
+</body>
+</html>
