@@ -41,7 +41,15 @@ export default function FrontsEditor({ sec, si, secOut, bodyH, T, setSection, se
       : [{ type: row.items[0]?.type || 'door', hinge: singleHinge }]
     setRow(ri, { items })
   }
-  const setItem = (ri, k, patch) => setRow(ri, { items: fronts[ri].items.map((it, j) => (j === k ? { ...it, ...patch } : it)) })
+  const setItem = (ri, k, patch) => setRow(ri, {
+    items: fronts[ri].items.map((it, j) => {
+      if (j !== k) return it
+      const next = { ...it, ...patch }
+      if (next.type !== 'door') delete next.hinge
+      else if (fronts[ri].items.length === 1 && !next.hinge) next.hinge = singleHinge
+      return next
+    }),
+  })
   const startCustom = () => {
     const n = Math.min(MAX_DOORS_PER_SECTION, Math.max(1, secOut?.doors || 1))
     setFronts([{ h: null, items: n === 2 ? [{ type: 'door' }, { type: 'door' }] : [{ type: 'door', hinge: singleHinge }] }])
