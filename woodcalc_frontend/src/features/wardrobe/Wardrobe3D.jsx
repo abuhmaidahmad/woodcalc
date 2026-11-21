@@ -87,6 +87,7 @@ export function RunGeometry({ geometry, frontColor, carcassColor, doorMode }) {
         if (g.kind === 'rail') return <Rail key={g.key} g={g} />
         if (g.kind === 'door') return showDoors ? <HingedDoor key={g.key} g={g} color={frontColor} open={open} /> : null
         if (g.kind === 'slidingDoor') return showDoors ? <SlidingDoor key={g.key} g={g} color={frontColor} open={open} /> : null
+        if (g.kind === 'fixedFront') return showDoors ? <Panel key={g.key} g={g} color={frontColor} roughness={0.45} /> : null
         if (g.kind === 'drawerFront') {
           return (
             <group key={g.key}>

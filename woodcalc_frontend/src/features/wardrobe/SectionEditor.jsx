@@ -2,6 +2,7 @@ import React, { useMemo } from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { presetZones, newZone, sectionWidths, PRESET_IDS, ZONE_TYPES, MAX_DOORS_PER_SECTION } from './wardrobeEngine'
 import NumField from './NumField'
+import FrontsEditor from './FrontsEditor'
 import { ACCENT, DARK, card, label, input, ghost } from './ui'
 
 export default function SectionEditor({ design, setDesign, result, std, selected, setSelected, title, presetIds = PRESET_IDS }) {
@@ -43,9 +44,13 @@ export default function SectionEditor({ design, setDesign, result, std, selected
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
         <NumField title={t('wardrobe.sectionWidth')} value={sec.w} placeholder={`${t('wardrobe.auto')} ${widths[si] ?? ''}`} onChange={(v) => setSection(si, { w: v })} />
-        <NumField title={t('wardrobe.doorCount')} value={sec.doors} disabled={design.doorType !== 'hinged'} min={1} max={MAX_DOORS_PER_SECTION}
+        <NumField title={t('wardrobe.doorCount')} value={sec.doors} disabled={design.doorType !== 'hinged' || (Array.isArray(sec.fronts) && sec.fronts.length > 0)} min={1} max={MAX_DOORS_PER_SECTION}
           placeholder={`${t('wardrobe.auto')} ${secOut?.doors ?? ''}`} onChange={(v) => setSection(si, { doors: v == null ? null : Math.min(MAX_DOORS_PER_SECTION, Math.max(1, Math.round(v))) })} />
       </div>
+      {design.doorType === 'hinged' && (
+        <FrontsEditor sec={sec} si={si} secOut={secOut} bodyH={result.summary.bodyH} T={std.carcassT} setSection={setSection}
+          selectedRow={selected.row} onSelectRow={(ri) => setSelected({ section: si, zone: null, row: ri })} />
+      )}
       <div style={{ marginTop: 10 }}>
         <span style={label}>{t('wardrobe.presetsTitle')}</span>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>

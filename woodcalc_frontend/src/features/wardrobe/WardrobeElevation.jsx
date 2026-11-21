@@ -27,7 +27,7 @@ function Dim({ x1, y1, x2, y2, label, fs, vertical }) {
   )
 }
 
-export default function WardrobeElevation({ result, design, std, selected, onSelectSection, onSelectZone, zoneLabel, constructionLabel }) {
+export default function WardrobeElevation({ result, design, std, selected, onSelectSection, onSelectZone, onSelectRow, zoneLabel, constructionLabel }) {
   const H = Number(design.height) || 0
   const cw = result.summary.carcassW || 0
   const fl = Number(design.fillerLeft) || 0
@@ -52,6 +52,11 @@ export default function WardrobeElevation({ result, design, std, selected, onSel
 
   return (
     <svg viewBox={`0 0 ${vbW} ${vbH}`} style={{ width: '100%', height: 'auto', maxHeight: 560, display: 'block', background: '#fff', borderRadius: 12 }}>
+      <defs>
+        <pattern id="wb-fixed-hatch" width={fs * 0.8} height={fs * 0.8} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+          <line x1={0} y1={0} x2={0} y2={fs * 0.8} stroke="#c9bda9" strokeWidth={fs * 0.12} />
+        </pattern>
+      </defs>
       {sectionRects.map(({ i, s }) => (
         <g key={`sec-${i}`} onClick={() => onSelectSection(i)} style={{ cursor: 'pointer' }}>
           <rect x={X(s.bayX)} y={Y(bodyTop - T)} width={Math.max(0, s.innerW)} height={Math.max(0, result.summary.innerH)}
@@ -87,6 +92,29 @@ export default function WardrobeElevation({ result, design, std, selected, onSel
             <rect x={X(g.x)} y={Y(g.y + g.h)} width={g.w} height={g.h} fill={fill} stroke={INK} strokeWidth={fs * 0.05} />
             {g.kind === 'drawerFront' && (
               <line x1={X(g.x + g.w / 2 - 60)} y1={Y(g.y + g.h - 35)} x2={X(g.x + g.w / 2 + 60)} y2={Y(g.y + g.h - 35)} stroke="#7c8186" strokeWidth={fs * 0.25} strokeLinecap="round" />
+            )}
+          </g>
+        )
+      })}
+
+      {result.geometry.map((g, gi) => {
+        if (g.kind !== 'door' && g.kind !== 'fixedFront') return null
+        const clickable = g.row != null && onSelectRow
+        const active = clickable && selected.section === g.section && selected.row === g.row
+        const x0 = X(g.x)
+        const x1 = X(g.x + g.w)
+        const yTop = Y(g.y + g.h)
+        const yBot = Y(g.y)
+        const hingeX = g.hinge === 'right' ? x1 : x0
+        const freeX = g.hinge === 'right' ? x0 : x1
+        return (
+          <g key={`front-${gi}`} pointerEvents={clickable ? 'auto' : 'none'} style={clickable ? { cursor: 'pointer' } : undefined}
+            onClick={clickable ? (e) => { e.stopPropagation(); onSelectRow(g.section, g.row) } : undefined}>
+            <rect x={x0} y={yTop} width={g.w} height={g.h} fill={g.kind === 'fixedFront' ? 'url(#wb-fixed-hatch)' : clickable ? 'rgba(255,255,255,0.001)' : 'none'}
+              stroke={active ? ACCENT : '#7c6f5e'} strokeWidth={fs * (active ? 0.16 : 0.07)} />
+            {g.kind === 'door' && (
+              <polyline points={`${freeX},${yTop} ${hingeX},${(yTop + yBot) / 2} ${freeX},${yBot}`} fill="none"
+                stroke={active ? ACCENT : '#a39886'} strokeWidth={fs * 0.06} strokeDasharray={`${fs * 0.5} ${fs * 0.3}`} />
             )}
           </g>
         )

@@ -202,6 +202,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
             <WardrobeElevation result={runOut.result} design={runOut.design} std={std} selected={{ section: selected.section, zone: selected.zone }}
               onSelectSection={(i) => setSelected({ section: i, zone: null })}
               onSelectZone={(i, zi) => setSelected({ section: i, zone: zi })}
+              onSelectRow={(i, ri) => setSelected({ section: i, zone: null, row: ri })}
               zoneLabel={(z) => t(`wardrobe.zone.${z.type}`)}
               constructionLabel={`${wallLabel(activeId)} · ${runOut.design.construction === 'shared' ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${runOut.design.backType || 'none'}`)}` : t('wardrobe.constructionTypes.boxes')}`} />
           ) : <div style={{ padding: 40, textAlign: 'center', color: '#999', fontSize: 13 }}>{t('wardrobe.closet.pickRun')}</div>)}

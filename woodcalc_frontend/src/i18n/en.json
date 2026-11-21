@@ -2553,7 +2553,8 @@
       "railSocketSpacing": "Rail socket hole spacing",
       "railSocketDiameter": "Rail socket hole diameter",
       "railSocketDepth": "Rail socket hole depth",
-      "railSocketStagger": "Rail socket stagger (shared partitions)"
+      "railSocketStagger": "Rail socket stagger (shared partitions)",
+      "minFrontH": "Min front height"
     },
     "warn": {
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
@@ -2579,7 +2580,10 @@
       "grooveBackingThin": "A {{left}} mm back groove leaves less than {{min}} mm of board. Use a shallower groove or thicker board.",
       "grooveStaggerSmall": "The back groove stagger {{stagger}} mm is less than the groove width {{min}} mm, so the grooves on the two faces of a partition overlap.",
       "confirmatCrowded": "Confirmat holes on a {{length}} mm joint into a partition are only {{spacing}} mm apart across its faces (min {{min}}).",
-      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}})."
+      "railStaggerSmall": "Back rail stagger {{stagger}} mm leaves rail holes on the two faces of a partition {{gap}} mm apart (min {{min}}).",
+      "frontsTooTall": "{{section}}: front rows add up to {{h}} mm, over the {{max}} mm body.",
+      "frontRowTooSmall": "{{section}}: a front row is {{h}} mm, under the {{min}} mm minimum.",
+      "fixedFrontNoSupport": "{{section}}: the {{h}} mm fixed front has no fixed shelf at its top or bottom edge. Add a rail behind it."
     },
     "construction": "Construction",
     "constructionTypes": {
@@ -2732,6 +2736,26 @@
     },
     "drawerSystem": "Drawer system",
     "drawerSystemNone": "Standard ({{c}} mm per side)",
-    "drawerSystemOption": "{{name}} · {{c}} mm per side"
+    "drawerSystemOption": "{{name}} · {{c}} mm per side",
+    "fronts": {
+      "title": "Door layout",
+      "auto": "Auto",
+      "custom": "Custom",
+      "hinge": "Hinge",
+      "left": "Left",
+      "right": "Right",
+      "row": "Row {{n}}",
+      "height": "Opening height",
+      "pieces": "Pieces",
+      "type": {
+        "door": "Door",
+        "fixed": "Fixed",
+        "open": "Open"
+      },
+      "hingedOn": "Hinged {{side}}",
+      "addRow": "+ Add row",
+      "matchZones": "Match zones",
+      "hint": "Rows run top to bottom across the body. One row fills the rest. Two pieces in a row hinge on the left and right walls."
+    }
   }
 }
