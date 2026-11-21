@@ -26,6 +26,7 @@ export const WARDROBE_PART_CODES = {
   'Plinth': 'PL',
   'Filler': 'FIL',
   'Top filler': 'TF',
+  'Fixed front': 'FXF',
   'Island top': 'IT',
 }
 

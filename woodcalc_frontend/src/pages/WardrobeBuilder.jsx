@@ -373,6 +373,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
                 <WardrobeElevation result={result} design={design} std={std} selected={{ section: si, zone: selected.zone }}
                   onSelectSection={(i) => setSelected({ section: i, zone: null })}
                   onSelectZone={(i, zi) => setSelected({ section: i, zone: zi })}
+                  onSelectRow={(i, ri) => setSelected({ section: i, zone: null, row: ri })}
                   zoneLabel={zoneLabel} constructionLabel={constructionLabel} />
               ) : (
                 <ErrorBoundary>

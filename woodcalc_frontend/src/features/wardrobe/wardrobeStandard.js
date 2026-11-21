@@ -16,6 +16,7 @@ export const DEFAULT_WARDROBE_STANDARD = {
   minSectionW: 300,
   maxDoorW: 600,
   doorGap: 3,
+  minFrontH: 100,
   minHangDepth: 530,
   railDrop: 50,
   railDeduction: 2,
@@ -108,7 +109,7 @@ export const STANDARD_ENUMS = {
 export const STANDARD_FIELD_GROUPS = [
   { id: 'materials', fields: ['carcassT', 'frontT', 'backT', 'edgeCarcass', 'edgeFront', 'sheetL', 'sheetW', 'wasteFactor'] },
   { id: 'construction', fields: ['grooveDepth', 'grooveSetback', 'backClearance', 'plinthH', 'plinthSetback', 'legsPerSection', 'maxCarcassH', 'minLoftH'] },
-  { id: 'sizes', fields: ['maxSectionW', 'minSectionW', 'maxDoorW', 'doorGap', 'maxShelfSpan', 'shelfSpacing', 'minShelfGap'] },
+  { id: 'sizes', fields: ['maxSectionW', 'minSectionW', 'maxDoorW', 'doorGap', 'minFrontH', 'maxShelfSpan', 'shelfSpacing', 'minShelfGap'] },
   { id: 'interior', fields: ['shelfFrontSetback', 'shelfBackClearance', 'shelfSideClearance', 'minHangDepth', 'railDrop', 'railDeduction', 'minLongHangH', 'minDoubleHangH'] },
   { id: 'drawers', fields: ['drawerH', 'drawerFrontGap', 'drawerSpacerT', 'drawerBoxT', 'drawerBottomT', 'runnerClearance', 'drawerBoxHDeduction', 'minDrawerBoxH', 'spacerBoardSku'] },
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },

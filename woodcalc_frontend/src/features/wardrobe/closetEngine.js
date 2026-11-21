@@ -253,6 +253,7 @@ export function computeCloset(closet, std) {
     runLength: r1(runs.reduce((a, r) => a + r.place.length, 0)),
     sectionCount: runs.reduce((a, r) => a + r.design.sections.length, 0),
     doorCount: runs.reduce((a, r) => a + (r.result.summary.doorCount || 0), 0),
+    fixedFrontCount: runs.reduce((a, r) => a + (r.result.summary.fixedFrontCount || 0), 0),
     partCount: merged.reduce((a, p) => a + p.qty, 0),
     width: layout.width,
     depth: layout.depth,
