@@ -113,14 +113,14 @@ function Scene({ result, design, frontColor, carcassColor, doorMode }) {
   )
 }
 
-export default function Wardrobe3D({ result, design, frontColor, carcassColor, doorMode, height = 520, label }) {
+export default function Wardrobe3D({ result, design, frontColor, carcassColor, doorMode, height = 520, label, distance = 1 }) {
   const W = Math.max(600, Number(design.width) || 2400)
   const H = Math.max(600, Number(design.height) || 2600)
   const span = Math.max(W, H) * S
   return (
     <div style={{ position: 'relative', height, borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(#f4f1ec, #e7e1d8)' }}>
       {label && <div style={tag}>{label}</div>}
-      <Canvas shadows dpr={[1, 2]} camera={{ position: [span * 0.45, H * S * 0.62, span * 1.55], fov: 40 }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: [span * 0.45 * distance, H * S * 0.62, span * 1.55 * distance], fov: 40 }}>
         <hemisphereLight args={['#ffffff', '#b9a98f', 0.85]} />
         <directionalLight position={[2.5, 4, 3.5]} intensity={1.15} castShadow shadow-mapSize={[2048, 2048]} />
         <directionalLight position={[-3, 2, 2]} intensity={0.35} />
@@ -130,7 +130,7 @@ export default function Wardrobe3D({ result, design, frontColor, carcassColor, d
           <meshStandardMaterial color="#e9e4dc" roughness={1} />
         </mesh>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.35} scale={span * 3} blur={2.2} far={2} />
-        <OrbitControls target={[0, H * S * 0.45, 0]} enableDamping maxPolarAngle={Math.PI * 0.49} minDistance={0.8} maxDistance={span * 4} />
+        <OrbitControls target={[0, H * S * 0.45, 0]} enableDamping maxPolarAngle={Math.PI * 0.49} minDistance={0.8} maxDistance={span * 4 * distance} />
       </Canvas>
     </div>
   )
