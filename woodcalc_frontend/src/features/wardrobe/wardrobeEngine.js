@@ -47,6 +47,7 @@ export const PART_NAMES_AR = {
   'Plinth': 'بانيل',
   'Filler': 'سدة',
   'Top filler': 'سدة علوية',
+  'Fixed front': 'لوح أمامي ثابت',
   'Island top': 'سطح الجزيرة',
 }
 
@@ -157,6 +158,38 @@ export function confirmatPerJoint(L) {
 }
 
 export const MAX_DOORS_PER_SECTION = 2
+export const FRONT_ITEM_TYPES = ['door', 'fixed', 'open']
+
+export function hasCustomFronts(section) {
+  return Array.isArray(section?.fronts) && section.fronts.length > 0
+}
+
+export function resolveFrontRows(fronts, bodyH) {
+  const rows = fronts.map((r) => ({ ...r, items: (Array.isArray(r.items) && r.items.length ? r.items : [{ type: 'door' }]).slice(0, MAX_DOORS_PER_SECTION) }))
+  let fill = rows.findIndex((r) => r.h == null || r.h === '')
+  if (fill < 0) fill = rows.length - 1
+  const fixedSum = rows.reduce((a, r, i) => a + (i === fill ? 0 : Math.max(0, num(r.h))), 0)
+  const fillH = bodyH - fixedSum
+  let y = 0
+  const out = rows.map((r, i) => ({ ...r, h: r1(i === fill ? Math.max(0, fillH) : Math.max(0, num(r.h))), fill: i === fill }))
+  for (let i = out.length - 1; i >= 0; i--) {
+    out[i].bottom = r1(y)
+    y += out[i].h
+  }
+  return { rows: out, overflow: fillH < 0, fixedSum: r1(fixedSum) }
+}
+
+export function frontItemHinge(items, k) {
+  if (items.length === 2) return k === 0 ? 'left' : 'right'
+  return items[k]?.hinge === 'right' ? 'right' : 'left'
+}
+
+export function rowsFromZones(zones, bodyH, T) {
+  const cuts = zones.slice(0, -1).map((z) => r1(z.bottom + T - T / 2)).sort((a, b) => a - b)
+  const edges = [0, ...cuts, bodyH]
+  const hs = edges.slice(1).map((e, i) => r1(e - edges[i])).reverse()
+  return hs.map((h, i) => ({ h: i === 0 ? null : h, items: [{ type: 'door' }] }))
+}
 
 export function hingedDoorCount(section, w, std) {
   const forced = Math.round(num(section.doors))
@@ -370,22 +403,28 @@ export function computeWardrobe(design, std) {
   const widthSum = r1(widths.reduce((a, w) => a + w, 0))
   if (Math.abs(widthSum - cw) > 0.5) warn('widthMismatch', { sum: widthSum, total: cw }, 'error')
 
-  const carcass = (section, si, x, w, y0, h, loft) => {
+  const carcass = (section, si, x, w, y0, h, loft, splitSides = false) => {
     const innerW = w - 2 * T
     const side = kit.wall(y0, h)
+    const rightSide = splitSides ? kit.wall(y0, h) : side
     const topOps = opList()
     const bottomOps = opList()
-    part({ name: 'Side', L: h, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section, loft, ops: side.ops })
+    if (splitSides) {
+      ;[side, rightSide].forEach((sw) => part({ name: 'Side', L: h, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft, ops: sw.ops }))
+    } else {
+      part({ name: 'Side', L: h, W: D, T, qty: 2, material: 'Carcass', edges: 'F', section, loft, ops: side.ops })
+    }
     part({ name: 'Top', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft, ops: topOps })
     part({ name: 'Bottom', L: innerW, W: D, T, qty: 1, material: 'Carcass', edges: 'F', section, loft, ops: bottomOps })
     part({ name: 'Back', L: h - 2 * T + backGrow, W: innerW + backGrow, T: std.backT, qty: 1, material: 'Back', edges: '', section, loft })
     addHw('confirmat', 4 * confirmatPerJoint(D))
     ;[[topOps, y0 + h - T / 2], [bottomOps, y0 + T / 2]].forEach(([ops, absY]) => {
-      ;['LEFT', 'RIGHT'].forEach((end) => kit.join(side, 'TOP', ops, end, { absY, frontZ: D, length: D, panelLength: innerW }))
+      ;['LEFT', 'RIGHT'].forEach((end) => kit.join(end === 'LEFT' ? side : rightSide, 'TOP', ops, end, { absY, frontZ: D, length: D, panelLength: innerW }))
       kit.backGroove(ops, innerW)
     })
     kit.backGroove(side.ops, h)
-    bayWalls(loft)[si] = { left: { w: side, face: 'TOP' }, right: { w: side, face: 'TOP' } }
+    if (splitSides) kit.backGroove(rightSide.ops, h)
+    bayWalls(loft)[si] = { left: { w: side, face: 'TOP' }, right: { w: rightSide, face: 'TOP' } }
     box({ kind: 'carcass', x, y: y0, z: 0, w: T, h, d: D })
     box({ kind: 'carcass', x: x + w - T, y: y0, z: 0, w: T, h, d: D })
     box({ kind: 'carcass', x: x + T, y: y0, z: 0, w: innerW, h: T, d: D })
@@ -536,7 +575,53 @@ export function computeWardrobe(design, std) {
     })
   }
 
-  const hingedDoors = (section, si, x, w, y0, h, n, loft) => {
+  const customFronts = (section, si, x, w, fronts, zones) => {
+    const y0 = std.plinthH
+    const { rows, overflow, fixedSum } = resolveFrontRows(fronts, bodyH)
+    if (overflow) warn('frontsTooTall', { section, h: fixedSum, max: r1(bodyH) }, 'error')
+    const walls = bayWalls(false)[si]
+    const hingeShift = shared && si % 2 === 1 ? std.hingeStagger : 0
+    const base = y0 + T
+    const supports = [[y0, y0 + T], [y0 + bodyH - T, y0 + bodyH]]
+      .concat(zones.slice(0, -1).map((z) => [base + z.bottom - T, base + z.bottom]))
+    const supported = (edge) => supports.some(([a, b]) => edge >= a - std.doorGap - 0.01 && edge <= b + std.doorGap + 0.01)
+    let doors = 0
+    let fixed = 0
+    rows.forEach((row, ri) => {
+      if (row.h < std.minFrontH) warn('frontRowTooSmall', { section, h: row.h, min: std.minFrontH })
+      const n = row.items.length
+      const itemW = w / n - std.doorGap
+      const itemH = row.h - std.doorGap
+      const rowBottom = y0 + row.bottom
+      if (itemH <= 0 || itemW <= 0) return
+      row.items.forEach((item, k) => {
+        const gx = x + k * (w / n) + std.doorGap / 2
+        const gy = rowBottom + std.doorGap / 2
+        if (item.type === 'door') {
+          const hinge = frontItemHinge(row.items, k)
+          doors += 1
+          if (itemW > std.maxDoorW) warn('doorTooWide', { section, w: r1(itemW), max: std.maxDoorW })
+          addHw('hinge', getHingeCount(itemH))
+          addHw('handle', 1)
+          const ops = opList()
+          const wl = hinge === 'left' ? walls.left : walls.right
+          const centres = kit.hingeCentres(itemH, gy, base, hingeShift, sectionGrid(si))
+          kit.hingeCups(ops, centres, gy, itemW, hinge)
+          part({ name: 'Door', L: itemH, W: itemW, T: FT, qty: 1, material: 'Front', edges: EDGE_ALL, section, loft: false, ops, face: 'BOTTOM' })
+          if (wl) centres.forEach((c) => kit.hingePlate(wl.w, wl.face, c))
+          box({ kind: 'door', section: si, loft: false, hinge, row: ri, x: gx, y: gy, z: D, w: r1(itemW), h: r1(itemH), d: FT })
+        } else if (item.type === 'fixed') {
+          fixed += 1
+          part({ name: 'Fixed front', L: itemH, W: itemW, T: FT, qty: 1, material: 'Front', edges: EDGE_ALL, section, loft: false })
+          if (!supported(rowBottom) && !supported(rowBottom + row.h)) warn('fixedFrontNoSupport', { section, h: r1(row.h) })
+          box({ kind: 'fixedFront', section: si, loft: false, row: ri, x: gx, y: gy, z: D, w: r1(itemW), h: r1(itemH), d: FT })
+        }
+      })
+    })
+    return { doors, fixed }
+  }
+
+  const hingedDoors = (section, si, x, w, y0, h, n, loft, singleHinge = 'left') => {
     const doorW = w / n - std.doorGap
     const doorH = h - std.doorGap
     if (!loft && doorW > std.maxDoorW) warn('doorTooWide', { section, w: r1(doorW), max: std.maxDoorW })
@@ -545,7 +630,7 @@ export function computeWardrobe(design, std) {
     const walls = bayWalls(loft)[si]
     const doorBottom = y0 + std.doorGap / 2
     const hingeShift = shared && si % 2 === 1 ? std.hingeStagger : 0
-    const sideOf = (k) => (n === 1 ? 'left' : k < n / 2 ? 'left' : 'right')
+    const sideOf = (k) => (n === 1 ? singleHinge : k < n / 2 ? 'left' : 'right')
     ;['left', 'right'].forEach((side) => {
       const ks = Array.from({ length: n }, (_, k) => k).filter((k) => sideOf(k) === side)
       if (!ks.length) return
@@ -580,7 +665,8 @@ export function computeWardrobe(design, std) {
     if (w < std.minSectionW) warn('sectionTooNarrow', { section, w, min: std.minSectionW }, 'error')
     if (w > std.maxSectionW) warn('sectionTooWide', { section, w, max: std.maxSectionW })
     if (innerW > std.maxShelfSpan) warn('shelfSpan', { section, w: r1(innerW), max: std.maxShelfSpan })
-    if (!shared) carcass(section, si, x, w, std.plinthH, bodyH, false)
+    const splitSides = hasCustomFronts(s) || s.hinge != null
+    if (!shared) carcass(section, si, x, w, std.plinthH, bodyH, false, splitSides)
 
     const { zones, autoH } = resolveZones(s.zones, innerH, std)
     if (autoH < 100) warn('zonesOverflow', { section, h: autoH }, autoH < 0 ? 'error' : 'warn')
@@ -678,20 +764,26 @@ export function computeWardrobe(design, std) {
     })
 
     let doors = 0
-    if (hinged) {
+    let fixedFronts = 0
+    const singleHinge = s.hinge === 'right' ? 'right' : 'left'
+    if (hinged && hasCustomFronts(s)) {
+      const out = customFronts(section, si, x, w, s.fronts, zones)
+      doors = out.doors
+      fixedFronts = out.fixed
+    } else if (hinged) {
       doors = hingedDoorCount(s, w, std)
-      hingedDoors(section, si, x, w, std.plinthH, bodyH, doors, false)
+      hingedDoors(section, si, x, w, std.plinthH, bodyH, doors, false, singleHinge)
     }
     let loftDoors = 0
     if (loftH > 0) {
-      if (!shared) carcass(section, si, x, w, std.plinthH + bodyH, loftH, true)
+      if (!shared) carcass(section, si, x, w, std.plinthH + bodyH, loftH, true, splitSides)
       if (design.doorType !== 'none') {
-        loftDoors = hinged ? doors : hingedDoorCount({}, w, std)
-        hingedDoors(section, si, x, w, std.plinthH + bodyH, loftH, loftDoors, true)
+        loftDoors = hinged ? hingedDoorCount(s, w, std) : hingedDoorCount({}, w, std)
+        hingedDoors(section, si, x, w, std.plinthH + bodyH, loftH, loftDoors, true, singleHinge)
       }
     }
     if (!shared) addHw('leg', std.legsPerSection)
-    sectionsOut.push({ section, w: r1(w), x: r1(x), bayX: left, innerW: r1(innerW), zones, doors, loftDoors, autoH })
+    sectionsOut.push({ section, w: r1(w), x: r1(x), bayX: left, innerW: r1(innerW), zones, doors, loftDoors, autoH, ...(fixedFronts ? { fixedFronts } : {}) })
   })
   if (shared) addHw('leg', Math.ceil(std.legsPerSection / 2) * (design.sections.length + 1 + doubles.length))
 
@@ -748,6 +840,7 @@ export function computeWardrobe(design, std) {
     usableDepth: r1(usableDepth),
     sectionCount: design.sections.length,
     doorCount: sectionsOut.reduce((a, s) => a + s.doors + s.loftDoors, 0) + slidingCount,
+    fixedFrontCount: sectionsOut.reduce((a, s) => a + (s.fixedFronts || 0), 0),
     partCount: parts.reduce((a, p) => a + p.qty, 0),
   }
 
