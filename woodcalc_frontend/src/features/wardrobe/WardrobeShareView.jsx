@@ -32,6 +32,11 @@ export default function WardrobeShareView({ data }) {
   const frontColor = validFrontColor(data.frontColor)
   const [view, setView] = useState('3d')
   const [doorMode, setDoorMode] = useState('closed')
+  const [distance] = useState(() => {
+    if (typeof window === 'undefined' || !window.innerHeight) return 1
+    const aspect = window.innerWidth / window.innerHeight
+    return aspect < 1 ? Math.min(2.4, 1.15 / aspect) : 1
+  })
   const size = closet
     ? `${Math.round(closet.width)} × ${Math.round(closet.roomDepth)} × ${Math.round(closet.height)}`
     : `${Math.round(design.width)} × ${Math.round(design.height)}`
@@ -66,9 +71,9 @@ export default function WardrobeShareView({ data }) {
             ) : (
               <Suspense fallback={loading}>
                 {closet ? (
-                  <Closet3D result={result} closet={closet} std={std} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" />
+                  <Closet3D result={result} closet={closet} std={std} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" distance={distance} />
                 ) : (
-                  <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" />
+                  <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" distance={distance} />
                 )}
               </Suspense>
             )}

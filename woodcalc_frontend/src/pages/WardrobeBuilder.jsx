@@ -408,7 +408,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
 
       {showLink && (
         <LinkProjectModal onClose={() => setShowLink(false)} onLinked={onLinked}
-          defaultRoomName={t('wardrobe.room.defaultName')} defaultRoomType={closetMode ? 'closet' : 'wardrobe'} roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
+          defaultRoomName={closetMode ? t('wardrobe.closet.title') : t('wardrobe.room.defaultName')} defaultRoomType={closetMode ? 'closet' : 'wardrobe'} roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
           canUseRoom={(r) => isWardrobeRoom({ room_type: r.room_type, planner_data: {} })} />
       )}
 
