@@ -1,8 +1,9 @@
 from django.contrib import admin
-from .models import Material, Supplier, StockMovement, StockAlert, Sink, DrawerSystem
+from .models import CoreMaterial, Material, Supplier, StockMovement, StockAlert, Sink, DrawerSystem
 
 admin.site.register(Material)
 admin.site.register(Supplier)
+admin.site.register(CoreMaterial)
 admin.site.register(StockMovement)
 admin.site.register(StockAlert)
 

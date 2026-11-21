@@ -1,10 +1,11 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import MaterialViewSet, SupplierViewSet, StockMovementViewSet, StockAlertViewSet, DrawerSystemViewSet, SinkViewSet, CabinetTemplateViewSet
+from .views import CoreMaterialViewSet, MaterialViewSet, SupplierViewSet, StockMovementViewSet, StockAlertViewSet, DrawerSystemViewSet, SinkViewSet, CabinetTemplateViewSet
 from .ai_views import DesignerAgentChatView
 router = DefaultRouter()
 router.register(r'materials', MaterialViewSet, basename='material')
 router.register(r'suppliers', SupplierViewSet, basename='supplier')
+router.register(r'core-materials', CoreMaterialViewSet, basename='corematerial')
 router.register(r'movements', StockMovementViewSet, basename='stockmovement')
 router.register(r'alerts', StockAlertViewSet, basename='stockalert')
 router.register(r'drawer-systems', DrawerSystemViewSet, basename='drawersystem')

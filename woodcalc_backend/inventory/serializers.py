@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
+from .models import CoreMaterial, Material, Supplier, StockMovement, StockAlert, DrawerSystem, Sink, CabinetTemplate
 
 
 class SupplierSerializer(serializers.ModelSerializer):
@@ -7,6 +7,18 @@ class SupplierSerializer(serializers.ModelSerializer):
         model = Supplier
         fields = '__all__'
         extra_kwargs = {'tenant': {'read_only': True}}
+
+
+class CoreMaterialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CoreMaterial
+        fields = ['id', 'name', 'created_at']
+
+    def validate_name(self, value):
+        value = value.strip()
+        if not value:
+            raise serializers.ValidationError('Name is required.')
+        return value
 
 
 class MaterialSerializer(serializers.ModelSerializer):
