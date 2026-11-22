@@ -2043,12 +2043,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {isShelfEligible(selCab) && !['Blind', 'Open Shelf', APPLIANCE_NICHE].includes(selCab.subtype) && (() => {
+                {((isShelfEligible(selCab) && !['Blind', 'Open Shelf', APPLIANCE_NICHE].includes(selCab.subtype)) || ['Oven Tower', 'Double Oven'].includes(selCab.subtype)) && (() => {
                   // Open Shelf is an open-box cabinet with no door at all (isShelfEligible
                   // only gates the shelf-count control above, which Open Shelf legitimately
                   // needs) -- splitting a door count it doesn't have would be meaningless.
-                  const doorOptions = [1, 2, 4]
-                  const currentDoors = selCab.doorCount ?? getDefaultDoorCount(selCab.width)
+                  const isOvenTower = ['Oven Tower', 'Double Oven'].includes(selCab.subtype)
+                  const doorOptions = isOvenTower ? [2, 4] : [1, 2, 4]
+                  const rawDoors = selCab.doorCount ?? getDefaultDoorCount(selCab.width)
+                  const currentDoors = isOvenTower ? Math.max(1, Math.round(rawDoors / 2)) * 2 : rawDoors
                   return (
                     <div style={{ marginBottom: 10 }}>
                       <div style={s.propLabel}>{t('kitchenPlannerModule.doorCount')}</div>

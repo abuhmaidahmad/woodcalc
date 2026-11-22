@@ -54,6 +54,8 @@ const Icons = {
   tall_pantry: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><line x1="24" y1="2" x2="24" y2="46" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="16" r="1.5" fill="#2c3e50"/><circle cx="27" cy="16" r="1.5" fill="#2c3e50"/><circle cx="21" cy="30" r="1.5" fill="#2c3e50"/><circle cx="27" cy="30" r="1.5" fill="#2c3e50"/><line x1="10" y1="24" x2="38" y2="24" stroke="#2c3e50" strokeWidth="0.75"/></svg>),
   tall_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="13" y="18" width="22" height="18" rx="1" stroke="#888" strokeWidth="1" fill="#e0e0e0"/><rect x="15" y="20" width="18" height="14" rx="1" fill="#555" opacity="0.3"/><line x1="10" y1="16" x2="38" y2="16" stroke="#2c3e50" strokeWidth="1"/><line x1="10" y1="38" x2="38" y2="38" stroke="#2c3e50" strokeWidth="1"/></svg>),
   base_hob_oven: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="14" width="40" height="28" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="4" width="40" height="10" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#2b2b2b"/><circle cx="12" cy="9" r="2.4" fill="#c0392b"/><circle cx="21" cy="9" r="2.4" fill="#555"/><circle cx="30" cy="9" r="2.4" fill="#555"/><circle cx="39" cy="9" r="2.4" fill="#555"/><rect x="10" y="20" width="28" height="18" rx="1" stroke="#888" strokeWidth="1" fill="#e0e0e0"/><rect x="12" y="22" width="24" height="14" rx="1" fill="#555" opacity="0.3"/><rect x="18" y="38" width="12" height="2" rx="1" fill="#888"/></svg>),
+  base_hob_drawers: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="14" width="40" height="28" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="4" width="40" height="10" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#2b2b2b"/><circle cx="12" cy="9" r="2.4" fill="#c0392b"/><circle cx="21" cy="9" r="2.4" fill="#555"/><circle cx="30" cy="9" r="2.4" fill="#555"/><circle cx="39" cy="9" r="2.4" fill="#555"/><line x1="4" y1="23" x2="44" y2="23" stroke="#2c3e50" strokeWidth="1"/><line x1="4" y1="32" x2="44" y2="32" stroke="#2c3e50" strokeWidth="1"/><rect x="18" y="17" width="12" height="3" rx="1" fill="#C8902A" opacity="0.4"/><rect x="18" y="26" width="12" height="3" rx="1" fill="#C8902A" opacity="0.4"/><rect x="18" y="35" width="12" height="3" rx="1" fill="#C8902A" opacity="0.4"/></svg>),
+  base_hob_doors: (<svg viewBox="0 0 48 48" fill="none"><rect x="4" y="14" width="40" height="28" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="4" y="4" width="40" height="10" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#2b2b2b"/><circle cx="12" cy="9" r="2.4" fill="#c0392b"/><circle cx="21" cy="9" r="2.4" fill="#555"/><circle cx="30" cy="9" r="2.4" fill="#555"/><circle cx="39" cy="9" r="2.4" fill="#555"/><line x1="24" y1="14" x2="24" y2="42" stroke="#2c3e50" strokeWidth="1"/><circle cx="21" cy="28" r="1.5" fill="#2c3e50"/><circle cx="27" cy="28" r="1.5" fill="#2c3e50"/></svg>),
   tall_fridge: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#e8f0f8"/><line x1="10" y1="20" x2="38" y2="20" stroke="#2c3e50" strokeWidth="1.5"/><circle cx="34" cy="11" r="1.5" fill="#2c3e50"/><circle cx="34" cy="30" r="1.5" fill="#2c3e50"/></svg>),
   tall_broom: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><circle cx="24" cy="24" r="2" fill="#2c3e50"/><line x1="24" y1="6" x2="24" y2="42" stroke="#2c3e50" strokeWidth="0.75" strokeDasharray="3,3"/></svg>),
   tall_niche: (<svg viewBox="0 0 48 48" fill="none"><rect x="10" y="2" width="28" height="44" rx="1" stroke="#2c3e50" strokeWidth="1.5" fill="#f5f0e8"/><rect x="12" y="17" width="24" height="12" fill="#cfc8bd"/><line x1="10" y1="17" x2="38" y2="17" stroke="#2c3e50" strokeWidth="1"/><line x1="10" y1="29" x2="38" y2="29" stroke="#2c3e50" strokeWidth="1"/><rect x="19" y="19" width="10" height="10" rx="1" fill="#7fb3d5"/></svg>),
@@ -105,7 +107,9 @@ export function buildLibrary(baseHeight) {
     // special case added next to the Filler one in KitchenPlanner3D's Cabinet).
     ...baseWidths.map(w => ({ id: `base_open_${w}`, label: `Open ${w}`, subtype: 'Open Shelf', width: w, height: baseHeight, depth: 560, icon: 'wall_open', category: 'base' })),
     ...baseWidths.filter(w => w >= 400).map(w => ({ id: `base_sink_${w}`, label: `Sink ${w}`, subtype: 'Sink', width: w, height: baseHeight, depth: 560, icon: 'base_sink', category: 'base' })),
-    { id: 'base_hob_oven_900', label: 'Hob + Oven 900', subtype: 'Hob + Oven', width: 900, height: baseHeight, depth: 560, icon: 'base_hob_oven', category: 'base' },
+    { id: 'base_hob_oven_900', label: 'Hob + Oven 900', subtype: 'Hob + Oven', filterGroup: 'Hob', width: 900, height: baseHeight, depth: 560, icon: 'base_hob_oven', category: 'base' },
+    ...[600, 800, 900].map(w => ({ id: `base_hob_drw_${w}`, label: `Hob Drawers ${w}`, subtype: 'Drawers', hob: true, filterGroup: 'Hob', width: w, height: baseHeight, depth: 560, icon: 'base_hob_drawers', category: 'base' })),
+    ...[600, 800, 900].map(w => ({ id: `base_hob_door_${w}`, label: `Hob Doors ${w}`, subtype: 'Standard', hob: true, filterGroup: 'Hob', width: w, height: baseHeight, depth: 560, icon: 'base_hob_doors', category: 'base' })),
     ...[300, 400, 450, 500, 600].map(w => ({ id: `base_drw_${w}`, label: `Drawers ${w}`, subtype: 'Drawers', width: w, height: baseHeight, depth: 560, icon: 'base_drawers', category: 'base' })),
     ...[400, 500, 600, 700, 800].map(w => ({ id: `base_dd_${w}`, label: `2Drw+Door ${w}`, subtype: '2Drw+Door', width: w, height: baseHeight, depth: 560, icon: 'base_drawer_door', category: 'base' })),
     ...islandWidths.map(w => ({ id: `base_isl_${w}`, label: `Island ${w}`, subtype: 'Island', width: w, height: baseHeight, depth: 600, icon: 'base_island', category: 'base' })),
@@ -579,7 +583,7 @@ function WallHeightFilter({ baseHeight, selected, onChange }) {
 
 function SubtypeFilter({ items, selected, onChange }) {
   const { t } = useTranslation()
-  const subtypes = ['All', ...new Set(items.map(i => i.subtype).filter(Boolean))]
+  const subtypes = ['All', ...new Set(items.map(i => i.filterGroup || i.subtype).filter(Boolean))]
   return (
     <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginBottom: 8 }}>
       {subtypes.map(s => <button key={s} onClick={() => onChange(s === 'All' ? null : s)} style={{ padding: '3px 7px', borderRadius: 10, border: `1px solid ${(selected === s || (!selected && s === 'All')) ? ACCENT : '#E0DAD4'}`, background: (selected === s || (!selected && s === 'All')) ? ACCENT : '#fff', color: (selected === s || (!selected && s === 'All')) ? '#fff' : '#666', fontSize: 9, fontWeight: 600, cursor: 'pointer' }}>{s === 'All' ? t('cabinetCatalog.all') : s}</button>)}
@@ -686,13 +690,13 @@ function CabinetCatalog({ baseHeight, projectDefaults, onSetupComplete, onAddCab
   const items = library[activeCategory] || []
   let filtered = items
   if (activeCategory === 'wall' && wallHeightFilter) filtered = filtered.filter(i => i.wallHeight === wallHeightFilter)
-  if (subtypeFilter) filtered = filtered.filter(i => i.subtype === subtypeFilter)
+  if (subtypeFilter) filtered = filtered.filter(i => (i.filterGroup || i.subtype) === subtypeFilter)
   if (search.trim()) filtered = filtered.filter(i => i.label.toLowerCase().includes(search.toLowerCase()) || String(i.width).includes(search))
   const displayItems = activeCategory === 'wall' && !subtypeFilter
     ? filtered.filter((item, idx, arr) => arr.findIndex(x => x.label === item.label && x.wallHeight === item.wallHeight) === idx)
     : filtered
 
-  const handleAdd = (item) => onAddCabinet({
+  const handleAdd = ({ filterGroup, ...item }) => onAddCabinet({
     ...item,
     doorStyle:    projectDefaults.doorStyle,
     golaColor:    projectDefaults.golaColor,

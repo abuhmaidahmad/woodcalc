@@ -383,6 +383,7 @@ export function nicheDoorHeights(c) {
 }
 
 export const HOOD_CABINET = 'Hood Cabinet';
+export const hasHob = (c) => c?.subtype === 'Hob + Oven' || c?.hob === true;
 export const HOOD_FRONT_DEFAULT = 70;
 export const HOOD_SHELF_DEFAULT = 300;
 export const isHoodCabinet = (c) => c?.subtype === HOOD_CABINET;
@@ -1027,15 +1028,16 @@ export function calculateCabinet(config) {
     const label = isDouble ? 'ovens' : 'oven';
     const lowerH = round2(baseH - 3);
     const upperH = round2(H - ovenTop - 3);
-    doors.push({
-      width: round2(W - 3), height: lowerH, style: doorStyle,
-      hinges: getHingeCount(lowerH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
-      notes: `Door below ${label}`,
-    });
-    doors.push({
-      width: round2(W - 3), height: upperH, style: doorStyle,
-      hinges: getHingeCount(upperH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
-      notes: `Door above ${label}`,
+    const ovenCols = Math.max(1, Math.round(doorCount / 2));
+    const ovenDoorW = ovenCols === 1 ? round2(W - 3) : splitDoorWidth(ovenCols);
+    [[lowerH, 'below'], [upperH, 'above']].forEach(([h, where]) => {
+      for (let i = 0; i < ovenCols; i++) {
+        doors.push({
+          width: ovenDoorW, height: h, style: doorStyle,
+          hinges: getHingeCount(h), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+          notes: `Door ${where} ${label}`,
+        });
+      }
     });
   } else if (isNiche) {
     // One door below and one above the appliance opening, both full width; the

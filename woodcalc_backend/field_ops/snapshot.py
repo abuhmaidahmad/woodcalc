@@ -7,7 +7,7 @@ CABINET_FIELDS = (
     "nicheLowerDoorH", "nicheUpperDoorH", "panelThickness", "frontMaterial", "frontMaterialCode",
     "frontMaterialName", "frontColor", "frontMaterialThickness", "carcassMaterial", "carcassMaterialCode",
     "carcassMaterialName", "carcassColor", "glassType", "frameColor", "applianceFinish", "hoodMount",
-    "ledStripInterior", "ledStripUnder", "skirtingSides", "skirtingMaterial", "isCustom",
+    "ledStripInterior", "ledStripUnder", "skirtingSides", "skirtingMaterial", "isCustom", "hob",
 )
 SINK_FIELDS = {
     "sinkBrand": "brand", "sinkModel": "model", "sinkMaterial": "material", "sinkColor": "color",
@@ -175,7 +175,7 @@ def _countertop(data, cabinets):
     ]
     hob_cabinets = [
         {"cabinet_id": c.get("id"), "cabinet_label": c.get("label"), "width": c.get("width"), "wall": c.get("wall")}
-        for c in cabinets if c.get("subtype") == "Hob + Oven"
+        for c in cabinets if c.get("subtype") == "Hob + Oven" or c.get("hob") is True
     ]
     return {
         "material": pick(data.get("countertopMat"), COUNTERTOP_FIELDS) or None,
