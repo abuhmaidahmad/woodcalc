@@ -2859,7 +2859,12 @@ function PrecompileWhileHidden({ active, cabinets }) {
     const tick = () => {
       attempts++
       if (scene.environment) {
+        const target = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType })
+        const previous = gl.getRenderTarget()
+        gl.setRenderTarget(target)
         gl.compileAsync(scene, camera).catch(() => {})
+        gl.setRenderTarget(previous)
+        target.dispose()
         runs++
       }
       if (runs < 3 && attempts < 30) timer = setTimeout(tick, scene.environment ? 3000 : 1000)
