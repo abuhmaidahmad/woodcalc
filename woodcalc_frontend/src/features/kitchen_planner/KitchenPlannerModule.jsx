@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec } from './formulaEngine'
+import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
 import { useCompanyStandards } from '../../api/companySettings'
 import { useRoomLockActions } from '../rooms/useRoomLockActions'
 import LinkProjectModal from '../rooms/LinkProjectModal'
@@ -629,7 +629,7 @@ function MasterCutList({ cabinets, calculateCabinet, ACCENT, DARK }) {
 // every front material the cabinets use, so two fronts and one carcass give
 // three amounts.
 function aggregateBOM(cabinets) {
-  const totals = { sheet18: 0, hdf8: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0, cabinetHangers: 0 }
+  const totals = { sheet18: 0, hdf8: 0, hinges: 0, legs: 0, confirmats: 0, dowels: 0, backScrews: 0, handles: 0, cabinetHangers: 0, ventGrilles: 0 }
   const edgeByMaterial = {}
   const addEdge = (byMat) => Object.entries(byMat).forEach(([mat, mm]) => { edgeByMaterial[mat] = (edgeByMaterial[mat] || 0) + mm / 1000 })
   cabinets.forEach(cab => {
@@ -650,6 +650,7 @@ function aggregateBOM(cabinets) {
       totals.backScrews += r.hardware.back_screws
       totals.handles    += r.hardware.handles
       totals.cabinetHangers += (r.hardware.cabinet_hangers || 0)
+      totals.ventGrilles += (r.hardware.vent_grilles || 0)
     } catch {}
   })
   Object.keys(totals).forEach(k => { totals[k] = parseFloat(totals[k].toFixed(2)) })
@@ -2043,7 +2044,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   )
                 })()}
-                {((isShelfEligible(selCab) && !['Blind', 'Open Shelf', APPLIANCE_NICHE].includes(selCab.subtype)) || ['Oven Tower', 'Double Oven'].includes(selCab.subtype)) && (() => {
+                {((isShelfEligible(selCab) && !['Blind', 'Open Shelf', APPLIANCE_NICHE, 'Oven + Microwave'].includes(selCab.subtype)) || ['Oven Tower', 'Double Oven'].includes(selCab.subtype)) && (() => {
                   // Open Shelf is an open-box cabinet with no door at all (isShelfEligible
                   // only gates the shelf-count control above, which Open Shelf legitimately
                   // needs) -- splitting a door count it doesn't have would be meaningless.
@@ -2080,6 +2081,49 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       <DimInput value={upper} onCommit={v => updateCab('nicheUpperDoorH', v)} style={s.propInput} />
                       <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: opening > 0 ? '#F5F0E8' : '#FEF2F2', fontSize: 12, fontWeight: 700, color: opening > 0 ? DARK : '#E74C3C' }}>
                         {opening > 0 ? t('kitchenPlannerModule.nicheOpening', { mm: opening }) : t('kitchenPlannerModule.nicheNoOpening')}
+                      </div>
+                    </div>
+                  )
+                })()}
+                {isOvenMicroTower(selCab) && (() => {
+                  const sp = ovenMicroTowerSpec(selCab)
+                  const canDoors = sp.sideW >= 100
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={s.propLabel}>{t('kitchenPlannerModule.ovenMicroDrawerH')}</div>
+                      <DimInput value={sp.drawerH} onCommit={v => updateCab('ovenMicroDrawerH', v)} style={s.propInput} />
+                      <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.ovenMicroGrillH')}</div>
+                      <DimInput value={sp.grillH} onCommit={v => updateCab('ovenMicroGrillH', v)} style={s.propInput} />
+                      <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.ovenMicroH')}</div>
+                      <DimInput value={sp.microH} onCommit={v => updateCab('ovenMicroH', v)} style={s.propInput} />
+                      <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.ovenMicroW')}</div>
+                      <DimInput value={sp.microW} onCommit={v => updateCab('ovenMicroW', v)} style={s.propInput} />
+                      {sp.hasSides && (
+                        <>
+                          <div style={{ ...s.propLabel, marginTop: 8 }}>{t('kitchenPlannerModule.ovenMicroSides')}</div>
+                          <div style={{ display: 'flex', gap: 6 }}>
+                            {[['filler', t('kitchenPlannerModule.ovenMicroSidesFiller')], ['doors', t('kitchenPlannerModule.ovenMicroSidesDoors')]].map(([id, label]) => {
+                              const active = sp.sideMode === id
+                              const disabled = id === 'doors' && !canDoors
+                              return (
+                                <button key={id} disabled={disabled} onClick={() => updateCab('ovenMicroSides', id)}
+                                  style={{
+                                    flex: 1, padding: '6px 0', borderRadius: 6,
+                                    border: active ? '1.5px solid #C9A876' : '1.5px solid #E0DAD4',
+                                    background: active ? '#FBF3E7' : '#fff',
+                                    color: disabled ? '#bbb' : active ? '#8A6D3B' : '#666',
+                                    fontWeight: 700, fontSize: 12, cursor: disabled ? 'not-allowed' : 'pointer',
+                                  }}>{label}</button>
+                              )
+                            })}
+                          </div>
+                          {!canDoors && <div style={{ fontSize: 11, color: '#888', marginTop: 4 }}>{t('kitchenPlannerModule.ovenMicroSidesTooNarrow')}</div>}
+                        </>
+                      )}
+                      <div style={{ marginTop: 8, padding: '6px 10px', borderRadius: 6, background: sp.upperH > 150 ? '#F5F0E8' : '#FEF2F2', fontSize: 12, fontWeight: 700, color: sp.upperH > 150 ? DARK : '#E74C3C' }}>
+                        {sp.upperH > 150
+                          ? t('kitchenPlannerModule.ovenMicroSummary', { oven: sp.ovenBottom, w: sp.microW, h: sp.microClearH, side: sp.hasSides ? sp.sideW : 0, door: sp.upperH - 3 })
+                          : t('kitchenPlannerModule.ovenMicroNoRoom')}
                       </div>
                     </div>
                   )
@@ -2323,6 +2367,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   [t('kitchenPlannerModule.bomDowels'), bom.dowels+' '+t('kitchenPlannerModule.unitPcs'), '#F39C12'], [t('kitchenPlannerModule.bomBackScrews'), bom.backScrews+' '+t('kitchenPlannerModule.unitPcs'), '#95A5A6'],
                   [t('kitchenPlannerModule.bomHandles'), bom.handles+' '+t('kitchenPlannerModule.unitPcs'), DARK],
                   [t('kitchenPlannerModule.bomCabinetHangers'), bom.cabinetHangers+' '+t('kitchenPlannerModule.unitPcs'), '#3498DB'],
+                  ...(bom.ventGrilles > 0 ? [[t('kitchenPlannerModule.bomVentGrilles'), bom.ventGrilles+' '+t('kitchenPlannerModule.unitPcs'), '#34495E']] : []),
                   [t('kitchenPlannerModule.bomBacksplash'), parseFloat(backsplashSegments.reduce((s, seg) => s + Math.hypot(seg.x2-seg.x1, seg.y2-seg.y1) / SCALE / 1000, 0).toFixed(2))+' '+t('kitchenPlannerModule.unitM'), '#8B5E3C'],
                 ].map(([label, val, color]) => (
                   <div key={label} style={{ background: '#fff', borderRadius: 10, padding: '14px 16px', borderLeft: '4px solid '+color, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>

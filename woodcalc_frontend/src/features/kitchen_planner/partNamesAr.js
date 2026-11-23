@@ -7,6 +7,8 @@ const PART_NAMES_AR = {
   'Top panel': 'سقف',
   'Bottom panel': 'قاعدة',
   'Fixed panel': 'لوح ثابت',
+  'Partition': 'قاطع',
+  'Front panel (microwave filler)': 'سدة جانب المايكرويف',
   'Front rail': 'عارضة أمامية',
   'Back rail': 'عارضة خلفية',
   'Bottom rail': 'عارضة سفلية',

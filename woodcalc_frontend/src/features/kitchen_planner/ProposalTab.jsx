@@ -25,6 +25,7 @@ const DEFAULT_PRICES = {
   back_screw_pc:     0.05,  // per piece
   handle_pc:         3.50,  // per handle
   soft_close_pc:     2.00,  // tip-on per piece
+  vent_grille_pc:    3.55,
   machining_cab:    15.00,  // CNC machining per cabinet
   labor_cab:        20.00,  // labor per cabinet
   countertop_lm:    85.00,  // per linear meter (installed)
@@ -293,12 +294,15 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const screwCost    = parseFloat(((h.back_screws || 0)* prices.back_screw_pc).toFixed(3))
   const handleCost   = parseFloat(((h.handles || 0)    * prices.handle_pc).toFixed(3))
   const softCost     = parseFloat(((h.tip_on || 0)     * prices.soft_close_pc).toFixed(3))
-  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + handleCost + softCost
+  const grillePrice  = prices.vent_grille_pc ?? DEFAULT_PRICES.vent_grille_pc
+  const grilleCost   = parseFloat(((h.vent_grilles || 0) * grillePrice).toFixed(3))
+  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + handleCost + softCost + grilleCost
 
   breakdown.push({ label: t('proposalTab.breakdownHinges'),      qty: (h.hinges || 0)     + ' ' + t('proposalTab.unitPcs'), unit: prices.hinge_pc,     cost: hingeCost })
   breakdown.push({ label: t('proposalTab.breakdownLegs'),        qty: (h.legs || 0)       + ' ' + t('proposalTab.unitPcs'), unit: prices.leg_pc,       cost: legCost })
   breakdown.push({ label: t('proposalTab.breakdownConfirmats'),  qty: (h.confirmats || 0) + ' ' + t('proposalTab.unitPcs'), unit: prices.confirmat_pc, cost: confirmCost })
   breakdown.push({ label: t('proposalTab.breakdownHandles'),     qty: (h.handles || 0)    + ' ' + t('proposalTab.unitPcs'), unit: prices.handle_pc,    cost: handleCost })
+  if (h.vent_grilles) breakdown.push({ label: t('proposalTab.breakdownVentGrilles'), qty: h.vent_grilles + ' ' + t('proposalTab.unitPcs'), unit: grillePrice, cost: grilleCost })
 
   const machiningCost = prices.machining_cab
   const laborCost     = prices.labor_cab
@@ -496,6 +500,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.dowel')}              value={prices.dowel_pc}       onChange={v => updatePrice('dowel_pc', v)} />
           <PriceRow label={t('proposalTab.handle')}             value={prices.handle_pc}      onChange={v => updatePrice('handle_pc', v)} />
           <PriceRow label={t('proposalTab.softCloseTipOn')}     value={prices.soft_close_pc}  onChange={v => updatePrice('soft_close_pc', v)} />
+          <PriceRow label={t('proposalTab.ventGrille')}         value={prices.vent_grille_pc ?? DEFAULT_PRICES.vent_grille_pc} onChange={v => updatePrice('vent_grille_pc', v)} />
           <PriceRow label={t('proposalTab.drawerRunnerFallback')} value={prices.drawer_runner_pc} onChange={v => updatePrice('drawer_runner_pc', v)} />
           <SectionTitle>{t('proposalTab.servicesPerCabinet')}</SectionTitle>
           <PriceRow label={t('proposalTab.cncMachining')}       value={prices.machining_cab}  onChange={v => updatePrice('machining_cab', v)} />

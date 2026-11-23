@@ -9,7 +9,7 @@
 // (a confirmed room's frozen Room.construction_settings) when it has them.
 // Each rule adds schema.js ops to the parts' machining_ops; errors lists any op
 // that fails validation (empty when everything fits its board).
-import { calculateCabinet, withRoomBackPanel, isHoodCabinet, hoodCabinetSpec } from '../formulaEngine';
+import { calculateCabinet, withRoomBackPanel, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from '../formulaEngine';
 import { MACHINING_CONFIG, mergeConfig } from './config';
 import { buildParts } from './parts';
 import { validatePart } from './schema';
@@ -17,9 +17,10 @@ import { hingeRule } from './rules/hinge';
 import { confirmatRule } from './rules/confirmat';
 import { backGrooveRule } from './rules/backGroove';
 import { shelfPinRule } from './rules/shelfPins';
+import { partitionScrewRule } from './rules/partitionScrews';
 
 // Rules run in this order; each is (parts, ctx) => void.
-export const RULES = [hingeRule, confirmatRule, backGrooveRule, shelfPinRule];
+export const RULES = [hingeRule, confirmatRule, partitionScrewRule, backGrooveRule, shelfPinRule];
 
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
@@ -30,6 +31,8 @@ export function carcassLayout(result, config) {
   const carcassH = side ? side.width : Number(config.height);
   const bottomD = bottom ? bottom.depth : Number(config.depth);
   const fixedPanelZ = hoodCab ? hoodCabinetSpec(config).shelfZ : (Number(config.baseHeight) || 800) - 18;
+  const omt = isOvenMicroTower(config) ? ovenMicroTowerSpec(config) : null;
+  const fixedPanelZs = omt ? omt.fixedPanelTops.map(t => t - 18) : null;
   const g = result.backGroove;
   if (g) {
     // Grooved: the back's rear face sits on the groove's rear wall, its lower
@@ -46,6 +49,8 @@ export function carcassLayout(result, config) {
       backInnerY: grooveRear - g.width,
       bottomRailBackY: bottomD,
       fixedPanelZ,
+      fixedPanelZs,
+      omt,
     };
   }
   return {
@@ -60,6 +65,8 @@ export function carcassLayout(result, config) {
     // A pantry's fixed panel sits behind the lower/upper door joint, at the
     // project's base height.
     fixedPanelZ,
+    fixedPanelZs,
+    omt,
   };
 }
 

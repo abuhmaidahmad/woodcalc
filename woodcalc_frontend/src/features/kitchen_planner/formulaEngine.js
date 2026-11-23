@@ -136,6 +136,7 @@ const SHELF_MIN_GAP = 250;
 const shelvesForGap = (c, gap) => Math.max(0, Math.floor((c.height - 36 - gap) / (gap + T)));
 export const maxShelvesFor = (c) => {
   if (!isShelfEligible(c)) return 0;
+  if (isOvenMicroTower(c)) return shelvesForGap({ height: ovenMicroTowerSpec(c).upperClearH + 36 }, SHELF_MIN_GAP);
   if (c.subtype !== APPLIANCE_NICHE) return shelvesForGap(c, SHELF_MIN_GAP);
   // An Appliance Niche's shelves only go behind its doors, never across the
   // opening, so each section takes its own share; never below the standard.
@@ -176,6 +177,7 @@ export function nicheShelfSplit(c) {
 export function shelfCountFor(c) {
   if (!isShelfEligible(c)) return 0;
   const standard = c.subtype === APPLIANCE_NICHE ? nicheStandardShelves(c)
+    : isOvenMicroTower(c) ? shelvesForGap({ height: ovenMicroTowerSpec(c).upperClearH + 36 }, SHELF_STD_GAP)
     : c.category === 'tall' ? 4 : shelvesForGap(c, SHELF_STD_GAP);
   return Math.min(c.shelfCount ?? c.glassShelfCount ?? standard, maxShelvesFor(c));
 }
@@ -359,6 +361,44 @@ export const NON_CARCASS_SUBTYPES = ['Filler', 'Panel', 'Toe Kick', 'Shelf', 'Fr
 // height like a single Oven Tower) so the stacked pair stays within reach and leaves
 // a usable door above. Shared with OvenTowerAppliance in KitchenPlanner3D.jsx.
 export const DOUBLE_OVEN_BOTTOM = 450;
+
+export const OVEN_MICRO_TOWER = 'Oven + Microwave';
+export const isOvenMicroTower = (c) => c?.subtype === OVEN_MICRO_TOWER;
+const OVEN_FRONT_H = 595;
+const OMT_DEFAULTS = { drawerH: 400, grillH: 50, microH: 420, microW: 500 };
+
+export function ovenMicroTowerSpec(c) {
+  const W = Number(c.width);
+  const H = Number(c.height);
+  const num = (v, d) => (Number(v) > 0 ? Number(v) : d);
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const drawerH = round2(clamp(num(c.ovenMicroDrawerH, OMT_DEFAULTS.drawerH), 150, 800));
+  const grillH = round2(clamp(num(c.ovenMicroGrillH, OMT_DEFAULTS.grillH), T, 150));
+  const microH = round2(clamp(num(c.ovenMicroH, OMT_DEFAULTS.microH), 250, 700));
+  const microW = round2(clamp(num(c.ovenMicroW, OMT_DEFAULTS.microW), 300, W - 2 * T));
+  const sideW = round2((W - microW) / 2);
+  const hasSides = sideW >= 30;
+  const sideMode = c.ovenMicroSides === 'doors' && sideW >= 100 ? 'doors' : 'filler';
+  const ovenBottom = round2(drawerH + grillH);
+  const microBottom = round2(ovenBottom + OVEN_FRONT_H);
+  const microTop = round2(microBottom + microH);
+  const upperH = round2(H - microTop);
+  const upperClearH = round2(H - T - microTop);
+  return {
+    drawerH, grillH, microH, microW, sideW, hasSides, sideMode,
+    ovenBottom, ovenH: OVEN_FRONT_H, microBottom, microTop, upperH, upperClearH,
+    microClearH: round2(microH - 2 * T),
+    fixedPanelTops: [ovenBottom, round2(microBottom + T), microTop],
+  };
+}
+
+function confirmatCount(length) {
+  const c = MACHINING_CONFIG.confirmat;
+  if (length <= c.shortJointMax) return 2;
+  let gaps = Math.max(1, Math.ceil((length - 2 * c.endDistance) / c.maxSpacing));
+  if (length > c.middleOverLength) gaps = Math.max(gaps, 2);
+  return gaps + 1;
+}
 // A tall unit with a door below and a door above an open niche for a free-standing
 // appliance (e.g. a water dispenser). The user types both door heights; the
 // opening is whatever is left between them (nicheDoorHeights).
@@ -397,7 +437,7 @@ export function hoodCabinetSpec(c) {
   return { frontH, shelfZ, doorH: round2(H - frontH - 3) };
 }
 
-export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
+export const APPLIANCE_SUBTYPES = ['Fridge', 'Oven Tower', 'Double Oven', OVEN_MICRO_TOWER, 'Appliance', 'Freestanding Oven', 'Freestanding Fridge', 'Freestanding Dishwasher', 'Freestanding Hood'];
 
 export function isCarcassCabinet(c) {
   return !NON_CARCASS_SUBTYPES.includes(c.subtype) && c.category !== 'accessories';
@@ -464,6 +504,11 @@ export function cabinetConfig(c) {
     nicheUpperDoorH: c.nicheUpperDoorH,
     hoodFrontH: c.hoodFrontH,
     hoodShelfH: c.hoodShelfH,
+    ovenMicroDrawerH: c.ovenMicroDrawerH,
+    ovenMicroGrillH: c.ovenMicroGrillH,
+    ovenMicroH: c.ovenMicroH,
+    ovenMicroW: c.ovenMicroW,
+    ovenMicroSides: c.ovenMicroSides,
   };
 }
 
@@ -771,11 +816,13 @@ export function calculateCabinet(config) {
   const requestedDoorCount = Number(config.doorCount || getDefaultDoorCount(W));
   const isOvenTower = config.subtype === 'Oven Tower' || config.subtype === 'Double Oven';
   const isNiche = config.subtype === APPLIANCE_NICHE;
+  const isOvenMicro = isOvenMicroTower(config);
+  const omt = isOvenMicro ? ovenMicroTowerSpec(config) : null;
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
   const boxBoardBack = hasBoxBoardBack(config);
   // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
-  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (isOvenMicro ? 1 : config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -964,6 +1011,38 @@ export function calculateCabinet(config) {
 
   }
 
+  if (isOvenMicro) {
+    const fixedD = grooved ? grooveFrontD : bottomD;
+    panels.push({
+      name: 'Fixed panel',
+      qty: 3,
+      width: bottomW,
+      depth: fixedD,
+      thickness: T,
+      notes: `(W - 2T) × ${grooved ? `(D - ${backGroove.setback} - ${backGroove.width})` : bottomFormula}, tops at ${omt.fixedPanelTops.join(' / ')}mm: under the oven, under and over the microwave`,
+    });
+    if (omt.hasSides && omt.sideMode === 'doors') {
+      panels.push({
+        name: 'Partition',
+        qty: 2,
+        width: omt.microClearH,
+        depth: round2(fixedD - 10),
+        thickness: T,
+        notes: `Between the microwave fixed panels, ${omt.microW}mm apart inside, screwed through the fixed panels above and below`,
+      });
+    } else if (omt.hasSides) {
+      panels.push({
+        name: 'Front panel (microwave filler)',
+        qty: 2,
+        width: round2(omt.sideW - 3),
+        depth: round2(omt.microH - 3),
+        thickness: T,
+        faceMaterial: 'front',
+        notes: `Fixed filler each side of the ${omt.microW}mm microwave`,
+      });
+    }
+  }
+
   // 1mm narrower than the bottom panel so the shelf drops in between the sides.
   const shelfW = round2(bottomW - 1);
   // Shelves are 10mm shallower than the top/bottom panels; a blind corner's also
@@ -1000,7 +1079,7 @@ export function calculateCabinet(config) {
   const defaultDoorCount = getDefaultDoorCount(W);
   const doorCount = isBlind ? 1 : (isHobOven || openBox) ? 0 : (Number.isFinite(requestedDoorCount) ? requestedDoorCount : defaultDoorCount);
 
-  const isTallSplit = !isOvenTower && !isNiche && config.cabinetType === 'tall' && doorCount > 1;
+  const isTallSplit = !isOvenTower && !isOvenMicro && !isNiche && config.cabinetType === 'tall' && doorCount > 1;
   const columnCount = isTallSplit ? Math.max(1, Math.round(doorCount / 2)) : doorCount;
 
   const doors = [];
@@ -1039,6 +1118,25 @@ export function calculateCabinet(config) {
         });
       }
     });
+  } else if (isOvenMicro) {
+    const upperDoorH = round2(omt.upperH - 3);
+    [0, 1].forEach(() => {
+      doors.push({
+        width: splitDoorWidth(2), height: upperDoorH, style: doorStyle,
+        hinges: getHingeCount(upperDoorH), handle: doorStyle === 'Handle', tipOn: doorStyle === 'Push',
+        notes: 'Door above microwave',
+      });
+    });
+    if (omt.hasSides && omt.sideMode === 'doors') {
+      const sideDoorH = round2(omt.microH - 3);
+      [0, 1].forEach(() => {
+        doors.push({
+          width: round2(omt.sideW - 3), height: sideDoorH, style: 'Push',
+          hinges: getHingeCount(sideDoorH), handle: false, tipOn: true,
+          notes: 'Small push-to-open door beside microwave',
+        });
+      });
+    }
   } else if (isNiche) {
     // One door below and one above the appliance opening, both full width; the
     // opening itself is the finger pull, like an oven tower's.
@@ -1149,6 +1247,16 @@ export function calculateCabinet(config) {
   // A Glass Door cabinet's fronts are bought-in aluminium-framed glass doors
   // (priced per m² of the door's outer size, the supplier sizes the glass) --
   // not cut from the front board.
+  if (isOvenMicro) {
+    const frontH = round2(omt.drawerH - 3);
+    const runnerSize = systemHasIntegratedBox ? (frontH <= 200 ? 'M' : 'C') : undefined;
+    const tipOn = doorStyle === 'Push' || doorStyle === 'Gola';
+    drawerFronts.push({
+      width: round2(W - 3), height: frontH, style: doorStyle, runnerSize,
+      opening: tipOn ? 'TIP-ON' : doorStyle, tipOn,
+      notes: `Drawer under the oven grille${runnerSize ? `, LEGRABOX ${runnerSize}` : ''}`,
+    });
+  }
   if (isGlassDoorCabinet(config)) {
     doors.forEach(d => { d.glassDoor = true; d.notes = 'Aluminium glass door'; });
   }
@@ -1163,7 +1271,7 @@ export function calculateCabinet(config) {
   const numGolaChannels = isDrawerCab
     ? zonesForGola.reduce((n, _, i) => n + (golaNeedsChannelAbove(zonesForGola, i) ? 1 : 0), 0)
     : (config.cabinetType === 'tall' ? 1 : (drawerCount > 0 ? 1 : 0));
-  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !isNiche && !openBox) ? {
+  const golaProfiles = (doorStyle === 'Gola' && !isOvenTower && !isOvenMicro && !isNiche && !openBox) ? {
     // Tall units have no top L-profile; their base-level channel is a C. Wall
     // units have none either -- the door overhanging the short carcass is the pull.
     L_meters: (config.cabinetType === 'tall' || isWallGola) ? 0 : round2(W / 1000 * 100) / 100,
@@ -1179,6 +1287,13 @@ export function calculateCabinet(config) {
   if (hasBlindPanel) hardware.confirmats += 16;
   // A pantry's fixed panel takes two confirmats per side.
   if (hasPantryFixedPanel) hardware.confirmats += 4;
+  if (isOvenMicro) {
+    const fixedD = grooved ? grooveFrontD : bottomD;
+    hardware.confirmats += 3 * 2 * confirmatCount(fixedD)
+      + (omt.hasSides && omt.sideMode === 'doors' ? 2 * 2 * confirmatCount(round2(fixedD - 10)) : 0);
+    hardware.vent_grilles = 1;
+    hardware.vent_grille_spec = `${round2(W - 3)} × ${omt.grillH}mm`;
+  }
   // Wall cabinets hang on a pair of cabinet hangers instead of legs
   hardware.cabinet_hangers = cabinetType === 'wall' ? 2 : 0;
   hardware.dowels = 10;

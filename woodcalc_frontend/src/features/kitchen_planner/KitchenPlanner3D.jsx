@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -1678,6 +1678,103 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontC
   )
 }
 
+function OvenMicroTowerAppliance({ cab, W, H, D, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, doorStyle, handlePosition, finish = 'black' }) {
+  const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
+  const spec = ovenMicroTowerSpec(cab)
+  const m = (mm) => mm / 1000
+  const matProps = getMaterialProps(frontMaterial)
+  const frontZ = D / 2 + 0.020
+  const front = { D, frontColor, frontMaterial, frontMaterialCode, textureMap, matProps, isWallCabinet: false }
+
+  const drawerH = m(spec.drawerH)
+  const grillH = m(spec.grillH)
+  const ovenBottom = m(spec.ovenBottom)
+  const ovenH = m(spec.ovenH)
+  const microBottom = m(spec.microBottom)
+  const microTop = m(spec.microTop)
+  const microClear = m(spec.microClearH)
+  const microW = m(spec.microW)
+  const sideW = m(spec.sideW)
+  const upperH = m(spec.upperH)
+  const applianceW = W - 0.006
+
+  const slots = Math.max(2, Math.floor((grillH - 0.012) / 0.008))
+  const ovenCy = ovenBottom + ovenH / 2
+  const microCy = microBottom + 0.018 + microClear / 2
+  const microFaceW = microW - 0.006
+  const microFaceH = Math.max(0.05, microClear - 0.004)
+  const windowW = microFaceW * 0.66
+  const T = 0.018
+  const solidH = microTop - T
+  const hollowH = H - solidH
+
+  return (
+    <group>
+      <SmartBox args={[W, solidH, D]} position={[0, solidH / 2, 0]} castShadow receiveShadow
+        color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
+      <group position={[0, solidH, 0]}>
+        <HollowGlassCarcass W={W} H={hollowH} D={D} color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} shelfCount={shelfCountFor(cab)} />
+      </group>
+
+      <DoorPanel {...front} x={0} y={drawerH / 2} doorW={W} doorH={drawerH}
+        doorStyle={doorStyle === 'Gola' ? 'Push' : doorStyle} handlePosition="top" frontKey="omt-drawer" hinge="drawer" />
+
+      <group position={[0, drawerH + grillH / 2, frontZ - 0.006]}>
+        <mesh>
+          <boxGeometry args={[applianceW, Math.max(0.01, grillH - 0.004), 0.012]} />
+          <meshPhysicalMaterial color={bodyColor} metalness={0.6} roughness={0.35} />
+        </mesh>
+        {Array.from({ length: slots }, (_, i) => (
+          <mesh key={i} position={[0, -grillH / 2 + 0.006 + (i + 0.5) * ((grillH - 0.012) / slots), 0.0062]}>
+            <boxGeometry args={[applianceW - 0.03, 0.003, 0.001]} />
+            <meshStandardMaterial color="#0c0c0c" roughness={1} />
+          </mesh>
+        ))}
+      </group>
+
+      <mesh position={[0, ovenCy, frontZ - 0.013]} castShadow>
+        <boxGeometry args={[applianceW, ovenH - 0.004, 0.03]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[0, ovenCy - 0.02, frontZ + 0.0025]}>
+        <boxGeometry args={[applianceW - 0.06, ovenH - 0.14, 0.002]} />
+        <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+      </mesh>
+      <mesh position={[0, ovenCy + ovenH / 2 - 0.055, frontZ + 0.016]}>
+        <boxGeometry args={[applianceW * 0.75, 0.02, 0.025]} />
+        <meshPhysicalMaterial color={hardware} metalness={0.85} roughness={0.2} />
+      </mesh>
+
+      <mesh position={[0, microCy, frontZ - 0.013]} castShadow>
+        <boxGeometry args={[microFaceW, microFaceH, 0.03]} />
+        <meshPhysicalMaterial color={bodyColor} metalness={0.5} roughness={0.35} envMapIntensity={1.2} />
+      </mesh>
+      <mesh position={[-microFaceW / 2 + 0.02 + windowW / 2, microCy, frontZ + 0.0025]}>
+        <boxGeometry args={[windowW, microFaceH - 0.05, 0.002]} />
+        <meshPhysicalMaterial color={doorGlass} metalness={0.3} roughness={0.15} />
+      </mesh>
+      <mesh position={[microFaceW / 2 - (microFaceW - windowW - 0.04) / 2 - 0.01, microCy, frontZ + 0.0025]}>
+        <boxGeometry args={[Math.max(0.02, microFaceW - windowW - 0.06), microFaceH - 0.05, 0.002]} />
+        <meshStandardMaterial color="#151515" roughness={0.6} />
+      </mesh>
+
+      {spec.hasSides && [-1, 1].map(side => (
+        <DoorPanel key={side} {...front} x={side * (W / 2 - sideW / 2)} y={(microBottom + microTop) / 2}
+          doorW={sideW} doorH={microTop - microBottom} doorStyle="Push" hideHandle
+          frontKey={spec.sideMode === 'doors' ? `omt-side-${side}` : null}
+          hinge={spec.sideMode === 'doors' ? (side < 0 ? 'left' : 'right') : null} />
+      ))}
+
+      {[-1, 1].map(side => (
+        <DoorPanel key={`up${side}`} {...front} x={side * W / 4} y={microTop + upperH / 2}
+          doorW={W / 2} doorH={upperH} doorStyle={doorStyle === 'Gola' ? 'Push' : doorStyle}
+          handlePosition={handlePosition || 'bottom'}
+          frontKey={`omt-upper-${side}`} hinge={side < 0 ? 'left' : 'right'} />
+      ))}
+    </group>
+  )
+}
+
 // Base-height cooker cabinet: a control fascia band (hob knobs) at the top of
 // the front, with the built-in single oven door below it — the hob itself
 // sits on the countertop above (see HobPlate), not on this carcass front.
@@ -2138,6 +2235,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
   const applianceKind =
     cab.subtype === 'Fridge' ? 'fridge' :
     (cab.subtype === 'Oven Tower' || cab.subtype === 'Double Oven') ? 'ovenTower' :
+    isOvenMicroTower(cab) ? 'ovenMicro' :
     cab.subtype === 'Hob + Oven' ? 'hobOven' :
     (cab.category === 'wall' && cab.subtype === 'Appliance') ? 'hood' :
     cab.subtype === 'Freestanding Oven' ? 'freestandingOven' :
@@ -2196,6 +2294,11 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight} columns={numDoors}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
+      ) : applianceKind === 'ovenMicro' ? (
+        <OvenMicroTowerAppliance cab={cab} W={W} H={H} D={D}
+          frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps}
+          doorStyle={doorStyle} handlePosition={cab.handlePosition} finish={cab.applianceFinish} />
       ) : applianceKind === 'hobOven' ? (
         <HobOvenAppliance W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}

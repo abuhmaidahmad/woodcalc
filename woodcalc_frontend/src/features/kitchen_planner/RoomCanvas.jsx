@@ -445,6 +445,7 @@ const APPLIANCE_2D_COLORS = {
   'Fridge': '#d7dadd',
   'Oven Tower': '#2b2b2b',
   'Double Oven': '#2b2b2b',
+  'Oven + Microwave': '#2b2b2b',
   'Hob + Oven': '#2b2b2b',
 }
 

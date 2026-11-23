@@ -33,6 +33,8 @@ export function partCode(partId) {
   if ((m = partId.match(/^door-(\d+)$/))) return `D${m[1]}`;
   if ((m = partId.match(/^drawer-front-(\d+)$/))) return `DF${m[1]}`;
   if ((m = partId.match(/^blind-stile-(\d+)$/))) return `BS${m[1]}`;
+  if ((m = partId.match(/^fixed-panel-(\d+)$/))) return `FX${m[1]}`;
+  if ((m = partId.match(/^partition-(\d+)$/))) return `PT${m[1]}`;
   return partId.toUpperCase();
 }
 

@@ -4,7 +4,8 @@ CABINET_FIELDS = (
     "id", "label", "category", "subtype", "width", "height", "depth", "x", "y", "rotation", "elevation",
     "baseHeight", "wallHeight", "material", "doorStyle", "doorCount", "hingeSide", "handlePosition",
     "golaColor", "shelves", "shelfCount", "glassShelfCount", "drawerType", "drawerSystem", "drawerBoxConstruction", "openBoxMaterialSource",
-    "nicheLowerDoorH", "nicheUpperDoorH", "panelThickness", "frontMaterial", "frontMaterialCode",
+    "nicheLowerDoorH", "nicheUpperDoorH", "ovenMicroDrawerH", "ovenMicroGrillH", "ovenMicroH", "ovenMicroW",
+    "ovenMicroSides", "panelThickness", "frontMaterial", "frontMaterialCode",
     "frontMaterialName", "frontColor", "frontMaterialThickness", "carcassMaterial", "carcassMaterialCode",
     "carcassMaterialName", "carcassColor", "glassType", "frameColor", "applianceFinish", "hoodMount",
     "ledStripInterior", "ledStripUnder", "skirtingSides", "skirtingMaterial", "isCustom", "hob",
@@ -23,7 +24,7 @@ ELEMENT_FIELDS = ("id", "type", "label", "x", "y", "w", "h", "rotation", "elevat
 COUNTERTOP_FIELDS = ("id", "code", "name", "brand", "color")
 ROOM_FIELDS = {"width": "width_mm", "depth": "depth_mm", "ceilingHeight": "ceiling_height_mm"}
 APPLIANCE_SUBTYPES = (
-    "Fridge", "Oven Tower", "Double Oven", "Appliance", "Appliance Niche", "Hob + Oven", "Freestanding Oven",
+    "Fridge", "Oven Tower", "Double Oven", "Oven + Microwave", "Appliance", "Appliance Niche", "Hob + Oven", "Freestanding Oven",
     "Freestanding Fridge", "Freestanding Dishwasher", "Freestanding Hood",
 )
 SINK_SUBTYPES = ("Sink", "Single Sink", "Double Sink")

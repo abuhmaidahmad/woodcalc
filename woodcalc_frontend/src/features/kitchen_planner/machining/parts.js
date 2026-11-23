@@ -86,9 +86,10 @@ export function buildParts(result, config, layout) {
   const parts = [];
   const between = { x0: T, x1: r2(W - T) };
   let shelfIdx = 0;
-  const shelfZs = shelfPlannedHeights(
-    result.panels.filter(p => p.name === 'Shelf (18mm)').reduce((n, p) => n + p.qty, 0),
-    carcassH, config.shelfHeights);
+  const shelfCount = result.panels.filter(p => p.name === 'Shelf (18mm)').reduce((n, p) => n + p.qty, 0);
+  const shelfZs = layout.omt && !(Array.isArray(config.shelfHeights) && config.shelfHeights.length >= shelfCount)
+    ? Array.from({ length: shelfCount }, (_, i) => r2(layout.omt.microTop + (layout.omt.upperClearH * (i + 1)) / (shelfCount + 1) - T / 2))
+    : shelfPlannedHeights(shelfCount, carcassH, config.shelfHeights);
 
   result.panels.forEach(p => {
     const th = p.thickness ?? T;
@@ -104,7 +105,21 @@ export function buildParts(result, config, layout) {
         parts.push(placed('top', p.name, 'horizDown', { ...between, y0: 0, y1: p.depth, z0: r2(carcassH - th), z1: carcassH }, 'TOP', { joinsSides: true }));
         break;
       case 'Fixed panel':
-        parts.push(placed('fixed-panel', p.name, 'horizUp', { ...between, y0: 0, y1: p.depth, z0: r2(layout.fixedPanelZ), z1: r2(layout.fixedPanelZ + th) }, 'TOP', { joinsSides: true }));
+        for (let i = 0; i < p.qty; i++) {
+          const z0 = layout.fixedPanelZs?.[i] ?? layout.fixedPanelZ;
+          parts.push(placed(p.qty > 1 ? `fixed-panel-${i + 1}` : 'fixed-panel', p.name, 'horizUp', { ...between, y0: 0, y1: p.depth, z0: r2(z0), z1: r2(z0 + th) }, 'TOP', { joinsSides: true }));
+        }
+        break;
+      case 'Partition':
+        if (layout.omt) {
+          const z0 = r2(layout.omt.microBottom + T);
+          const z1 = r2(z0 + p.width);
+          const inner = [r2((W - layout.omt.microW) / 2), r2((W + layout.omt.microW) / 2)];
+          parts.push(placed('partition-1', p.name, 'sideLeft', { x0: r2(inner[0] - th), x1: inner[0], y0: 0, y1: p.depth, z0, z1 }, 'TOP', { screwedToFixedPanels: true }));
+          parts.push(placed('partition-2', p.name, 'sideRight', { x0: inner[1], x1: r2(inner[1] + th), y0: 0, y1: p.depth, z0, z1 }, 'TOP', { screwedToFixedPanels: true }));
+        } else {
+          for (let i = 0; i < p.qty; i++) parts.push(loose(`partition-${i + 1}`, p.name, p.width, p.depth, th, 'TOP'));
+        }
         break;
       case 'Front rail':
         parts.push(placed('front-rail', p.name, 'horizUp', { ...between, y0: 0, y1: p.depth, z0: r2(carcassH - th), z1: carcassH }, 'TOP', { joinsSides: true }));
