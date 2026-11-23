@@ -38,6 +38,32 @@ class Supplier(models.Model):
         return self.name
 
 
+class CoreMaterial(models.Model):
+    tenant = models.ForeignKey(Company, on_delete=models.CASCADE, related_name='core_materials')
+    name = models.CharField(max_length=60)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('tenant', 'name')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+BUILTIN_CORE_MATERIALS = [
+    ('particleboard', 'Particleboard / Melamine'),
+    ('mdf', 'MDF'),
+    ('hdf', 'HDF'),
+    ('plywood', 'Plywood'),
+    ('solid_wood', 'Solid Wood'),
+    ('compact', 'Compact Laminate'),
+    ('quartz', 'Quartz'),
+    ('natural_stone', 'Granite / Marble'),
+    ('porcelain', 'Porcelain / Sintered Stone'),
+]
+
+
 class Material(models.Model):
     UNIT_CHOICES = [
         ('PCS', 'Pieces'), ('M', 'Meters'), ('M2', 'Square Meters'),
@@ -69,16 +95,8 @@ class Material(models.Model):
     board_height = models.PositiveIntegerField(blank=True, null=True, default=1220, help_text='Board height in mm')
     board_thickness = models.PositiveIntegerField(blank=True, null=True, default=18, help_text='Board thickness in mm')
     core_material = models.CharField(
-        max_length=20, blank=True, null=True, default='particleboard',
-        choices=[
-            ('particleboard', 'Particleboard / Melamine'),
-            ('mdf', 'MDF'),
-            ('hdf', 'HDF'),
-            ('plywood', 'Plywood'),
-            ('solid_wood', 'Solid Wood'),
-            ('compact', 'Compact Laminate'),
-        ],
-        help_text='Board substrate/core',
+        max_length=60, blank=True, null=True, default='particleboard',
+        help_text='Board substrate/core: a BUILTIN_CORE_MATERIALS key or the name of one of the tenant\'s CoreMaterial rows',
     )
     price_per_board = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     price_unit = models.CharField(
