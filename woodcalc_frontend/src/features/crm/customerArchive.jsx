@@ -44,30 +44,55 @@ export function blockedReasonText(t, check) {
   return parts.join(' · ')
 }
 
+const MENU_ITEM_HEIGHT = 36
+const MENU_GAP = 4
+
 // ⋯ menu. items: [{ label, onClick, danger }]
+// The menu is position: fixed so a list with overflow: hidden (rounded
+// corners) can't clip it, and it opens upward when there's no room below.
 export function ActionsMenu({ items, dark = false }) {
-  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState(null) // null = closed
   const ref = useRef(null)
+  const open = pos !== null
   useEffect(() => {
     if (!open) return
-    const close = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    const close = e => { if (ref.current && !ref.current.contains(e.target)) setPos(null) }
+    const dismiss = () => setPos(null)
     document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
+    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      document.removeEventListener('mousedown', close)
+      window.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('resize', dismiss)
+    }
   }, [open])
+  const toggle = () => {
+    if (open) { setPos(null); return }
+    const r = ref.current.getBoundingClientRect()
+    const menuHeight = items.length * MENU_ITEM_HEIGHT + 8
+    const fitsBelow = r.bottom + MENU_GAP + menuHeight <= window.innerHeight
+    const rtl = getComputedStyle(ref.current).direction === 'rtl'
+    setPos({
+      ...(fitsBelow ? { top: r.bottom + MENU_GAP } : { bottom: window.innerHeight - r.top + MENU_GAP }),
+      // Align the menu's end edge with the button's end edge.
+      ...(rtl ? { left: r.left } : { right: window.innerWidth - r.right }),
+    })
+  }
   if (!items.length) return null
   return (
     <div ref={ref} style={{ position: 'relative' }} onClick={e => e.stopPropagation()}>
-      <button onClick={() => setOpen(o => !o)} aria-label="More actions" aria-haspopup="menu" aria-expanded={open}
+      <button onClick={toggle} aria-label="More actions" aria-haspopup="menu" aria-expanded={open}
         style={{ width: 30, height: 30, borderRadius: 6, border: dark ? '1px solid rgba(255,255,255,0.15)' : '1.5px solid #E0DAD4',
           background: dark ? 'rgba(255,255,255,0.08)' : '#fff', color: dark ? '#ccc' : '#666', cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>
         ⋯
       </button>
       {open && (
-        <div role="menu" style={{ position: 'absolute', insetInlineEnd: 0, top: 34, zIndex: 50, minWidth: 150, background: '#fff',
+        <div role="menu" style={{ position: 'fixed', ...pos, zIndex: 900, minWidth: 150, background: '#fff',
           borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', padding: 4 }}>
           {items.map(item => (
-            <button key={item.label} role="menuitem" onClick={() => { setOpen(false); item.onClick() }}
-              style={{ display: 'block', width: '100%', textAlign: 'start', padding: '8px 12px', border: 'none', background: 'none',
+            <button key={item.label} role="menuitem" onClick={() => { setPos(null); item.onClick() }}
+              style={{ display: 'block', width: '100%', height: MENU_ITEM_HEIGHT, textAlign: 'start', padding: '0 12px', border: 'none', background: 'none',
                 borderRadius: 6, cursor: 'pointer', fontSize: 13, color: item.danger ? RED : DARK }}
               onMouseEnter={e => e.currentTarget.style.background = '#F7F4F0'}
               onMouseLeave={e => e.currentTarget.style.background = 'none'}>
