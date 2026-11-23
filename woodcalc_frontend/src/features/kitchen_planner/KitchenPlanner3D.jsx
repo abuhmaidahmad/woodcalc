@@ -2182,7 +2182,7 @@ function ChimneyHood({ width = 900, ceilingHeight = 2800, mountHeight = 1480, fi
 
 
 // ---- LED strip light: real aluminum channel + frosted diffuser profile (18.6mm x 12.5mm outer, 15.2mm diffuser) ----
-function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
+function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0], withLight = true }) {
   const outerW = 0.0186, outerH = 0.0125, diffW = 0.0152, diffH = 0.003
   return (
     <group position={position} rotation={rotation}>
@@ -2196,8 +2196,10 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
             crushes emissive materials down to looking barely lit */}
         <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
       </mesh>
-      <pointLight position={[0, outerH / 2, 0]} color="#ffcb8a"
-        intensity={1.1 * Math.min(4, Math.max(1, length / 0.45))} distance={Math.max(0.9, length * 0.7)} decay={1.5} />
+      {withLight && (
+        <pointLight position={[0, outerH / 2, 0]} color="#ffcb8a"
+          intensity={1.1 * Math.min(4, Math.max(1, length / 0.45))} distance={Math.max(0.9, length * 0.7)} decay={1.5} />
+      )}
     </group>
   )
 }
@@ -2487,8 +2489,10 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         const z = (-D / 2 + T) + 0.030
         return (
           <>
-            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[W / 2 - T - 0.006, H / 2, z]} />
-            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[-W / 2 + T + 0.006, H / 2, z]} />
+            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[W / 2 - T - 0.006, H / 2, z]} withLight={false} />
+            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[-W / 2 + T + 0.006, H / 2, z]} withLight={false} />
+            <pointLight position={[0, H / 2, z + 0.05]} color="#ffcb8a"
+              intensity={2.2 * Math.min(4, Math.max(1, len / 0.45))} distance={Math.max(0.9, len * 0.7)} decay={1.5} />
           </>
         )
       })()}
@@ -2845,6 +2849,16 @@ const OtherElement = React.memo(function OtherElement({ el, roomH = DEFAULT_ROOM
 // hidden canvas's frameloop to 'never' so prop updates still keep the Three.js
 // scene graph correct (the reconciler applies them regardless of frameloop),
 // but no actual frame gets drawn until the tab is visible again.
+function PrecompileWhileHidden({ active, cabinets }) {
+  const { gl, scene, camera } = useThree()
+  useEffect(() => {
+    if (active || !gl.compileAsync || !gl.extensions.has('KHR_parallel_shader_compile')) return
+    const id = setTimeout(() => { gl.compileAsync(scene, camera).catch(() => {}) }, 1500)
+    return () => clearTimeout(id)
+  }, [active, cabinets, gl, scene, camera])
+  return null
+}
+
 function RedrawOnActivate({ active }) {
   const invalidate = useThree(state => state.invalidate)
   useEffect(() => {
@@ -3021,6 +3035,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         // one-off hack.
         performance={{ min: 0.5 }}>
         <RedrawOnActivate active={active} />
+        <PrecompileWhileHidden active={active} cabinets={cabinets} />
         <ShadowMapOnDemand cabinets={cabinets} walls={walls} stairs={stairs} room={room} />
         <AdaptiveDpr pixelated />
         <AdaptiveEvents />
