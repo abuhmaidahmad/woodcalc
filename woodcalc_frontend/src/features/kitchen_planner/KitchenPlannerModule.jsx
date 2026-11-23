@@ -330,7 +330,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
   })
 
   cabinets.forEach(c => {
-    if (c.ledStripInterior) ledStripMeters += c.height / 1000
+    if (c.ledStripInterior) ledStripMeters += 2 * c.height / 1000
     if (c.ledStripUnder) ledStripMeters += c.width / 1000
     const { carcassMat, frontMat } = bandMaterialNames(c)
     if (!isCarcassCabinet(c)) {
