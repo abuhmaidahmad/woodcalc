@@ -1286,10 +1286,15 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
   const physH = (texEntry?.texture_physical_height_mm || mat.physical_height_mm || 600) / 1000
 
   const hasPhoto = Boolean(imageUrl)
+  const liveRoughness = texEntry?.roughness ?? mat.roughness ?? 0.3
+  const liveMetalness = texEntry?.metalness ?? mat.metalness ?? 0
+  const isGloss = (texEntry?.finish || mat.finish) === 'gloss'
   const ctMatProps = hasPhoto
-    ? { roughness: mat.roughness ?? 0.3, metalness: mat.metalness ?? 0, clearcoat: 0.05, clearcoatRoughness: 0.4 }
+    ? isGloss
+      ? { roughness: Math.min(liveRoughness, 0.15), metalness: liveMetalness, clearcoat: 1, clearcoatRoughness: 0.04 }
+      : { roughness: liveRoughness, metalness: liveMetalness, clearcoat: 0.05, clearcoatRoughness: 0.4 }
     : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
-  const envInt = hasPhoto ? 0.6 : 0.8
+  const envInt = hasPhoto ? (isGloss ? 1.0 : 0.6) : 0.8
 
   const slab = (w, d, pos, idx = 0) => (
     <WorktopSlab key={idx} w={w} T={T} d={d} radius={EDGE_RADIUS} position={pos}>
