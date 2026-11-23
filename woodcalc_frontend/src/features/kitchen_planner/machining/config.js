@@ -50,6 +50,11 @@ export const MACHINING_CONFIG = {
     // the screw heads.
     skipFaceHolesOnExposedSides: false,
   },
+  ledGroove: {
+    width: 19,
+    depth: 12.5,
+    backDistance: 20,
+  },
 };
 
 // Merges overrides one level deep: { hinge: { cupDiameter: 26 } } changes just

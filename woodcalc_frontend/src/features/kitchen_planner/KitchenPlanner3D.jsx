@@ -2182,6 +2182,22 @@ function ChimneyHood({ width = 900, ceilingHeight = 2800, mountHeight = 1480, fi
 
 
 // ---- LED strip light: real aluminum channel + frosted diffuser profile (18.6mm x 12.5mm outer, 15.2mm diffuser) ----
+function RecessedLEDStrip({ length, x, y, z, inward }) {
+  const lipW = 0.0186, lensW = 0.0152
+  return (
+    <group position={[x, y, z]}>
+      <mesh position={[inward * 0.0004, 0, 0]}>
+        <boxGeometry args={[0.0008, length, lipW]} />
+        <meshPhysicalMaterial color="#c8c8c8" metalness={0.75} roughness={0.35} />
+      </mesh>
+      <mesh position={[inward * 0.0009, 0, 0]}>
+        <boxGeometry args={[0.0004, Math.max(0.01, length - 0.002), lensW]} />
+        <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
+      </mesh>
+    </group>
+  )
+}
+
 function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0], withLight = true }) {
   const outerW = 0.0186, outerH = 0.0125, diffW = 0.0152, diffH = 0.003
   return (
@@ -2485,12 +2501,12 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           interior, so it must still get its LED strips -- the BOM already bills them. */}
       {cab.ledStripInterior && (!isShelf || cab.subtype === 'Open Shelf') && (() => {
         const T = 0.018
-        const len = Math.max(0.05, H - T * 2 - 0.02)
-        const z = (-D / 2 + T) + 0.030
+        const len = Math.max(0.05, H - T * 2)
+        const z = -D / 2 + 0.058
         return (
           <>
-            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[W / 2 - T - 0.006, H / 2, z]} withLight={false} />
-            <LEDStripLight length={len} rotation={[Math.PI / 2, 0, 0]} position={[-W / 2 + T + 0.006, H / 2, z]} withLight={false} />
+            <RecessedLEDStrip length={len} x={W / 2 - T} y={H / 2} z={z} inward={-1} />
+            <RecessedLEDStrip length={len} x={-W / 2 + T} y={H / 2} z={z} inward={1} />
             <pointLight position={[0, H / 2, z + 0.05]} color="#ffcb8a"
               intensity={2.2 * Math.min(4, Math.max(1, len / 0.45))} distance={Math.max(0.9, len * 0.7)} decay={1.5} />
           </>

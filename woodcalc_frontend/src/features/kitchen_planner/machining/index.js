@@ -18,9 +18,10 @@ import { confirmatRule } from './rules/confirmat';
 import { backGrooveRule } from './rules/backGroove';
 import { shelfPinRule } from './rules/shelfPins';
 import { partitionScrewRule } from './rules/partitionScrews';
+import { ledGrooveRule } from './rules/ledGroove';
 
 // Rules run in this order; each is (parts, ctx) => void.
-export const RULES = [hingeRule, confirmatRule, partitionScrewRule, backGrooveRule, shelfPinRule];
+export const RULES = [hingeRule, confirmatRule, partitionScrewRule, backGrooveRule, ledGrooveRule, shelfPinRule];
 
 // Where the carcass pieces calculateCabinet() sizes actually sit.
 export function carcassLayout(result, config) {
