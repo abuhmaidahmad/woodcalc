@@ -132,6 +132,25 @@ export function useMaterialTextureMap(companySlug) {
   return textureMap
 }
 
+const MAX_TEXTURE_PX = 2048
+
+function capTextureSize(texture) {
+  const img = texture.image
+  if (!img || texture.userData.capped) return texture
+  texture.userData.capped = true
+  const w = img.naturalWidth || img.width
+  const h = img.naturalHeight || img.height
+  if (!w || !h || Math.max(w, h) <= MAX_TEXTURE_PX) return texture
+  const scale = MAX_TEXTURE_PX / Math.max(w, h)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.round(w * scale)
+  canvas.height = Math.round(h * scale)
+  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
+  texture.image = canvas
+  texture.needsUpdate = true
+  return texture
+}
+
 function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0, rotate90 = false }) {
   const { gl } = useThree()
   const texture = useLoader(THREE.TextureLoader, imageUrl)
@@ -139,7 +158,7 @@ function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, 
     if (!texture) return null
     // Clone so each panel (especially drawers) has independent repeat/offset settings.
     // useLoader caches one shared object — mutating it directly would make all panels look the same.
-    const c = texture.clone()
+    const c = capTextureSize(texture).clone()
     c.wrapS = THREE.RepeatWrapping
     c.wrapT = THREE.RepeatWrapping
     c.repeat.set(repeatU, repeatV)
@@ -2177,15 +2196,8 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0] }) {
             crushes emissive materials down to looking barely lit */}
         <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
       </mesh>
-      {/* RectAreaLight didn't render visibly in this scene for unclear reasons
-          (no console error, just no light output) — reverted to point lights,
-          which are known to work. Spaced every ~150mm with a wide falloff radius
-          and gentle decay so adjacent lights overlap into as smooth a glow as
-          point lights can manage; still shows some beading on glossy surfaces. */}
-      {Array.from({ length: Math.max(1, Math.round(length / 0.15)) }).map((_, i, arr) => {
-        const t = arr.length === 1 ? 0 : (i / (arr.length - 1) - 0.5) * length
-        return <pointLight key={i} position={[0, outerH / 2, t]} color="#ffcb8a" intensity={1.1} distance={0.9} decay={1.5} />
-      })}
+      <pointLight position={[0, outerH / 2, 0]} color="#ffcb8a"
+        intensity={1.1 * Math.min(4, Math.max(1, length / 0.45))} distance={Math.max(0.9, length * 0.7)} decay={1.5} />
     </group>
   )
 }
@@ -2936,19 +2948,25 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
   // Open fronts mode renders at 1x resolution without ambient occlusion, so the
   // extra panels of opened cabinets don't slow the view down.
   const lowRes = LOW_POWER || openMode
-  const effects = useMemo(() => lowRes ? (
-    <EffectComposer multisampling={0}>
+  const aoPass = useRef(null)
+  const lowResRef = useRef(lowRes)
+  lowResRef.current = lowRes
+  useEffect(() => {
+    if (aoPass.current) aoPass.current.enabled = !lowRes
+  }, [lowRes])
+  const setAoPass = useCallback((pass) => {
+    aoPass.current = pass
+    if (pass) pass.enabled = !lowResRef.current
+  }, [])
+  const effects = useMemo(() => (
+    <EffectComposer enableNormalPass multisampling={LOW_POWER ? 0 : 4}>
+      <N8AO ref={setAoPass} aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
     </EffectComposer>
-  ) : (
-    <EffectComposer enableNormalPass multisampling={4}>
-      <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
-      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-    </EffectComposer>
-  ), [lowRes])
+  ), [])
   const contactShadows = useMemo(() => (
     <ContactShadows
-      key={shadowFingerprint}
+      name={shadowFingerprint}
       frames={1}
       position={[cx, 0.004, cz]}
       width={span + 4} height={span + 4}
@@ -2982,7 +3000,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         </div>
       )}
       <Canvas shadows
-        dpr={openMode ? 1 : LOW_POWER ? [1, 1.5] : [1, 2]}
+        dpr={openMode ? 1 : LOW_POWER ? [1, 1.25] : [1, 1.5]}
         onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setContextLost(true) })}
         frameloop={active ? 'demand' : 'never'}
         camera={{position:[cx+span*0.8,span*1.2,cz+span*1.8],fov:45}}
