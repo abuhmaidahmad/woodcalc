@@ -2853,8 +2853,19 @@ function PrecompileWhileHidden({ active, cabinets }) {
   const { gl, scene, camera } = useThree()
   useEffect(() => {
     if (active || !gl.compileAsync || !gl.extensions.has('KHR_parallel_shader_compile')) return
-    const id = setTimeout(() => { gl.compileAsync(scene, camera).catch(() => {}) }, 1500)
-    return () => clearTimeout(id)
+    let timer = null
+    let attempts = 0
+    let runs = 0
+    const tick = () => {
+      attempts++
+      if (scene.environment) {
+        gl.compileAsync(scene, camera).catch(() => {})
+        runs++
+      }
+      if (runs < 3 && attempts < 30) timer = setTimeout(tick, scene.environment ? 3000 : 1000)
+    }
+    timer = setTimeout(tick, 1500)
+    return () => clearTimeout(timer)
   }, [active, cabinets, gl, scene, camera])
   return null
 }
