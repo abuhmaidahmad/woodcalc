@@ -2,7 +2,7 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
-import { useCompanyStandards } from '../../api/companySettings'
+import { useCompanyStandards, useProductionPricing, useRoomSheetUsage } from '../../api/companySettings'
 import { useRoomLockActions } from '../rooms/useRoomLockActions'
 import LinkProjectModal from '../rooms/LinkProjectModal'
 import GlassOrderModal from './GlassOrderModal'
@@ -776,6 +776,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   // Company back panel + glass standards (Settings page) -- the cut list helpers
   // read them from formulaEngine; listing them in memo deps recomputes once loaded.
   const companyStandards = useCompanyStandards(!publicCompanySlug)
+  const { pricing: productionPricing } = useProductionPricing(!publicCompanySlug)
+  const sheetUsage = useRoomSheetUsage(roomId, !publicCompanySlug)
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -987,7 +989,8 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     materialsMap: textureMap,
     drawerSystemsCatalog: availableDrawerSystems,
     countertopMat, backsplashLm, backsplashHeight, t,
-  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, constructionKey])
+    production: productionPricing, sheetUsage,
+  }).grandTotal, [cabinets, proposalSettings, textureMap, availableDrawerSystems, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, constructionKey, productionPricing, sheetUsage])
 
   const buildPlannerData = () => ({ room, walls, stairs, wallThickness, elements, cabinets, projectName, baseHeight, projectDefaults: projectDefaults ? { ...projectDefaults } : null, grandTotal, countertopMat, countertopThickness, backsplashSegments, backsplashHeight, backsplashThickness, proposalSettings })
 
@@ -2517,6 +2520,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     projectName={projectName}
     initialSettings={proposalSettings}
     onSettingsChange={setProposalSettings}
+    sheetUsage={sheetUsage}
   />
 )}
 

@@ -1,4 +1,4 @@
-from django.db.models import Q
+from django.db.models import Count, Q
 from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 from tenants.mixins import TenantScopedMixin
@@ -7,7 +7,7 @@ from crm.locking import RoomNotLocked, ensure_room_unlocked, room_for_ref
 from crm.models import Room
 from crm.revisions import revision_chain
 from .models import ProductionStation, WorkOrder, WorkOrderItem, StationLog, MaterialConsumption
-from .models import StockSheet, CuttingJob
+from .models import StockSheet, CuttingJob, CuttingLayout
 from .serializers import (
     ProductionStationSerializer, WorkOrderSerializer, WorkOrderItemSerializer, WorkOrderItemBulkSerializer,
     StationLogSerializer, MaterialConsumptionSerializer,
@@ -201,6 +201,27 @@ class CuttingJobViewSet(TenantScopedMixin, ModelViewSet):
             'below_reorder_level': mat.quantity_on_hand < mat.reorder_level,
         }
         return Response(data)
+
+    @action(detail=False, methods=['get'], url_path='sheet-usage')
+    def sheet_usage(self, request):
+        """Sheets actually cut for a room: its work orders' optimized cutting jobs,
+        counted per material and sheet size. The proposal charges cutting & edge
+        banding on these instead of its own estimate once a room has been cut."""
+        room = room_for_ref(request.query_params.get('room'), request.company)
+        if room is None:
+            return Response([])
+        rows = (CuttingLayout.objects
+                .filter(job__work_order__tenant=request.company, job__work_order__room_id_ref=room.id)
+                .exclude(job__work_order__status='CANCELLED')
+                .values('job__material__sku', 'sheet__width', 'sheet__height')
+                .annotate(sheets=Count('id'))
+                .order_by('job__material__sku', 'sheet__width', 'sheet__height'))
+        return Response([{
+            'material_sku': r['job__material__sku'],
+            'width': float(r['sheet__width']),
+            'height': float(r['sheet__height']),
+            'sheets': r['sheets'],
+        } for r in rows])
 
     @action(detail=True, methods=['get'], url_path='export-csv')
     def export_csv_action(self, request, pk=None):
