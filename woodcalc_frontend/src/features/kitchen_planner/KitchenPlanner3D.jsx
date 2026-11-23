@@ -3029,7 +3029,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
           {t('kitchenPlannerModule.openFrontsHint', { count: MAX_OPEN_CABINETS })}
         </div>
       )}
-      <Canvas shadows
+      <Canvas shadows="percentage"
         dpr={openMode ? 1 : LOW_POWER ? [1, 1.25] : [1, 1.5]}
         onCreated={({ gl }) => gl.domElement.addEventListener('webglcontextlost', (e) => { e.preventDefault(); setContextLost(true) })}
         frameloop={active ? 'demand' : 'never'}
