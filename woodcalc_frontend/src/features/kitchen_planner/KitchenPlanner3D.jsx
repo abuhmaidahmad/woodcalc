@@ -443,8 +443,7 @@ function CeilingLight({ x, z, roomH = DEFAULT_ROOM_H }) {
         <circleGeometry args={[0.08, 16]} />
         <meshStandardMaterial color="#fffde7" emissive="#fffde7" emissiveIntensity={3} />
       </mesh>
-      <pointLight intensity={1.2} color="#fff5e0" distance={4} decay={2} castShadow={!LOW_POWER}
-        shadow-mapSize={[512, 512]} shadow-bias={-0.001} />
+      <pointLight intensity={1.2} color="#fff5e0" distance={4} decay={2} />
     </group>
   )
 }
@@ -486,9 +485,11 @@ function OpeningFront({ frontKey, hinge, doorW, frontZ, slide, renderInside, chi
     progress.current = next
     group.current.rotation.y = sign * DOOR_OPEN_ANGLE * next
     group.current.position.z = frontZ + (hinge === 'drawer' ? slide * next : 0)
-    // Shadow maps update on demand only (ShadowMapOnDemand); keep them following the front.
-    state.gl.shadowMap.needsUpdate = true
-    if (next === target) { if (target === 0) setShowInside(false) } else state.invalidate()
+    if (next === target) {
+      state.gl.shadowMap.needsUpdate = true
+      state.invalidate()
+      if (target === 0) setShowInside(false)
+    } else state.invalidate()
   })
   const p0 = progress.current
   const handlers = enabled && hinge ? {
@@ -529,7 +530,7 @@ function DoorPanel({ x, y, D, doorW, doorH, frontColor, frontMaterial, frontMate
 
   const { enabled: openMode, openKeys, carcassColor } = useContext(CabinetFrontsContext)
   const isOpen = openMode && frontKey != null && openKeys.includes(frontKey)
-  const canOpen = openMode && frontKey != null && hinge != null
+  const canOpen = frontKey != null && hinge != null
   // A drawer front pulls a plain box out with it (12mm sides, back and bottom).
   const renderDrawerBox = hinge === 'drawer' ? () => {
     const BT = 0.012
@@ -1261,8 +1262,8 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
 
 // A glass door swings like any other door in open fronts mode; outside it the
 // door renders as-is.
-function GlassDoorOpening({ openMode, frontKey, hinge, doorW, frontZ, children }) {
-  if (!openMode) return children
+function GlassDoorOpening({ frontKey, hinge, doorW, frontZ, children }) {
+  if (frontKey == null || hinge == null) return children
   return <OpeningFront frontKey={frontKey} hinge={hinge} doorW={doorW} frontZ={frontZ}>{children}</OpeningFront>
 }
 
@@ -1291,7 +1292,6 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
   const panelH = isGola ? (H - GAP * 2 + 0.025) : (H - GAP * 2)
   const doorGroupY = isGola ? -0.0125 : 0
   const pullY = -panelH / 2 + 0.01 + 0.006
-  const { enabled: openMode } = useContext(CabinetFrontsContext)
 
   return (
     <>
@@ -1299,7 +1299,7 @@ function GlassDoor({ W, H, D, numDoors, handlePosition, isWallCabinet, isTall = 
         const xOff = -W / 2 + doorW * i + doorW / 2
         return (
           <group key={i} position={[xOff, doorGroupY, 0]}>
-            <GlassDoorOpening openMode={openMode} frontKey={`g-${i}`} hinge={doorHinge(i, numDoors, hingeSide)} doorW={doorW} frontZ={frontZ}>
+            <GlassDoorOpening frontKey={`g-${i}`} hinge={doorHinge(i, numDoors, hingeSide)} doorW={doorW} frontZ={frontZ}>
             <mesh position={[0, panelH / 2 - FRAME_W / 2, frontZ - FRAME_T / 2]} castShadow>
               <boxGeometry args={[panelW, FRAME_W, FRAME_T]} />
               <meshPhysicalMaterial color={frameHex} roughness={frameMatProps.roughness} metalness={frameMatProps.metalness} clearcoat={frameMatProps.clearcoat} clearcoatRoughness={frameMatProps.clearcoatRoughness} envMapIntensity={frameMatProps.envMapIntensity} />
@@ -2936,6 +2936,26 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
   // Open fronts mode renders at 1x resolution without ambient occlusion, so the
   // extra panels of opened cabinets don't slow the view down.
   const lowRes = LOW_POWER || openMode
+  const effects = useMemo(() => lowRes ? (
+    <EffectComposer multisampling={0}>
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  ) : (
+    <EffectComposer enableNormalPass multisampling={4}>
+      <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
+      <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
+    </EffectComposer>
+  ), [lowRes])
+  const contactShadows = useMemo(() => (
+    <ContactShadows
+      key={shadowFingerprint}
+      frames={1}
+      position={[cx, 0.004, cz]}
+      width={span + 4} height={span + 4}
+      far={2.5} blur={6} opacity={0.5}
+      resolution={512} color="#150800"
+    />
+  ), [shadowFingerprint, cx, cz, span])
 
   return (
     <div style={{width:'100%',height:'calc(100vh - 180px)',borderRadius:12,overflow:'hidden',border:'1px solid #ddd',position:'relative'}}>
@@ -3025,14 +3045,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
 
         {/* --- Contact shadows: soft ground shadow under all cabinets ---
             key+frames={1}: render once per actual layout change, not every frame. */}
-        <ContactShadows
-          key={shadowFingerprint}
-          frames={1}
-          position={[cx, 0.004, cz]}
-          width={span + 4} height={span + 4}
-          far={2.5} blur={6} opacity={0.5}
-          resolution={512} color="#150800"
-        />
+        {contactShadows}
 
         {/* Self-hosted apartment HDRI (warm indoor reflections) — drei's preset="apartment"
             fetches this same file from raw.githubusercontent.com at runtime, which is prone
@@ -3040,16 +3053,7 @@ function KitchenPlanner3D({ cabinets, room, walls = [], stairs = [], elements = 
         <Environment files="/lebombo_1k.hdr" intensity={0.6} />
 
         <OrbitControls target={[cx,0.9,cz]} minPolarAngle={0.05} maxPolarAngle={Math.PI/1.8} minDistance={0.5} maxDistance={35} enableDamping dampingFactor={0.05} />
-        {lowRes ? (
-          <EffectComposer multisampling={0}>
-            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          </EffectComposer>
-        ) : (
-          <EffectComposer enableNormalPass multisampling={4}>
-            <N8AO aoRadius={0.35} distanceFalloff={1.0} intensity={2.2} aoSamples={16} denoiseSamples={4} denoiseRadius={12} color="#0a0603" halfRes />
-            <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
-          </EffectComposer>
-        )}
+        {effects}
 
       </Canvas>
     </div>
