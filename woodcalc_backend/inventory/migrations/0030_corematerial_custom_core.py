@@ -5,7 +5,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("inventory", "0027_drawersystem_bottom_sizes"),
+        ("inventory", "0029_drawer_system_runner_hole_pattern"),
         ("tenants", "0007_backfill_company_settings"),
     ]
 
