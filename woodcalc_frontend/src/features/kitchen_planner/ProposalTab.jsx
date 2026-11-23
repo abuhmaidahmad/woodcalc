@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
-import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor } from './formulaEngine'
-import { useCompanyStandards } from '../../api/companySettings'
+import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
+import { useCompanyStandards, useProductionPricing } from '../../api/companySettings'
+import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost } from './productionPricing'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -26,17 +27,23 @@ const DEFAULT_PRICES = {
   handle_pc:         3.50,  // per handle
   soft_close_pc:     2.00,  // tip-on per piece
   vent_grille_pc:    3.55,
-  machining_cab:    15.00,  // CNC machining per cabinet
-  labor_cab:        20.00,  // labor per cabinet
   countertop_lm:    85.00,  // per linear meter (installed)
   electric_point:   25.00,  // per electrical point
   delivery:         30.00,  // flat delivery fee
   installation_cab:  8.00,  // installation per cabinet
 }
+// Cutting & edge banding, assembly and overhead are company settings now (see
+// productionPricing.js). Proposals saved before that still carry machining_cab /
+// labor_cab in their prices -- harmless, nothing reads them any more.
 
 const USD_RATE = 0.71  // 1 JD = x USD (editable)
 
-const ZERO_COST = { materialCost: 0, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: 0, breakdown: [] }
+const ZERO_COST = { materialCost: 0, hardwareCost: 0, total: 0, breakdown: [], cutParts: [] }
+
+// A cut board part's area, attributed to the catalog material it's cut from (or,
+// with no catalog material, the generic board type's price key) -- summed per
+// material to count the boards that cutting & edge banding is charged on.
+const cutPart = (code, genericKey, m2) => ({ code: code || null, genericKey, m2 })
 
 function boardMatKey(material) {
   return material?.toLowerCase().includes('plywood') ? 'sheet18_ply_m2'
@@ -121,6 +128,7 @@ function priceFlatPiece(cab, prices, materialsMap, t) {
     { label: t('proposalTab.breakdownPieceBoard'), qty: m2.toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: pricePerM2, cost: boardCost },
   ]
   let materialCost = boardCost
+  const cutParts = [cutPart(cab.frontMaterialCode, boardMatKey(cab.material), m2)]
 
   // Fillers and Side Panels are banded all round in the front color, matching
   // the master cut list (flatPieceEdgeBanding).
@@ -146,9 +154,10 @@ function priceFlatPiece(cab, prices, materialsMap, t) {
       { label: t('proposalTab.breakdownFillerCleatEdge'), qty: ebLengthM.toFixed(2) + ' ' + t('proposalTab.unitM'), unit: prices.edge_banding_m, cost: ebCost },
     )
     materialCost = parseFloat((materialCost + cleatCost + ebCost).toFixed(3))
+    cutParts.push(cutPart(cab.carcassMaterialCode, boardMatKey(cab.material), cleatM2))
   }
 
-  return { materialCost, hardwareCost: 0, machiningCost: 0, laborCost: 0, total: parseFloat(materialCost.toFixed(2)), breakdown }
+  return { materialCost, hardwareCost: 0, total: parseFloat(materialCost.toFixed(2)), breakdown, cutParts }
 }
 
 // A wood-box drawer system needs manufactured board (sides/back at 12mm, base at
@@ -157,8 +166,9 @@ function priceFlatPiece(cab, prices, materialsMap, t) {
 // priced per the specific drawer system's own catalog rate (falling back to a generic
 // rate when that system has no price set yet).
 function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
-  if (!result.drawerBox || result.drawerFronts.length === 0) return { cost: 0, rows: [] }
+  if (!result.drawerBox || result.drawerFronts.length === 0) return { cost: 0, rows: [], cutParts: [] }
   const rows = []
+  const cutParts = []
   const box = result.drawerBox
   const sysEntry = drawerSystemsCatalog.find(s => s.name === box.system)
   const runnerSizes = result.hardware.runner_sizes
@@ -189,6 +199,13 @@ function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
   let cost = runnerCost
 
   if (box.parts_per_drawer) {
+    const drawerMats = resolveDrawerMaterials()
+    box.parts_per_drawer.forEach(p => {
+      const m2 = p.width * p.depth * p.qty / 1e6 * box.count
+      cutParts.push(p.role === 'bottom' || p.name.includes('HDF')
+        ? cutPart(drawerMats.bottom.materialCode, 'hdf8_m2', m2)
+        : cutPart(drawerMats.box.materialCode, 'board12_m2', m2))
+    })
     const boardParts = box.parts_per_drawer.filter(p => !p.name.includes('HDF'))
     const hdfParts = box.parts_per_drawer.filter(p => p.name.includes('HDF'))
     if (boardParts.length > 0) {
@@ -204,7 +221,7 @@ function priceDrawerBox(result, drawerSystemsCatalog, prices, t) {
       cost += hdfCost
     }
   }
-  return { cost, rows }
+  return { cost, rows, cutParts }
 }
 
 // ─── Price a single cabinet ────────────────────────────────────────────────
@@ -259,7 +276,14 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
     .map(([mat, mm]) => ({ mat, m: mm / 1000, cost: parseFloat((mm / 1000 * prices.edge_banding_m).toFixed(3)) }))
   const edgeCost = edgeRows.reduce((s, r) => s + r.cost, 0)
 
-  const { cost: drawerBoxCost, rows: drawerBoxRows } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)
+  const { cost: drawerBoxCost, rows: drawerBoxRows, cutParts: drawerCutParts } = priceDrawerBox(result, drawerSystemsCatalog, prices, t)
+
+  const cutParts = [
+    cutPart(cab.carcassMaterialCode, boardMatKey(cab.material), m2_18),
+    cutPart(cab.frontMaterialCode, boardMatKey(cab.material), doorM2 + drawerFrontM2 + frontPanelM2),
+    ...panels8.map(p => cutPart(p.materialCode, 'hdf8_m2', p.width * p.depth * p.qty / 1e6)),
+    ...drawerCutParts,
+  ]
 
   // Glass shelves (wall cabinets / open boxes) -- priced by the company's glass
   // material, same pieces the master cut list lists. Rooms saved before glass
@@ -304,17 +328,13 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   breakdown.push({ label: t('proposalTab.breakdownHandles'),     qty: (h.handles || 0)    + ' ' + t('proposalTab.unitPcs'), unit: prices.handle_pc,    cost: handleCost })
   if (h.vent_grilles) breakdown.push({ label: t('proposalTab.breakdownVentGrilles'), qty: h.vent_grilles + ' ' + t('proposalTab.unitPcs'), unit: grillePrice, cost: grilleCost })
 
-  const machiningCost = prices.machining_cab
-  const laborCost     = prices.labor_cab
-
-  breakdown.push({ label: t('proposalTab.breakdownMachining'), qty: t('proposalTab.unitOneCab'), unit: prices.machining_cab, cost: machiningCost })
-  breakdown.push({ label: t('proposalTab.breakdownLabor'),     qty: t('proposalTab.unitOneCab'), unit: prices.labor_cab,     cost: laborCost })
-
-  let total = parseFloat((materialCost + hardwareCost + machiningCost + laborCost).toFixed(2))
+  // Cutting & edge banding (per board) and assembly (per cabinet) are priced for
+  // the whole room in computeProposalTotals, not here.
+  let total = parseFloat((materialCost + hardwareCost).toFixed(2))
   if (!Number.isFinite(total)) {
     return ZERO_COST
   }
-  return { materialCost: parseFloat(materialCost.toFixed(2)), hardwareCost: parseFloat(hardwareCost.toFixed(2)), machiningCost, laborCost, total, breakdown }
+  return { materialCost: parseFloat(materialCost.toFixed(2)), hardwareCost: parseFloat(hardwareCost.toFixed(2)), total, breakdown, cutParts, assembled: true }
 }
 
 // ─── Section header ────────────────────────────────────────────────────────
@@ -329,9 +349,37 @@ export function defaultProposalExtras(t, cabinetCount) {
   ]
 }
 
-export function computeProposalTotals({ cabinets, prices = DEFAULT_PRICES, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, t }) {
+// Labels for parts cut from a generic board type (no catalog material picked).
+const GENERIC_BOARD_LABEL = {
+  sheet18_m2: 'proposalTab.particleboard18', sheet18_ply_m2: 'proposalTab.plywood18',
+  sheet18_mdf_m2: 'proposalTab.mdf18', hdf8_m2: 'proposalTab.hdf8', board12_m2: 'proposalTab.board12',
+}
+
+// Total cut part area per material across every priced cabinet.
+function cutAreasByMaterial(pricedCabinets, materialsMap, t) {
+  const areas = {}
+  pricedCabinets.forEach(c => (c.pricing.cutParts || []).forEach(p => {
+    if (!(p.m2 > 0)) return
+    const key = p.code || `generic:${p.genericKey}`
+    const label = p.code ? (materialsMap[p.code]?.name || p.code) : t(GENERIC_BOARD_LABEL[p.genericKey] || 'proposalTab.particleboard18')
+    if (!areas[key]) areas[key] = { code: p.code, label, m2: 0 }
+    areas[key].m2 += p.m2
+  }))
+  return areas
+}
+
+// prices: the proposal's own material/hardware price overrides (saved with the
+// room). production: the company's cutting/assembly/overhead settings.
+// sheetUsage: actual sheets from the room's optimized cutting jobs, if any.
+export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, production, sheetUsage = [], t }) {
+  // Older saved proposals may lack newer price keys -- fill them from the defaults.
+  const prices = { ...DEFAULT_PRICES, ...(savedPrices || {}) }
+  const productionPricing = normalizeProductionPricing(production)
   const badgeNums = cabinetBadges(cabinets)
   const pricedCabinets = cabinets.map(cab => ({ ...cab, num: badgeNums.get(cab.id), pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
+
+  const cutting  = cuttingCost(cutAreasByMaterial(pricedCabinets, materialsMap, t), materialsMap, productionPricing, sheetUsage)
+  const assembly = assemblyCost(pricedCabinets.filter(c => c.pricing.assembled), productionPricing)
 
   // Backsplash: real board area (linear meters drawn × chosen height) priced by
   // the countertop's own material (same slab it's cut from), falling back to a
@@ -350,15 +398,19 @@ export function computeProposalTotals({ cabinets, prices = DEFAULT_PRICES, margi
 
   const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
   const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
-  const costSubtotal     = cabinetsSubtotal + extrasSubtotal + backsplashCost + countertopCost
-  const marginAmount     = costSubtotal * (margin / 100)
-  const afterMargin      = costSubtotal + marginAmount
+  const costSubtotal     = cabinetsSubtotal + cutting.total + assembly.total + extrasSubtotal + backsplashCost + countertopCost
+  const overheadPct      = productionPricing.overhead_pct
+  const overheadAmount   = costSubtotal * (overheadPct / 100)
+  const marginBase       = costSubtotal + overheadAmount
+  const marginAmount     = marginBase * (margin / 100)
+  const afterMargin      = marginBase + marginAmount
   const vatAmount        = afterMargin * 0.16
   const grandTotal       = afterMargin + vatAmount
   return {
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
-    countertopLm, countertopPricePerLm, countertopCost,
-    cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
+    countertopLm, countertopPricePerLm, countertopCost, cutting, assembly,
+    cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
+    marginAmount, afterMargin, vatAmount, grandTotal,
   }
 }
 
@@ -389,6 +441,33 @@ function PriceRow({ label, value, onChange, unit = 'JD' }) {
   )
 }
 
+function NumInput({ value, onChange, width = 56, step = '0.01' }) {
+  return (
+    <input type="number" value={value} step={step} min="0"
+      onChange={e => onChange(parseFloat(e.target.value) || 0)}
+      style={{ width, padding: '3px 5px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+        fontSize: 11, textAlign: 'right', outline: 'none', color: DARK }} />
+  )
+}
+
+// One-line breakdowns under a Summary row: boards per size x rate, and
+// cabinets per assembly category x rate. Shared by the tab and the PDF/Excel.
+function cuttingLines(cutting, t, fmt) {
+  return cutting.bySize.map(s => {
+    const size = `${s.board.width}×${s.board.height}`
+    const actual = s.materials.some(m => m.source === 'cutting_job')
+    const line = t(s.fromTable ? 'proposalTab.cuttingSizeLine' : 'proposalTab.cuttingSizeLineM2', { boards: s.boards, size, rate: fmt(s.rate) })
+    return { text: actual ? `${line} · ${t('proposalTab.fromCuttingJob')}` : line, cost: s.cost,
+      detail: s.materials.map(m => `${m.label} (${m.boards})`).join(', ') }
+  })
+}
+function assemblyLines(assembly, t, fmt) {
+  return assembly.rows.map(r => ({
+    text: t('proposalTab.assemblyLine', { count: r.count, category: t(`proposalTab.assemblyCat_${r.category}`), rate: fmt(r.rate) }),
+    cost: r.cost,
+  }))
+}
+
 // ─── Extra line item ───────────────────────────────────────────────────────
 function ExtraItem({ item, onChange, onDelete }) {
   const { t } = useTranslation()
@@ -415,14 +494,14 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, initialSettings = null, onSettingsChange }) {
+export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, initialSettings = null, onSettingsChange, sheetUsage = [] }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
   // Seeded from the project's own saved data (initialSettings, restored via the
   // project's normal Save/Load) when this project already has proposal settings
   // saved; otherwise falls back to hardcoded defaults for a brand-new proposal.
-  const [prices, setPrices]           = useState(initialSettings?.prices || DEFAULT_PRICES)
+  const [prices, setPrices]           = useState(() => ({ ...DEFAULT_PRICES, ...(initialSettings?.prices || {}) }))
   const [margin, setMargin]           = useState(initialSettings?.margin ?? 30)
   const [usdRate, setUsdRate]         = useState(initialSettings?.usdRate ?? USD_RATE)
   // id 1 was previously a hardcoded "Countertop (installed)" placeholder row
@@ -434,6 +513,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const [customer, setCustomer]       = useState(initialSettings?.customer || { name: '', phone: '', address: '', notes: '' })
   const [expandedCab, setExpandedCab] = useState(null)
   const [showPrices, setShowPrices]   = useState(false)
+  const [showProduction, setShowProduction] = useState(false)
   const [currency, setCurrency]       = useState('JD')
 
   // Push every settings change up to the parent, which includes it in the
@@ -445,6 +525,12 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   }, [prices, margin, usdRate, extras, customer])
 
   const companyStandards = useCompanyStandards()
+  // Cutting/assembly/overhead rates are company settings shared by every
+  // proposal -- edited here, saved to the company (not to this room).
+  const { pricing: productionRaw, update: updateProductionRaw, saving: productionSaving, error: productionError } = useProductionPricing()
+  const production = normalizeProductionPricing(productionRaw)
+  const updateProduction = (patch) => updateProductionRaw({ ...production, ...patch })
+  const updateBoardRate = (i, patch) => updateProduction({ board_rates: production.board_rates.map((r, j) => j === i ? { ...r, ...patch } : r) })
   const updatePrice = (key, val) => setPrices(p => ({ ...p, [key]: val }))
   const updateExtra = (id, data) => setExtras(p => p.map(e => e.id === id ? data : e))
   const deleteExtra = (id) => setExtras(p => p.filter(e => e.id !== id))
@@ -453,10 +539,12 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const {
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
     countertopLm, countertopPricePerLm, countertopCost,
-    cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, afterMargin, vatAmount, grandTotal,
+    cutting, assembly, cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
+    marginAmount, afterMargin, vatAmount, grandTotal,
   } = useMemo(() => computeProposalTotals({
     cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
-  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyStandards])
+    production: productionRaw, sheetUsage,
+  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, productionRaw, sheetUsage])
   const grandTotalUSD    = grandTotal / usdRate
 
 
@@ -502,9 +590,54 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.softCloseTipOn')}     value={prices.soft_close_pc}  onChange={v => updatePrice('soft_close_pc', v)} />
           <PriceRow label={t('proposalTab.ventGrille')}         value={prices.vent_grille_pc ?? DEFAULT_PRICES.vent_grille_pc} onChange={v => updatePrice('vent_grille_pc', v)} />
           <PriceRow label={t('proposalTab.drawerRunnerFallback')} value={prices.drawer_runner_pc} onChange={v => updatePrice('drawer_runner_pc', v)} />
-          <SectionTitle>{t('proposalTab.servicesPerCabinet')}</SectionTitle>
-          <PriceRow label={t('proposalTab.cncMachining')}       value={prices.machining_cab}  onChange={v => updatePrice('machining_cab', v)} />
-          <PriceRow label={t('proposalTab.labor')}              value={prices.labor_cab}      onChange={v => updatePrice('labor_cab', v)} />
+        </>}
+
+        <button onClick={() => setShowProduction(p => !p)}
+          style={{ width: '100%', padding: '7px', background: '#F7F4F0', border: '1.5px solid #E0DAD4',
+            borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: '#555',
+            marginBottom: 10, textAlign: 'start' }}>
+          {showProduction ? '▾' : '▸'} {t('proposalTab.productionServices')}
+        </button>
+
+        {showProduction && <>
+          <div style={{ fontSize: 10, color: productionError ? '#E74C3C' : '#999', marginBottom: 4 }}>
+            {productionError ? t('proposalTab.settingsSaveFailed', { error: productionError })
+              : productionSaving ? t('proposalTab.savingSettings') : t('proposalTab.productionSettingsNote')}
+          </div>
+          <SectionTitle>{t('proposalTab.cuttingBandingPerBoard')}</SectionTitle>
+          <div style={{ display: 'flex', gap: 4, fontSize: 10, color: '#aaa', marginBottom: 4 }}>
+            <span style={{ flex: 1 }}>{t('proposalTab.boardSizeMm')}</span>
+            <span style={{ width: 70, textAlign: 'end' }}>{t('proposalTab.ratePerBoard')}</span>
+            <span style={{ width: 22 }} />
+          </div>
+          {production.board_rates.map((r, i) => (
+            <div key={i} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 5 }}>
+              <NumInput value={r.width} width={48} step="1" onChange={v => updateBoardRate(i, { width: v })} />
+              <span style={{ fontSize: 10, color: '#aaa' }}>×</span>
+              <NumInput value={r.height} width={48} step="1" onChange={v => updateBoardRate(i, { height: v })} />
+              <span style={{ flex: 1 }} />
+              <NumInput value={r.rate} width={50} onChange={v => updateBoardRate(i, { rate: v })} />
+              <button onClick={() => updateProduction({ board_rates: production.board_rates.filter((_, j) => j !== i) })}
+                style={{ background: '#FEF2F2', border: '1px solid #FECACA', color: '#E74C3C',
+                  borderRadius: 5, cursor: 'pointer', padding: '2px 6px', fontSize: 11, fontWeight: 700 }}>×</button>
+            </div>
+          ))}
+          <button onClick={() => updateProduction({ board_rates: [...production.board_rates, { width: 0, height: 0, rate: 0 }] })}
+            style={{ marginBottom: 6, padding: '4px 10px', background: '#F7F4F0', border: '1.5px solid #E0DAD4',
+              borderRadius: 6, cursor: 'pointer', fontSize: 10, fontWeight: 600, color: '#666' }}>
+            {t('proposalTab.addBoardSize')}
+          </button>
+          <PriceRow label={t('proposalTab.fallbackRateM2')} value={production.fallback_rate_m2} onChange={v => updateProduction({ fallback_rate_m2: v })} unit="JD/m²" />
+          <PriceRow label={t('proposalTab.wastePercent')}   value={production.waste_pct}        onChange={v => updateProduction({ waste_pct: v })} unit="%" />
+          <SectionTitle>{t('proposalTab.assemblyPerCabinet')}</SectionTitle>
+          <PriceRow label={t('proposalTab.assemblyRate')} value={production.assembly_cab} onChange={v => updateProduction({ assembly_cab: v })} />
+          {ASSEMBLY_CATEGORIES.map(c => (
+            <PriceRow key={c} label={t('proposalTab.multiplierFor', { category: t(`proposalTab.assemblyCat_${c}`) })}
+              value={production.category_multipliers[c]} unit="×"
+              onChange={v => updateProduction({ category_multipliers: { ...production.category_multipliers, [c]: v } })} />
+          ))}
+          <SectionTitle>{t('proposalTab.overheadSection')}</SectionTitle>
+          <PriceRow label={t('proposalTab.overheadPercentLabel')} value={production.overhead_pct} onChange={v => updateProduction({ overhead_pct: v })} unit="%" />
         </>}
 
         <button onClick={() => window.open('/catalog', '_blank')}
@@ -666,8 +799,6 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
                             <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 10 }}>
                               <span>{t('proposalTab.materialLabel')} <strong>{fmt(cab.pricing.materialCost)} JD</strong></span>
                               <span>{t('proposalTab.hardwareLabel')} <strong>{fmt(cab.pricing.hardwareCost)} JD</strong></span>
-                              <span>{t('proposalTab.machiningLabel')} <strong>{fmt(cab.pricing.machiningCost)} JD</strong></span>
-                              <span>{t('proposalTab.laborLabel')} <strong>{fmt(cab.pricing.laborCost)} JD</strong></span>
                             </div>
                           </td>
                         </tr>
@@ -712,18 +843,29 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 14 }}>{t('proposalTab.summary')}</div>
             {[
               [t('proposalTab.cabinetsSubtotal'),  cabinetsSubtotal],
+              ...(cutting.total > 0 ? [[t('proposalTab.cuttingRow', { boards: cutting.boards }), cutting.total, cuttingLines(cutting, t, fmt)]] : []),
+              ...(assembly.total > 0 ? [[t('proposalTab.assemblyRow', { count: assembly.count }), assembly.total, assemblyLines(assembly, t, fmt)]] : []),
               ...(countertopLm > 0 ? [[t('proposalTab.countertopRow', { m: countertopLm.toFixed(2), rate: (countertopCost / countertopLm).toFixed(2) }), countertopCost]] : []),
               ...(backsplashCost > 0 ? [[t('proposalTab.backsplashRow', { m: backsplashLm.toFixed(2) }), backsplashCost]] : []),
               [t('proposalTab.additionalItemsRow'),   extrasSubtotal],
               [t('proposalTab.costSubtotal'),      costSubtotal],
+              ...(overheadPct > 0 ? [[t('proposalTab.overheadRow', { pct: overheadPct }), overheadAmount]] : []),
               [t('proposalTab.marginPercent', { margin }), marginAmount],
               [t('proposalTab.subtotalAfterMargin'), afterMargin],
               [t('proposalTab.vat16'),          vatAmount],
-            ].map(([label, val]) => (
-              <div key={label} style={{ display: 'flex', justifyContent: 'space-between',
-                padding: '6px 0', borderBottom: '1px solid #F7F4F0', fontSize: 12 }}>
-                <span style={{ color: '#666' }}>{label}</span>
-                <span style={{ color: DARK, fontWeight: 600 }}>{fmtC(val)}</span>
+            ].map(([label, val, lines]) => (
+              <div key={label} style={{ padding: '6px 0', borderBottom: '1px solid #F7F4F0', fontSize: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#666' }}>{label}</span>
+                  <span style={{ color: DARK, fontWeight: 600 }}>{fmtC(val)}</span>
+                </div>
+                {lines?.map((l, li) => (
+                  <div key={li} title={l.detail || undefined}
+                    style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#999', paddingInlineStart: 12, marginTop: 3 }}>
+                    <span>{l.text}</span>
+                    <span>{fmtC(l.cost)}</span>
+                  </div>
+                ))}
               </div>
             ))}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -747,7 +889,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button onClick={() => exportPDF({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
-              countertopLm, countertopCost, backsplashLm, backsplashCost,
+              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
               afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale })}
               style={{ flex: 1, padding: '12px', background: DARK, color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -755,7 +897,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             </button>
             <button onClick={() => exportExcel({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
-              countertopLm, countertopCost, backsplashLm, backsplashCost,
+              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
               afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale })}
               style={{ flex: 1, padding: '12px', background: '#2AC87A', color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -772,7 +914,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
 function exportPDF(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
-    countertopLm, countertopCost, backsplashLm, backsplashCost,
+    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
     afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -808,6 +950,7 @@ function exportPDF(data) {
     td { padding: 8px 10px; border-bottom: 1px solid #F0EBE5; font-size: 12px }
     .section { font-size: 11px; font-weight: 700; color: #999; text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 8px; padding-bottom: 6px; border-bottom: 2px solid #F0EBE5 }
     .total-row { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #F0EBE5 }
+    .sub-row { display: flex; justify-content: space-between; padding: 2px 0 2px 12px; font-size: 10px; color: #999 }
     .grand { background: #FDF6EC; border-radius: 10px; padding: 16px 20px; margin-top: 12px; display: flex; justify-content: space-between; align-items: center; border: 2px solid #C8902A33 }
     .grand-label { font-size: 16px; font-weight: 800 }
     .grand-amount { font-size: 26px; font-weight: 800; color: #C8902A }
@@ -839,11 +982,16 @@ function exportPDF(data) {
 
   <div class="section">${tr('proposalPdf.summary')}</div>
   <div style="max-width:360px;margin-inline-start:auto">
-    <div class="total-row"><span>${tr('proposalPdf.cabinetsSubtotal')}</span><span>${fmt(cabinetsSubtotal)} JD</span></div>
+    <div class="total-row"><span>${tr('proposalTab.cabinetsSubtotal')}</span><span>${fmt(cabinetsSubtotal)} JD</span></div>
+    ${cutting.total > 0 ? `<div class="total-row"><span>${tr('proposalTab.cuttingRow', { boards: cutting.boards })}</span><span>${fmt(cutting.total)} JD</span></div>
+      ${cuttingLines(cutting, tr, fmt).map(l => `<div class="sub-row"><span>${l.text}</span><span>${fmt(l.cost)} JD</span></div>`).join('')}` : ''}
+    ${assembly.total > 0 ? `<div class="total-row"><span>${tr('proposalTab.assemblyRow', { count: assembly.count })}</span><span>${fmt(assembly.total)} JD</span></div>
+      ${assemblyLines(assembly, tr, fmt).map(l => `<div class="sub-row"><span>${l.text}</span><span>${fmt(l.cost)} JD</span></div>`).join('')}` : ''}
     ${countertopLm > 0 ? `<div class="total-row"><span>${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })}</span><span>${fmt(countertopCost)} JD</span></div>` : ''}
     ${backsplashCost > 0 ? `<div class="total-row"><span>${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })}</span><span>${fmt(backsplashCost)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.additionalItemsRow')}</span><span>${fmt(extrasSubtotal)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.costSubtotal')}</span><span>${fmt(costSubtotal)} JD</span></div>
+    ${overheadPct > 0 ? `<div class="total-row"><span>${tr('proposalTab.overheadRow', { pct: overheadPct })}</span><span>${fmt(overheadAmount)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.marginPercent', { margin })}</span><span>${fmt(marginAmount)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.subtotalAfterMargin')}</span><span>${fmt(afterMargin)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.vat16')}</span><span>${fmt(vatAmount)} JD</span></div>
@@ -869,7 +1017,7 @@ function exportPDF(data) {
 function exportExcel(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
-    countertopLm, countertopCost, backsplashLm, backsplashCost,
+    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
     afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -883,13 +1031,12 @@ function exportExcel(data) {
   if (customer.phone)   rows.push([tr('proposalPdf.phone'),    customer.phone])
   if (customer.address) rows.push([tr('proposalPdf.address'),  customer.address])
   rows.push([])
-  rows.push([tr('proposalPdf.colNum'), tr('proposalPdf.colCabinet'), 'Width', 'Height', 'Depth', tr('proposalPdf.colMaterial'), tr('proposalPdf.colDoorStyle'), 'Material Cost (JD)', 'Hardware Cost (JD)', 'Machining (JD)', 'Labor (JD)', 'Total (JD)'])
+  rows.push([tr('proposalPdf.colNum'), tr('proposalPdf.colCabinet'), 'Width', 'Height', 'Depth', tr('proposalPdf.colMaterial'), tr('proposalPdf.colDoorStyle'), 'Material Cost (JD)', 'Hardware Cost (JD)', 'Total (JD)'])
 
   pricedCabinets.forEach((c) => {
     rows.push([
       c.num, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
-      fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost),
-      fmt(c.pricing.machiningCost), fmt(c.pricing.laborCost), fmt(c.pricing.total)
+      fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost), fmt(c.pricing.total)
     ])
   })
 
@@ -900,11 +1047,20 @@ function exportExcel(data) {
 
   rows.push([])
   rows.push([tr('proposalPdf.summary')])
-  rows.push([`${tr('proposalPdf.cabinetsSubtotal')} (JD)`,   fmt(cabinetsSubtotal)])
+  rows.push([`${tr('proposalTab.cabinetsSubtotal')} (JD)`,   fmt(cabinetsSubtotal)])
+  if (cutting.total > 0) {
+    rows.push([`${tr('proposalTab.cuttingRow', { boards: cutting.boards })} (JD)`, fmt(cutting.total)])
+    cuttingLines(cutting, tr, fmt).forEach(l => rows.push([`  ${l.text}`, fmt(l.cost)]))
+  }
+  if (assembly.total > 0) {
+    rows.push([`${tr('proposalTab.assemblyRow', { count: assembly.count })} (JD)`, fmt(assembly.total)])
+    assemblyLines(assembly, tr, fmt).forEach(l => rows.push([`  ${l.text}`, fmt(l.cost)]))
+  }
   if (countertopLm > 0) rows.push([`${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })} (JD)`, fmt(countertopCost)])
   if (backsplashCost > 0) rows.push([`${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })} (JD)`, fmt(backsplashCost)])
   rows.push([`${tr('proposalPdf.additionalItemsRow')} (JD)`,    fmt(extrasSubtotal)])
   rows.push([`${tr('proposalPdf.costSubtotal')} (JD)`,         fmt(costSubtotal)])
+  if (overheadPct > 0) rows.push([`${tr('proposalTab.overheadRow', { pct: overheadPct })} (JD)`, fmt(overheadAmount)])
   rows.push([`${tr('proposalPdf.marginPercent', { margin })} (JD)`, fmt(marginAmount)])
   rows.push([`${tr('proposalPdf.subtotalAfterMargin')} (JD)`, fmt(afterMargin)])
   rows.push([`${tr('proposalPdf.vat16')} (JD)`,             fmt(vatAmount)])

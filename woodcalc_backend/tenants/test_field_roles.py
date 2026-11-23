@@ -209,3 +209,25 @@ class FieldTeamManagementTests(FieldRoleSetup):
         for user in (self.installer, self.driver):
             with self.subTest(user=user.email):
                 self.assertEqual(as_user(user).get('/api/tenants/members/').status_code, 403)
+
+
+class ProductionPricingSettingsTests(FieldRoleSetup):
+    def test_saves_production_pricing_as_numbers(self):
+        api = as_user(self.owner)
+        res = api.patch('/api/tenants/settings/', {'production_pricing': {
+            'board_rates': [{'width': '1220', 'height': 2440, 'rate': 6}],
+            'fallback_rate_m2': 2, 'waste_pct': 12, 'assembly_cab': 7, 'overhead_pct': 5,
+            'category_multipliers': {'tall': 1.5, 'unknown': 9},
+        }}, format='json')
+        self.assertEqual(res.status_code, 200, res.content)
+        saved = CompanySettings.objects.get(company=self.company).flags['production_pricing']
+        self.assertEqual(saved['board_rates'], [{'width': 1220.0, 'height': 2440.0, 'rate': 6.0}])
+        self.assertEqual(saved['category_multipliers'], {'tall': 1.5})
+        self.assertEqual(res.json()['production_pricing']['waste_pct'], 12.0)
+
+    def test_rejects_negative_or_non_numeric_values(self):
+        api = as_user(self.owner)
+        for bad in ({'assembly_cab': -1}, {'waste_pct': 'lots'}, {'waste_pct': 150},
+                    {'board_rates': [{'width': 1220, 'height': 2440}]}, 'flat'):
+            res = api.patch('/api/tenants/settings/', {'production_pricing': bad}, format='json')
+            self.assertEqual(res.status_code, 400, bad)

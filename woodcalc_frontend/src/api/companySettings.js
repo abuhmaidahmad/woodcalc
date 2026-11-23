@@ -38,7 +38,7 @@ let loadPromise = null;
 export function loadCompanyStandards() {
   if (!loadPromise) {
     loadPromise = getCompanySettings()
-      .then(applyStandardFlags)
+      .then(flags => { applyStandardFlags(flags); setProductionPricingValue(flags.production_pricing || {}); })
       .catch(() => { loadPromise = null; });
   }
   return loadPromise;
@@ -58,4 +58,59 @@ export function useCompanyStandards(enabled = true) {
     return () => { alive = false; };
   }, [enabled]);
   return standards;
+}
+
+// ─── Production pricing (cutting & banding, assembly, overhead) ─────────────
+// Company settings, stored as flags.production_pricing and shared by every
+// proposal. Held here once per page so the Proposal tab's editor and the
+// planner's saved grand total always use the same values. null until loaded;
+// the pricing engine fills anything missing with its defaults
+// (normalizeProductionPricing), so public/logged-out views just use those.
+let productionPricing = null;
+const productionListeners = new Set();
+function setProductionPricingValue(value) {
+  productionPricing = value;
+  productionListeners.forEach(l => l(value));
+}
+
+let productionSaveTimer = null;
+export function useProductionPricing(enabled = true) {
+  const [pricing, setPricing] = useState(productionPricing);
+  const [saveState, setSaveState] = useState({ saving: false, error: null });
+  useEffect(() => {
+    productionListeners.add(setPricing);
+    setPricing(productionPricing);
+    if (enabled && getToken()) loadCompanyStandards();
+    return () => { productionListeners.delete(setPricing); };
+  }, [enabled]);
+
+  // Applies the edit at once everywhere on the page, then saves it to the
+  // company a moment after the last keystroke.
+  const update = (next) => {
+    setProductionPricingValue(next);
+    clearTimeout(productionSaveTimer);
+    setSaveState({ saving: true, error: null });
+    productionSaveTimer = setTimeout(() => {
+      updateCompanySettings({ production_pricing: next })
+        .then(() => setSaveState({ saving: false, error: null }))
+        .catch(e => setSaveState({ saving: false, error: e.message || 'Failed to save' }));
+    }, 600);
+  };
+  return { pricing, update, ...saveState };
+}
+
+// Actual sheets cut for a room, from its work orders' optimized cutting jobs:
+// [{ material_sku, width, height, sheets }]. Empty when nothing has been cut yet.
+export function useRoomSheetUsage(roomId, enabled = true) {
+  const [usage, setUsage] = useState([]);
+  useEffect(() => {
+    if (!enabled || !roomId || !getToken()) { setUsage([]); return; }
+    let alive = true;
+    authFetch(`${BASE_URL}/api/manufacturing/cutting-jobs/sheet-usage/?room=${encodeURIComponent(roomId)}`)
+      .then(res => (res.ok ? res.json() : []))
+      .then(data => { if (alive) setUsage(Array.isArray(data) ? data : []); })
+      .catch(() => { if (alive) setUsage([]); });
+    return () => { alive = false; };
+  }, [roomId, enabled]);
+  return usage;
 }

@@ -55,6 +55,53 @@ def _with_standard_materials(company, flags):
 
 SETTINGS_ADMIN_ROLES = (CompanyMembership.Role.OWNER, CompanyMembership.Role.ADMIN)
 
+# Proposal production pricing: cutting & edge banding per board (by board size,
+# with a per-m² rate for any other size), assembly per cabinet with a multiplier
+# per cabinet category, and an overhead % before margin. The frontend's
+# productionPricing.js holds the defaults used for anything not saved here.
+ASSEMBLY_CATEGORIES = ('base', 'wall', 'tall', 'drawer')
+PRODUCTION_PRICING_NUMBERS = ('fallback_rate_m2', 'waste_pct', 'assembly_cab', 'overhead_pct')
+
+
+def _non_negative(value, field):
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f'{field} must be a number.')
+    if number != number or number < 0 or number in (float('inf'), float('-inf')):
+        raise ValueError(f'{field} must be zero or more.')
+    return number
+
+
+def _clean_production_pricing(value):
+    """The production_pricing settings with only known, non-negative numbers."""
+    if not isinstance(value, dict):
+        raise ValueError('Must be an object.')
+    clean = {}
+    for key in PRODUCTION_PRICING_NUMBERS:
+        if key in value:
+            clean[key] = _non_negative(value[key], key)
+    if clean.get('waste_pct', 0) > 100:
+        raise ValueError('waste_pct must be 100 or less.')
+    if 'board_rates' in value:
+        if not isinstance(value['board_rates'], list) or len(value['board_rates']) > 50:
+            raise ValueError('board_rates must be a list of up to 50 board sizes.')
+        clean['board_rates'] = []
+        for row in value['board_rates']:
+            if not isinstance(row, dict):
+                raise ValueError('Each board rate needs width, height and rate.')
+            clean['board_rates'].append({f: _non_negative(row.get(f), f'board_rates.{f}')
+                                         for f in ('width', 'height', 'rate')})
+    if 'category_multipliers' in value:
+        multipliers = value['category_multipliers']
+        if not isinstance(multipliers, dict):
+            raise ValueError('category_multipliers must be an object.')
+        clean['category_multipliers'] = {
+            c: _non_negative(multipliers[c], f'category_multipliers.{c}')
+            for c in ASSEMBLY_CATEGORIES if c in multipliers
+        }
+    return clean
+
 
 def _settings_payload(company, settings):
     return {**_with_standard_materials(company, settings.flags), 'delivery_method': settings.delivery_method}
@@ -116,6 +163,11 @@ def company_settings(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 patch['back_panel_thickness_mm'] = int(mm)
+        if 'production_pricing' in patch:
+            try:
+                patch['production_pricing'] = _clean_production_pricing(patch['production_pricing'])
+            except ValueError as e:
+                return Response({'production_pricing': [str(e)]}, status=status.HTTP_400_BAD_REQUEST)
         if 'back_construction' in patch and patch['back_construction'] not in BACK_CONSTRUCTIONS:
             return Response(
                 {'back_construction': [f'Must be one of {list(BACK_CONSTRUCTIONS)}.']},

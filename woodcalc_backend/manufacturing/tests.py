@@ -491,3 +491,44 @@ class WorkOrderNumberTests(TestCase):
                          [('WO2', 2, 'WO-300'), ('WO1', 1, 'WO-100'), ('WO1', 1, 'WO-200')])
         part.refresh_from_db(); hand.refresh_from_db()
         self.assertEqual((part.piece_id, hand.piece_id), ('WO2-R2-03-SL', ''))
+
+
+class CuttingJobSheetUsageTests(TestCase):
+    """The proposal prices cutting & edge banding on a room's actual sheets once
+    its cutting jobs are optimized: /cutting-jobs/sheet-usage/?room=<id>."""
+
+    def setUp(self):
+        from crm.models import Client, Project, Room
+        from inventory.models import Material
+        from .models import CuttingJob, CuttingLayout, StockSheet
+        self.company = Company.objects.create(name='A', slug='a')
+        user = get_user_model().objects.create_user(username='u', email='u@example.com', password='pw')
+        CompanyMembership.objects.create(user=user, company=self.company, role=CompanyMembership.Role.OWNER)
+        self.client = APIClient()
+        self.client.force_authenticate(user)
+        project = Project.objects.create(client=Client.objects.create(tenant=self.company, name='C'), name='P')
+        self.room = Room.objects.create(project=project, name='K')
+        mat = Material.objects.create(tenant=self.company, sku='W18', name='White 18')
+        sheet = StockSheet.objects.create(tenant=self.company, material=mat, thickness=18, width=2440, height=1220)
+
+        def job_with_sheets(status, n):
+            wo = WorkOrder.objects.create(tenant=self.company, product_name='K', room_id_ref=self.room.id, status=status)
+            job = CuttingJob.objects.create(work_order=wo, material=mat, thickness=18)
+            for i in range(n):
+                CuttingLayout.objects.create(job=job, sheet=sheet, sheet_index=i)
+        job_with_sheets('NEW', 3)
+        job_with_sheets('IN_PROGRESS', 2)   # a back order for the same room
+        job_with_sheets('CANCELLED', 5)     # never cut -- not counted
+
+    def test_counts_sheets_per_material_and_size(self):
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/sheet-usage/?room={self.room.id}')
+        self.assertEqual(res.status_code, 200, res.content)
+        self.assertEqual(res.json(), [{'material_sku': 'W18', 'width': 2440.0, 'height': 1220.0, 'sheets': 5}])
+
+    def test_another_companys_room_returns_nothing(self):
+        from crm.models import Client, Project, Room
+        other = Company.objects.create(name='B', slug='b')
+        project = Project.objects.create(client=Client.objects.create(tenant=other, name='C'), name='P')
+        room = Room.objects.create(project=project, name='K')
+        res = self.client.get(f'/api/manufacturing/cutting-jobs/sheet-usage/?room={room.id}')
+        self.assertEqual(res.json(), [])
