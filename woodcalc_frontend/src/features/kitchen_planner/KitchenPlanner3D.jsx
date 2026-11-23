@@ -1205,6 +1205,71 @@ function SinkFaucet({ position = [0, 0, 0] }) {
   )
 }
 
+const WORKTOP_UV_VERTEX = `#include <uv_vertex>
+#ifdef USE_MAP
+  vec3 wtWp = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+  vec3 wtAx = normalize( modelMatrix[0].xyz );
+  vec3 wtAy = normalize( modelMatrix[1].xyz );
+  vec3 wtAz = normalize( modelMatrix[2].xyz );
+  vec3 wtN = abs( normal );
+  vec2 wtUv = ( wtN.y >= wtN.x && wtN.y >= wtN.z )
+    ? vec2( dot( wtWp, wtAx ), -dot( wtWp, wtAz ) )
+    : ( wtN.z >= wtN.x ? vec2( dot( wtWp, wtAx ), dot( wtWp, wtAy ) ) : vec2( dot( wtWp, wtAz ), dot( wtWp, wtAy ) ) );
+  vMapUv = ( mapTransform * vec3( wtUv, 1.0 ) ).xy;
+#endif`
+
+function worktopSlabGeometry(w, T, d, r) {
+  const shape = new THREE.Shape()
+  shape.moveTo(-d / 2, -T / 2)
+  shape.lineTo(d / 2, -T / 2)
+  shape.lineTo(d / 2, T / 2 - r)
+  shape.absarc(d / 2 - r, T / 2 - r, r, 0, Math.PI / 2, false)
+  shape.lineTo(-d / 2, T / 2)
+  shape.lineTo(-d / 2, -T / 2)
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false, curveSegments: 4 })
+  geo.rotateY(-Math.PI / 2)
+  geo.translate(w / 2, 0, 0)
+  return geo
+}
+
+function WorktopPhotoMaterial({ imageUrl, physW, physH, matProps, envMapIntensity }) {
+  const { gl } = useThree()
+  const texture = useLoader(THREE.TextureLoader, imageUrl)
+  const map = useMemo(() => {
+    const c = capTextureSize(texture).clone()
+    c.wrapS = THREE.RepeatWrapping
+    c.wrapT = THREE.RepeatWrapping
+    c.repeat.set(1 / physW, 1 / physH)
+    configureTextureQuality(c, gl)
+    return c
+  }, [texture, physW, physH, gl])
+  const onBeforeCompile = useCallback((shader) => {
+    shader.vertexShader = shader.vertexShader.replace('#include <uv_vertex>', WORKTOP_UV_VERTEX)
+  }, [])
+  return (
+    <meshPhysicalMaterial
+      map={map}
+      roughness={matProps.roughness}
+      metalness={matProps.metalness}
+      clearcoat={matProps.clearcoat}
+      clearcoatRoughness={matProps.clearcoatRoughness}
+      envMapIntensity={envMapIntensity}
+      onBeforeCompile={onBeforeCompile}
+      customProgramCacheKey={() => 'worktop-world-uv'}
+    />
+  )
+}
+
+function WorktopSlab({ w, T, d, radius, position, children }) {
+  const geometry = useMemo(() => worktopSlabGeometry(w, T, d, radius), [w, T, d, radius])
+  useEffect(() => () => geometry.dispose(), [geometry])
+  return (
+    <mesh geometry={geometry} position={position} castShadow receiveShadow>
+      {children}
+    </mesh>
+  )
+}
+
 function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkColorHex, sinkRoughness, sinkMetalness, textureMap = {} }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
@@ -1226,16 +1291,15 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
     : { roughness: mat.roughness, metalness: mat.metalness, clearcoat: 0.5, clearcoatRoughness: 0.08 }
   const envInt = hasPhoto ? 0.6 : 0.8
 
-  const slab = (w, d, pos, idx = 0) => imageUrl ? (
-    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
-      <PhotoPanelMaterial imageUrl={imageUrl} color={mat.color} matProps={ctMatProps} envMapIntensity={envInt}
-        repeatU={w / physW} repeatV={d / physH} />
-    </RoundedBox>
-  ) : (
-    <RoundedBox key={idx} args={[w, T, d]} radius={EDGE_RADIUS} smoothness={2} position={pos} castShadow receiveShadow>
-      <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
-        clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
-    </RoundedBox>
+  const slab = (w, d, pos, idx = 0) => (
+    <WorktopSlab key={idx} w={w} T={T} d={d} radius={EDGE_RADIUS} position={pos}>
+      {imageUrl ? (
+        <WorktopPhotoMaterial imageUrl={imageUrl} physW={physW} physH={physH} matProps={ctMatProps} envMapIntensity={envInt} />
+      ) : (
+        <meshPhysicalMaterial color={mat.color} roughness={mat.roughness} metalness={mat.metalness}
+          clearcoat={0.5} clearcoatRoughness={0.08} envMapIntensity={0.8} reflectivity={0.45} />
+      )}
+    </WorktopSlab>
   )
 
   if (!sinkType) {
