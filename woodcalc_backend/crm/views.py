@@ -1,5 +1,6 @@
 import uuid
 
+from django.db import transaction
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.viewsets import ModelViewSet
@@ -10,6 +11,7 @@ from rest_framework.exceptions import PermissionDenied, ValidationError
 from tenants.mixins import TenantScopedMixin
 from tenants.permissions import HasActiveCompany
 from tenants.utils import get_company_by_slug
+from .client_deletion import delete_check as client_delete_check
 from .changelog import log_room_action, log_room_edit, snapshot
 from .locking import RoomNotLocked
 from .numbering import freeze_badges
@@ -101,8 +103,35 @@ def public_room_share_view(request, token):
     })
 
 
+CLIENT_STATUS_FILTERS = {
+    'active': {'is_archived': False},
+    'archived': {'is_archived': True},
+    'all': {},
+}
+CLIENT_DELETE_ROLES = ('owner', 'admin')
+
+
+def archive_client(client, user):
+    client.is_archived = True
+    client.archived_at = timezone.now()
+    client.archived_by = user
+    client.save(update_fields=['is_archived', 'archived_at', 'archived_by'])
+
+
+def unarchive_client(client):
+    client.is_archived = False
+    client.archived_at = None
+    client.archived_by = None
+    client.save(update_fields=['is_archived', 'archived_at', 'archived_by'])
+
+
 class ClientViewSet(TenantScopedMixin, ModelViewSet):
-    queryset = Client.objects.prefetch_related('projects__rooms').order_by('name')
+    """Customers. The list shows active clients by default (?status=active|
+    archived|all) so archived ones drop out of every client picker; retrieve
+    and the other detail actions still find archived clients so links keep
+    working. Archive vs delete: docs/customer-archive-delete-spec.md.
+    Auditors are refused every write here by HasActiveCompany."""
+    queryset = Client.objects.select_related('archived_by').prefetch_related('projects__rooms').order_by('name')
     serializer_class = ClientSerializer
     permission_classes = [IsAuthenticated, HasActiveCompany]
 
@@ -111,12 +140,88 @@ class ClientViewSet(TenantScopedMixin, ModelViewSet):
             return ClientDetailSerializer
         return ClientSerializer
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.action == 'list':
+            status_param = self.request.query_params.get('status') or 'active'
+            if status_param not in CLIENT_STATUS_FILTERS:
+                raise ValidationError({'status': 'Must be one of: active, archived, all.'})
+            qs = qs.filter(**CLIENT_STATUS_FILTERS[status_param])
+        return qs
+
     @action(detail=True, methods=['get'])
     def projects(self, request, pk=None):
         client = self.get_object()
         projects = client.projects.all().order_by('-created_at')
         serializer = ProjectListSerializer(projects, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'])
+    def archive(self, request, pk=None):
+        client = self.get_object()
+        if not client.is_archived:
+            archive_client(client, request.user)
+        return Response(ClientSerializer(client).data)
+
+    @action(detail=True, methods=['post'])
+    def unarchive(self, request, pk=None):
+        client = self.get_object()
+        if client.is_archived:
+            unarchive_client(client)
+        return Response(ClientSerializer(client).data)
+
+    @action(detail=True, methods=['get'], url_path='delete-check')
+    def delete_check(self, request, pk=None):
+        return Response(client_delete_check(self.get_object()))
+
+    def destroy(self, request, *args, **kwargs):
+        require_role(request, *CLIENT_DELETE_ROLES)
+        client = self.get_object()
+        with transaction.atomic():
+            check = client_delete_check(client)
+            if not check['can_delete']:
+                return Response(check, status=status.HTTP_409_CONFLICT)
+            client.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=['post'])
+    def bulk(self, request):
+        """{action: archive|unarchive|delete, ids: [...]} → {ok: [ids], blocked:
+        [{id, name, reason}]}. Runs per id: a client that can't be deleted (or
+        isn't in this company) is reported and skipped, never failing the batch."""
+        bulk_action = request.data.get('action')
+        ids = request.data.get('ids')
+        if bulk_action not in ('archive', 'unarchive', 'delete'):
+            raise ValidationError({'action': 'Must be one of: archive, unarchive, delete.'})
+        if not isinstance(ids, list) or not ids:
+            raise ValidationError({'ids': 'A non-empty list of client ids is required.'})
+        if bulk_action == 'delete':
+            require_role(request, *CLIENT_DELETE_ROLES)
+
+        clients = {c.id: c for c in super().get_queryset().filter(pk__in=[i for i in ids if str(i).isdigit()])}
+        ok, blocked = [], []
+        for raw_id in ids:
+            client = clients.get(int(raw_id)) if str(raw_id).isdigit() else None
+            if client is None:
+                blocked.append({'id': raw_id, 'name': '', 'reason': 'Not found.', 'blocked_by': ['not_found']})
+                continue
+            client_id = client.id
+            if bulk_action == 'archive':
+                if not client.is_archived:
+                    archive_client(client, request.user)
+            elif bulk_action == 'unarchive':
+                if client.is_archived:
+                    unarchive_client(client)
+            else:
+                with transaction.atomic():
+                    check = client_delete_check(client)
+                    if not check['can_delete']:
+                        blocked.append({'id': client.id, 'name': client.name, 'reason': check['reason'],
+                                        'blocked_by': check['blocked_by'], 'counts': check['counts']})
+                        continue
+                    client.delete()
+            ok.append(client_id)
+        return Response({'ok': ok, 'blocked': blocked})
 
 
 class LeadViewSet(TenantScopedMixin, ModelViewSet):

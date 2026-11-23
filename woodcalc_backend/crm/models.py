@@ -12,6 +12,13 @@ class Client(models.Model):
     address = models.CharField(max_length=300, blank=True)
     active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    # Archived clients are finished or inactive real customers: hidden from the
+    # active list and pickers, but their projects, payments and history stay.
+    # See docs/customer-archive-delete-spec.md.
+    is_archived = models.BooleanField(default=False, db_index=True)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archived_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
+                                    on_delete=models.SET_NULL, related_name='+')
 
     def __str__(self):
         return self.name

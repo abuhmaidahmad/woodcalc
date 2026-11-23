@@ -2,11 +2,28 @@ from rest_framework import serializers
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
 
 
-class ClientSerializer(serializers.ModelSerializer):
+ARCHIVE_FIELDS = ['is_archived', 'archived_at', 'archived_by']
+
+
+def user_display_name(user):
+    if user is None:
+        return ''
+    return f'{user.first_name} {user.last_name}'.strip() or user.email
+
+
+class ClientArchiveFieldsMixin(serializers.Serializer):
+    archived_by_name = serializers.SerializerMethodField()
+
+    def get_archived_by_name(self, obj):
+        return user_display_name(obj.archived_by)
+
+
+class ClientSerializer(ClientArchiveFieldsMixin, serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
-        extra_kwargs = {'tenant': {'read_only': True}}
+        # Archive state only changes through the archive/unarchive actions.
+        read_only_fields = ['tenant'] + ARCHIVE_FIELDS
 
 
 class LeadSerializer(serializers.ModelSerializer):
@@ -91,7 +108,7 @@ class ProjectListSerializer(serializers.ModelSerializer):
         return len(obj.rooms.all())
 
 
-class ClientDetailSerializer(serializers.ModelSerializer):
+class ClientDetailSerializer(ClientArchiveFieldsMixin, serializers.ModelSerializer):
     projects = ProjectListSerializer(many=True, read_only=True)
     total_value = serializers.SerializerMethodField()
     project_count = serializers.SerializerMethodField()
@@ -99,7 +116,7 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = '__all__'
-        extra_kwargs = {'tenant': {'read_only': True}}
+        read_only_fields = ['tenant'] + ARCHIVE_FIELDS
 
     def get_total_value(self, obj):
         return sum(p.total_value for p in obj.projects.all())

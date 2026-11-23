@@ -3,6 +3,9 @@ import Logo from '../components/Logo'
 import { authFetch, isReadOnly } from '../api/auth'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from '../i18n/LanguageContext'
+import {
+  ActionsMenu, DeleteClientsModal, Toast, archiveClient, canArchiveClients, canDeleteClients,
+} from '../features/crm/customerArchive'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -37,6 +40,10 @@ export default function CustomerDetail() {
   const [showEditCustomer, setShowEditCustomer] = useState(false)
   const [customerForm, setCustomerForm] = useState({ name: '', phone: '', email: '', address: '', company: '' })
   const [savingCustomer, setSavingCustomer] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [toast, setToast] = useState(null)
+  const canArchive = canArchiveClients()
+  const canDelete = canDeleteClients()
 
   const fetchData = async () => {
     setLoading(true)
@@ -94,6 +101,26 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
     setSaving(false)
   }
 
+  const setArchived = async archived => {
+    try {
+      const updated = await archiveClient(id, archived)
+      setCustomer(c => ({ ...c, ...updated }))
+    } catch {
+      setToast({ message: t('customerArchive.actionFailed') })
+      return
+    }
+    setToast({
+      message: archived ? t('customerArchive.archivedToast', { n: 1 }) : t('customerArchive.restoredToast', { n: 1 }),
+      action: { label: t('customerArchive.undo'), onClick: () => setArchived(!archived) },
+    })
+  }
+
+  const onDeleteDone = ({ deleted, archived }) => {
+    setShowDelete(false)
+    if (deleted.length) navigate('/customers')
+    else if (archived.length) fetchData()
+  }
+
   const totalValue = projects.reduce((s, p) => s + parseFloat(p.total_value || 0), 0)
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#bbb', fontFamily: 'Inter, sans-serif' }}>{t('customerDetail.loading')}</div>
@@ -118,6 +145,23 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
 
       <div className="app-content" style={{ maxWidth: 900, margin: '0 auto', padding: 24 }}>
 
+        {customer.is_archived && (
+          <div role="status" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
+            background: '#ECEAE7', border: '1px solid #D9D5D0', borderRadius: 10, padding: '10px 16px', marginBottom: 14, color: '#555', fontSize: 13 }}>
+            <span>
+              🗄 {customer.archived_by_name
+                ? t('customerArchive.archivedBannerBy', { date: new Date(customer.archived_at).toLocaleDateString('en-GB'), user: customer.archived_by_name })
+                : t('customerArchive.archivedBanner', { date: new Date(customer.archived_at).toLocaleDateString('en-GB') })}
+            </span>
+            {canArchive && (
+              <button onClick={() => setArchived(false)}
+                style={{ padding: '6px 14px', background: DARK, color: '#fff', border: 'none', borderRadius: 7, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
+                {t('customerArchive.restore')}
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Customer card */}
         <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 20, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -136,10 +180,18 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
           </div>
           <div style={{ textAlign: 'end' }}>
             {!readOnly && (
-              <button onClick={openEditCustomer}
-                style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: DARK, marginBottom: 10 }}>
-                ✎ {t('customerDetail.editCustomer')}
-              </button>
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', alignItems: 'flex-start', marginBottom: 10 }}>
+                <button onClick={openEditCustomer}
+                  style={{ padding: '6px 12px', background: '#F7F4F0', border: '1.5px solid #E0DAD4', borderRadius: 7, cursor: 'pointer', fontSize: 11, fontWeight: 700, color: DARK }}>
+                  ✎ {t('customerDetail.editCustomer')}
+                </button>
+                <ActionsMenu items={[
+                  ...(canArchive ? [customer.is_archived
+                    ? { label: t('customerArchive.restore'), onClick: () => setArchived(false) }
+                    : { label: t('customerArchive.archive'), onClick: () => setArchived(true) }] : []),
+                  ...(canDelete ? [{ label: t('customerArchive.delete'), danger: true, onClick: () => setShowDelete(true) }] : []),
+                ]} />
+              </div>
             )}
             <div style={{ fontSize: 11, color: '#888', marginBottom: 2 }}>{t('customerDetail.totalValue')}</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{totalValue.toFixed(2)} JD</div>
@@ -189,6 +241,11 @@ setProjects(Array.isArray(pData) ? pData : (pData.results || []))
           </div>
         )}
       </div>
+
+      {showDelete && (
+        <DeleteClientsModal clients={[{ id: customer.id, name: customer.name }]} onClose={() => setShowDelete(false)} onDone={onDeleteDone} />
+      )}
+      <Toast toast={toast} onClose={() => setToast(null)} />
 
       {/* Add Project Modal */}
       {showAddProject && (
