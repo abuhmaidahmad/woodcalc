@@ -780,6 +780,25 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   const companyStandards = useCompanyStandards(!publicCompanySlug)
   const { pricing: productionPricing } = useProductionPricing(!publicCompanySlug)
   const sheetUsage = useRoomSheetUsage(roomId, !publicCompanySlug)
+  const [projectClient, setProjectClient] = useState(null)
+  useEffect(() => {
+    if (!projectId || publicCompanySlug) { setProjectClient(null); return }
+    const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
+    let cancelled = false
+    ;(async () => {
+      try {
+        const pRes = await authFetch(API + `/api/crm/projects/${projectId}/`)
+        if (!pRes.ok) return
+        const pData = await pRes.json()
+        if (!pData.client) return
+        const cRes = await authFetch(API + `/api/crm/clients/${pData.client}/`)
+        if (!cRes.ok) return
+        const cData = await cRes.json()
+        if (!cancelled) setProjectClient({ name: cData.name || '', phone: cData.phone || '', address: cData.address || '' })
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [projectId, publicCompanySlug])
   const [availableDrawerSystems, setAvailableDrawerSystems] = useState([])
   useEffect(() => {
     const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -2595,6 +2614,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     initialSettings={proposalSettings}
     onSettingsChange={setProposalSettings}
     sheetUsage={sheetUsage}
+    clientInfo={projectClient}
   />
 )}
 

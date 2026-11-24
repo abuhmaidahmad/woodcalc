@@ -499,7 +499,7 @@ function ExtraItem({ item, onChange, onDelete }) {
 }
 
 // ─── Main component ────────────────────────────────────────────────────────
-export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, initialSettings = null, onSettingsChange, sheetUsage = [] }) {
+export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}, drawerSystemsCatalog = [], backsplashLm = 0, backsplashHeight = 0, projectName, initialSettings = null, onSettingsChange, sheetUsage = [], clientInfo = null }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const locale = language === 'ar' ? 'ar' : 'en-GB'
@@ -517,6 +517,17 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   // proposals (addExtra always mints ids via Date.now(), never 1).
   const [extras, setExtras]           = useState((initialSettings?.extras || defaultProposalExtras(t, cabinets.length)).filter(e => e.id !== 1))
   const [customer, setCustomer]       = useState(initialSettings?.customer || { name: '', phone: '', address: '', notes: '' })
+  useEffect(() => {
+    if (!clientInfo) return
+    setCustomer(c => {
+      const next = { ...c }
+      let changed = false
+      for (const key of ['name', 'phone', 'address']) {
+        if (!(c[key] || '').trim() && clientInfo[key]) { next[key] = clientInfo[key]; changed = true }
+      }
+      return changed ? next : c
+    })
+  }, [clientInfo])
   const [expandedCab, setExpandedCab] = useState(null)
   const [showPrices, setShowPrices]   = useState(false)
   const [showProduction, setShowProduction] = useState(false)
