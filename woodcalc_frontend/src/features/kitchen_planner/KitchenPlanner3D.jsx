@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob, isOvenMicroTower, ovenMicroTowerSpec, ovenTowerShelves } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -1721,7 +1721,7 @@ function FreestandingOvenAppliance({ W, H, D, finish = 'black' }) {
   )
 }
 
-function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, hingeSide = 'left', finish = 'black' }) {
+function OvenTowerAppliance({ W, H, D, isDouble, shelves = { lower: 0, upper: 0 }, baseHeight, columns = 1, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, hingeSide = 'left', finish = 'black' }) {
   const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
   const { enabled: openMode, openKeys } = useContext(CabinetFrontsContext)
   const showInterior = openMode && openKeys.length > 0
@@ -1768,12 +1768,12 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontC
   const carcassProps = { color: carcassColor, materialName: carcassMaterial, matProps: carcassMatProps }
   const body = showInterior ? (
     <>
-      {ovenBottom > 0.04 && <HollowGlassCarcass W={W} H={ovenBottom} D={D} {...carcassProps} shelfCount={0} />}
+      {ovenBottom > 0.04 && <HollowGlassCarcass W={W} H={ovenBottom} D={D} {...carcassProps} shelfCount={shelves.lower} />}
       <SmartBox args={[W, ovenTop - ovenBottom, D]} position={[0, (ovenBottom + ovenTop) / 2, 0]} castShadow receiveShadow
         {...carcassProps} envMapIntensity={1.0} radius={0.001} />
       {H - ovenTop > 0.04 && (
         <group position={[0, ovenTop, 0]}>
-          <HollowGlassCarcass W={W} H={H - ovenTop} D={D} {...carcassProps} shelfCount={0} />
+          <HollowGlassCarcass W={W} H={H - ovenTop} D={D} {...carcassProps} shelfCount={shelves.upper} />
         </group>
       )}
     </>
@@ -2427,7 +2427,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       {applianceKind === 'fridge' ? (
         <FridgeAppliance W={W} H={H} D={D} finish={cab.applianceFinish} />
       ) : applianceKind === 'ovenTower' ? (
-        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight} columns={numDoors}
+        <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} shelves={ovenTowerShelves(cab)} baseHeight={cab.baseHeight} columns={numDoors}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
           carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps}
           hingeSide={cab.hingeSide || 'left'} finish={cab.applianceFinish} />

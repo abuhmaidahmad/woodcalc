@@ -174,7 +174,11 @@ export function nicheShelfSplit(c) {
 
 // Shelves a cabinet gets: its own count, else the standard (4 in a tall cabinet,
 // otherwise as many as the 300mm gap allows), never more than fit at 250mm.
+export const OVEN_TOWER_SHELVES = { lower: 1, upper: 2 };
+export const ovenTowerShelves = (c) => c?.subtype === 'Oven Tower' ? OVEN_TOWER_SHELVES : { lower: 0, upper: 0 };
+
 export function shelfCountFor(c) {
+  if (c?.subtype === 'Oven Tower') return OVEN_TOWER_SHELVES.lower + OVEN_TOWER_SHELVES.upper;
   if (!isShelfEligible(c)) return 0;
   const standard = c.subtype === APPLIANCE_NICHE ? nicheStandardShelves(c)
     : isOvenMicroTower(c) ? shelvesForGap({ height: ovenMicroTowerSpec(c).upperClearH + 36 }, SHELF_STD_GAP)
@@ -822,7 +826,7 @@ export function calculateCabinet(config) {
   const openBox = isOpenBox(config);
   const boxBoardBack = hasBoxBoardBack(config);
   // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
-  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (isOvenMicro ? 1 : config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (isOvenMicro ? 1 : config.subtype === 'Oven Tower' ? OVEN_TOWER_SHELVES.lower + OVEN_TOWER_SHELVES.upper : config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
