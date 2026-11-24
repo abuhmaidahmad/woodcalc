@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
+import { CT_OVERHANG_DEFAULTS, CT_OVERHANG_SIDES, countertopOverhang } from './countertopOverhang'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
@@ -2237,6 +2238,41 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                     </div>
                   </div>
                 )}
+                {(((['base', 'vanity', 'corner'].includes(selCab.category) || selCab.subtype === 'Freestanding Dishwasher') && !['Shelf', 'Filler', 'Panel', 'Toe Kick'].includes(selCab.subtype) && !(selCab.subtype === 'Open Shelf' && selCab.category !== 'base')) || (selCab.subtype === 'Filler' && selCab.height === selCab.baseHeight)) && (() => {
+                  const ov = countertopOverhang(selCab)
+                  const isDefault = CT_OVERHANG_SIDES.every(k => ov[k] === CT_OVERHANG_DEFAULTS[k])
+                  const setSide = (side, raw) => {
+                    const v = raw === '' ? '' : Math.max(0, Math.min(1500, Math.round(+raw || 0)))
+                    updateCab('ctOverhang', { ...ov, ...(selCab.ctOverhang || {}), [side]: v })
+                  }
+                  return (
+                    <div style={{ marginBottom: 10 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={s.propLabel}>{t('kitchenPlannerModule.countertopOverhang')}</div>
+                        {!isDefault && (
+                          <span onClick={() => updateCab('ctOverhang', null)}
+                            style={{ fontSize: 10, fontWeight: 700, color: ACCENT, cursor: 'pointer' }}>{t('kitchenPlannerModule.countertopOverhangReset')}</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4 }}>
+                        {[['front', t('kitchenPlannerModule.sideFront')], ['back', t('kitchenPlannerModule.sideBack')], ['left', t('kitchenPlannerModule.sideLeft')], ['right', t('kitchenPlannerModule.sideRight')]].map(([side, sideLabel]) => {
+                          const raw = selCab.ctOverhang?.[side]
+                          const active = ov[side] !== CT_OVERHANG_DEFAULTS[side]
+                          return (
+                            <label key={side} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: active ? ACCENT : '#888' }}>{sideLabel}</span>
+                              <input type="number" min={0} max={1500} step={5}
+                                value={raw === '' ? '' : ov[side]}
+                                onChange={e => setSide(side, e.target.value)}
+                                onBlur={e => { if (e.target.value === '') setSide(side, CT_OVERHANG_DEFAULTS[side]) }}
+                                style={{ ...s.propInput, width: '100%', padding: '4px 2px', textAlign: 'center', borderColor: active ? ACCENT : undefined }} />
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })()}
                 {selCab.subtype === 'Side Panel' && (selCab.elevation || 0) === 0 && (() => {
                   const hasSkirt = (selCab.skirtingSides || []).includes('left')
                   return (

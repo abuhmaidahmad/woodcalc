@@ -1393,6 +1393,8 @@
     "ledStripInterior": "💡 LED Strip (Interior)",
     "ledStripUnder": "💡 LED Strip (Under Cabinet)",
     "skirtingBoardSides": "Skirting Board Sides",
+    "countertopOverhang": "Countertop Overhang (mm)",
+    "countertopOverhangReset": "Reset",
     "skirtingBoardToggle": "🪵 Skirting Board",
     "sideFront": "front",
     "sideBack": "back",

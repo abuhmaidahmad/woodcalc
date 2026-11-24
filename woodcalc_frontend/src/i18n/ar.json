@@ -1393,6 +1393,8 @@
     "ledStripInterior": "💡 شريط LED (داخلي)",
     "ledStripUnder": "💡 شريط LED (أسفل الخزانة)",
     "skirtingBoardSides": "جوانب لوح الحافة",
+    "countertopOverhang": "بروز سطح العمل (مم)",
+    "countertopOverhangReset": "إعادة ضبط",
     "skirtingBoardToggle": "🪵 لوح الحافة (سكيرتنج)",
     "sideFront": "أمام",
     "sideBack": "خلف",

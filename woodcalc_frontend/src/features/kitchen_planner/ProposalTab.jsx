@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react'
+import { countertopRunMm } from './countertopOverhang'
 import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
 import { useCompanyStandards, useProductionPricing } from '../../api/companySettings'
 import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost } from './productionPricing'
@@ -392,7 +393,7 @@ export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 
   // cabinet and base-height filler (see hasCountertop), priced per running
   // meter at the selected countertop material's catalog rate (see
   // materialPricePerLm) -- not a flat guessed quantity/price.
-  const countertopLm         = cabinets.filter(hasCountertop).reduce((s, c) => s + c.width, 0) / 1000
+  const countertopLm         = cabinets.filter(hasCountertop).reduce((s, c) => s + countertopRunMm(c), 0) / 1000
   const countertopPricePerLm = materialPricePerLm(countertopMat?.code, materialsMap, prices.countertop_lm)
   const countertopCost       = parseFloat((countertopLm * countertopPricePerLm).toFixed(2))
 
