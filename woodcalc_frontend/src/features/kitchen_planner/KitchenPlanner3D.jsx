@@ -4,6 +4,9 @@ import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, Ad
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
+import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLightUniformsLib.js'
+
+RectAreaLightUniformsLib.init()
 import React, { useMemo, Suspense, useState, useEffect, useCallback, useContext, useRef, createContext } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { CT_OVERHANG_DEFAULTS, countertopOverhang } from './countertopOverhang'
@@ -2293,7 +2296,9 @@ function ChimneyHood({ width = 900, ceilingHeight = 2800, mountHeight = 1480, fi
 
 
 // ---- LED strip light: real aluminum channel + frosted diffuser profile (18.6mm x 12.5mm outer, 15.2mm diffuser) ----
-function RecessedLEDStrip({ length, x, y, z, inward }) {
+const LED_STRIP_LUMINANCE = 260
+
+function RecessedLEDStrip({ length, x, y, z, inward, withLight = false }) {
   const lipW = 0.0186, lensW = 0.0152
   return (
     <group position={[x, y, z]}>
@@ -2305,6 +2310,10 @@ function RecessedLEDStrip({ length, x, y, z, inward }) {
         <boxGeometry args={[0.0004, Math.max(0.01, length - 0.002), lensW]} />
         <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
       </mesh>
+      {withLight && (
+        <rectAreaLight position={[inward * 0.002, 0, 0]} rotation={[0, -inward * Math.PI / 2, 0]}
+          width={lensW} height={Math.max(0.01, length - 0.002)} color="#ffcb8a" intensity={LED_STRIP_LUMINANCE} />
+      )}
     </group>
   )
 }
@@ -2615,10 +2624,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         const z = -D / 2 + 0.058
         return (
           <>
-            <RecessedLEDStrip length={len} x={W / 2 - T} y={H / 2} z={z} inward={-1} />
-            <RecessedLEDStrip length={len} x={-W / 2 + T} y={H / 2} z={z} inward={1} />
-            <pointLight position={[0, H / 2, z + 0.05]} color="#ffcb8a"
-              intensity={2.2 * Math.min(4, Math.max(1, len / 0.45))} distance={Math.max(0.9, len * 0.7)} decay={1.5} />
+            <RecessedLEDStrip length={len} x={W / 2 - T} y={H / 2} z={z} inward={-1} withLight />
+            <RecessedLEDStrip length={len} x={-W / 2 + T} y={H / 2} z={z} inward={1} withLight />
           </>
         )
       })()}
