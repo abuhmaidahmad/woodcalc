@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import Logo from '../components/Logo'
-import { authFetch, getCompany, isReadOnly } from '../api/auth'
+import { authFetch, getCompany, getRole, isReadOnly } from '../api/auth'
 import { createCheckout } from '../api/billing'
 import { listFeedback } from '../api/feedback'
 import { useNavigate } from 'react-router-dom'
@@ -8,7 +8,7 @@ import { useTranslation } from '../i18n/LanguageContext'
 import TeamCard from '../components/TeamCard'
 import CabinetTemplateApprovalQueue from '../components/CabinetTemplateApprovalQueue'
 import { ONBOARDING_MODULES } from '../onboardingSteps'
-import { getCompanySettings, updateCompanySettings } from '../api/companySettings'
+import { getCompanySettings, updateCompanySettings, uploadCompanyLogo, deleteCompanyLogo } from '../api/companySettings'
 import { BACK_PANEL_THICKNESS_OPTIONS, BACK_CONSTRUCTIONS, isBackPanelMaterial, isGlassMaterial, isGlassDoorMaterial } from '../features/kitchen_planner/formulaEngine'
 
 const ACCENT = '#C8902A'
@@ -24,6 +24,126 @@ const PLANS = [
   { id: 'pro', label: 'Pro', priceJod: 600 },
   { id: 'enterprise', label: 'Enterprise', priceJod: 1200 },
 ]
+
+const PROFILE_FIELDS = ['name', 'address', 'phone', 'email', 'tax_number']
+const EMPTY_PROFILE = { name: '', address: '', phone: '', email: '', tax_number: '' }
+
+function CompanyProfileCard() {
+  const { t } = useTranslation()
+  const canEdit = ['owner', 'admin'].includes(getRole())
+  const fileRef = React.useRef(null)
+  const [saved, setSaved] = useState(null)
+  const [profile, setProfile] = useState(EMPTY_PROFILE)
+  const [logoUrl, setLogoUrl] = useState(null)
+  const [logoBusy, setLogoBusy] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState({ text: '', error: false })
+
+  const applyProfile = p => {
+    const v = { ...EMPTY_PROFILE, ...(p || {}) }
+    setSaved(v); setProfile(v)
+  }
+
+  useEffect(() => {
+    getCompanySettings()
+      .then(flags => { applyProfile(flags.company_profile); setLogoUrl(flags.logo_url || null) })
+      .catch(() => applyProfile(null))
+  }, [])
+
+  const onPickLogo = async e => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setLogoBusy(true); setMessage({ text: '', error: false })
+    try {
+      setLogoUrl(await uploadCompanyLogo(file))
+      setMessage({ text: t('settings.logoSaved'), error: false })
+    } catch (err) {
+      setMessage({ text: `${t('settings.profileError')}: ${err.message}`, error: true })
+    }
+    setLogoBusy(false)
+  }
+
+  const removeLogo = async () => {
+    setLogoBusy(true); setMessage({ text: '', error: false })
+    try {
+      await deleteCompanyLogo()
+      setLogoUrl(null)
+      setMessage({ text: t('settings.logoRemoved'), error: false })
+    } catch (err) {
+      setMessage({ text: `${t('settings.profileError')}: ${err.message}`, error: true })
+    }
+    setLogoBusy(false)
+  }
+
+  const save = async () => {
+    setSaving(true); setMessage({ text: '', error: false })
+    try {
+      const flags = await updateCompanySettings({ company_profile: profile })
+      applyProfile(flags.company_profile)
+      setMessage({ text: t('settings.profileSaved'), error: false })
+    } catch (err) {
+      setMessage({ text: `${t('settings.profileError')}: ${err.message}`, error: true })
+    }
+    setSaving(false)
+  }
+
+  const dirty = saved != null && PROFILE_FIELDS.some(f => profile[f] !== saved[f])
+  const labelStyle = { fontSize: 11, color: '#666', marginBottom: 4, fontWeight: 500 }
+  const btn = (primary, disabled) => ({ padding: '8px 14px', background: primary ? (disabled ? '#E0DAD4' : ACCENT) : '#fff', color: primary ? '#fff' : DARK, border: primary ? 'none' : '1.5px solid #E0DAD4', borderRadius: 8, cursor: disabled ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700 })
+  return (
+    <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)', marginBottom: 20 }}>
+      <h2 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: DARK }}>{t('settings.companyProfileTitle')}</h2>
+      <div style={{ color: '#888', fontSize: 12, marginBottom: 16 }}>{t('settings.companyProfileDesc')}</div>
+      {saved == null ? (
+        <div style={{ color: '#bbb', fontSize: 13 }}>{t('common.loading')}</div>
+      ) : (
+        <>
+          <div style={labelStyle}>{t('settings.logo')}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 6, flexWrap: 'wrap' }}>
+            <div style={{ width: 160, height: 80, border: '1.5px dashed #E0DAD4', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FAFAFA', overflow: 'hidden' }}>
+              {logoUrl
+                ? <img src={logoUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                : <span style={{ fontSize: 11, color: '#bbb' }}>{t('settings.noLogo')}</span>}
+            </div>
+            {canEdit && (
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={onPickLogo} style={{ display: 'none' }} />
+                <button onClick={() => fileRef.current?.click()} disabled={logoBusy} style={btn(true, logoBusy)}>
+                  {logoBusy ? t('settings.logoUploading') : logoUrl ? t('settings.replaceLogo') : t('settings.uploadLogo')}
+                </button>
+                {logoUrl && (
+                  <button onClick={removeLogo} disabled={logoBusy} style={btn(false, logoBusy)}>{t('settings.removeLogo')}</button>
+                )}
+              </div>
+            )}
+          </div>
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 16 }}>{t('settings.logoHint')}</div>
+
+          {PROFILE_FIELDS.map(field => (
+            <div key={field} style={{ marginBottom: 10 }}>
+              <div style={labelStyle}>{t(`settings.profile_${field}`)}</div>
+              <input value={profile[field]} disabled={!canEdit}
+                onChange={e => { const v = e.target.value; setProfile(p => ({ ...p, [field]: v })); setMessage({ text: '', error: false }) }}
+                style={{ width: '100%', padding: '10px 12px', border: '1.5px solid #E0DAD4', borderRadius: 7, fontSize: 13, outline: 'none', boxSizing: 'border-box', color: DARK, background: canEdit ? '#fff' : '#FAFAFA' }} />
+            </div>
+          ))}
+
+          {message.text && (
+            <div style={{ fontSize: 12, color: message.error ? '#c33' : '#3a3', margin: '4px 0 12px' }}>{message.text}</div>
+          )}
+          {canEdit ? (
+            <button onClick={save} disabled={saving || !dirty} style={btn(true, saving || !dirty)}>
+              {saving ? t('settings.profileSaving') : t('settings.profileSave')}
+            </button>
+          ) : (
+            <div style={{ fontSize: 11, color: '#999' }}>{t('settings.profileAdminOnly')}</div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
 
 function ManufacturingStandardsCard() {
   const { t } = useTranslation()
@@ -444,6 +564,8 @@ export default function Settings() {
       <div className="app-content" style={{ maxWidth: 600, margin: '0 auto', padding: 24 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 24, fontWeight: 800, color: DARK }}>{t('settings.title')}</h1>
         <div style={{ color: '#888', fontSize: 13, marginBottom: 24 }}>{t('settings.subtitle')}</div>
+
+        <CompanyProfileCard />
 
         <div style={{ background: '#fff', borderRadius: 12, padding: 24, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>

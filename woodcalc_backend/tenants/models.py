@@ -27,6 +27,7 @@ class Company(models.Model):
     trial_ends_at = models.DateTimeField(null=True, blank=True)
     subscription_ends_at = models.DateTimeField(null=True, blank=True)
     max_users = models.PositiveIntegerField(default=5)
+    logo = models.ImageField(upload_to='company_logos/', blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

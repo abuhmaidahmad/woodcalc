@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { cabinetBadges } from './formulaEngine'
+import { useCompanyBranding } from '../../api/companySettings'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -133,6 +134,34 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
   const locale = language === 'ar' ? 'ar' : 'en-GB'
   const [company, setCompany] = useState(DEFAULT_COMPANY)
   const [customer, setCustomer] = useState(propCustomer || { name: '', phone: '', address: '', notes: '' })
+  const branding = useCompanyBranding()
+  const logoUrl = branding.logoUrl
+
+  useEffect(() => {
+    const p = branding.profile
+    if (!p) return
+    const fromProfile = { name: p.name, address: p.address, phone: p.phone, email: p.email, taxNumber: p.tax_number }
+    setCompany(c => {
+      const next = { ...c }
+      let changed = false
+      for (const [key, value] of Object.entries(fromProfile)) {
+        if (!(c[key] || '').trim() && value) { next[key] = value; changed = true }
+      }
+      return changed ? next : c
+    })
+  }, [branding.profile])
+
+  useEffect(() => {
+    if (!propCustomer) return
+    setCustomer(c => {
+      const next = { ...c }
+      let changed = false
+      for (const key of ['name', 'phone', 'address']) {
+        if (!(c[key] || '').trim() && propCustomer[key]) { next[key] = propCustomer[key]; changed = true }
+      }
+      return changed ? next : c
+    })
+  }, [propCustomer?.name, propCustomer?.phone, propCustomer?.address])
   const [deliveryDate, setDeliveryDate] = useState('')
   const [payments, setPayments] = useState([
     { id: 1, label: t('contractTab.depositLabel'),      pct: 40, dueDate: '' },
@@ -208,6 +237,7 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
 
     <div class="header">
       <div>
+        ${logoUrl ? `<img src="${logoUrl}" alt="" style="max-height:64px;max-width:220px;object-fit:contain;display:block;margin-bottom:8px" />` : ''}
         <div class="logo">${company.name || 'WoodCalc'}</div>
         ${company.address ? `<div style="font-size:11px;color:#555;margin-top:2px">${company.address}</div>` : ''}
         ${company.phone ? `<div style="font-size:11px;color:#555">${company.phone}</div>` : ''}
@@ -360,6 +390,7 @@ export default function ContractTab({ cabinets, projectName, countertopId, grand
           <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
+                {logoUrl && <img src={logoUrl} alt="" style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', display: 'block', marginBottom: 8 }} />}
                 <div style={{ fontSize: 22, fontWeight: 800, color: ACCENT }}>{company.name || t('contractTab.yourCompanyName')}</div>
                 {company.address && <div style={{ fontSize: 11, color: '#888', marginTop: 2 }}>{company.address}</div>}
                 {company.phone && <div style={{ fontSize: 11, color: '#888' }}>{company.phone}</div>}

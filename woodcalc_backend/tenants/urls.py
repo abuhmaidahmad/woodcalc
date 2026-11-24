@@ -7,6 +7,7 @@ router.register('members', views.MembershipViewSet, basename='member')
 
 urlpatterns = [
     path('settings/', views.company_settings, name='company_settings'),
+    path('logo/', views.company_logo, name='company_logo'),
     path('permissions/', views.permissions_registry, name='permissions_registry'),
     path('', include(router.urls)),
 ]

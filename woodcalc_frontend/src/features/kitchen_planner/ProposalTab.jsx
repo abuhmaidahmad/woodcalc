@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { countertopRunMm } from './countertopOverhang'
 import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
-import { useCompanyStandards, useProductionPricing } from '../../api/companySettings'
+import { useCompanyStandards, useProductionPricing, useCompanyBranding } from '../../api/companySettings'
 import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost } from './productionPricing'
 import { useTranslation } from '../../i18n/LanguageContext'
 
@@ -542,6 +542,8 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   }, [prices, margin, usdRate, extras, customer, discount])
 
   const companyStandards = useCompanyStandards()
+  const branding = useCompanyBranding()
+  const brandName = branding.profile?.name || ''
   // Cutting/assembly/overhead rates are company settings shared by every
   // proposal -- edited here, saved to the company (not to this room).
   const { pricing: productionRaw, update: updateProductionRaw, saving: productionSaving, error: productionError } = useProductionPricing()
@@ -740,6 +742,11 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <div style={{ background: '#fff', borderRadius: 14, padding: 24, marginBottom: 16,
             boxShadow: '0 1px 4px rgba(0,0,0,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
+              {branding.logoUrl ? (
+                <img src={branding.logoUrl} alt="" style={{ maxHeight: 56, maxWidth: 200, objectFit: 'contain', display: 'block', marginBottom: 10 }} />
+              ) : brandName ? (
+                <div style={{ fontSize: 14, fontWeight: 800, color: ACCENT, marginBottom: 6 }}>{brandName}</div>
+              ) : null}
               <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>{projectName}</div>
               <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
                 {t('proposalTab.proposal')} · {new Date().toLocaleDateString(locale, { day: 'numeric', month: 'long', year: 'numeric' })}
@@ -926,7 +933,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <button onClick={() => exportPDF({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
               countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale })}
+              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale, logoUrl: branding.logoUrl, brandName })}
               style={{ flex: 1, padding: '12px', background: DARK, color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
               {t('proposalTab.exportPdf')}
@@ -934,7 +941,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <button onClick={() => exportExcel({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
               countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale })}
+              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale, brandName })}
               style={{ flex: 1, padding: '12px', background: '#2AC87A', color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
               {t('proposalTab.exportExcel')}
@@ -951,7 +958,7 @@ function exportPDF(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
     countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale } = data
+    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale, logoUrl, brandName } = data
 
   const fmt = n => Number(n).toFixed(2)
   const date = new Date().toLocaleDateString(locale || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -993,11 +1000,12 @@ function exportPDF(data) {
     .grand-usd { font-size: 12px; color: #888; margin-top: 2px }
     .customer { float: inline-end; text-align: end; font-size: 12px; line-height: 1.6 }
     .logo { color: #C8902A; font-weight: 800; font-size: 18px; margin-bottom: 2px }
+    .logo-img { max-height: 64px; max-width: 220px; object-fit: contain; display: block; margin-bottom: 10px }
     @media print { body { padding: 16px } }
   </style></head><body>
   <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">
     <div>
-      <div class="logo">WoodCalc</div>
+      ${logoUrl ? `<img class="logo-img" src="${logoUrl}" alt="" />` : `<div class="logo">${brandName || 'WoodCalc'}</div>`}
       <h1>${projectName}</h1>
       <div class="sub">${tr('proposalPdf.proposalDate', { date })}${countertopMat ? tr('proposalPdf.countertop', { brand: countertopMat.brand, name: countertopMat.name }) : ''}</div>
     </div>
@@ -1056,13 +1064,13 @@ function exportExcel(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
     countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale } = data
+    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale, brandName } = data
 
   const fmt = n => Number(n).toFixed(2)
   const tr = (key, vars) => t ? t(key, vars) : key
   const rows = []
 
-  rows.push([`WoodCalc — ${tr('proposalPdf.title')}`])
+  rows.push([`${brandName || 'WoodCalc'} — ${tr('proposalPdf.title')}`])
   rows.push([tr('proposalPdf.project'), projectName])
   rows.push([tr('proposalPdf.date'), new Date().toLocaleDateString(locale || 'en-GB')])
   if (customer.name)    rows.push([tr('proposalPdf.customer'), customer.name])

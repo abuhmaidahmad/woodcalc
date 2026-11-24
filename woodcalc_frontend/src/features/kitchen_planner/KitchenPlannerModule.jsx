@@ -2624,6 +2624,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     projectName={projectName}
     countertopId={countertopMat?.id}
     grandTotal={grandTotal}
+    customer={proposalSettings?.customer || projectClient || undefined}
   />
 )}
 

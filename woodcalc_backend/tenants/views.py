@@ -1,5 +1,12 @@
+import uuid
+from io import BytesIO
+
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from PIL import Image, ImageOps, UnidentifiedImageError
 from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, parser_classes, permission_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.response import Response
@@ -9,6 +16,7 @@ from .mixins import TenantScopedMixin
 from .models import FIELD_WORKER_ROLES, CompanyMembership, CompanySettings
 from .permissions import (HasActiveCompany, HasActiveCompanyForFieldManager, can_manage_field_ops,
                           user_has_permission)
+from .utils import get_membership_for_user
 from .permissions_registry import PERMISSIONS
 from .serializers import ASSIGNABLE_ROLES, MembershipSerializer, MembershipCreateSerializer
 
@@ -103,8 +111,48 @@ def _clean_production_pricing(value):
     return clean
 
 
-def _settings_payload(company, settings):
-    return {**_with_standard_materials(company, settings.flags), 'delivery_method': settings.delivery_method}
+COMPANY_PROFILE_FIELDS = {'name': 255, 'address': 300, 'phone': 50, 'email': 254, 'tax_number': 50}
+LOGO_MAX_BYTES = 5 * 1024 * 1024
+LOGO_MAX_SIDE = 800
+
+
+def _require_settings_admin(request, what):
+    membership = getattr(request, 'membership', None) or get_membership_for_user(request.user)
+    if membership is None or membership.role not in SETTINGS_ADMIN_ROLES:
+        raise PermissionDenied(f"You don't have permission to change the company {what}. Ask the owner or an admin.")
+
+
+def _clean_company_profile(value):
+    if not isinstance(value, dict):
+        raise ValueError('company_profile must be an object.')
+    clean = {}
+    for field, max_len in COMPANY_PROFILE_FIELDS.items():
+        if field not in value:
+            continue
+        text = '' if value[field] is None else str(value[field]).strip()
+        if len(text) > max_len:
+            raise ValueError(f'{field} must be at most {max_len} characters.')
+        clean[field] = text
+    return clean
+
+
+def _company_profile(company, flags):
+    profile = {field: '' for field in COMPANY_PROFILE_FIELDS}
+    profile.update(flags.get('company_profile') or {})
+    if not profile['name']:
+        profile['name'] = company.name
+    return profile
+
+
+def _logo_url(request, company):
+    return request.build_absolute_uri(company.logo.url) if company.logo else None
+
+
+def _settings_payload(company, settings, request=None):
+    payload = {**_with_standard_materials(company, settings.flags), 'delivery_method': settings.delivery_method}
+    payload['company_profile'] = _company_profile(company, settings.flags)
+    payload['logo_url'] = _logo_url(request, company) if request is not None else None
+    return payload
 
 
 def _apply_delivery_method(request, settings, value):
@@ -163,6 +211,13 @@ def company_settings(request):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 patch['back_panel_thickness_mm'] = int(mm)
+        if 'company_profile' in patch:
+            _require_settings_admin(request, 'profile')
+            try:
+                patch['company_profile'] = {**(settings.flags.get('company_profile') or {}),
+                                            **_clean_company_profile(patch['company_profile'])}
+            except ValueError as e:
+                return Response({'company_profile': [str(e)]}, status=status.HTTP_400_BAD_REQUEST)
         if 'production_pricing' in patch:
             try:
                 patch['production_pricing'] = _clean_production_pricing(patch['production_pricing'])
@@ -175,7 +230,46 @@ def company_settings(request):
             )
         settings.flags = {**settings.flags, **patch}
         settings.save(update_fields=['flags', 'delivery_method', 'updated_at'])
-    return Response(_settings_payload(request.company, settings))
+    return Response(_settings_payload(request.company, settings, request))
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated, HasActiveCompany])
+@parser_classes([MultiPartParser, FormParser])
+def company_logo(request):
+    _require_settings_admin(request, 'logo')
+    company = request.company
+    old_name = company.logo.name if company.logo else None
+    if request.method == 'DELETE':
+        company.logo = None
+        company.save(update_fields=['logo', 'updated_at'])
+        if old_name:
+            default_storage.delete(old_name)
+        return Response({'logo_url': None})
+
+    upload = request.FILES.get('logo')
+    if upload is None:
+        return Response({'logo': ['Choose an image file to upload.']}, status=status.HTTP_400_BAD_REQUEST)
+    if upload.size > LOGO_MAX_BYTES:
+        return Response({'logo': ['The logo must be smaller than 5 MB.']}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        img = Image.open(upload)
+        img.load()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return Response({'logo': ['Upload a PNG, JPG or WEBP image.']}, status=status.HTTP_400_BAD_REQUEST)
+
+    img = ImageOps.exif_transpose(img)
+    has_alpha = 'A' in img.getbands() or img.mode == 'P'
+    img = img.convert('RGBA' if has_alpha else 'RGB')
+    img.thumbnail((LOGO_MAX_SIDE, LOGO_MAX_SIDE), Image.LANCZOS)
+    buffer = BytesIO()
+    img.save(buffer, format='PNG', optimize=True)
+
+    company.logo.save(f'{company.slug}-{uuid.uuid4().hex[:8]}.png', ContentFile(buffer.getvalue()), save=False)
+    company.save(update_fields=['logo', 'updated_at'])
+    if old_name and old_name != company.logo.name:
+        default_storage.delete(old_name)
+    return Response({'logo_url': _logo_url(request, company)})
 
 
 @api_view(['GET'])

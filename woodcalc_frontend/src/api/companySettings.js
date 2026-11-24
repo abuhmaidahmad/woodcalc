@@ -18,7 +18,44 @@ export async function updateCompanySettings(patch) {
   const data = await res.json();
   if (!res.ok) throw new Error(data?.detail || Object.values(data || {}).flat().join(' ') || 'Failed to save');
   applyStandardFlags(data);
+  setBrandingValue({ logoUrl: data.logo_url ?? branding?.logoUrl ?? null, profile: data.company_profile || null });
   return data;
+}
+
+let branding = null;
+const brandingListeners = new Set();
+function setBrandingValue(value) {
+  branding = value;
+  brandingListeners.forEach(l => l(value));
+}
+
+async function logoRequest(options) {
+  const res = await authFetch(`${BASE_URL}/api/tenants/logo/`, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.detail || Object.values(data || {}).flat().join(' ') || 'Failed to save the logo');
+  setBrandingValue({ ...(branding || { profile: null }), logoUrl: data.logo_url || null });
+  return data.logo_url || null;
+}
+
+export function uploadCompanyLogo(file) {
+  const body = new FormData();
+  body.append('logo', file);
+  return logoRequest({ method: 'POST', body });
+}
+
+export function deleteCompanyLogo() {
+  return logoRequest({ method: 'DELETE' });
+}
+
+export function useCompanyBranding(enabled = true) {
+  const [value, setValue] = useState(branding);
+  useEffect(() => {
+    brandingListeners.add(setValue);
+    setValue(branding);
+    if (enabled && getToken()) loadCompanyStandards();
+    return () => { brandingListeners.delete(setValue); };
+  }, [enabled]);
+  return value || { logoUrl: null, profile: null };
 }
 
 function applyStandardFlags(flags) {
@@ -38,7 +75,7 @@ let loadPromise = null;
 export function loadCompanyStandards() {
   if (!loadPromise) {
     loadPromise = getCompanySettings()
-      .then(flags => { applyStandardFlags(flags); setProductionPricingValue(flags.production_pricing || {}); })
+      .then(flags => { applyStandardFlags(flags); setProductionPricingValue(flags.production_pricing || {}); setBrandingValue({ logoUrl: flags.logo_url || null, profile: flags.company_profile || null }); })
       .catch(() => { loadPromise = null; });
   }
   return loadPromise;
