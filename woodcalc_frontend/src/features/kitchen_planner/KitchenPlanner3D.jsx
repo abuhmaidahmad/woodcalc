@@ -1721,43 +1721,33 @@ function FreestandingOvenAppliance({ W, H, D, finish = 'black' }) {
   )
 }
 
-function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, finish = 'black' }) {
+function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontColor, frontMaterial, frontMaterialCode, textureMap = {}, carcassColor, carcassMaterial, carcassMatProps, hingeSide = 'left', finish = 'black' }) {
   const { body: bodyColor, hardware, glass: doorGlass } = applianceFinish(finish)
+  const { enabled: openMode, openKeys } = useContext(CabinetFrontsContext)
+  const showInterior = openMode && openKeys.length > 0
   const matProps = getMaterialProps(frontMaterial)
-  const texEntry = frontMaterialCode ? textureMap[frontMaterialCode] : null
-  // Standard oven cavity: 595mm x 595mm, edge-to-edge on the cabinet (no
-  // left/right filler) with a small tolerance gap to the next cabinet.
   const edgeGap = 0.003
   const ovenW = W - edgeGap * 2
   const ovenH = 0.595
-  // Oven sits right on top of where the adjoining base cabinets' countertop
-  // lands (baseHeight, in the tower's own local frame — its box origin is
-  // already lifted by the leg height), so the oven "starts" at counter level
-  // instead of floating at an arbitrary fraction of the tower's height.
   const baseH = (baseHeight || 800) / 1000
   const stripT = 0.018
-  const stripZ = D / 2 + stripT / 2
   const doorZ0 = D / 2 + stripT + 0.002
   const doorZ1 = D / 2 + stripT + 0.0335
   const doorZ2 = D / 2 + stripT + 0.037
+  const ovenBottom = isDouble ? DOUBLE_OVEN_BOTTOM / 1000 : baseH
+  const ovenTop = ovenBottom + ovenH * (isDouble ? 2 : 1)
+  const front = { D, frontColor, frontMaterial, frontMaterialCode, textureMap, matProps, isWallCabinet: false, doorStyle: 'Push', hideHandle: true }
 
-  const frontPiece = (key, w, h, cx, cy) => texEntry ? (() => {
-    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
-    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
-    return (
-      <PhotoTexturedBox key={key} args={[w, h, stripT]} position={[cx, cy, stripZ]} castShadow receiveShadow
-        imageUrl={texEntry.texture_image} color={frontColor} matProps={matProps}
-        envMapIntensity={1.2} repeatU={w / physW} repeatV={h / physH} radius={0.001} />
-    )
-  })() : (
-    <SmartBox key={key} args={[w, h, stripT]} position={[cx, cy, stripZ]} castShadow receiveShadow
-      color={frontColor} materialName={frontMaterial} matProps={matProps} envMapIntensity={1.0} radius={0.001} />
-  )
-
-  const splitPieces = (key, h, cy) => {
-    if (columns <= 1) return frontPiece(key, ovenW, h, 0, cy)
-    const slot = W / columns
-    return Array.from({ length: columns }, (_, i) => frontPiece(`${key}-${i}`, slot - edgeGap, h, -W / 2 + slot * (i + 0.5), cy))
+  const splitDoors = (key, h, cy) => {
+    if (h <= 0.01) return null
+    const count = Math.max(1, columns)
+    const slot = W / count
+    return Array.from({ length: count }, (_, i) => (
+      <DoorPanel key={`${key}-${i}`} {...front}
+        x={count === 1 ? 0 : -W / 2 + slot * (i + 0.5)} y={cy}
+        doorW={(count === 1 ? ovenW : slot - edgeGap) + 0.004} doorH={h}
+        frontKey={`ot-${key}-${i}`} hinge={doorHinge(i, count, hingeSide)} />
+    ))
   }
 
   const ovenDoor = (key, cy, bandH) => ([
@@ -1775,38 +1765,34 @@ function OvenTowerAppliance({ W, H, D, isDouble, baseHeight, columns = 1, frontC
     </mesh>,
   ])
 
-  let bands
-  if (isDouble) {
-    // Two 595mm-tall ovens stacked with no gap between them; the lower oven's
-    // bottom sits at DOUBLE_OVEN_BOTTOM (below countertop height, unlike the
-    // single-oven case), with the second oven stacked directly above it.
-    const b2Bottom = DOUBLE_OVEN_BOTTOM / 1000, b2Top = b2Bottom + ovenH, b2Center = (b2Top + b2Bottom) / 2, b2H = ovenH
-    const b1Bottom = b2Top, b1Top = b1Bottom + ovenH, b1Center = (b1Top + b1Bottom) / 2, b1H = ovenH
-    bands = (
-      <>
-        {splitPieces('top', H - b1Top, (b1Top + H) / 2)}
-        {splitPieces('bottom', b2Bottom, b2Bottom / 2)}
-        {ovenDoor('door1', b1Center, b1H)}
-        {ovenDoor('door2', b2Center, b2H)}
-      </>
-    )
-  } else {
-    const bandBottom = baseH, bandH = ovenH
-    const bandTop = bandBottom + bandH, bandCenter = (bandTop + bandBottom) / 2
-    bands = (
-      <>
-        {splitPieces('top', H - bandTop, (bandTop + H) / 2)}
-        {splitPieces('bottom', bandBottom, bandBottom / 2)}
-        {ovenDoor('door', bandCenter, bandH)}
-      </>
-    )
-  }
+  const carcassProps = { color: carcassColor, materialName: carcassMaterial, matProps: carcassMatProps }
+  const body = showInterior ? (
+    <>
+      {ovenBottom > 0.04 && <HollowGlassCarcass W={W} H={ovenBottom} D={D} {...carcassProps} shelfCount={0} />}
+      <SmartBox args={[W, ovenTop - ovenBottom, D]} position={[0, (ovenBottom + ovenTop) / 2, 0]} castShadow receiveShadow
+        {...carcassProps} envMapIntensity={1.0} radius={0.001} />
+      {H - ovenTop > 0.04 && (
+        <group position={[0, ovenTop, 0]}>
+          <HollowGlassCarcass W={W} H={H - ovenTop} D={D} {...carcassProps} shelfCount={0} />
+        </group>
+      )}
+    </>
+  ) : (
+    <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
+      {...carcassProps} envMapIntensity={1.0} radius={0.001} />
+  )
 
   return (
     <group>
-      <SmartBox args={[W, H, D]} position={[0, H / 2, 0]} castShadow receiveShadow
-        color={carcassColor} materialName={carcassMaterial} matProps={carcassMatProps} envMapIntensity={1.0} radius={0.001} />
-      {bands}
+      {body}
+      {splitDoors('top', H - ovenTop, (ovenTop + H) / 2)}
+      {splitDoors('bottom', ovenBottom, ovenBottom / 2)}
+      {isDouble ? (
+        <>
+          {ovenDoor('door1', ovenBottom + ovenH * 1.5, ovenH)}
+          {ovenDoor('door2', ovenBottom + ovenH / 2, ovenH)}
+        </>
+      ) : ovenDoor('door', ovenBottom + ovenH / 2, ovenH)}
     </group>
   )
 }
@@ -2443,7 +2429,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : applianceKind === 'ovenTower' ? (
         <OvenTowerAppliance W={W} H={H} D={D} isDouble={cab.subtype === 'Double Oven'} baseHeight={cab.baseHeight} columns={numDoors}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
-          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps} finish={cab.applianceFinish} />
+          carcassColor={carcassColor} carcassMaterial={carcassMaterial} carcassMatProps={carcassMatProps}
+          hingeSide={cab.hingeSide || 'left'} finish={cab.applianceFinish} />
       ) : applianceKind === 'ovenMicro' ? (
         <OvenMicroTowerAppliance cab={cab} W={W} H={H} D={D}
           frontColor={frontColor} frontMaterial={frontMaterial} frontMaterialCode={cab.frontMaterialCode} textureMap={textureMap}
