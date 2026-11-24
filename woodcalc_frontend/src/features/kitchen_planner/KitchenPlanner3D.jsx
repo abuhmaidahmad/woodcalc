@@ -7,6 +7,7 @@ import * as THREE from 'three'
 import React, { useMemo, Suspense, useState, useEffect, useCallback, useContext, useRef, createContext } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { CT_OVERHANG_DEFAULTS, countertopOverhang } from './countertopOverhang'
+import { sinkRenderProps } from './sinkOptions'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
 import { useTranslation } from '../../i18n/LanguageContext'
@@ -1271,7 +1272,7 @@ function WorktopSlab({ w, T, d, radius, position, children }) {
   )
 }
 
-function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkColorHex, sinkRoughness, sinkMetalness, textureMap = {}, overhang = CT_OVERHANG_DEFAULTS }) {
+function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkColorHex, sinkRoughness, sinkMetalness, sinkBowlSide = 'left', textureMap = {}, overhang = CT_OVERHANG_DEFAULTS }) {
   const mat = material || { color: '#e8e2da', roughness: 0.18, metalness: 0.02 }
   const T = thickness
   const oF = (overhang.front ?? CT_OVERHANG_DEFAULTS.front) / 1000
@@ -1330,23 +1331,33 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
   const backZ = cz - cutD / 2 - backD / 2
   const faucetZ = cz - (cutD / 2 + 0.015)
 
+  const dividerW = 0.04
+  const mainLeft = sinkBowlSide !== 'right'
+  const sgn = mainLeft ? 1 : -1
+  const bowls = []
+  const dividers = []
+  let drainer = null
   if (sinkType === 'double') {
-    const dividerW = 0.04
-    const bowlW = (cutW - dividerW) / 2
-    const bowlX = bowlW / 2 + dividerW / 2
-    return (
-      <group position={[xOffset, T / 2, zOffset]}>
-        {slab(leftW, totalD, [leftX, 0, 0], 0)}
-        {slab(rightW, totalD, [rightX, 0, 0], 1)}
-        {slab(cutW, frontD, [cx, 0, frontZ], 2)}
-        {slab(cutW, backD, [cx, 0, backZ], 3)}
-        {slab(dividerW, cutD, [cx, 0, cz], 4)}
-        <group position={[cx - bowlX, T / 2, cz]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
-        <group position={[cx + bowlX, T / 2, cz]}><SinkBasin w={bowlW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
-        <SinkFaucet position={[cx, T / 2, faucetZ]} />
-      </group>
-    )
+    const bw = (cutW - dividerW) / 2
+    bowls.push({ x: -(bw / 2 + dividerW / 2), w: bw, depth: 0.18 }, { x: bw / 2 + dividerW / 2, w: bw, depth: 0.18 })
+    dividers.push(0)
+  } else if (sinkType === 'one_half') {
+    const bigW = (cutW - dividerW) * 0.62
+    const smallW = cutW - dividerW - bigW
+    bowls.push({ x: sgn * (-cutW / 2 + bigW / 2), w: bigW, depth: 0.18 }, { x: sgn * (cutW / 2 - smallW / 2), w: smallW, depth: 0.13 })
+    dividers.push(sgn * (-cutW / 2 + bigW + dividerW / 2))
+  } else if (sinkType === 'single_drainer') {
+    const bw = Math.min(cutW * 0.55, 0.45)
+    const dw = cutW - bw
+    bowls.push({ x: sgn * (-cutW / 2 + bw / 2), w: bw, depth: 0.18 })
+    drainer = { x: sgn * (cutW / 2 - dw / 2), w: dw }
+  } else {
+    bowls.push({ x: 0, w: cutW, depth: 0.18 })
   }
+  const faucetX = sinkType === 'double' ? 0 : bowls[0].x
+  const sinkMat = (
+    <meshPhysicalMaterial color={sinkColorHex || '#3a3a3a'} roughness={sinkRoughness ?? 0.35} metalness={sinkMetalness ?? 0.85} envMapIntensity={1.5} />
+  )
 
   return (
     <group position={[xOffset, T / 2, zOffset]}>
@@ -1354,8 +1365,27 @@ function Countertop({ W, D, material, thickness = 0.030, sinkType = null, sinkCo
       {slab(rightW, totalD, [rightX, 0, 0], 1)}
       {slab(cutW, frontD, [cx, 0, frontZ], 2)}
       {slab(cutW, backD, [cx, 0, backZ], 3)}
-      <group position={[cx, T / 2, cz]}><SinkBasin w={cutW - 0.001} d={cutD - 0.001} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} /></group>
-      <SinkFaucet position={[cx, T / 2, faucetZ]} />
+      {dividers.map((dx, i) => slab(dividerW, cutD, [cx + dx, 0, cz], 4 + i))}
+      {bowls.map((b, i) => (
+        <group key={'bowl' + i} position={[cx + b.x, T / 2, cz]}>
+          <SinkBasin w={b.w - 0.001} d={cutD - 0.001} depth={b.depth} color={sinkColorHex} roughness={sinkRoughness} metalness={sinkMetalness} />
+        </group>
+      ))}
+      {drainer && (
+        <group position={[cx + drainer.x, T / 2, cz]}>
+          <mesh position={[0, -0.001, 0]} castShadow receiveShadow>
+            <boxGeometry args={[drainer.w - 0.001, 0.006, cutD - 0.001]} />
+            {sinkMat}
+          </mesh>
+          {[-0.3, -0.15, 0, 0.15, 0.3].map(f => (
+            <mesh key={f} position={[f * drainer.w, 0.0025, 0]} castShadow>
+              <boxGeometry args={[0.008, 0.003, (cutD - 0.001) * 0.8]} />
+              {sinkMat}
+            </mesh>
+          ))}
+        </group>
+      )}
+      <SinkFaucet position={[cx + faucetX, T / 2, faucetZ]} />
     </group>
   )
 }
@@ -2547,8 +2577,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
         // explicitly (it already has its own leg-lifted group, so no extra lift needed).
         <group position={[0, H + (isPanel ? panelLift : 0), 0]}>
           <Countertop W={W} D={D} material={countertopMat} thickness={countertopThickness / 1000}
-            sinkType={(cab.subtype === 'Sink' || cab.subtype === 'Single Sink') ? 'single' : cab.subtype === 'Double Sink' ? 'double' : null}
-            sinkColorHex={cab.sinkColorHex} sinkRoughness={cab.sinkRoughness} sinkMetalness={cab.sinkMetalness}
+            {...sinkRenderProps(cab)}
             textureMap={textureMap} overhang={countertopOverhang(cab)} />
           {hasHob(cab) && (
             <group position={[0, countertopThickness / 1000, 0]}>

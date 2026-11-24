@@ -372,7 +372,7 @@ function cutAreasByMaterial(pricedCabinets, materialsMap, t) {
 // prices: the proposal's own material/hardware price overrides (saved with the
 // room). production: the company's cutting/assembly/overhead settings.
 // sheetUsage: actual sheets from the room's optimized cutting jobs, if any.
-export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, production, sheetUsage = [], t }) {
+export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 30, extras = [], materialsMap = {}, drawerSystemsCatalog = [], countertopMat, backsplashLm = 0, backsplashHeight = 0, production, sheetUsage = [], discount = null, t }) {
   // Older saved proposals may lack newer price keys -- fill them from the defaults.
   const prices = { ...DEFAULT_PRICES, ...(savedPrices || {}) }
   const productionPricing = normalizeProductionPricing(production)
@@ -405,13 +405,17 @@ export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 
   const marginBase       = costSubtotal + overheadAmount
   const marginAmount     = marginBase * (margin / 100)
   const afterMargin      = marginBase + marginAmount
-  const vatAmount        = afterMargin * 0.16
-  const grandTotal       = afterMargin + vatAmount
+  const discountType     = discount?.type === 'amount' ? 'amount' : 'percent'
+  const discountValue    = Math.max(0, Number(discount?.value) || 0)
+  const discountAmount   = Math.min(afterMargin, discountType === 'percent' ? afterMargin * Math.min(discountValue, 100) / 100 : discountValue)
+  const afterDiscount    = afterMargin - discountAmount
+  const vatAmount        = afterDiscount * 0.16
+  const grandTotal       = afterDiscount + vatAmount
   return {
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
     countertopLm, countertopPricePerLm, countertopCost, cutting, assembly,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
-    marginAmount, afterMargin, vatAmount, grandTotal,
+    marginAmount, afterMargin, discountType, discountValue, discountAmount, afterDiscount, vatAmount, grandTotal,
   }
 }
 
@@ -505,6 +509,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const [prices, setPrices]           = useState(() => ({ ...DEFAULT_PRICES, ...(initialSettings?.prices || {}) }))
   const [margin, setMargin]           = useState(initialSettings?.margin ?? 30)
   const [usdRate, setUsdRate]         = useState(initialSettings?.usdRate ?? USD_RATE)
+  const [discount, setDiscount]       = useState(() => ({ type: 'percent', value: 0, ...(initialSettings?.discount || {}) }))
   // id 1 was previously a hardcoded "Countertop (installed)" placeholder row
   // (flat qty 3 x 85) -- the countertop is now its own computed line below,
   // priced off the real design and the selected material's catalog rate, so
@@ -522,8 +527,8 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   // button persists these overrides like it does cabinets/room/etc., instead
   // of them living only in this component's state and resetting on reload.
   useEffect(() => {
-    if (onSettingsChange) onSettingsChange({ prices, margin, usdRate, extras, customer })
-  }, [prices, margin, usdRate, extras, customer])
+    if (onSettingsChange) onSettingsChange({ prices, margin, usdRate, extras, customer, discount })
+  }, [prices, margin, usdRate, extras, customer, discount])
 
   const companyStandards = useCompanyStandards()
   // Cutting/assembly/overhead rates are company settings shared by every
@@ -541,11 +546,12 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
     countertopLm, countertopPricePerLm, countertopCost,
     cutting, assembly, cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
-    marginAmount, afterMargin, vatAmount, grandTotal,
+    marginAmount, afterMargin, discountType, discountValue, discountAmount, afterDiscount, vatAmount, grandTotal,
   } = useMemo(() => computeProposalTotals({
     cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
-    production: productionRaw, sheetUsage,
-  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, productionRaw, sheetUsage])
+    production: productionRaw, sheetUsage, discount,
+  }), [cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t, companyStandards, productionRaw, sheetUsage, discount])
+  const discountLabel = discountType === 'percent' ? t('proposalTab.discountPercent', { pct: discountValue }) : t('proposalTab.discount')
   const grandTotalUSD    = grandTotal / usdRate
 
 
@@ -657,6 +663,23 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
               style={{ width: 52, padding: '3px 6px', border: '1.5px solid #E0DAD4', borderRadius: 5,
                 fontSize: 11, textAlign: 'right', outline: 'none' }} />
             <span style={{ fontSize: 10, color: '#aaa' }}>%</span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: '#555' }}>{t('proposalTab.discount')}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+            <input type="number" value={discount.value} min={0} step={discount.type === 'percent' ? 1 : 5}
+              onChange={e => setDiscount(d => ({ ...d, value: Math.max(0, parseFloat(e.target.value) || 0) }))}
+              style={{ width: 52, padding: '3px 6px', border: '1.5px solid #E0DAD4', borderRadius: 5,
+                fontSize: 11, textAlign: 'right', outline: 'none' }} />
+            {['percent', 'amount'].map(k => (
+              <button key={k} onClick={() => setDiscount(d => ({ ...d, type: k }))}
+                style={{ padding: '2px 5px', fontSize: 10, fontWeight: 700, borderRadius: 4, cursor: 'pointer',
+                  border: `1.5px solid ${discount.type === k ? ACCENT : '#E0DAD4'}`,
+                  background: discount.type === k ? ACCENT + '15' : '#fff', color: discount.type === k ? ACCENT : '#888' }}>
+                {k === 'percent' ? '%' : 'JD'}
+              </button>
+            ))}
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
@@ -853,6 +876,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
               ...(overheadPct > 0 ? [[t('proposalTab.overheadRow', { pct: overheadPct }), overheadAmount]] : []),
               [t('proposalTab.marginPercent', { margin }), marginAmount],
               [t('proposalTab.subtotalAfterMargin'), afterMargin],
+              ...(discountAmount > 0 ? [[discountLabel, -discountAmount], [t('proposalTab.subtotalAfterDiscount'), afterDiscount]] : []),
               [t('proposalTab.vat16'),          vatAmount],
             ].map(([label, val, lines]) => (
               <div key={label} style={{ padding: '6px 0', borderBottom: '1px solid #F7F4F0', fontSize: 12 }}>
@@ -891,7 +915,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <button onClick={() => exportPDF({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
               countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-              afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale })}
+              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale })}
               style={{ flex: 1, padding: '12px', background: DARK, color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
               {t('proposalTab.exportPdf')}
@@ -899,7 +923,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <button onClick={() => exportExcel({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
               countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-              afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale })}
+              afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale })}
               style={{ flex: 1, padding: '12px', background: '#2AC87A', color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
               {t('proposalTab.exportExcel')}
@@ -916,7 +940,7 @@ function exportPDF(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
     countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-    afterMargin, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale } = data
+    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
   const date = new Date().toLocaleDateString(locale || 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -995,6 +1019,8 @@ function exportPDF(data) {
     ${overheadPct > 0 ? `<div class="total-row"><span>${tr('proposalTab.overheadRow', { pct: overheadPct })}</span><span>${fmt(overheadAmount)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.marginPercent', { margin })}</span><span>${fmt(marginAmount)} JD</span></div>
     <div class="total-row"><span>${tr('proposalPdf.subtotalAfterMargin')}</span><span>${fmt(afterMargin)} JD</span></div>
+    ${discountAmount > 0 ? `<div class="total-row"><span>${discountLabel}</span><span>-${fmt(discountAmount)} JD</span></div>
+    <div class="total-row"><span>${tr('proposalTab.subtotalAfterDiscount')}</span><span>${fmt(afterDiscount)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.vat16')}</span><span>${fmt(vatAmount)} JD</span></div>
     <div class="grand">
       <div class="grand-label">${tr('proposalPdf.grandTotal')}</div>
@@ -1019,7 +1045,7 @@ function exportExcel(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
     countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
-    afterMargin, vatAmount, grandTotal, grandTotalUSD, t, locale } = data
+    afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale } = data
 
   const fmt = n => Number(n).toFixed(2)
   const tr = (key, vars) => t ? t(key, vars) : key
@@ -1064,6 +1090,10 @@ function exportExcel(data) {
   if (overheadPct > 0) rows.push([`${tr('proposalTab.overheadRow', { pct: overheadPct })} (JD)`, fmt(overheadAmount)])
   rows.push([`${tr('proposalPdf.marginPercent', { margin })} (JD)`, fmt(marginAmount)])
   rows.push([`${tr('proposalPdf.subtotalAfterMargin')} (JD)`, fmt(afterMargin)])
+  if (discountAmount > 0) {
+    rows.push([`${discountLabel} (JD)`, `-${fmt(discountAmount)}`])
+    rows.push([`${tr('proposalTab.subtotalAfterDiscount')} (JD)`, fmt(afterDiscount)])
+  }
   rows.push([`${tr('proposalPdf.vat16')} (JD)`,             fmt(vatAmount)])
   rows.push([`${tr('proposalPdf.grandTotal')} (JD)`,         fmt(grandTotal)])
   rows.push([`${tr('proposalPdf.grandTotal')} (USD)`,        fmt(grandTotalUSD)])

@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { CT_OVERHANG_DEFAULTS, CT_OVERHANG_SIDES, countertopOverhang } from './countertopOverhang'
+import { SINK_KINDS, SINK_FINISHES, resolveSink } from './sinkOptions'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
 import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
@@ -966,7 +967,10 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     sinkPrice: sink.price,
     sinkRoughness: sink.roughness,
     sinkMetalness: sink.metalness,
+    sinkKind: sink.cavity_count === 2 ? 'double' : 'single',
+    sinkFinish: null,
   } : c))
+  const setSinkQuick = (patch) => setCabinets(p => p.map(c => c.id === selected ? { ...c, ...patch, sinkId: null } : c))
 
   const selCab = cabinets.find(c => c.id === selected && selectedType === 'cabinet')
   const selEl  = elements.find(e => e.id === selected && selectedType === 'element')
@@ -987,6 +991,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
     prices: proposalSettings?.prices,
     margin: proposalSettings?.margin ?? 30,
     extras: (proposalSettings?.extras || defaultProposalExtras(t, cabinets.length)).filter(e => e.id !== 1),
+    discount: proposalSettings?.discount,
     materialsMap: textureMap,
     drawerSystemsCatalog: availableDrawerSystems,
     countertopMat, backsplashLm, backsplashHeight, t,
@@ -1936,6 +1941,39 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                 {['Sink', 'Single Sink', 'Double Sink'].includes(selCab.subtype) && (
                   <>
                     <div style={s.propSection}>{t('kitchenPlannerModule.sink')}</div>
+                    {(() => {
+                      const sk = resolveSink(selCab)
+                      const chip = (active) => ({ padding: '6px 4px', borderRadius: 6, border: `1.5px solid ${active ? ACCENT : '#E0DAD4'}`, background: active ? ACCENT + '15' : '#FAFAFA', cursor: 'pointer', textAlign: 'center', fontSize: 10, fontWeight: 700, color: active ? ACCENT : '#666' })
+                      return (
+                        <div style={{ marginBottom: 10 }}>
+                          <div style={s.propLabel}>{t('kitchenPlannerModule.sinkType')}</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4, marginBottom: 8 }}>
+                            {SINK_KINDS.map(k => (
+                              <div key={k} onClick={() => setSinkQuick({ sinkKind: k })} style={chip(sk.kind === k)}>{t('kitchenPlannerModule.sinkKind_' + k)}</div>
+                            ))}
+                          </div>
+                          <div style={s.propLabel}>{t('kitchenPlannerModule.sinkColour')}</div>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 4, marginBottom: 8 }}>
+                            {Object.entries(SINK_FINISHES).map(([k, f]) => (
+                              <div key={k} onClick={() => setSinkQuick({ sinkFinish: k, sinkColorHex: f.hex, sinkRoughness: f.roughness, sinkMetalness: f.metalness })} style={chip(sk.finish === k)}>
+                                <div style={{ width: 14, height: 14, borderRadius: '50%', background: f.hex, border: '1px solid rgba(0,0,0,0.2)', margin: '0 auto 4px' }} />
+                                {t('kitchenPlannerModule.sinkFinish_' + k)}
+                              </div>
+                            ))}
+                          </div>
+                          {(sk.kind === 'single_drainer' || sk.kind === 'one_half') && (
+                            <>
+                              <div style={s.propLabel}>{t('kitchenPlannerModule.sinkMainBowlSide')}</div>
+                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 4 }}>
+                                {['left', 'right'].map(sd => (
+                                  <div key={sd} onClick={() => updateCab('sinkBowlSide', sd)} style={chip(sk.side === sd)}>{t(sd === 'left' ? 'kitchenPlannerModule.sideLeft' : 'kitchenPlannerModule.sideRight')}</div>
+                                ))}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )
+                    })()}
                     {selCab.sinkId && (
                       <div style={{ marginBottom: 10, padding: '8px 10px', background: '#F5F0E8', borderRadius: 6 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: DARK }}>{selCab.sinkBrand} {selCab.sinkModel}</div>
