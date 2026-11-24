@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { countertopRunMm } from './countertopOverhang'
 import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
 import { useCompanyStandards, useProductionPricing, useCompanyBranding } from '../../api/companySettings'
-import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost } from './productionPricing'
+import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost, assemblyCategory } from './productionPricing'
 import { useTranslation } from '../../i18n/LanguageContext'
 
 const ACCENT = '#C8902A'
@@ -369,6 +369,41 @@ function cutAreasByMaterial(pricedCabinets, materialsMap, t) {
   return areas
 }
 
+// Folds the room's cutting & edge banding (charged per board) and assembly
+// (charged per cabinet) into each cabinet's own price. Cutting is shared by
+// each cabinet's cut part area; any rounding remainder goes on the cabinet with
+// the most area so the shares add up to the board total exactly.
+function allocateProductionServices(pricedCabinets, cutting, productionPricing, t) {
+  const areaOf = c => (c.pricing.cutParts || []).reduce((s, p) => s + (p.m2 > 0 ? p.m2 : 0), 0)
+  const areas = pricedCabinets.map(areaOf)
+  const totalArea = areas.reduce((s, a) => s + a, 0)
+  const shares = areas.map(a => totalArea > 0 ? Math.round(cutting.total * a / totalArea * 100) / 100 : 0)
+  if (totalArea > 0) {
+    const remainder = Math.round((cutting.total - shares.reduce((s, v) => s + v, 0)) * 100) / 100
+    if (remainder !== 0) {
+      const largest = areas.indexOf(Math.max(...areas))
+      shares[largest] = Math.round((shares[largest] + remainder) * 100) / 100
+    }
+  }
+  const ratePerM2 = totalArea > 0 ? cutting.total / totalArea : 0
+
+  const cabinets = pricedCabinets.map((cab, i) => {
+    const cuttingShare = shares[i]
+    const assemblyCost = cab.pricing.assembled
+      ? productionPricing.assembly_cab * productionPricing.category_multipliers[assemblyCategory(cab)]
+      : 0
+    if (!(cuttingShare > 0) && !(assemblyCost > 0)) return { ...cab, pricing: { ...cab.pricing, cuttingCost: 0, assemblyCost: 0, productionCost: 0 } }
+    const breakdown = [...cab.pricing.breakdown]
+    if (cuttingShare > 0) breakdown.push({ label: t('proposalTab.breakdownCuttingShare'), qty: areas[i].toFixed(3) + ' ' + t('proposalTab.unitM2'), unit: ratePerM2, cost: cuttingShare })
+    if (assemblyCost > 0) breakdown.push({ label: t('proposalTab.breakdownAssembly'), qty: '1 ' + t('proposalTab.unitPcs'), unit: assemblyCost, cost: assemblyCost })
+    const productionCost = Math.round((cuttingShare + assemblyCost) * 100) / 100
+    return { ...cab, pricing: { ...cab.pricing, breakdown, cuttingCost: cuttingShare, assemblyCost, productionCost,
+      total: Math.round((cab.pricing.total + productionCost) * 100) / 100 } }
+  })
+  const allocated = shares.reduce((s, v) => s + v, 0)
+  return { cabinets, unallocatedCutting: Math.round((cutting.total - allocated) * 100) / 100 }
+}
+
 // prices: the proposal's own material/hardware price overrides (saved with the
 // room). production: the company's cutting/assembly/overhead settings.
 // sheetUsage: actual sheets from the room's optimized cutting jobs, if any.
@@ -377,10 +412,11 @@ export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 
   const prices = { ...DEFAULT_PRICES, ...(savedPrices || {}) }
   const productionPricing = normalizeProductionPricing(production)
   const badgeNums = cabinetBadges(cabinets)
-  const pricedCabinets = cabinets.map(cab => ({ ...cab, num: badgeNums.get(cab.id), pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
+  const baseCabinets = cabinets.map(cab => ({ ...cab, num: badgeNums.get(cab.id), pricing: priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) }))
 
-  const cutting  = cuttingCost(cutAreasByMaterial(pricedCabinets, materialsMap, t), materialsMap, productionPricing, sheetUsage)
-  const assembly = assemblyCost(pricedCabinets.filter(c => c.pricing.assembled), productionPricing)
+  const cutting  = cuttingCost(cutAreasByMaterial(baseCabinets, materialsMap, t), materialsMap, productionPricing, sheetUsage)
+  const assembly = assemblyCost(baseCabinets.filter(c => c.pricing.assembled), productionPricing)
+  const { cabinets: pricedCabinets, unallocatedCutting } = allocateProductionServices(baseCabinets, cutting, productionPricing, t)
 
   // Backsplash: real board area (linear meters drawn × chosen height) priced by
   // the countertop's own material (same slab it's cut from), falling back to a
@@ -399,7 +435,7 @@ export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 
 
   const cabinetsSubtotal = pricedCabinets.reduce((s, c) => s + c.pricing.total, 0)
   const extrasSubtotal   = extras.reduce((s, e) => s + (e.qty * e.unitPrice), 0)
-  const costSubtotal     = cabinetsSubtotal + cutting.total + assembly.total + extrasSubtotal + backsplashCost + countertopCost
+  const costSubtotal     = cabinetsSubtotal + unallocatedCutting + extrasSubtotal + backsplashCost + countertopCost
   const overheadPct      = productionPricing.overhead_pct
   const overheadAmount   = costSubtotal * (overheadPct / 100)
   const marginBase       = costSubtotal + overheadAmount
@@ -413,7 +449,7 @@ export function computeProposalTotals({ cabinets, prices: savedPrices, margin = 
   const grandTotal       = afterDiscount + vatAmount
   return {
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
-    countertopLm, countertopPricePerLm, countertopCost, cutting, assembly,
+    countertopLm, countertopPricePerLm, countertopCost, cutting, assembly, unallocatedCutting,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
     marginAmount, afterMargin, discountType, discountValue, discountAmount, afterDiscount, vatAmount, grandTotal,
   }
@@ -465,12 +501,6 @@ function cuttingLines(cutting, t, fmt) {
     return { text: actual ? `${line} · ${t('proposalTab.fromCuttingJob')}` : line, cost: s.cost,
       detail: s.materials.map(m => `${m.label} (${m.boards})`).join(', ') }
   })
-}
-function assemblyLines(assembly, t, fmt) {
-  return assembly.rows.map(r => ({
-    text: t('proposalTab.assemblyLine', { count: r.count, category: t(`proposalTab.assemblyCat_${r.category}`), rate: fmt(r.rate) }),
-    cost: r.cost,
-  }))
 }
 
 // ─── Extra line item ───────────────────────────────────────────────────────
@@ -558,7 +588,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
   const {
     pricedCabinets, backsplashM2, backsplashPricePerM2, backsplashCost,
     countertopLm, countertopPricePerLm, countertopCost,
-    cutting, assembly, cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
+    cutting, assembly, unallocatedCutting, cabinetsSubtotal, extrasSubtotal, costSubtotal, overheadPct, overheadAmount,
     marginAmount, afterMargin, discountType, discountValue, discountAmount, afterDiscount, vatAmount, grandTotal,
   } = useMemo(() => computeProposalTotals({
     cabinets, prices, margin, extras, materialsMap, drawerSystemsCatalog, countertopMat, backsplashLm, backsplashHeight, t,
@@ -841,6 +871,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
                             <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 10 }}>
                               <span>{t('proposalTab.materialLabel')} <strong>{fmt(cab.pricing.materialCost)} JD</strong></span>
                               <span>{t('proposalTab.hardwareLabel')} <strong>{fmt(cab.pricing.hardwareCost)} JD</strong></span>
+                              {cab.pricing.productionCost > 0 && <span>{t('proposalTab.productionLabel')} <strong>{fmt(cab.pricing.productionCost)} JD</strong></span>}
                             </div>
                           </td>
                         </tr>
@@ -885,8 +916,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             <div style={{ fontWeight: 700, fontSize: 13, color: DARK, marginBottom: 14 }}>{t('proposalTab.summary')}</div>
             {[
               [t('proposalTab.cabinetsSubtotal'),  cabinetsSubtotal],
-              ...(cutting.total > 0 ? [[t('proposalTab.cuttingRow', { boards: cutting.boards }), cutting.total, cuttingLines(cutting, t, fmt)]] : []),
-              ...(assembly.total > 0 ? [[t('proposalTab.assemblyRow', { count: assembly.count }), assembly.total, assemblyLines(assembly, t, fmt)]] : []),
+              ...(unallocatedCutting > 0 ? [[t('proposalTab.cuttingRow', { boards: cutting.boards }), unallocatedCutting, cuttingLines(cutting, t, fmt)]] : []),
               ...(countertopLm > 0 ? [[t('proposalTab.countertopRow', { m: countertopLm.toFixed(2), rate: (countertopCost / countertopLm).toFixed(2) }), countertopCost]] : []),
               ...(backsplashCost > 0 ? [[t('proposalTab.backsplashRow', { m: backsplashLm.toFixed(2) }), backsplashCost]] : []),
               [t('proposalTab.additionalItemsRow'),   extrasSubtotal],
@@ -932,7 +962,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button onClick={() => exportPDF({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
-              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
+              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, unallocatedCutting, overheadPct, overheadAmount,
               afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale, logoUrl: branding.logoUrl, brandName })}
               style={{ flex: 1, padding: '12px', background: DARK, color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -940,7 +970,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
             </button>
             <button onClick={() => exportExcel({ projectName, customer, pricedCabinets, extras,
               cabinetsSubtotal, extrasSubtotal, costSubtotal, marginAmount, margin,
-              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
+              countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, unallocatedCutting, overheadPct, overheadAmount,
               afterMargin, discountAmount, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale, brandName })}
               style={{ flex: 1, padding: '12px', background: '#2AC87A', color: '#fff',
                 border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700 }}>
@@ -957,7 +987,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
 function exportPDF(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
-    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
+    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, unallocatedCutting = 0, overheadPct, overheadAmount,
     afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, countertopMat, t, dir, locale, logoUrl, brandName } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -1027,10 +1057,7 @@ function exportPDF(data) {
   <div class="section">${tr('proposalPdf.summary')}</div>
   <div style="max-width:360px;margin-inline-start:auto">
     <div class="total-row"><span>${tr('proposalTab.cabinetsSubtotal')}</span><span>${fmt(cabinetsSubtotal)} JD</span></div>
-    ${cutting.total > 0 ? `<div class="total-row"><span>${tr('proposalTab.cuttingRow', { boards: cutting.boards })}</span><span>${fmt(cutting.total)} JD</span></div>
-      ${cuttingLines(cutting, tr, fmt).map(l => `<div class="sub-row"><span>${l.text}</span><span>${fmt(l.cost)} JD</span></div>`).join('')}` : ''}
-    ${assembly.total > 0 ? `<div class="total-row"><span>${tr('proposalTab.assemblyRow', { count: assembly.count })}</span><span>${fmt(assembly.total)} JD</span></div>
-      ${assemblyLines(assembly, tr, fmt).map(l => `<div class="sub-row"><span>${l.text}</span><span>${fmt(l.cost)} JD</span></div>`).join('')}` : ''}
+    ${unallocatedCutting > 0 ? `<div class="total-row"><span>${tr('proposalTab.cuttingRow', { boards: cutting.boards })}</span><span>${fmt(unallocatedCutting)} JD</span></div>` : ''}
     ${countertopLm > 0 ? `<div class="total-row"><span>${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })}</span><span>${fmt(countertopCost)} JD</span></div>` : ''}
     ${backsplashCost > 0 ? `<div class="total-row"><span>${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })}</span><span>${fmt(backsplashCost)} JD</span></div>` : ''}
     <div class="total-row"><span>${tr('proposalPdf.additionalItemsRow')}</span><span>${fmt(extrasSubtotal)} JD</span></div>
@@ -1063,7 +1090,7 @@ function exportPDF(data) {
 function exportExcel(data) {
   const { projectName, customer, pricedCabinets, extras,
     cabinetsSubtotal, extrasSubtotal, costSubtotal, margin, marginAmount,
-    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, overheadPct, overheadAmount,
+    countertopLm, countertopCost, backsplashLm, backsplashCost, cutting, assembly, unallocatedCutting = 0, overheadPct, overheadAmount,
     afterMargin, discountAmount = 0, discountLabel, afterDiscount, vatAmount, grandTotal, grandTotalUSD, t, locale, brandName } = data
 
   const fmt = n => Number(n).toFixed(2)
@@ -1077,12 +1104,12 @@ function exportExcel(data) {
   if (customer.phone)   rows.push([tr('proposalPdf.phone'),    customer.phone])
   if (customer.address) rows.push([tr('proposalPdf.address'),  customer.address])
   rows.push([])
-  rows.push([tr('proposalPdf.colNum'), tr('proposalPdf.colCabinet'), 'Width', 'Height', 'Depth', tr('proposalPdf.colMaterial'), tr('proposalPdf.colDoorStyle'), 'Material Cost (JD)', 'Hardware Cost (JD)', 'Total (JD)'])
+  rows.push([tr('proposalPdf.colNum'), tr('proposalPdf.colCabinet'), 'Width', 'Height', 'Depth', tr('proposalPdf.colMaterial'), tr('proposalPdf.colDoorStyle'), 'Material Cost (JD)', 'Hardware Cost (JD)', 'Cutting & Assembly (JD)', 'Total (JD)'])
 
   pricedCabinets.forEach((c) => {
     rows.push([
       c.num, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
-      fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost), fmt(c.pricing.total)
+      fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost), fmt(c.pricing.productionCost || 0), fmt(c.pricing.total)
     ])
   })
 
@@ -1094,13 +1121,8 @@ function exportExcel(data) {
   rows.push([])
   rows.push([tr('proposalPdf.summary')])
   rows.push([`${tr('proposalTab.cabinetsSubtotal')} (JD)`,   fmt(cabinetsSubtotal)])
-  if (cutting.total > 0) {
-    rows.push([`${tr('proposalTab.cuttingRow', { boards: cutting.boards })} (JD)`, fmt(cutting.total)])
-    cuttingLines(cutting, tr, fmt).forEach(l => rows.push([`  ${l.text}`, fmt(l.cost)]))
-  }
-  if (assembly.total > 0) {
-    rows.push([`${tr('proposalTab.assemblyRow', { count: assembly.count })} (JD)`, fmt(assembly.total)])
-    assemblyLines(assembly, tr, fmt).forEach(l => rows.push([`  ${l.text}`, fmt(l.cost)]))
+  if (unallocatedCutting > 0) {
+    rows.push([`${tr('proposalTab.cuttingRow', { boards: cutting.boards })} (JD)`, fmt(unallocatedCutting)])
   }
   if (countertopLm > 0) rows.push([`${tr('proposalTab.countertopRow', { m: fmt(countertopLm), rate: fmt(countertopCost / countertopLm) })} (JD)`, fmt(countertopCost)])
   if (backsplashCost > 0) rows.push([`${tr('proposalTab.backsplashRow', { m: fmt(backsplashLm) })} (JD)`, fmt(backsplashCost)])

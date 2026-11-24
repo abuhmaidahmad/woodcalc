@@ -89,7 +89,8 @@ describe('proposal totals', () => {
     const base = computeProposalTotals({ cabinets, margin: 0, extras: [], t })
     expect(base.assembly.total).toBe(14)
     expect(base.cutting.total).toBeGreaterThan(0)
-    expect(base.costSubtotal).toBeCloseTo(base.cabinetsSubtotal + base.cutting.total + base.assembly.total + base.countertopCost)
+    expect(base.cabinetsSubtotal).toBeCloseTo(base.pricedCabinets.reduce((s, c) => s + c.pricing.materialCost + c.pricing.hardwareCost, 0) + base.cutting.total + base.assembly.total)
+    expect(base.costSubtotal).toBeCloseTo(base.cabinetsSubtotal + base.unallocatedCutting + base.countertopCost)
     expect(base.overheadAmount).toBe(0)
 
     const withOverhead = computeProposalTotals({ cabinets, margin: 20, extras: [], production: { overhead_pct: 10 }, t })
