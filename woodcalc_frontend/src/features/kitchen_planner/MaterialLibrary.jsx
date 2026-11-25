@@ -29,7 +29,7 @@ const FINISH_BADGE = {
 // Memoized for the same reason as CabinetCatalog/DesignerAgentChat -- note
 // this only helps at call sites that also pass a referentially stable
 // `onSelect`; an inline arrow function there still defeats it.
-function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
+function MaterialLibrary({ onSelect, selectedCode, target, companySlug, libraryOnly = false }) {
   const { t } = useTranslation()
   const [brand, setBrand] = useState('my_library')
   const [category, setCategory] = useState('all')
@@ -92,7 +92,7 @@ function MaterialLibrary({ onSelect, selectedCode, target, companySlug }) {
             color: brand === 'my_library' ? ACCENT : '#666' }}>
           {t('materialLibrary.myLibrary')} {catalogMaterials.length > 0 ? `(${catalogMaterials.length})` : ''}
         </button>
-        {Object.entries(MATERIAL_DB).map(([key, b]) => (
+        {!libraryOnly && Object.entries(MATERIAL_DB).map(([key, b]) => (
           <button key={key} onClick={() => { setBrand(key); setSearch('') }}
             style={{ padding: '3px 7px', borderRadius: 5, border: '1.5px solid', fontSize: 10, fontWeight: 600, cursor: 'pointer',
               borderColor: brand === key ? ACCENT : '#E0DAD4',

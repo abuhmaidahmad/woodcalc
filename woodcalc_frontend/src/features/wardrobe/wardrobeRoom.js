@@ -61,7 +61,8 @@ export function buildWardrobePlannerData({ design, std, price, result, picked, f
   }
 }
 
-export function contractRows(design, result, widths, t, carcassName) {
+export function contractRows(design, result, widths, t, carcassName, frontName = null) {
+  const door = (s) => (frontName ? `${s} · ${frontName}` : s)
   if (result.mode === 'closet') {
     const runs = result.runs.map((r) => ({
       id: r.id,
@@ -70,7 +71,7 @@ export function contractRows(design, result, widths, t, carcassName) {
       height: r.design.height,
       depth: r.design.depth,
       material: carcassName,
-      doorStyle: t(`wardrobe.doorTypes.${r.design.doorType}`),
+      doorStyle: door(t(`wardrobe.doorTypes.${r.design.doorType}`)),
     }))
     if (!result.island) return runs
     const isl = design.closet.island
@@ -81,7 +82,7 @@ export function contractRows(design, result, widths, t, carcassName) {
       height: isl.height,
       depth: isl.depth,
       material: carcassName,
-      doorStyle: t('wardrobe.zone.drawers'),
+      doorStyle: door(t('wardrobe.zone.drawers')),
     }])
   }
   return design.sections.map((s, i) => ({
@@ -91,6 +92,6 @@ export function contractRows(design, result, widths, t, carcassName) {
     height: design.height,
     depth: design.depth,
     material: carcassName,
-    doorStyle: t(`wardrobe.doorTypes.${design.doorType}`),
+    doorStyle: door(t(`wardrobe.doorTypes.${design.doorType}`)),
   }))
 }

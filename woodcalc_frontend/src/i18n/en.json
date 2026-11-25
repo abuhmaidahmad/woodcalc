@@ -2514,6 +2514,13 @@
       "open": "Doors open",
       "hidden": "No doors"
     },
+    "finish": {
+      "title": "Materials",
+      "matchCarcass": "Front same as carcass",
+      "pickedInDesign": "Carcass and front are picked in the Design tab.",
+      "notPicked": "Not picked — standard board",
+      "clear": "Clear"
+    },
     "colors": {
       "white": "White",
       "cashmere": "Cashmere",

@@ -12,8 +12,10 @@ import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
 import { CT_OVERHANG_DEFAULTS, countertopOverhang, hasCountertop } from './countertopOverhang'
 import { sinkRenderProps } from './sinkOptions'
 import { MATERIAL_DB, lamToCt } from './materialData'
-import { authFetch, withCompanyParam } from '../../api/auth'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { LAMINATE_PROPS, useMaterialTextureMap, configureTextureQuality, capTextureSize, PhotoPanelMaterial, PhotoTexturedBox } from './photoTextures'
+
+export { useMaterialTextureMap }
 
 // Phones and tablets (touch-first, or few CPU cores) can't afford the full
 // pipeline below: 4 point-light cube shadow maps (~24 extra shadow passes),
@@ -46,12 +48,6 @@ const FLOOR_TILES = {
   concrete:     { color: '#9E9E9E', roughness: 0.9,  metalness: 0.0  },
 }
 
-const LAMINATE_PROPS = {
-  gloss:  { roughness: 0.02, metalness: 0.05, clearcoat: 1.0, clearcoatRoughness: 0.02 },
-  matt:   { roughness: 0.85, metalness: 0.0,  clearcoat: 0.0, clearcoatRoughness: 0.0  },
-  wood:   { roughness: 0.70, metalness: 0.0,  clearcoat: 0.15, clearcoatRoughness: 0.25 },
-  metal:  { roughness: 0.20, metalness: 0.8,  clearcoat: 0.3,  clearcoatRoughness: 0.1  },
-}
 
 function getMaterialProps(materialName) {
   if (!materialName) return LAMINATE_PROPS.matt
@@ -95,145 +91,6 @@ const WOOD_B64 = 'data:image/svg+xml;base64,' + btoa(`
   <path d="M10 340 Q50 318 80 345 Q120 372 155 342 Q185 318 245 350" stroke="#0d0500" stroke-width="1.5" fill="none" opacity="0.28"/>
 </svg>`)
 
-const API_BASE = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
-
-// Fetches all supplier-uploaded material textures once and returns a lookup by `code`.
-// Falls back gracefully (empty map) if the request fails, so flat colors still render.
-function forceHttps(url) {
-  if (!url) return url
-  return url.replace(/^http:\/\//i, 'https://')
-}
-
-function configureTextureQuality(texture, gl) {
-  texture.anisotropy = gl.capabilities.getMaxAnisotropy()
-  texture.minFilter = THREE.LinearMipmapLinearFilter
-  texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = true
-  texture.colorSpace = THREE.SRGBColorSpace
-  texture.needsUpdate = true
-  return texture
-}
-
-export function useMaterialTextureMap(companySlug) {
-  const [textureMap, setTextureMap] = useState({})
-  useEffect(() => {
-    // The API pages its results (50 per page) -- follow every page so a catalog
-    // bigger than one page still prices/renders all of its materials.
-    const fetchAll = async (url, acc = []) => {
-      const data = await (await authFetch(url)).json()
-      const list = acc.concat(data.results || data || [])
-      return data.next ? fetchAll(data.next.replace(/^https?:/, new URL(API_BASE).protocol), list) : list
-    }
-    fetchAll(withCompanyParam(API_BASE + '/api/inventory/materials/', companySlug))
-      .then(results => {
-        const map = {}
-        results.forEach(t => {
-          if (t.sku) map[t.sku] = { ...t, texture_image: forceHttps(t.texture_image) }
-        })
-        setTextureMap(map)
-      })
-      .catch(() => setTextureMap({}))
-  }, [companySlug])
-  return textureMap
-}
-
-const MAX_TEXTURE_PX = 2048
-
-function capTextureSize(texture) {
-  const img = texture.image
-  if (!img || texture.userData.capped) return texture
-  texture.userData.capped = true
-  const w = img.naturalWidth || img.width
-  const h = img.naturalHeight || img.height
-  if (!w || !h || Math.max(w, h) <= MAX_TEXTURE_PX) return texture
-  const scale = MAX_TEXTURE_PX / Math.max(w, h)
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(w * scale)
-  canvas.height = Math.round(h * scale)
-  canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height)
-  texture.image = canvas
-  texture.needsUpdate = true
-  return texture
-}
-
-function PhotoPanelMaterial({ imageUrl, color, matProps, envMapIntensity = 1.0, repeatU = 1, repeatV = 1, offsetV = 0, rotate90 = false }) {
-  const { gl } = useThree()
-  const texture = useLoader(THREE.TextureLoader, imageUrl)
-  const t = useMemo(() => {
-    if (!texture) return null
-    // Clone so each panel (especially drawers) has independent repeat/offset settings.
-    // useLoader caches one shared object — mutating it directly would make all panels look the same.
-    const c = capTextureSize(texture).clone()
-    c.wrapS = THREE.RepeatWrapping
-    c.wrapT = THREE.RepeatWrapping
-    c.repeat.set(repeatU, repeatV)
-    c.offset.set(0, offsetV)
-    // Side panel grain runs perpendicular to doors/drawers on this UV mapping;
-    // rotate 90° about the texture's own center to correct grain direction.
-    if (rotate90) {
-      c.center.set(0.5, 0.5)
-      c.rotation = Math.PI / 2
-    }
-    configureTextureQuality(c, gl)
-    return c
-  }, [texture, repeatU, repeatV, offsetV, rotate90, gl])
-  return (
-    <meshPhysicalMaterial
-      map={t}
-      roughness={matProps.roughness}
-      metalness={matProps.metalness}
-      clearcoat={matProps.clearcoat}
-      clearcoatRoughness={matProps.clearcoatRoughness}
-      envMapIntensity={envMapIntensity}
-    />
-  )
-}
-
-class TextureErrorBoundary extends React.Component {
-  constructor(props) { super(props); this.state = { error: false } }
-  static getDerivedStateFromError() { return { error: true } }
-  render() {
-    if (this.state.error) {
-      const { args, position, castShadow, receiveShadow, color, matProps } = this.props
-      return (
-        <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-          <boxGeometry args={args} />
-          <meshPhysicalMaterial color={color} roughness={matProps.roughness} metalness={matProps.metalness} />
-        </mesh>
-      )
-    }
-    return this.props.children
-  }
-}
-
-function PhotoTexturedBox({ args, position, castShadow, receiveShadow, imageUrl, color, matProps, envMapIntensity, repeatU, repeatV, offsetV = 0, radius = 0, rotate90 = false }) {
-  const flatMesh = (
-    <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-      <boxGeometry args={args} />
-      <meshStandardMaterial color={color} roughness={0.7} />
-    </mesh>
-  )
-  const photoMat = (
-    <PhotoPanelMaterial imageUrl={imageUrl} color={color} matProps={matProps} envMapIntensity={envMapIntensity} repeatU={repeatU} repeatV={repeatV} offsetV={offsetV} rotate90={rotate90} />
-  )
-  const inner = radius > 0 ? (
-    <RoundedBox args={args} radius={radius} smoothness={1} position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-      {photoMat}
-    </RoundedBox>
-  ) : (
-    <mesh position={position} castShadow={castShadow} receiveShadow={receiveShadow}>
-      <boxGeometry args={args} />
-      {photoMat}
-    </mesh>
-  )
-  return (
-    <TextureErrorBoundary args={args} position={position} castShadow={castShadow} receiveShadow={receiveShadow} color={color} matProps={matProps}>
-      <Suspense fallback={flatMesh}>
-        {inner}
-      </Suspense>
-    </TextureErrorBoundary>
-  )
-}
 
 function WoodPanelMaterial({ color, matProps, envMapIntensity = 1.0 }) {
   const { gl } = useThree()

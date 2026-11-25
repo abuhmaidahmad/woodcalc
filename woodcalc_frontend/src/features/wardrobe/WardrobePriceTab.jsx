@@ -3,6 +3,7 @@ import { useTranslation } from '../../i18n/LanguageContext'
 import { computeDesign, withConstruction } from './closetEngine'
 import { priceWardrobe, MATERIAL_ROLES, ROLE_TYPES, USD_RATE, fmt, constructionName } from './wardrobePricing'
 import { usePricing } from './useWardrobePricing'
+import { pricingPicks } from './wardrobeMaterials'
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
@@ -11,6 +12,7 @@ const label = { fontSize: 11, color: '#777', marginBottom: 4, display: 'block' }
 const input = { width: '100%', boxSizing: 'border-box', padding: '7px 9px', border: '1px solid #ddd6cc', borderRadius: 7, fontSize: 13, background: '#fff' }
 const th = { textAlign: 'start', padding: '7px 8px', fontSize: 11, color: '#777', fontWeight: 600, borderBottom: '1px solid #eee7dd', whiteSpace: 'nowrap' }
 const td = { padding: '7px 8px', fontSize: 12, borderBottom: '1px solid #f3eee7', whiteSpace: 'nowrap' }
+const DESIGN_ROLES = ['Carcass', 'Front']
 const ghost = { padding: '6px 10px', background: '#fff', color: DARK, border: '1px solid #ddd6cc', borderRadius: 7, cursor: 'pointer', fontSize: 12 }
 
 function MaterialPicker({ role, value, materials, onChange, t }) {
@@ -38,7 +40,8 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
   const { t } = useTranslation()
   const { materials, loading, error } = materialsState
   const settings = design.pricing || {}
-  const { price, opts } = usePricing(design, std, materials, result)
+  const { price, picked, opts } = usePricing(design, std, materials, result)
+  const designPicks = pricingPicks(design)
   const boxes = useMemo(() => priceWardrobe(computeDesign(withConstruction(design, 'boxes'), std), std, opts), [design, std, opts])
   const sharedDesign = useMemo(() => withConstruction(design, 'shared'), [design])
   const shared = useMemo(() => priceWardrobe(computeDesign(sharedDesign, std), std, opts), [sharedDesign, std, opts])
@@ -67,7 +70,16 @@ export default function WardrobePriceTab({ design, std, result, materialsState, 
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>{t('wardrobe.price.materialsTitle')}</div>
           {loading && <div style={{ fontSize: 12, color: '#999', marginBottom: 8 }}>{t('wardrobe.price.loading')}</div>}
           {error && <div style={{ fontSize: 12, color: '#9b2c2c', marginBottom: 8 }}>{t('wardrobe.price.loadError')}</div>}
-          {MATERIAL_ROLES.map((role) => (
+          {DESIGN_ROLES.map((role) => (
+            <div key={role} style={{ marginBottom: 8 }}>
+              <span style={label}>{t(`wardrobe.material.${role}`)}</span>
+              <div style={{ ...input, background: '#faf8f5', color: picked[role] ? DARK : '#999' }}>
+                {picked[role] ? `${picked[role].name} · ${picked[role].sku}` : designPicks[role] || t('wardrobe.finish.notPicked')}
+              </div>
+            </div>
+          ))}
+          <div style={{ fontSize: 11, color: '#999', marginBottom: 10 }}>{t('wardrobe.finish.pickedInDesign')}</div>
+          {MATERIAL_ROLES.filter((role) => !DESIGN_ROLES.includes(role)).map((role) => (
             <MaterialPicker key={role} role={role} value={settings.picks?.[role]} materials={materials} onChange={(sku) => setPick(role, sku)} t={t} />
           ))}
           <div style={{ fontSize: 11, color: '#999' }}>{t('wardrobe.price.materialsHint')}</div>

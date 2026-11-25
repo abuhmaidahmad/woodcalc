@@ -847,9 +847,9 @@ export function computeWardrobe(design, std) {
   return { parts, rawParts, hardware, geometry, warnings, summary, sections: sectionsOut, materials, edgeBanding }
 }
 
-export function cutListCsv(result, partLabel = (p) => p.name) {
+export function cutListCsv(result, partLabel = (p) => p.name, materialLabel = (p) => p.material) {
   const rows = [['#', 'Part', 'Arabic', 'Section', 'L', 'W', 'T', 'Qty', 'Material', 'Edges']]
-  result.parts.forEach((p, i) => rows.push([i + 1, partLabel(p), p.nameAr, p.sections.join(' ') + (p.loft ? ' loft' : ''), p.L, p.W, p.T, p.qty, p.material, p.edges]))
+  result.parts.forEach((p, i) => rows.push([i + 1, partLabel(p), p.nameAr, p.sections.join(' ') + (p.loft ? ' loft' : ''), p.L, p.W, p.T, p.qty, materialLabel(p), p.edges]))
   return rows.map((r) => r.map((c) => {
     const s = String(c ?? '')
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s

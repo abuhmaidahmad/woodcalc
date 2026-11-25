@@ -4,6 +4,8 @@ import { useTranslation } from '../../i18n/LanguageContext'
 import { normalizeStandard } from './wardrobeStandard'
 import { computeDesign } from './closetEngine'
 import { validFrontColor } from './wardrobeRoom'
+import { shareLook } from './wardrobeMaterials'
+import { forceHttps } from '../kitchen_planner/textureMap'
 import ClosetPlan from './ClosetPlan'
 
 const Wardrobe3D = lazy(() => import('./Wardrobe3D'))
@@ -11,7 +13,6 @@ const Closet3D = lazy(() => import('./Closet3D'))
 
 const ACCENT = '#C8902A'
 const DARK = '#1A1A1A'
-const CARCASS = '#f1ede6'
 
 function Pill({ active, onClick, children }) {
   return (
@@ -30,6 +31,11 @@ export default function WardrobeShareView({ data }) {
   const std = useMemo(() => normalizeStandard(data.standard), [data.standard])
   const result = useMemo(() => computeDesign(design, std), [design, std])
   const frontColor = validFrontColor(data.frontColor)
+  const look = useMemo(() => {
+    const f = data.finishes || {}
+    const fix = (e) => (e ? { ...e, texture_image: forceHttps(e.texture_image) } : null)
+    return shareLook({ carcass: fix(f.carcass), front: fix(f.front) }, frontColor)
+  }, [data.finishes, frontColor])
   const [view, setView] = useState('3d')
   const [doorMode, setDoorMode] = useState('closed')
   const [distance] = useState(() => {
@@ -71,9 +77,9 @@ export default function WardrobeShareView({ data }) {
             ) : (
               <Suspense fallback={loading}>
                 {closet ? (
-                  <Closet3D result={result} closet={closet} std={std} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" distance={distance} />
+                  <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} height="100%" distance={distance} />
                 ) : (
-                  <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor={CARCASS} doorMode={doorMode} height="100%" distance={distance} />
+                  <Wardrobe3D result={result} design={design} look={look} doorMode={doorMode} height="100%" distance={distance} />
                 )}
               </Suspense>
             )}
