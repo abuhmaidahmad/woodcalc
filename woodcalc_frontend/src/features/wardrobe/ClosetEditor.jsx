@@ -11,6 +11,8 @@ import CutListPanel from './CutListPanel'
 import NumField from './NumField'
 import DrawerSystemPicker from './DrawerSystemPicker'
 import { ACCENT, DARK, FIELDSET, card, label, input, ghost } from './ui'
+import ClosetRoomStep from './ClosetRoomStep'
+import { syncRoomToOutline } from './closetRoom'
 
 const Closet3D = lazy(() => import('./Closet3D'))
 
@@ -38,7 +40,9 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
   const run = activeId === 'I' ? null : closet.runs[activeId]
   const wallLabel = (id) => t(`wardrobe.closet.wall.${id}`)
 
-  const setCloset = (fn) => setDesign((d) => ({ ...d, closet: fn(d.closet) }))
+  const setCloset = (fn) => setDesign((d) => ({ ...d, closet: syncRoomToOutline(d.closet, fn(d.closet)) }))
+  const [step, setStep] = useState('closet')
+  const [showWalls, setShowWalls] = useState(true)
   const setC = (k, v) => setCloset((c) => ({ ...c, [k]: v }))
   const setRun = (id, patch) => setCloset((c) => ({ ...c, runs: { ...c.runs, [id]: { ...c.runs[id], ...patch } } }))
   const setIsland = (patch) => setCloset((c) => ({ ...c, island: { ...c.island, ...patch } }))
@@ -57,7 +61,28 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
   const isl = closet.island
   const sheets = result.materials.reduce((a, m) => a + m.sheets, 0)
 
+  const stepBar = (
+    <div className="wb-noprint" style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+      {['room', 'closet'].map((k) => (
+        <button key={k} onClick={() => setStep(k)} style={{ ...ghost, padding: '7px 14px', fontWeight: 700, borderColor: step === k ? ACCENT : '#ddd6cc', color: step === k ? ACCENT : DARK }}>
+          {t(`wardrobe.closet.step.${k}`)}
+        </button>
+      ))}
+    </div>
+  )
+
+  if (step === 'room') {
+    return (
+      <>
+        {stepBar}
+        <ClosetRoomStep closet={closet} setCloset={setCloset} readOnly={readOnly} />
+      </>
+    )
+  }
+
   return (
+    <>
+    {stepBar}
     <div className="wb-grid">
       <fieldset className="wb-noprint" disabled={readOnly} style={FIELDSET}>
         <div style={card}>
@@ -194,6 +219,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
                 {['closed', 'open', 'hidden'].map((m) => (
                   <button key={m} onClick={() => setDoorMode(m)} style={{ ...ghost, borderColor: doorMode === m ? ACCENT : '#ddd6cc', color: doorMode === m ? ACCENT : DARK }}>{t(`wardrobe.doorMode.${m}`)}</button>
                 ))}
+                <button onClick={() => setShowWalls((v) => !v)} style={{ ...ghost, borderColor: showWalls ? ACCENT : '#ddd6cc', color: showWalls ? ACCENT : DARK }}>{t('wardrobe.closet.walls')}</button>
               </div>
             )}
           </div>
@@ -209,7 +235,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
           {view === '3d' && (
             <ErrorBoundary>
               <Suspense fallback={<div style={{ height: 560, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
-                <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} label={constructionLabel} />
+                <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} showWalls={showWalls} label={constructionLabel} />
               </Suspense>
             </ErrorBoundary>
           )}
@@ -237,5 +263,6 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
           csvName={`closet-cut-list-${Math.round(closet.width)}x${Math.round(closet.roomDepth)}.csv`} />
       </div>
     </div>
+    </>
   )
 }

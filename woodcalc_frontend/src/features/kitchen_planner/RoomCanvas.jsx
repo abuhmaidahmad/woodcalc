@@ -16,6 +16,8 @@ import {
 const ACCENT = '#C8902A'
 const BULK_ACCENT = '#2AC87A'
 const EMPTY_BULK_IDS = new Set()
+const EMPTY_LIST = []
+const NOOP = () => {}
 const GRID = 50
 // Screen/view-space mouse-snap radius for the draw/drag UI -- a UX concern
 // about cursor proximity, unrelated to wallGeometry's mm-based join
@@ -679,7 +681,7 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
 
 export default function RoomCanvas({
   room, scale, showGrid, showDimensions,
-  elements, setElements, cabinets, setCabinets,
+  elements, setElements, cabinets = EMPTY_LIST, setCabinets = NOOP,
   selected, setSelected, selectedType, setSelectedType,
   wallThickness, setWallThickness,
   walls, setWalls,
@@ -690,6 +692,8 @@ export default function RoomCanvas({
   hideToolbar,
   hideBacksplashTool,
   hideWallsElements,
+  hideStairTool = false,
+  fitOnMount = false,
   bulkIds = EMPTY_BULK_IDS, onToggleBulk,
 }) {
   const { t } = useTranslation()
@@ -1619,6 +1623,14 @@ export default function RoomCanvas({
     applyViewBounds(minX, minY, maxX, maxY, 0.08)
   }
 
+  const fitRef = useRef(fitView)
+  fitRef.current = fitView
+  useEffect(() => {
+    if (!fitOnMount) return
+    const id = requestAnimationFrame(() => fitRef.current())
+    return () => cancelAnimationFrame(id)
+  }, [fitOnMount])
+
   const zoomToSelection = () => {
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
     const addPt = (x, y) => { if (x < minX) minX = x; if (x > maxX) maxX = x; if (y < minY) minY = y; if (y > maxY) maxY = y }
@@ -1685,7 +1697,7 @@ export default function RoomCanvas({
               {t('roomCanvas.backsplashEdges')}
             </button>
           )}
-          {!hideWallsElements && (
+          {!hideWallsElements && !hideStairTool && (
             <button onClick={() => { setMode('stair'); setStartPoint(null); setSelectedWall(null); setMeasureStart(null); setMeasureEnd(null) }}
               style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'stair' ? ACCENT : '#E0DAD4', background: mode === 'stair' ? ACCENT+'18' : '#fff', color: mode === 'stair' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
               {t('roomCanvas.drawStair')}

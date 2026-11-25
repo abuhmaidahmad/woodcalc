@@ -21,6 +21,7 @@ import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, 
 import { materialLook, hasDesignMaterials } from '../features/wardrobe/wardrobeMaterials'
 import { textureMapFrom } from '../features/kitchen_planner/textureMap'
 import WardrobeMaterialsCard from '../features/wardrobe/WardrobeMaterialsCard'
+import { withClosetRoom } from '../features/wardrobe/closetRoom'
 import { piecesFromParts, workOrderItems } from '../features/wardrobe/wardrobePieces'
 import WardrobeRoomBar from '../features/wardrobe/WardrobeRoomBar'
 import LinkProjectModal from '../features/rooms/LinkProjectModal'
@@ -50,10 +51,10 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const [saved] = useState(() => savedWardrobe(room))
   const [std, setStd] = useState(() => (saved?.standard ? normalizeStandard(saved.standard) : loadStandard()))
   const [design, setDesign] = useState(() => {
-    if (saved?.design) return saved.design
-    if (!roomId) return loadDesign(loadStandard())
+    if (saved?.design) return withClosetRoom(saved.design)
+    if (!roomId) return withClosetRoom(loadDesign(loadStandard()))
     const fresh = defaultDesign(loadStandard())
-    return room?.room_type === 'closet' ? { ...fresh, mode: 'closet', closet: defaultCloset(loadStandard()) } : fresh
+    return room?.room_type === 'closet' ? withClosetRoom({ ...fresh, mode: 'closet', closet: defaultCloset(loadStandard()) }) : fresh
   })
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
@@ -181,7 +182,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     setSelected({ section: 0, zone: null })
   }
 
-  const setMode = (mode) => setDesign((d) => ({ ...d, mode, closet: mode === 'closet' ? d.closet || defaultCloset(std) : d.closet }))
+  const setMode = (mode) => setDesign((d) => withClosetRoom({ ...d, mode, closet: mode === 'closet' ? d.closet || defaultCloset(std) : d.closet }))
 
   const constructionLabel = result.summary.construction === 'shared'
     ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${result.summary.backType}`)}`
