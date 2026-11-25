@@ -1602,6 +1602,8 @@
     "roomTypeWardrobe": "Wardrobe"
   },
   "roomCanvas": {
+    "undoTip": "Undo (Ctrl/⌘+Z)",
+    "redoTip": "Redo (Ctrl/⌘+Shift+Z)",
     "lengthAngleTitle": "Length (mm) — Tab to angle, Enter to confirm",
     "angleTitle": "Angle (°) — Enter to confirm",
     "select": "↖ Select",

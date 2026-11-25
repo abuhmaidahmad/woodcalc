@@ -11,6 +11,7 @@ import GlassOrderModal from './GlassOrderModal'
 import ZonePresetPicker from './ZonePresetPicker'
 import { activeTotal } from './revisions'
 import RoomHistoryPanel from './RoomHistoryPanel'
+import { useDesignHistory, isTypingTarget } from './designHistory'
 import KitchenPlanner3D , { useMaterialTextureMap } from './KitchenPlanner3D'
 import RoomCanvas, { getCabinetEdgePx, resolveBacksplashSegmentPx } from './RoomCanvas'
 import { getWallThickness, migrateLegacyWalls } from './wallGeometry'
@@ -822,8 +823,51 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
   }, [publicCompanySlug])
 
 
+  const designSnapshot = {
+    cabinets, elements, room, wallThickness, walls, stairs, backsplashSegments, backsplashHeight, backsplashThickness,
+    baseHeight, projectDefaults, countertopMat, countertopThickness,
+  }
+  const applyDesignSnapshot = snap => {
+    setCabinetsState(snap.cabinets)
+    setElementsState(snap.elements)
+    setRoomState(snap.room)
+    setWallThicknessState(snap.wallThickness)
+    setWallsState(snap.walls)
+    setStairsState(snap.stairs)
+    setBacksplashSegmentsState(snap.backsplashSegments)
+    setBacksplashHeightState(snap.backsplashHeight)
+    setBacksplashThicknessState(snap.backsplashThickness)
+    setBaseHeightState(snap.baseHeight)
+    setProjectDefaultsState(snap.projectDefaults)
+    setCountertopMatState(snap.countertopMat)
+    setCountertopThicknessState(snap.countertopThickness)
+    const pool = { cabinet: snap.cabinets, element: snap.elements, backsplash: snap.backsplashSegments, stair: snap.stairs }[selectedType]
+    if (pool && !pool.some(x => x.id === selected)) { setSelected(null); setSelectedType(null) }
+    setBulkIds(prev => {
+      if (!prev.size) return prev
+      const ids = new Set(snap.cabinets.map(c => c.id))
+      const next = new Set([...prev].filter(id => ids.has(id)))
+      return next.size === prev.size ? prev : next
+    })
+  }
+  const { undo: designUndo, redo: designRedo, resetHistory: resetDesignHistory, canUndo: canDesignUndo, canRedo: canDesignRedo } =
+    useDesignHistory(designSnapshot, applyDesignSnapshot, { disabled: locked })
+  useEffect(() => {
+    const onKey = e => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return
+      if (e.code !== 'KeyZ' && e.code !== 'KeyY') return
+      if (isTypingTarget(e.target)) return
+      e.preventDefault()
+      if (e.code === 'KeyY' || e.shiftKey) designRedo()
+      else designUndo()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [designUndo, designRedo])
+
   // Restore saved data on mount
   React.useEffect(() => {
+    resetDesignHistory()
     if (initialData && Object.keys(initialData).length > 0) {
       if (initialData.walls) setWallsState(migrateLegacyWalls(initialData.walls, initialData.wallThickness || 120, SCALE))
       if (initialData.stairs) setStairsState(initialData.stairs)
@@ -1443,6 +1487,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
               stairs={stairs} setStairs={setStairs}
+              onUndo={designUndo} onRedo={designRedo} canUndo={canDesignUndo} canRedo={canDesignRedo}
               backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments} />
           </div>
           <div id="onboarding-configurator-room-properties" className="m-split-side" style={s.rightPanel}>
@@ -1880,6 +1925,7 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
               wallThickness={wallThickness} setWallThickness={setWallThickness}
               walls={walls} setWalls={setWalls}
               stairs={stairs} setStairs={setStairs}
+              onUndo={designUndo} onRedo={designRedo} canUndo={canDesignUndo} canRedo={canDesignRedo}
               backsplashSegments={backsplashSegments} setBacksplashSegments={setBacksplashSegments}
               readOnly={false}
               hideToolbar={false}

@@ -684,6 +684,7 @@ export default function RoomCanvas({
   wallThickness, setWallThickness,
   walls, setWalls,
   stairs = [], setStairs = () => {},
+  onUndo, onRedo, canUndo = false, canRedo = false,
   backsplashSegments = [], setBacksplashSegments = () => {},
   readOnly,
   hideToolbar,
@@ -700,6 +701,7 @@ export default function RoomCanvas({
   const [mousePos, setMousePos] = useState(null)
   const [endpointSnap, setEndpointSnap] = useState(null)
   const [selectedWall, setSelectedWall] = useState(null)
+  useEffect(() => { if (selectedWall !== null && !walls[selectedWall]) setSelectedWall(null) }, [walls, selectedWall])
   const [editingWall, setEditingWall] = useState(null)
   const [editingLenVal, setEditingLenVal] = useState(null)
   const [editingAngleVal, setEditingAngleVal] = useState(null)
@@ -1105,7 +1107,7 @@ export default function RoomCanvas({
         setSelected(null); setSelectedType(null)
         return
       }
-      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { undo(); return }
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { if (!onUndo) undo(); return }
       if (isDuplicate && selected != null) {
         e.preventDefault()
         const OFFSET = 100 // mm — small nudge so the copy doesn't sit exactly on top of the original
@@ -1145,7 +1147,7 @@ export default function RoomCanvas({
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [mode, selected, selectedType, selectedWall, walls, stairs, pushHistory, undo, setCabinets, setElements, setBacksplashSegments, setStairs])
+  }, [mode, selected, selectedType, selectedWall, walls, stairs, pushHistory, undo, onUndo, setCabinets, setElements, setBacksplashSegments, setStairs])
 
   const handleCanvasClick = useCallback((e) => {
     if (isPanningRef.current) return
@@ -1693,10 +1695,18 @@ export default function RoomCanvas({
             style={{ padding: '6px 12px', borderRadius: 6, border: '1.5px solid', borderColor: mode === 'measure' ? ACCENT : '#E0DAD4', background: mode === 'measure' ? ACCENT+'18' : '#fff', color: mode === 'measure' ? ACCENT : '#555', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             {t('roomCanvas.measure')}
           </button>
-          <button onClick={undo} disabled={history.length <= 1}
-            style={{ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: history.length <= 1 ? '#ccc' : '#555', fontSize: 14, cursor: history.length <= 1 ? 'not-allowed' : 'pointer' }}>
-            ↩
-          </button>
+          {(() => {
+            const undoOff = onUndo ? !canUndo : history.length <= 1
+            const btn = off => ({ padding: '6px 10px', borderRadius: 6, border: '1.5px solid #E0DAD4', background: '#fff', color: off ? '#ccc' : '#555', fontSize: 14, cursor: off ? 'not-allowed' : 'pointer' })
+            return (
+              <>
+                <button onClick={onUndo || undo} disabled={undoOff} title={t('roomCanvas.undoTip')} style={btn(undoOff)}>↶</button>
+                {onRedo && (
+                  <button onClick={onRedo} disabled={!canRedo} title={t('roomCanvas.redoTip')} style={btn(!canRedo)}>↷</button>
+                )}
+              </>
+            )
+          })()}
           <div style={{ display: 'flex', alignItems: 'center', gap: 4, borderLeft: '1px solid #E0DAD4', paddingLeft: 10 }}>
             <button onClick={() => zoomAt(W/2, H/2, 0.77)} style={{ padding: '4px 8px', borderRadius: 5, border: '1px solid #E0DAD4', background: '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 700 }}>+</button>
             <span style={{ fontSize: 10, color: '#888', minWidth: 36, textAlign: 'center' }}>{Math.round(zoom * 100)}%</span>
