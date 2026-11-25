@@ -38,6 +38,7 @@ export default function WardrobeShareView({ data }) {
   }, [data.finishes, frontColor])
   const [view, setView] = useState('3d')
   const [doorMode, setDoorMode] = useState('closed')
+  const [showWalls, setShowWalls] = useState(true)
   const [distance] = useState(() => {
     if (typeof window === 'undefined' || !window.innerHeight) return 1
     const aspect = window.innerWidth / window.innerHeight
@@ -67,6 +68,7 @@ export default function WardrobeShareView({ data }) {
         {view === '3d' && ['closed', 'open', 'hidden'].map((m) => (
           <Pill key={m} active={doorMode === m} onClick={() => setDoorMode(m)}>{t(`wardrobe.doorMode.${m}`)}</Pill>
         ))}
+        {view === '3d' && closet && <Pill active={showWalls} onClick={() => setShowWalls((v) => !v)}>{t('wardrobe.closet.walls')}</Pill>}
       </div>
 
       <div style={{ flex: 1, minHeight: 0, position: 'relative', margin: '0 12px 12px' }}>
@@ -77,7 +79,7 @@ export default function WardrobeShareView({ data }) {
             ) : (
               <Suspense fallback={loading}>
                 {closet ? (
-                  <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} height="100%" distance={distance} />
+                  <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} showWalls={showWalls} height="100%" distance={distance} />
                 ) : (
                   <Wardrobe3D result={result} design={design} look={look} doorMode={doorMode} height="100%" distance={distance} />
                 )}

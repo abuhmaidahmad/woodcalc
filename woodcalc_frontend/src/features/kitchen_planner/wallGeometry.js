@@ -1,4 +1,5 @@
 export const DEFAULT_WALL_THICKNESS = 120
+export const PLANNER_SCALE = 0.16
 // Two endpoints within this many real-world mm of each other are treated as
 // the same physical corner for loop-tracing/mitering purposes. This is a
 // topology tolerance, not a UI hit-radius -- it has to be small enough that

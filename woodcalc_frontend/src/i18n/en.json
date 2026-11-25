@@ -2806,6 +2806,11 @@
       }
     },
     "room": {
+      "roomTitle": "Room",
+      "ceilingHeight": "Ceiling height (mm)",
+      "roomHint": "Draw or drag the walls, then add doors, windows and columns. The closet runs still follow the outline sizes.",
+      "rebuildRoom": "Rebuild walls from the outline",
+      "pillarHint": "A column can be any size, so use it for pillars.",
       "saveToProject": "Save to project",
       "defaultName": "Wardrobe",
       "lockedTip": "This wardrobe is confirmed and locked. Request a change to edit it as a new revision.",
@@ -2829,6 +2834,11 @@
       "closet": "Walk-in closet"
     },
     "closet": {
+      "walls": "Walls",
+      "step": {
+        "room": "Room",
+        "closet": "Closet"
+      },
       "title": "Walk-in closet",
       "outlineTitle": "Room outline (mm)",
       "shape": "Shape",
