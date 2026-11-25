@@ -2312,15 +2312,15 @@ function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0], wit
         <boxGeometry args={[outerW, outerH, length]} />
         <meshPhysicalMaterial color="#c8c8c8" metalness={0.75} roughness={0.35} />
       </mesh>
-      <mesh position={[0, outerH / 2 - diffH / 2 + 0.0005, 0]}>
+      <mesh position={[0, -(outerH / 2 - diffH / 2 + 0.0005), 0]}>
         <boxGeometry args={[diffW, diffH, Math.max(0.01, length - 0.002)]} />
         {/* toneMapped=false keeps this genuinely bright under ACES filmic tone mapping, which otherwise
             crushes emissive materials down to looking barely lit */}
         <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
       </mesh>
       {withLight && (
-        <pointLight position={[0, outerH / 2, 0]} color="#ffcb8a"
-          intensity={1.1 * Math.min(4, Math.max(1, length / 0.45))} distance={Math.max(0.9, length * 0.7)} decay={1.5} />
+        <rectAreaLight position={[0, -outerH / 2 - 0.001, 0]} rotation={[-Math.PI / 2, 0, 0]}
+          width={diffW} height={Math.max(0.01, length - 0.002)} color="#ffcb8a" intensity={LED_STRIP_LUMINANCE} />
       )}
     </group>
   )
