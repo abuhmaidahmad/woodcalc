@@ -51,7 +51,7 @@ const MaterialList = lazy(() => import('./pages/MaterialList'));
 const Settings = lazy(() => import('./pages/Settings'));
 const BillingReturn = lazy(() => import('./pages/BillingReturn'));
 const PublicCatalogBrowse = lazy(() => import('./pages/PublicCatalogBrowse'));
-const KitchenShareView = lazy(() => import('./pages/KitchenShareView'));
+const ShareView = lazy(() => import('./pages/ShareView'));
 const LeadList = lazy(() => import('./pages/LeadList'));
 const LeadDesignView = lazy(() => import('./pages/LeadDesignView'));
 const AdminCompanies = lazy(() => import('./pages/AdminCompanies'));
@@ -131,7 +131,7 @@ export default function App() {
           <PrivateRoute><KitchenPlannerModule /></PrivateRoute>
         } />
         <Route path="/browse/:companySlug" element={<PublicCatalogBrowse />} />
-        <Route path="/view/:token" element={<KitchenShareView />} />
+        <Route path="/view/:token" element={<ShareView />} />
 
         {/* Leads */}
         <Route path="/leads" element={

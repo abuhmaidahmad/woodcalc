@@ -4,6 +4,7 @@ import KitchenPlannerModule from '../features/kitchen_planner/KitchenPlannerModu
 import WardrobeBuilder from './WardrobeBuilder'
 import { isWardrobeRoom } from '../features/wardrobe/wardrobeRoom'
 import { authFetch } from '../api/auth'
+import { useRoomShare } from '../features/rooms/useRoomShare'
 import { useTranslation } from '../i18n/LanguageContext'
 
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
@@ -19,8 +20,7 @@ export default function RoomDetail() {
   const { t, language } = useTranslation()
   const [room, setRoom] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [shareBusy, setShareBusy] = useState(false)
-  const [shareMsg, setShareMsg] = useState('')
+  const { shareView, revokeShareView, shareBusy, shareMsg } = useRoomShare(id, room, setRoom)
 
   useEffect(() => {
     const fetchRoom = async () => {
@@ -35,34 +35,6 @@ export default function RoomDetail() {
     fetchRoom()
   }, [id])
 
-  const shareView = async () => {
-    // Once a link exists, clicking the button again just re-copies it —
-    // generating only happens the first time, so a link a customer already
-    // has doesn't silently stop working.
-    if (room?.share_token) {
-      try { await navigator.clipboard.writeText(`${window.location.origin}/view/${room.share_token}`) } catch {}
-      setShareMsg(t('roomDetail.shareViewCopied'))
-      setTimeout(() => setShareMsg(''), 2000)
-      return
-    }
-    setShareBusy(true)
-    setShareMsg(t('roomDetail.shareViewGenerating'))
-    try {
-      const res = await authFetch(API + `/api/crm/rooms/${id}/share_link/`, { method: 'POST' })
-      const data = await res.json()
-      if (res.ok) {
-        const link = `${window.location.origin}/view/${data.share_token}`
-        setRoom(r => ({ ...r, share_token: data.share_token }))
-        try { await navigator.clipboard.writeText(link) } catch {}
-        setShareMsg(t('roomDetail.shareViewCopied'))
-        setTimeout(() => setShareMsg(''), 2000)
-      } else {
-        setShareMsg('')
-      }
-    } catch { setShareMsg('') }
-    setShareBusy(false)
-  }
-
   const roomAction = async (name, body = {}) => {
     const res = await authFetch(API + `/api/crm/rooms/${id}/${name}/`, { method: 'POST', body: JSON.stringify(body) })
     const data = await res.json().catch(() => ({}))
@@ -71,14 +43,6 @@ export default function RoomDetail() {
     return { ok: res.ok, status: res.status, data }
   }
 
-  const revokeShareView = async () => {
-    if (!window.confirm(t('roomDetail.shareViewRevokeConfirm'))) return
-    try {
-      await authFetch(API + `/api/crm/rooms/${id}/share_link/`, { method: 'DELETE' })
-      setRoom(r => ({ ...r, share_token: null }))
-      setShareMsg('')
-    } catch {}
-  }
 
   if (loading) return (
     <div dir={language === 'ar' ? 'rtl' : 'ltr'} style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'Inter, sans-serif', color: '#bbb' }}>
@@ -114,6 +78,11 @@ export default function RoomDetail() {
         onRoomAction={roomAction}
         onBack={() => navigate(`/projects/${room.project}`)}
         onSaved={(patch) => setRoom((r) => ({ ...r, ...patch }))}
+        shareToken={room.share_token}
+        shareBusy={shareBusy}
+        shareMsg={shareMsg}
+        onShare={shareView}
+        onRevokeShare={revokeShareView}
       />
     )
   }

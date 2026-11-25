@@ -24,7 +24,7 @@ function islandPlacements(place, halves) {
   return [{ origin: [x, y], angle: 0 }]
 }
 
-export default function Closet3D({ result, closet, std, frontColor, carcassColor, doorMode, label, height = 560 }) {
+export default function Closet3D({ result, closet, std, frontColor, carcassColor, doorMode, label, height = 560, distance = 1 }) {
   const W = result.layout.width
   const D = result.layout.depth
   const H = Number(closet.height) || 2400
@@ -39,7 +39,7 @@ export default function Closet3D({ result, closet, std, frontColor, carcassColor
   return (
     <div style={{ position: 'relative', height, borderRadius: 12, overflow: 'hidden', background: 'linear-gradient(#f4f1ec, #e7e1d8)' }}>
       {label && <div style={tag}>{label}</div>}
-      <Canvas shadows dpr={[1, 2]} camera={{ position: [span * 0.15, H * S * 0.95, span * 1.25], fov: 45 }}>
+      <Canvas shadows dpr={[1, 2]} camera={{ position: [span * 0.15 * distance, H * S * 0.95, span * 1.25 * distance], fov: 45 }}>
         <hemisphereLight args={['#ffffff', '#b9a98f', 0.85]} />
         <directionalLight position={[2, 4, 3]} intensity={1.1} castShadow shadow-mapSize={[2048, 2048]} />
         <directionalLight position={[-3, 2, 2]} intensity={0.35} />
@@ -69,7 +69,7 @@ export default function Closet3D({ result, closet, std, frontColor, carcassColor
           <meshStandardMaterial color="#e9e4dc" roughness={1} />
         </mesh>
         <ContactShadows position={[0, 0.001, 0]} opacity={0.3} scale={span * 3} blur={2.2} far={2} />
-        <OrbitControls target={[0, H * S * 0.4, 0]} enableDamping maxPolarAngle={Math.PI * 0.49} minDistance={0.8} maxDistance={span * 4} />
+        <OrbitControls target={[0, H * S * 0.4, 0]} enableDamping maxPolarAngle={Math.PI * 0.49} minDistance={0.8} maxDistance={span * 4 * distance} />
       </Canvas>
     </div>
   )

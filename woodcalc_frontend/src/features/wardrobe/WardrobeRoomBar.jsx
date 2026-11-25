@@ -12,7 +12,7 @@ const LOCK_KEYS = {
 }
 const bar = { padding: '6px 12px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: '#ccc', borderRadius: 6, cursor: 'pointer', fontSize: 12, whiteSpace: 'nowrap' }
 
-export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, saving, savedMsg, canSave, onSend, sending, sentMsg }) {
+export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, saving, savedMsg, canSave, onSend, sending, sentMsg, shareToken, shareBusy, shareMsg, onShare, onRevokeShare }) {
   const { t } = useTranslation()
   const [showHistory, setShowHistory] = useState(false)
   const st = roomLockState(lock)
@@ -42,6 +42,14 @@ export default function WardrobeRoomBar({ roomId, lock, onRoomAction, onSave, sa
       )}
       {st.locked && lock.revisionStatus === 'approved' && st.role === 'owner' && (
         <button onClick={actions.unlockRoom} style={{ ...bar, color: '#E74C3C' }}>{t('kitchenPlannerModule.unlock')}</button>
+      )}
+      {onShare && !st.auditor && (
+        <button onClick={onShare} disabled={shareBusy} style={{ ...bar, color: shareToken ? ACCENT : bar.color }} title={t('wardrobe.room.shareNote')}>
+          {shareMsg || (shareToken ? t('roomDetail.shareViewCopyLink') : t('roomDetail.shareView'))}
+        </button>
+      )}
+      {onRevokeShare && !st.auditor && shareToken && (
+        <button onClick={onRevokeShare} style={{ ...bar, color: '#E74C3C' }}>{t('wardrobe.room.stopSharing')}</button>
       )}
       {st.canSeeHistory && <button onClick={() => setShowHistory(true)} style={bar}>{t('roomHistory.open')}</button>}
       {st.locked ? (

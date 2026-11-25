@@ -17,7 +17,7 @@ import ClosetEditor from '../features/wardrobe/ClosetEditor'
 import { computeDesign, defaultCloset } from '../features/wardrobe/closetEngine'
 import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 import { usePricing } from '../features/wardrobe/useWardrobePricing'
-import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot } from '../features/wardrobe/wardrobeRoom'
+import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot, FRONT_COLORS, DEFAULT_FRONT_COLOR } from '../features/wardrobe/wardrobeRoom'
 import { piecesFromParts, workOrderItems } from '../features/wardrobe/wardrobePieces'
 import WardrobeRoomBar from '../features/wardrobe/WardrobeRoomBar'
 import LinkProjectModal from '../features/rooms/LinkProjectModal'
@@ -31,15 +31,6 @@ const Wardrobe3D = lazy(() => import('../features/wardrobe/Wardrobe3D'))
 const DESIGN_KEY = 'woodcalc.wardrobeDesign.v1'
 const API = import.meta.env.VITE_API_URL || 'https://woodcalc-production.up.railway.app'
 
-const FRONT_COLORS = [
-  { id: 'white', hex: '#f3f1ec' },
-  { id: 'cashmere', hex: '#d8cbb8' },
-  { id: 'oak', hex: '#c49a6c' },
-  { id: 'walnut', hex: '#6e4b33' },
-  { id: 'grey', hex: '#8b8d8f' },
-  { id: 'green', hex: '#5d6b58' },
-  { id: 'black', hex: '#2c2c2c' },
-]
 
 function loadDesign(std) {
   try {
@@ -49,7 +40,7 @@ function loadDesign(std) {
   return defaultDesign(std)
 }
 
-export default function WardrobeBuilder({ roomId = null, room = null, lock = null, onRoomAction, onBack, onSaved }) {
+export default function WardrobeBuilder({ roomId = null, room = null, lock = null, onRoomAction, onBack, onSaved, shareToken = null, shareBusy, shareMsg, onShare, onRevokeShare }) {
   const { t, language } = useTranslation()
   const dir = language === 'ar' ? 'rtl' : 'ltr'
   const navigate = useNavigate()
@@ -69,7 +60,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const [selected, setSelected] = useState({ section: 0, zone: null })
   const [view, setView] = useState('front')
   const [doorMode, setDoorMode] = useState('closed')
-  const [frontColor, setFrontColor] = useState(FRONT_COLORS[2].hex)
+  const [frontColor, setFrontColor] = useState(() => saved?.frontColor || DEFAULT_FRONT_COLOR)
   const [showStd, setShowStd] = useState(false)
   const [stdDraft, setStdDraft] = useState(std)
   const [tab, setTab] = useState('design')
@@ -98,7 +89,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     setSaving(true)
     let ok = false
     try {
-      const planner_data = buildWardrobePlannerData({ design, std, price, result, picked })
+      const planner_data = buildWardrobePlannerData({ design, std, price, result, picked, frontColor })
       const grand_total = planner_data.grandTotal
       const res = await authFetch(API + `/api/crm/rooms/${targetRoomId}/`, { method: 'PATCH', body: JSON.stringify({ planner_data, grand_total }) })
       ok = res.ok
@@ -230,7 +221,8 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {roomId ? (
             <WardrobeRoomBar roomId={roomId} lock={lock} onRoomAction={onRoomAction} onSave={() => saveToRoom()} saving={saving} savedMsg={savedMsg}
-              canSave={!materialsState.loading} onSend={sendToProduction} sending={sending} sentMsg={sentMsg} />
+              canSave={!materialsState.loading} onSend={sendToProduction} sending={sending} sentMsg={sentMsg}
+              shareToken={shareToken} shareBusy={shareBusy} shareMsg={shareMsg} onShare={onShare} onRevokeShare={onRevokeShare} />
           ) : (
             <button onClick={() => setShowLink(true)} disabled={materialsState.loading}
               style={{ padding: '6px 14px', background: 'rgba(255,255,255,0.08)', border: `1px solid ${ACCENT}`, color: ACCENT, borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 700 }}>
@@ -250,6 +242,11 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
         {readOnly && (
           <div className="wb-noprint" style={{ background: '#FFF6E5', color: '#8A6D3B', border: '1px solid #F0DDB5', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, textAlign: 'center', marginBottom: 12 }}>
             {lockSt.locked ? `🔒 ${t('wardrobe.room.lockedTip')}` : t('kitchenPlannerModule.viewOnlyTip')}
+          </div>
+        )}
+        {shareToken && !lockSt.auditor && (
+          <div className="wb-noprint" style={{ background: '#fff', border: '1px solid #eee7dd', borderRadius: 8, padding: '6px 12px', fontSize: 12, marginBottom: 12, color: '#5c5348' }}>
+            🔗 {t('wardrobe.room.shareNote')}
           </div>
         )}
         {stdDiffers && !readOnly && (
@@ -411,7 +408,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
 
       {showLink && (
         <LinkProjectModal onClose={() => setShowLink(false)} onLinked={onLinked}
-          defaultRoomName={t('wardrobe.room.defaultName')} defaultRoomType={closetMode ? 'closet' : 'wardrobe'} roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
+          defaultRoomName={closetMode ? t('wardrobe.closet.title') : t('wardrobe.room.defaultName')} defaultRoomType={closetMode ? 'closet' : 'wardrobe'} roomTypes={['wardrobe', 'closet', 'bedroom', 'other']}
           canUseRoom={(r) => isWardrobeRoom({ room_type: r.room_type, planner_data: {} })} />
       )}
 
