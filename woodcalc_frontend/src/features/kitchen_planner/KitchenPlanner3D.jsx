@@ -9,7 +9,7 @@ import { RectAreaLightUniformsLib } from 'three/examples/jsm/lights/RectAreaLigh
 RectAreaLightUniformsLib.init()
 import React, { useMemo, Suspense, useState, useEffect, useCallback, useContext, useRef, createContext } from 'react'
 import { COUNTERTOP_MATERIALS } from './CabinetCatalog'
-import { CT_OVERHANG_DEFAULTS, countertopOverhang } from './countertopOverhang'
+import { CT_OVERHANG_DEFAULTS, countertopOverhang, hasCountertop } from './countertopOverhang'
 import { sinkRenderProps } from './sinkOptions'
 import { MATERIAL_DB, lamToCt } from './materialData'
 import { authFetch, withCompanyParam } from '../../api/auth'
@@ -2561,7 +2561,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           <SkirtingBoard sides={cab.skirtingSides} W={W} D={D} legH={legH} skirtingMaterial={cab.skirtingMaterial} countertopMat={countertopMat} />
         </group>
       )}
-      {((isBase && !isShelf) || (cab.subtype === 'Filler' && cab.height === cab.baseHeight) || (cab.subtype === 'Open Shelf' && isBase)) && (
+      {hasCountertop(cab) && (
         // isPanel is only true here for the Filler branch: a filler has no leg-lifted
         // outer group of its own (showLegs is false for accessories), so SidePanelSlab
         // lifts the slab itself by panelLift (=legH) to land on the same leg height as

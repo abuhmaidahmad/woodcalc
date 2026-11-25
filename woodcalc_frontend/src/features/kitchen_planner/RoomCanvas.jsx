@@ -2,6 +2,7 @@ import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react'
 import { BLIND_PANEL_WIDTH, isCarcassCabinet, cabinetBadges } from './formulaEngine'
 import { cabTextLayout, layoutPlan, needsFlip, isDarkFill, labelColors, BADGE_R } from './badgeLayout'
 import { useTranslation } from '../../i18n/LanguageContext'
+import { countertopOutline } from './countertopOverhang'
 import {
   computeWallBodies, getWallThickness, getWallLength, makeWallId,
   chooseDefaultThicknessSide, getWallMidlinePoint,
@@ -776,6 +777,9 @@ export default function RoomCanvas({
   const plan = useMemo(() => layoutPlan(cabinets, scale, showDimensions,
     wallBodies.map(b => [b.faceStart, b.faceEnd, b.outerEnd, b.outerStart].map(p => [p.x, p.y])), [0, 0, W, H]),
   [cabinets, scale, showDimensions, wallBodies, W, H])
+  const ctOutlinePath = useMemo(() => countertopOutline(cabinets)
+    .map(([a, b]) => `M${a[0] * scale},${a[1] * scale}L${b[0] * scale},${b[1] * scale}`).join(''),
+  [cabinets, scale])
 
   const cvw = vw ?? W
   const cvh = vh ?? H
@@ -1937,6 +1941,10 @@ export default function RoomCanvas({
               onMouseDown={handleCabinetMouseDown}
             />
           ))}
+          {ctOutlinePath && (
+            <path d={ctOutlinePath} fill="none" stroke="#334155" strokeWidth={1.25}
+              strokeDasharray="7,4" strokeLinecap="butt" style={{ pointerEvents: 'none' }} />
+          )}
           {backsplashSegments.map(seg => {
             const cab = cabinets.find(c => c.id === seg.cabinetId)
             if (!cab) return null
