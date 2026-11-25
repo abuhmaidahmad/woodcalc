@@ -1,3 +1,5 @@
+> Superseded by `docs/closet-planner-spec.md`. Do not implement this file.
+
 # Walk-in closet mode upgrade: fillers, obstacles, free pieces, dressing table, accessories
 
 ## Why
