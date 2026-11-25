@@ -1,15 +1,21 @@
 import React from 'react'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { cutListCsv } from './wardrobeEngine'
+import { materialFor } from './wardrobePieces'
 import { ACCENT, card, btn, ghost, th, td } from './ui'
 
-export default function CutListPanel({ result, std, subtitle, csvName }) {
+export default function CutListPanel({ result, std, subtitle, csvName, materials = null }) {
   const { t, language } = useTranslation()
   const errors = result.warnings.filter((w) => w.level === 'error')
   const partName = (p) => (language === 'ar' && p.nameAr ? p.nameAr : p.name)
+  const materialName = (p) => {
+    if (!materials) return null
+    const m = materialFor(p.material, p.T, materials)
+    return m.sku ? m.materialName : null
+  }
   const edgeText = (e) => (e ? e.split(',').map((c) => t(`wardrobe.edge.${c}`)).join(' · ') : '—')
   const exportCsv = () => {
-    const csv = cutListCsv(result)
+    const csv = cutListCsv(result, undefined, materials ? (p) => materialName(p) || p.material : undefined)
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -54,7 +60,10 @@ export default function CutListPanel({ result, std, subtitle, csvName }) {
                   <td style={td}>{p.W}</td>
                   <td style={td}>{p.T}</td>
                   <td style={{ ...td, fontWeight: 700 }}>{p.qty}</td>
-                  <td style={td}>{t(`wardrobe.material.${p.material}`)}</td>
+                  <td style={td}>
+                    {t(`wardrobe.material.${p.material}`)}
+                    {materialName(p) && <div style={{ fontSize: 10, color: '#aaa' }}>{materialName(p)}</div>}
+                  </td>
                   <td style={td}>{edgeText(p.edges)}</td>
                 </tr>
               ))}

@@ -17,7 +17,10 @@ import ClosetEditor from '../features/wardrobe/ClosetEditor'
 import { computeDesign, defaultCloset } from '../features/wardrobe/closetEngine'
 import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 import { usePricing } from '../features/wardrobe/useWardrobePricing'
-import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot, FRONT_COLORS, DEFAULT_FRONT_COLOR } from '../features/wardrobe/wardrobeRoom'
+import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot, DEFAULT_FRONT_COLOR } from '../features/wardrobe/wardrobeRoom'
+import { materialLook, hasDesignMaterials } from '../features/wardrobe/wardrobeMaterials'
+import { textureMapFrom } from '../features/kitchen_planner/textureMap'
+import WardrobeMaterialsCard from '../features/wardrobe/WardrobeMaterialsCard'
 import { piecesFromParts, workOrderItems } from '../features/wardrobe/wardrobePieces'
 import WardrobeRoomBar from '../features/wardrobe/WardrobeRoomBar'
 import LinkProjectModal from '../features/rooms/LinkProjectModal'
@@ -60,7 +63,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const [selected, setSelected] = useState({ section: 0, zone: null })
   const [view, setView] = useState('front')
   const [doorMode, setDoorMode] = useState('closed')
-  const [frontColor, setFrontColor] = useState(() => saved?.frontColor || DEFAULT_FRONT_COLOR)
+  const [frontColor] = useState(() => saved?.frontColor || DEFAULT_FRONT_COLOR)
   const [showStd, setShowStd] = useState(false)
   const [stdDraft, setStdDraft] = useState(std)
   const [tab, setTab] = useState('design')
@@ -74,6 +77,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const result = useMemo(() => computeDesign(design, std), [design, std])
   const closetMode = design.mode === 'closet' && !!design.closet
   const { price, picked } = usePricing(design, std, materialsState.materials, result)
+  const textureMap = useMemo(() => textureMapFrom(materialsState.materials), [materialsState.materials])
+  const look = useMemo(() => materialLook(design, textureMap, frontColor), [design, textureMap, frontColor])
+  const pickedNames = useMemo(() => materialSnapshot(picked), [picked])
   const lockSt = roomLockState(lock)
   const readOnly = !!roomId && lockSt.readOnly
   const [localStd, setLocalStd] = useState(loadStandard)
@@ -180,15 +186,9 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const constructionLabel = result.summary.construction === 'shared'
     ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${result.summary.backType}`)}`
     : t(`wardrobe.constructionTypes.${result.summary.construction}`)
-  const rows = contractRows(design, result, widths, t, picked.Carcass?.name || t('wardrobe.price.standardBoard'))
-  const colorPicker = (
-    <div style={{ display: 'flex', gap: 4, marginInlineStart: 6 }}>
-      {FRONT_COLORS.map((c) => (
-        <button key={c.id} title={t(`wardrobe.colors.${c.id}`)} onClick={() => setFrontColor(c.hex)}
-          style={{ width: 22, height: 22, borderRadius: 11, background: c.hex, cursor: 'pointer', border: frontColor === c.hex ? `2px solid ${ACCENT}` : '1px solid #ccc' }} />
-      ))}
-    </div>
-  )
+  const frontName = hasDesignMaterials(design) ? picked.Front?.name || t('wardrobe.price.standardBoard') : null
+  const rows = contractRows(design, result, widths, t, picked.Carcass?.name || t('wardrobe.price.standardBoard'), frontName)
+  const materialsCard = <WardrobeMaterialsCard design={design} setDesign={setDesign} readOnly={readOnly} />
 
   return (
     <div dir={dir} style={{ minHeight: '100vh', background: '#F7F4F0', fontFamily: "'Inter', sans-serif" }}>
@@ -276,7 +276,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
             onOpenStandard={() => { setStdDraft(std); setShowStd(true) }} />
         ) : closetMode ? (
           <ClosetEditor design={design} setDesign={setDesign} result={result} std={std} readOnly={readOnly}
-            frontColor={frontColor} constructionLabel={constructionLabel} colorPicker={colorPicker} />
+            look={look} constructionLabel={constructionLabel} materialsCard={materialsCard} materialNames={pickedNames} />
         ) : (
         <div className="wb-grid">
           <fieldset className="wb-noprint" disabled={readOnly} style={FIELDSET}>
@@ -346,6 +346,8 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
 
             <SectionEditor design={design} setDesign={setDesign} result={result} std={std} selected={selected} setSelected={setSelected} />
 
+            {materialsCard}
+
             <ChecksCard warnings={result.warnings} />
           </fieldset>
 
@@ -362,7 +364,6 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
                     {['closed', 'open', 'hidden'].map((m) => (
                       <button key={m} onClick={() => setDoorMode(m)} style={{ ...ghost, borderColor: doorMode === m ? ACCENT : '#ddd6cc', color: doorMode === m ? ACCENT : DARK }}>{t(`wardrobe.doorMode.${m}`)}</button>
                     ))}
-                    {colorPicker}
                   </div>
                 )}
               </div>
@@ -375,7 +376,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
               ) : (
                 <ErrorBoundary>
                   <Suspense fallback={<div style={{ height: 520, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
-                    <Wardrobe3D result={result} design={design} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} label={constructionLabel} />
+                    <Wardrobe3D result={result} design={design} look={look} doorMode={doorMode} label={constructionLabel} />
                   </Suspense>
                 </ErrorBoundary>
               )}
@@ -398,7 +399,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
               ))}
             </div>
 
-            <CutListPanel result={result} std={std}
+            <CutListPanel result={result} std={std} materials={pickedNames}
               subtitle={<>{t('wardrobe.construction')}: <b>{constructionLabel}</b> · {Math.round(design.width)} × {Math.round(design.height)} × {Math.round(design.depth)} · {t(`wardrobe.doorTypes.${design.doorType}`)}</>}
               csvName={`wardrobe-cut-list-${Math.round(design.width)}x${Math.round(design.height)}.csv`} />
           </div>

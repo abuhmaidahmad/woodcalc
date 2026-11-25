@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
 import { priceWardrobe, pickMaterials } from './wardrobePricing'
+import { pricingPicks } from './wardrobeMaterials'
 
 export function usePricing(design, std, materials, result) {
   const settings = design.pricing || {}
-  const picked = useMemo(() => pickMaterials(settings.picks, materials, std), [settings.picks, materials, std])
+  const picksKey = JSON.stringify(pricingPicks(design))
+  const picked = useMemo(() => pickMaterials(JSON.parse(picksKey), materials, std), [picksKey, materials, std])
   const labourPct = settings.labourPct ?? std.labourPct
   const marginPct = settings.marginPct ?? std.marginPct
   const opts = useMemo(() => ({ picked, labourPct, marginPct }), [picked, labourPct, marginPct])

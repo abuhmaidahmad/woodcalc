@@ -24,7 +24,7 @@ function Seg({ options, value, onChange, labelOf }) {
   )
 }
 
-export default function ClosetEditor({ design, setDesign, result, std, readOnly, frontColor, constructionLabel, colorPicker }) {
+export default function ClosetEditor({ design, setDesign, result, std, readOnly, look, constructionLabel, materialsCard, materialNames }) {
   const { t } = useTranslation()
   const closet = design.closet
   const [selRun, setSelRun] = useState('A')
@@ -175,6 +175,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
           )}
         </div>
 
+        {materialsCard}
         <ChecksCard warnings={result.warnings} runLabel={(r) => (r.startsWith('I') ? wallLabel('I') + (r.length > 1 ? ` ${r.slice(1)}` : '') : wallLabel(r))} />
       </fieldset>
 
@@ -193,7 +194,6 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
                 {['closed', 'open', 'hidden'].map((m) => (
                   <button key={m} onClick={() => setDoorMode(m)} style={{ ...ghost, borderColor: doorMode === m ? ACCENT : '#ddd6cc', color: doorMode === m ? ACCENT : DARK }}>{t(`wardrobe.doorMode.${m}`)}</button>
                 ))}
-                {colorPicker}
               </div>
             )}
           </div>
@@ -209,7 +209,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
           {view === '3d' && (
             <ErrorBoundary>
               <Suspense fallback={<div style={{ height: 560, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>}>
-                <Closet3D result={result} closet={closet} std={std} frontColor={frontColor} carcassColor="#f1ede6" doorMode={doorMode} label={constructionLabel} />
+                <Closet3D result={result} closet={closet} std={std} look={look} doorMode={doorMode} label={constructionLabel} />
               </Suspense>
             </ErrorBoundary>
           )}
@@ -232,7 +232,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
           ))}
         </div>
 
-        <CutListPanel result={result} std={std}
+        <CutListPanel result={result} std={std} materials={materialNames}
           subtitle={<>{t('wardrobe.closet.title')} · {t(`wardrobe.closet.shapes.${closet.shape}`)} · {Math.round(closet.width)} × {Math.round(closet.roomDepth)} × {Math.round(closet.height)} · {t('wardrobe.construction')}: <b>{constructionLabel}</b></>}
           csvName={`closet-cut-list-${Math.round(closet.width)}x${Math.round(closet.roomDepth)}.csv`} />
       </div>

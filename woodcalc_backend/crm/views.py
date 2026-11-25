@@ -17,6 +17,7 @@ from .locking import RoomNotLocked
 from .numbering import freeze_badges
 from .construction_snapshot import missing_size_warnings, snapshot_changes
 from .construction_snapshot import snapshot as construction_snapshot
+from .wardrobe_share import public_design, public_standard, share_finishes
 from .revisions import (OPEN_STATUSES, recompute_project_total, retire_earlier_work_orders, revision_chain,
                         started_work_orders)
 from .models import PaymentTransaction, Client, Lead, Quotation, QuotationItem, Project, Room, Payment, RoomChangeLog
@@ -88,15 +89,17 @@ def public_room_share_view(request, token):
     data = room.planner_data or {}
     if isinstance(data, dict) and data.get('kind') == 'wardrobe':
         tenant = room.project.client.tenant
+        design = data.get('design')
         return Response({
             'name': room.name,
             'room_type': room.room_type,
             'kind': 'wardrobe',
             'company_name': tenant.name,
             'company_slug': tenant.slug,
-            'design': data.get('design'),
-            'standard': data.get('standard'),
+            'design': public_design(design),
+            'standard': public_standard(data.get('standard')),
             'frontColor': data.get('frontColor'),
+            'finishes': share_finishes(design, tenant, request),
         })
     return Response({
         'name': room.name,

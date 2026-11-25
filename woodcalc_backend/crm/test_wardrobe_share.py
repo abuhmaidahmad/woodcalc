@@ -1,6 +1,8 @@
 import uuid
 
 from crm.models import Room
+from inventory.models import Material
+from tenants.models import Company
 from crm.test_room_lock import CABINET, RoomLockTestBase
 
 DESIGN = {'width': 2400, 'height': 2600, 'depth': 600, 'construction': 'shared', 'sections': [{'zones': []}]}
@@ -60,3 +62,52 @@ class WardrobeShareViewTests(RoomLockTestBase):
         self.assertEqual(self.api('owner').delete(f'/api/crm/rooms/{room.id}/share_link/').status_code, 204)
         self.assertEqual(self.public(token).status_code, 404)
         self.assertEqual(self.public(uuid.uuid4()).status_code, 404)
+
+    def material(self, sku, tenant=None, **extra):
+        fields = {'name': f'Board {sku.split("-")[0].title()}', 'fallback_hex': '#aa8855', 'finish': 'wood', 'price_per_board': '987.65',
+                  'unit_cost': '432.10', 'texture_physical_width_mm': 1300, 'texture_physical_height_mm': 2800, **extra}
+        return Material.objects.create(tenant=tenant or self.company, sku=sku, **fields)
+
+    def picked_room(self, materials, pricing=None):
+        design = {**DESIGN, 'materials': materials, 'pricing': pricing or {'picks': {'Back': 'HDF-8'}, 'marginPct': 37}}
+        return Room.objects.create(project=self.project, name='W', room_type='wardrobe', planner_data=wardrobe_data(design))
+
+    def test_finishes_give_the_picked_carcass_and_front_without_prices_or_skus(self):
+        self.material('OAK-18', texture_physical_width_mm=1250)
+        self.material('WHT-18', fallback_hex='#f3f1ec', finish='matt')
+        res = self.public(self.share(self.picked_room({'carcass': 'WHT-18', 'front': 'OAK-18', 'frontMatchesCarcass': False})))
+        body = res.json()
+        self.assertEqual(body['finishes']['carcass'], {'name': 'Board Wht', 'fallback_hex': '#f3f1ec', 'finish': 'matt', 'texture_physical_width_mm': 1300,
+                                                      'texture_physical_height_mm': 2800, 'texture_image': None})
+        self.assertEqual(body['finishes']['front']['texture_physical_width_mm'], 1250)
+        self.assertEqual(body['design'], DESIGN)
+        content = res.content.decode()
+        for secret in ('987', '432', 'OAK-18', 'WHT-18', 'HDF-8', 'marginPct', 'price', 'unit_cost'):
+            self.assertNotIn(secret, content)
+
+    def test_front_same_as_carcass_uses_the_carcass_finish(self):
+        self.material('WHT-18')
+        self.material('OAK-18')
+        body = self.public(self.share(self.picked_room({'carcass': 'WHT-18', 'front': 'OAK-18', 'frontMatchesCarcass': True}))).json()
+        self.assertEqual(body['finishes']['front'], body['finishes']['carcass'])
+        self.assertEqual(body['finishes']['front']['name'], 'Board Wht')
+
+    def test_only_this_company_materials_are_used(self):
+        other = Company.objects.create(name='B', slug='other-share-co', status=Company.Status.ACTIVE)
+        self.material('OAK-18', tenant=other)
+        body = self.public(self.share(self.picked_room({'carcass': 'OAK-18', 'front': None}))).json()
+        self.assertEqual(body['finishes'], {})
+
+    def test_rooms_without_materials_have_no_finishes(self):
+        room = Room.objects.create(project=self.project, name='W', room_type='wardrobe', planner_data=wardrobe_data(DESIGN))
+        self.assertEqual(self.public(self.share(room)).json()['finishes'], {})
+
+    def test_standard_is_shared_without_prices_labour_margin_or_skus(self):
+        data = wardrobe_data(DESIGN)
+        data['standard'] = {'carcassT': 18, 'sheetL': 2800, 'priceHinge': 1.25, 'priceBoardFront': 48.5, 'labourPct': 20,
+                            'marginPct': 30, 'spacerBoardSku': 'PB-25'}
+        room = Room.objects.create(project=self.project, name='W', room_type='wardrobe', planner_data=data)
+        res = self.public(self.share(room))
+        self.assertEqual(res.json()['standard'], {'carcassT': 18, 'sheetL': 2800})
+        for secret in ('price', 'labour', 'margin', 'PB-25', '48.5'):
+            self.assertNotIn(secret, res.content.decode())

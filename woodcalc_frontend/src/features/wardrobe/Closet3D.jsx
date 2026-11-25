@@ -24,7 +24,7 @@ function islandPlacements(place, halves) {
   return [{ origin: [x, y], angle: 0 }]
 }
 
-export default function Closet3D({ result, closet, std, frontColor, carcassColor, doorMode, label, height = 560, distance = 1 }) {
+export default function Closet3D({ result, closet, std, look, doorMode, label, height = 560, distance = 1 }) {
   const W = result.layout.width
   const D = result.layout.depth
   const H = Number(closet.height) || 2400
@@ -52,16 +52,16 @@ export default function Closet3D({ result, closet, std, frontColor, carcassColor
           ))}
           {result.runs.map((r) => (
             <Placed key={r.id} origin={r.place.origin} angle={r.place.angle}>
-              <RunGeometry geometry={r.result.geometry} frontColor={frontColor} carcassColor={carcassColor} doorMode={doorMode} />
+              <RunGeometry geometry={r.result.geometry} look={look} doorMode={doorMode} />
             </Placed>
           ))}
           {isl && islandPlacements(isl.place, isl.halves).map((pl, k) => (
             <Placed key={`i${k}`} origin={pl.origin} angle={pl.angle}>
-              <RunGeometry geometry={isl.halves[k].result.geometry} frontColor={frontColor} carcassColor={carcassColor} doorMode={doorMode} />
+              <RunGeometry geometry={isl.halves[k].result.geometry} look={look} doorMode={doorMode} />
             </Placed>
           ))}
           {isl && (
-            <Panel g={{ x: isl.place.x - std.islandTopOverhang, y: Number(closet.island.height) - std.frontT, z: isl.place.y - std.islandTopOverhang, w: isl.top.L, h: std.frontT, d: isl.top.W }} color={frontColor} roughness={0.4} />
+            <Panel g={{ x: isl.place.x - std.islandTopOverhang, y: Number(closet.island.height) - std.frontT, z: isl.place.y - std.islandTopOverhang, w: isl.top.L, h: std.frontT, d: isl.top.W }} finish={look.front} roughness={0.4} />
           )}
         </group>
         <mesh rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
