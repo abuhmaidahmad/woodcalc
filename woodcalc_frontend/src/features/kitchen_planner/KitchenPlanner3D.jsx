@@ -359,7 +359,7 @@ function SidePanelSlab({ W, H, D, cab, frontColor, frontMaterial, textureMap, li
 // backInset: the back's distance in from the rear edge (open boxes set it 18mm in).
 // topRails: base cabinets have a front and back rail under the countertop instead
 // of a full top panel (used when an opened cabinet shows its inside).
-function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null, backInset = 0, topRails = false }) {
+function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount = 1, glassShelf = false, openFront = false, isGola = false, texEntry = null, backInset = 0, topRails = false, edge = null }) {
   const T = 0.018
   const shelfD = D - backInset - T - 0.01
   const shelfZ = backInset / 2 - 0.005
@@ -409,12 +409,31 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
         envMapIntensity={0.8} repeatU={a / physW} repeatV={b / physH} />
     )
   }
+  const EB = 0.001
+  const band = (w, h, x, y) => {
+    if (!edge) return null
+    const args = [w, h, EB]
+    const position = [x, y, D / 2 + EB / 2]
+    if (!edge.texEntry) return <SmartBox args={args} position={position} color={edge.color} materialName={edge.materialName} matProps={edge.matProps} envMapIntensity={0.5} />
+    const physW = (edge.texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (edge.texEntry.texture_physical_height_mm || 600) / 1000
+    const [a, b] = [w, h].sort((m, n) => n - m)
+    return (
+      <PhotoTexturedBox args={args} position={position}
+        imageUrl={edge.texEntry.texture_image} color={edge.color} matProps={edge.matProps}
+        envMapIntensity={0.8} repeatU={a / physW} repeatV={b / physH} />
+    )
+  }
   if (isGola) {
     const sideH = H - T
     const notches = [{ yBottom: sideH - GOLA_L_NOTCH_H, yTop: sideH }]
+    const sideEdgeH = sideH - GOLA_L_NOTCH_H
     return (
       <>
         {panel([W, T, D], [0, T / 2, 0])}
+        {band(W, T, 0, T / 2)}
+        {band(T, sideEdgeH, -W / 2 + T / 2, T + sideEdgeH / 2)}
+        {band(T, sideEdgeH, W / 2 - T / 2, T + sideEdgeH / 2)}
         <group position={[0, T, 0]}>
           <NotchedSidePanel H={sideH} D={D} T={T} x={-W / 2 + T} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
           <NotchedSidePanel H={sideH} D={D} T={T} x={W / 2} notches={notches} color={color} matProps={matProps} texEntry={texEntry} />
@@ -427,10 +446,17 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
   return (
     <>
       {panel([W, T, D], [0, T / 2, 0])}
+      {band(W, T, 0, T / 2)}
       {topRails ? (<>
         {panel([W - T * 2, T, 0.1], [0, H - T / 2, D / 2 - 0.05])}
         {panel([W - T * 2, T, 0.1], [0, H - T / 2, -D / 2 + 0.05])}
-      </>) : panel([W, T, D], [0, H - T / 2, 0])}
+        {band(W - T * 2, T, 0, H - T / 2)}
+      </>) : (<>
+        {panel([W, T, D], [0, H - T / 2, 0])}
+        {band(W, T, 0, H - T / 2)}
+      </>)}
+      {band(T, H - T * (topRails ? 1 : 2), -W / 2 + T / 2, (H + (topRails ? T : 0)) / 2)}
+      {band(T, H - T * (topRails ? 1 : 2), W / 2 - T / 2, (H + (topRails ? T : 0)) / 2)}
       {/* With rails the sides run up to the top, the rails sitting between them. */}
       {panel([T, H - T * (topRails ? 1 : 2), D], [-W / 2 + T / 2, (H + (topRails ? T : 0)) / 2, 0])}
       {panel([T, H - T * (topRails ? 1 : 2), D], [W / 2 - T / 2, (H + (topRails ? T : 0)) / 2, 0])}
@@ -2517,7 +2543,8 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
               shelfCount={isDrawers ? 0 : shelfCountFor(cab)}
               isGola={doorStyle === 'Gola' && isBase}
               topRails={isBase}
-              openFront={isSinkCabinet} />
+              openFront={isSinkCabinet}
+              edge={{ color: frontColor, materialName: frontMaterial, matProps: getMaterialProps(frontMaterial), texEntry: cab.frontMaterialCode ? textureMap[cab.frontMaterialCode] || null : null }} />
           </group>
         )
       })() : doorStyle === 'Gola' && (isBase || isTall) && !isShelf ? (
