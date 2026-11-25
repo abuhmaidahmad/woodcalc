@@ -8,9 +8,9 @@ const banding = (cfg, name) => {
 const wall = { width: 600, height: 700, depth: 300, cabinetType: 'wall' }
 
 describe('edge banding', () => {
-  it('bands a wall side front edge in front color and its top/bottom in carcass color, whatever the door style', () => {
+  it('bands a wall side front edge and its top/bottom in carcass color, whatever the door style', () => {
     for (const doorStyle of ['Handle', 'Gola', 'Push']) {
-      expect(banding({ ...wall, doorStyle }, 'Side panel')).toEqual({ T: 'Carcass', B: 'Carcass', L: 'None', R: 'Oak' })
+      expect(banding({ ...wall, doorStyle }, 'Side panel')).toEqual({ T: 'Carcass', B: 'Carcass', L: 'None', R: 'Carcass' })
     }
   })
 
@@ -20,7 +20,7 @@ describe('edge banding', () => {
 
   it('keeps a base side banded on its front edge only', () => {
     expect(banding({ width: 600, height: 800, depth: 580, cabinetType: 'base', doorStyle: 'Handle' }, 'Side panel'))
-      .toEqual({ T: 'None', B: 'None', L: 'None', R: 'Oak' })
+      .toEqual({ T: 'None', B: 'None', L: 'None', R: 'Carcass' })
   })
 
   it('bands a glass door cabinet carcass in carcass color', () => {
@@ -42,10 +42,10 @@ describe('edge banding', () => {
     const byMat = edgeBandingByMaterialMm(r, 'Handle', 'White', 'Oak')
     const door = r.doors[0]
     expect(Object.keys(byMat).sort()).toEqual(['Oak', 'White'])
-    // Carcass: the sides' top/bottom edges, 2 sides x 2 x depth.
-    expect(byMat.White).toBe(4 * 300)
-    // Front: side front edges, top/bottom front edges, and the door all round.
-    expect(byMat.Oak).toBe(2 * 700 + 2 * (600 - 36) + 2 * (door.width + door.height))
+    // Carcass: the sides' top/bottom edges, side front edges, top/bottom front edges.
+    expect(byMat.White).toBe(4 * 300 + 2 * 700 + 2 * (600 - 36))
+    // Front: the door all round.
+    expect(byMat.Oak).toBe(2 * (door.width + door.height))
   })
 
   it('gives an appliance niche 3 shelves at 2400, one fewer per 300mm shorter', () => {

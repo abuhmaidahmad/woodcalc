@@ -729,11 +729,10 @@ export function openBoxPanels(W, H, D, faceMaterial) {
   ];
 }
 
-// Edge banding per part side, R being the part's front edge. Any carcass edge
-// that sits directly behind a door/drawer front when the cabinet is closed is
-// banded in the front's own color, so opening the front shows a carcass edge
-// that matches it. Push cabinets additionally band the sides' top/bottom
-// edges in carcass color.
+// Edge banding per part side, R being the part's front edge. Carcass body
+// front edges (sides, top, bottom, fixed panels, rails) are banded in the
+// carcass color, matching the body. Push cabinets additionally band the
+// sides' top/bottom edges in carcass color.
 export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, frontMat, doorStyle) {
   const cc = carcassMat || carcassColor || 'Carcass'
   const fc = frontMat || frontColor || 'Front'
@@ -743,9 +742,9 @@ export function getEdgeBanding(partName, carcassColor, frontColor, carcassMat, f
     return { T: fc, B: fc, L: fc, R: fc }
   }
   if (partName === 'Side panel') {
-    return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: fc } : { ...none, R: fc }
+    return doorStyle === 'Push' ? { T: cc, B: cc, L: 'None', R: cc } : { ...none, R: cc }
   }
-  if (['Top panel', 'Bottom panel', 'Fixed panel', 'Front rail'].includes(partName)) return { ...none, R: fc }
+  if (['Top panel', 'Bottom panel', 'Fixed panel', 'Front rail'].includes(partName)) return { ...none, R: cc }
   // A sink's bottom rail has its exposed long edge banded in carcass color.
   if (partName === 'Bottom rail') return { ...none, R: cc }
   // A blind stile's front edge shows beside the door; its back edge is carcass.
