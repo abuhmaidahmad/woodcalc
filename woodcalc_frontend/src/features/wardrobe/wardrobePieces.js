@@ -28,9 +28,13 @@ export const WARDROBE_PART_CODES = {
   'Top filler': 'TF',
   'Fixed front': 'FXF',
   'Island top': 'IT',
+  'Mirror': 'MR',
+  'Desk top': 'DT',
+  'Desk end panel': 'DE',
+  'Desk modesty panel': 'DM',
 }
 
-const KIND = { Carcass: 'carcass', Front: 'front', Back: 'back', 'Drawer box': 'drawer' }
+const KIND = { Carcass: 'carcass', Front: 'front', Back: 'back', 'Drawer box': 'drawer', Mirror: 'mirror' }
 const NONE = 'None'
 
 export function pieceGroup(section) {

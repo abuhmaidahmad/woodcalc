@@ -77,6 +77,9 @@ export function hardwareLines(hw, std) {
     ['confirmat', hw.confirmat, std.priceConfirmat],
     ['carcassConnector', hw.carcassConnector, std.priceCarcassConnector],
     ['shelfPin', hw.shelfPin, std.priceShelfPin],
+    ['ledMeters', hw.ledMeters, std.priceLedM],
+    ['doorSensor', hw.doorSensor, std.priceDoorSensor],
+    ['mirrorM2', hw.mirrorM2, std.priceMirrorM2],
   ]
   return lines
     .filter(([, qty]) => num(qty) > 0)

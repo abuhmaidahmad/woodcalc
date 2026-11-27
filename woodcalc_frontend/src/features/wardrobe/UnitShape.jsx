@@ -33,6 +33,12 @@ export default function UnitShape({ unit, s = 1, selected = false, colliding = f
       acc += w
       lines.push(<line key={`d${i}`} x1={acc * s} y1={0} x2={acc * s} y2={D * s} stroke="#b3a898" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />)
     })
+  } else if (unit.kind === 'desk') {
+    if (unit.pedestal) {
+      const a = unit.pedestal.x
+      const b = a + num(unit.pedestal.design.width)
+      lines.push(<rect key="ped" x={a * s} y={0} width={(b - a) * s} height={D * s} fill="#e3d8c6" stroke="#b3a898" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />)
+    }
   } else {
     const bays = Math.max(1, Math.round(num(unit.design.bays, 1)))
     for (let i = 1; i < bays; i++) lines.push(<line key={`b${i}`} x1={(L * i / bays) * s} y1={0} x2={(L * i / bays) * s} y2={D * s} stroke="#b3a898" strokeWidth={0.8} vectorEffect="non-scaling-stroke" />)

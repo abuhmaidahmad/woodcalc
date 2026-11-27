@@ -88,6 +88,17 @@ function SlidingDoor({ g, finish, open }) {
   )
 }
 
+const FRONT_KINDS = new Set(['plinth', 'filler', 'deskTop', 'deskEnd'])
+
+export function Mirror({ g }) {
+  return (
+    <mesh position={[(g.x + g.w / 2) * S, (g.y + g.h / 2) * S, (g.z + g.d / 2) * S]}>
+      <boxGeometry args={[g.w * S, g.h * S, g.d * S]} />
+      <meshStandardMaterial color="#d6e0e6" metalness={0.25} roughness={0.12} />
+    </mesh>
+  )
+}
+
 export function RunGeometry({ geometry, look, doorMode }) {
   const open = doorMode === 'open'
   const showDoors = doorMode !== 'hidden'
@@ -107,8 +118,9 @@ export function RunGeometry({ geometry, look, doorMode }) {
             </group>
           )
         }
+        if (g.kind === 'mirror') return <Mirror key={g.key} g={g} />
         if (FIXED_COLORS[g.kind]) return <Panel key={g.key} g={g} color={FIXED_COLORS[g.kind]} />
-        return <Panel key={g.key} g={g} finish={g.kind === 'plinth' || g.kind === 'filler' ? look.front : look.carcass} />
+        return <Panel key={g.key} g={g} finish={FRONT_KINDS.has(g.kind) ? look.front : look.carcass} />
       })}
     </>
   )

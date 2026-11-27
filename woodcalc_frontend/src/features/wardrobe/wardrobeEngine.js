@@ -49,6 +49,10 @@ export const PART_NAMES_AR = {
   'Top filler': 'سدة علوية',
   'Fixed front': 'لوح أمامي ثابت',
   'Island top': 'سطح الجزيرة',
+  'Mirror': 'مرآة',
+  'Desk top': 'سطح التسريحة',
+  'Desk end panel': 'جانب التسريحة',
+  'Desk modesty panel': 'لوح خلفي للتسريحة',
 }
 
 const r1 = (n) => Math.round(n * 10) / 10
@@ -298,6 +302,7 @@ export function summarizeParts(parts, std) {
   const matMap = new Map()
   const edgeMap = new Map()
   parts.forEach((p) => {
+    if (p.material === 'Mirror') return
     const mk = `${p.material}|${p.T}`
     const m = matMap.get(mk) || { material: p.material, T: p.T, areaM2: 0 }
     m.areaM2 += (p.qty * p.L * p.W) / 1e6
@@ -826,6 +831,15 @@ export function computeWardrobe(design, std) {
     box({ kind: 'filler', x: 0, y: H - topFiller, z: D - FT, w: cw, h: topFiller, d: FT })
   }
 
+  const doorCount = sectionsOut.reduce((a, s) => a + s.doors + s.loftDoors, 0) + slidingCount
+  const acc = design.accessories || {}
+  if (acc.led) addHw('ledMeters', (cw / 1000) * Math.max(1, Math.round(num(acc.ledRows, 1))))
+  if (acc.doorSensors) addHw('doorSensor', doorCount)
+  const mirrors = Array.isArray(acc.mirrors) ? acc.mirrors : []
+  mirrors.forEach((m) => part({ name: 'Mirror', L: num(m.h), W: num(m.w), T: std.mirrorT, qty: 1, material: 'Mirror', edges: '', section: 'ALL' }))
+  const mirrorM2 = mirrors.reduce((a, m) => a + (num(m.h) * num(m.w)) / 1e6, 0)
+  if (mirrorM2 > 0) hardware.mirrorM2 = Math.round(mirrorM2 * 100) / 100
+
   const parts = aggregate(rawParts).map((p) => ({ ...p, nameAr: PART_NAMES_AR[p.name] || '' }))
   const { materials, edgeBanding } = summarizeParts(parts, std)
   if (railMm > 0) hardware.railMeters = Math.round(railMm / 100) / 10
@@ -839,7 +853,7 @@ export function computeWardrobe(design, std) {
     loftH,
     usableDepth: r1(usableDepth),
     sectionCount: design.sections.length,
-    doorCount: sectionsOut.reduce((a, s) => a + s.doors + s.loftDoors, 0) + slidingCount,
+    doorCount,
     fixedFrontCount: sectionsOut.reduce((a, s) => a + (s.fixedFronts || 0), 0),
     partCount: parts.reduce((a, p) => a + p.qty, 0),
   }

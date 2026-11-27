@@ -1,4 +1,5 @@
 import { defaultDesign, withSectionCount, autoSectionCount } from './wardrobeEngine'
+import { defaultDeskDesign } from './deskEngine'
 import { defaultCloset, runSectionCount } from './closetEngine'
 import { wallPolygons } from './closetChecks'
 import { add, sub, dot, unitFrame, placementFrom, framePolygon } from './unitGeometry'
@@ -101,7 +102,7 @@ function roomCenter(room) {
 
 export function addFreeUnit(closet, room, kind, std) {
   const units = closet.units || []
-  const design = kind === 'island' ? islandUnitDesign(std) : wardrobeUnitDesign(std, 2000, closet.height)
+  const design = kind === 'island' ? islandUnitDesign(std) : kind === 'desk' ? defaultDeskDesign(std) : wardrobeUnitDesign(std, 2000, closet.height)
   const [cx, cy] = roomCenter(room)
   const L = num(design.width)
   const D = num(design.depth)

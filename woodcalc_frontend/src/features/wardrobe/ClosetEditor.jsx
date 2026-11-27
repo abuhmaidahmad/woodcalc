@@ -19,6 +19,8 @@ import { wallPolygons } from './closetChecks'
 import { unitSize, unitHeight, normRotation } from './unitGeometry'
 import { nextLabel, wallInfo, freeSpan, placeOnWall, wallDistances, moveAlongWall, addWardrobeOnWall, addFreeUnit, resizeUnit, stopAtFace } from './unitOps'
 import { unitName } from './wardrobeRoom'
+import AccessoriesCard from './AccessoriesCard'
+import { DESK_SIDES } from './deskEngine'
 
 const Closet3D = lazy(() => import('./Closet3D'))
 const ROTATIONS = [0, 90, 180, 270]
@@ -176,6 +178,7 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
             <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
               <button style={{ ...ghost, flex: 1 }} onClick={() => addFree('wardrobe')}>{t('wardrobe.closet.addFree')}</button>
               <button style={{ ...ghost, flex: 1 }} onClick={() => addFree('island')}>{t('wardrobe.closet.addIsland')}</button>
+              <button style={{ ...ghost, flex: 1 }} onClick={() => addFree('desk')}>{t('wardrobe.closet.addDesk')}</button>
             </div>
             <div style={{ marginTop: 10 }}>
               <NumField title={t('wardrobe.closet.newHeight')} value={closet.height} onChange={(v) => setCloset((c) => ({ ...c, height: v ?? 0 }))} />
@@ -249,6 +252,49 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
                   <button style={ghost} onClick={() => setCount(d.sections.length + 1)}>+</button>
                   <button style={ghost} onClick={autoCount}>{t('wardrobe.autoSections')}</button>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {unit?.kind === 'wardrobe' && (
+            <AccessoriesCard accessories={d.accessories} onChange={(accessories) => setUnitDesign({ accessories })} />
+          )}
+
+          {unit?.kind === 'desk' && (
+            <div style={card}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                <NumField title={t('wardrobe.width')} value={d.width} onChange={(v) => setUnitDesign({ width: v ?? 0 })} />
+                <NumField title={t('wardrobe.depth')} value={d.depth} onChange={(v) => setUnitDesign({ depth: v ?? 0 })} />
+                <NumField title={t('wardrobe.height')} value={d.height} onChange={(v) => setUnitDesign({ height: v ?? 0 })} />
+                <NumField title={t('wardrobe.desk.drawers')} value={d.drawers} min={0} onChange={(v) => setUnitDesign({ drawers: v ?? 0 })} />
+                <NumField title={t('wardrobe.desk.drawerW')} value={d.drawerW} onChange={(v) => setUnitDesign({ drawerW: v ?? 0 })} />
+                <div style={{ fontSize: 11, color: '#777', paddingTop: 18 }}>{t('wardrobe.desk.knee', { w: Math.round(out?.knee ?? 0) })}</div>
+              </div>
+              <div style={{ marginTop: 10 }}>
+                <span style={label}>{t('wardrobe.desk.drawerSide')}</span>
+                <Seg options={DESK_SIDES} value={d.drawerSide || 'right'} onChange={(v) => setUnitDesign({ drawerSide: v })} labelOf={(o) => t(`wardrobe.desk.sides.${o}`)} />
+              </div>
+              <div style={{ display: 'flex', gap: 14, marginTop: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <input type="checkbox" checked={!!d.endLeft} onChange={(e) => setUnitDesign({ endLeft: e.target.checked })} />{t('wardrobe.desk.endLeft')}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+                  <input type="checkbox" checked={!!d.endRight} onChange={(e) => setUnitDesign({ endRight: e.target.checked })} />{t('wardrobe.desk.endRight')}
+                </label>
+              </div>
+              <div style={{ fontSize: 11, color: '#999', marginTop: 4 }}>{t('wardrobe.desk.endHint')}</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, marginTop: 10 }}>
+                <input type="checkbox" checked={!!d.mirror?.enabled} onChange={(e) => setUnitDesign({ mirror: { ...d.mirror, enabled: e.target.checked } })} />{t('wardrobe.desk.mirror')}
+              </label>
+              {d.mirror?.enabled && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 8 }}>
+                  <NumField title={t('wardrobe.acc.mirrorW')} value={d.mirror.w} onChange={(v) => setUnitDesign({ mirror: { ...d.mirror, w: v ?? 0 } })} />
+                  <NumField title={t('wardrobe.acc.mirrorH')} value={d.mirror.h} onChange={(v) => setUnitDesign({ mirror: { ...d.mirror, h: v ?? 0 } })} />
+                  <NumField title={t('wardrobe.desk.mirrorFrom')} value={d.mirror.elevation} onChange={(v) => setUnitDesign({ mirror: { ...d.mirror, elevation: v ?? 0 } })} />
+                </div>
+              )}
+              <div style={{ marginTop: 10 }}>
+                <DrawerSystemPicker value={d.drawerSystem} onChange={(v) => setUnitDesign({ drawerSystem: v })} std={std} />
               </div>
             </div>
           )}

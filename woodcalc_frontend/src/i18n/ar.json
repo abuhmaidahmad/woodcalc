@@ -2454,6 +2454,31 @@
     "newInstallation": "+ تركيب جديد"
   },
   "wardrobe": {
+    "acc": {
+      "title": "الإكسسوارات",
+      "led": "شريط LED",
+      "ledRows": "صفوف LED",
+      "doorSensors": "حساسات الأبواب (حساس لكل باب)",
+      "mirrorW": "عرض المرآة",
+      "mirrorH": "ارتفاع المرآة",
+      "addMirror": "+ مرآة"
+    },
+    "desk": {
+      "drawers": "الأدراج",
+      "drawerW": "عرض وحدة الأدراج",
+      "knee": "مساحة الركبة {{w}} مم",
+      "drawerSide": "الأدراج في",
+      "sides": {
+        "left": "اليسار",
+        "right": "اليمين",
+        "none": "بدون أدراج"
+      },
+      "endLeft": "جانب أيسر",
+      "endRight": "جانب أيمن",
+      "endHint": "أطفئ الجانب حيث تلتصق التسريحة بخزانة.",
+      "mirror": "مرآة فوق التسريحة",
+      "mirrorFrom": "المرآة من الأرض"
+    },
     "title": "مصمم الخزائن",
     "standardButton": "معايير التصنيع",
     "sizeTitle": "المقاس الكلي (مم)",
@@ -2563,6 +2588,7 @@
       "R": "يمين"
     },
     "material": {
+      "Mirror": "مرآة",
       "Carcass": "هيكل",
       "Front": "واجهة",
       "Back": "ظهر / HDF",
@@ -2593,6 +2619,7 @@
     "resetStandard": "استرجاع معايير ABC",
     "saveStandard": "حفظ المعايير",
     "stdGroup": {
+      "desk": "التسريحة والمرايا",
       "materials": "المواد والألواح",
       "construction": "تجميع الهيكل",
       "sizes": "المقاسات والحدود",
@@ -2605,6 +2632,13 @@
       "cnc": "ثقوب CNC"
     },
     "std": {
+      "mirrorT": "سماكة المرآة",
+      "deskTopH": "ارتفاع التسريحة",
+      "deskModestyH": "ارتفاع اللوح الخلفي للتسريحة",
+      "minKneeW": "أقل مساحة للركبة",
+      "priceLedM": "شريط LED / م",
+      "priceDoorSensor": "حساس باب",
+      "priceMirrorM2": "مرآة / م²",
       "carcassT": "سماكة الهيكل",
       "frontT": "سماكة الباب",
       "backT": "سماكة الظهر",
@@ -2701,6 +2735,7 @@
       "minFrontH": "أقل ارتفاع للواجهة"
     },
     "warn": {
+      "deskKneeNarrow": "مساحة الركبة {{w}} مم، أقل من {{min}} مم.",
       "unitsOverlap": "{{a}} و{{b}} متداخلتان.",
       "unitInWall": "{{unit}} تدخل في الجدار {{wall}}.",
       "unitHitsColumn": "{{unit}} تصطدم بعمود.",
@@ -2799,6 +2834,9 @@
       "costsMore": "القواطع المشتركة أغلى بـ {{amount}} دينار",
       "compareHint": "نفس التصميم والمواد والعمالة والربح. فقط طريقة التصنيع تتغير.",
       "hw": {
+        "ledMeters": "شريط LED (م)",
+        "doorSensor": "حساسات الأبواب",
+        "mirrorM2": "مرآة (م²)",
         "hinge": "مفصلات",
         "runnerPair": "سكك أدراج (أزواج)",
         "railMeters": "ماسورة تعليق (م)",
@@ -2841,6 +2879,8 @@
       "closet": "غرفة ملابس"
     },
     "closet": {
+      "addDesk": "تسريحة",
+      "deskRow": "تسريحة، {{count}} أدراج",
       "unitsTitle": "الخزائن",
       "noUnits": "أضف خزانة للبدء.",
       "addOnWall": "أضف خزانة على جدار…",

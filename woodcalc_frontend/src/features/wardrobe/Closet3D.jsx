@@ -50,7 +50,11 @@ export default function Closet3D({ result, closet, std, look, doorMode, showWall
             if (el.type === 'column') return <OtherElement key={el.id} el={el} roomH={roomH} />
             return null
           })}
-          {units.map((u) => (u.kind === 'island' ? (
+          {units.map((u) => (u.kind === 'desk' ? (
+            <Placed key={u.id} origin={u.frame.origin} angle={u.frame.angle}>
+              <RunGeometry geometry={u.geometry} look={look} doorMode={doorMode} />
+            </Placed>
+          ) : u.kind === 'island' ? (
             <React.Fragment key={u.id}>
               {u.halves.map((h, k) => (
                 <Placed key={k} origin={h.place.origin} angle={h.place.angle}>

@@ -72,6 +72,17 @@ export function contractRows(design, result, widths, t, carcassName, frontName =
   const door = (s) => (frontName ? `${s} · ${frontName}` : s)
   if (result.mode === 'closet') {
     return result.units.map((u) => {
+      if (u.kind === 'desk') {
+        return {
+          id: u.label,
+          label: `${unitName(u, t)} · ${t('wardrobe.closet.deskRow', { count: u.pedestal ? Math.round(Number(u.design.drawers) || 0) : 0 })}`,
+          width: u.design.width,
+          height: u.design.height,
+          depth: u.design.depth,
+          material: carcassName,
+          doorStyle: door(t('wardrobe.zone.drawers')),
+        }
+      }
       if (u.kind === 'island') {
         const isl = u.design
         return {

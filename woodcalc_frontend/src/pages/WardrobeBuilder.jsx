@@ -21,6 +21,7 @@ import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, 
 import { materialLook, hasDesignMaterials } from '../features/wardrobe/wardrobeMaterials'
 import { textureMapFrom } from '../features/kitchen_planner/textureMap'
 import WardrobeMaterialsCard from '../features/wardrobe/WardrobeMaterialsCard'
+import AccessoriesCard from '../features/wardrobe/AccessoriesCard'
 import { withClosetRoom } from '../features/wardrobe/closetRoom'
 import { piecesFromParts, workOrderItems } from '../features/wardrobe/wardrobePieces'
 import WardrobeRoomBar from '../features/wardrobe/WardrobeRoomBar'
@@ -348,6 +349,8 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
             </div>
 
             <SectionEditor design={design} setDesign={setDesign} result={result} std={std} selected={selected} setSelected={setSelected} />
+
+            <AccessoriesCard accessories={design.accessories} onChange={(v) => setField('accessories', v)} />
 
             {materialsCard}
 
