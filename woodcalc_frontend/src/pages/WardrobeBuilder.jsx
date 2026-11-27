@@ -14,7 +14,7 @@ import DrawerSystemPicker from '../features/wardrobe/DrawerSystemPicker'
 import { ACCENT, DARK, FIELDSET, card, label, input, btn, ghost } from '../features/wardrobe/ui'
 import WardrobePriceTab from '../features/wardrobe/WardrobePriceTab'
 import ClosetEditor from '../features/wardrobe/ClosetEditor'
-import { computeDesign, defaultCloset } from '../features/wardrobe/closetEngine'
+import { computeDesign, defaultCloset, withUnits } from '../features/wardrobe/closetEngine'
 import { useInventoryMaterials } from '../features/wardrobe/useInventoryMaterials'
 import { usePricing } from '../features/wardrobe/useWardrobePricing'
 import { savedWardrobe, buildWardrobePlannerData, contractRows, isWardrobeRoom, materialSnapshot, DEFAULT_FRONT_COLOR } from '../features/wardrobe/wardrobeRoom'
@@ -51,10 +51,12 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
   const [saved] = useState(() => savedWardrobe(room))
   const [std, setStd] = useState(() => (saved?.standard ? normalizeStandard(saved.standard) : loadStandard()))
   const [design, setDesign] = useState(() => {
-    if (saved?.design) return withClosetRoom(saved.design)
-    if (!roomId) return withClosetRoom(loadDesign(loadStandard()))
-    const fresh = defaultDesign(loadStandard())
-    return room?.room_type === 'closet' ? withClosetRoom({ ...fresh, mode: 'closet', closet: defaultCloset(loadStandard()) }) : fresh
+    const s0 = saved?.standard ? normalizeStandard(saved.standard) : loadStandard()
+    const ready = (d) => withUnits(withClosetRoom(d), s0)
+    if (saved?.design) return ready(saved.design)
+    if (!roomId) return ready(loadDesign(s0))
+    const fresh = defaultDesign(s0)
+    return room?.room_type === 'closet' ? ready({ ...fresh, mode: 'closet', closet: defaultCloset(s0) }) : fresh
   })
   const [saving, setSaving] = useState(false)
   const [savedMsg, setSavedMsg] = useState('')
@@ -182,7 +184,7 @@ export default function WardrobeBuilder({ roomId = null, room = null, lock = nul
     setSelected({ section: 0, zone: null })
   }
 
-  const setMode = (mode) => setDesign((d) => withClosetRoom({ ...d, mode, closet: mode === 'closet' ? d.closet || defaultCloset(std) : d.closet }))
+  const setMode = (mode) => setDesign((d) => withUnits(withClosetRoom({ ...d, mode, closet: mode === 'closet' ? d.closet || defaultCloset(std) : d.closet }), std))
 
   const constructionLabel = result.summary.construction === 'shared'
     ? `${t('wardrobe.constructionTypes.shared')} · ${t(`wardrobe.backTypes.${result.summary.backType}`)}`

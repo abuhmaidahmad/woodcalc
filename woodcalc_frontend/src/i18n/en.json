@@ -2701,6 +2701,13 @@
       "minFrontH": "Min front height"
     },
     "warn": {
+      "unitsOverlap": "{{a}} and {{b}} overlap.",
+      "unitInWall": "{{unit}} goes into wall {{wall}}.",
+      "unitHitsColumn": "{{unit}} hits a column.",
+      "unitBlocksDoor": "{{unit}} stands in a door opening or its swing.",
+      "unitCoversWindow": "{{unit}} ({{h}} mm) is taller than the window sill ({{sill}} mm) behind it.",
+      "unitWalkway": "Only {{w}} mm in front of {{unit}}, under the {{min}} mm walkway.",
+      "doorsHitUnit": "The doors of {{unit}} hit {{other}} when opened to 90°.",
       "heightTooSmall": "Body height {{h}} mm is too small. Check height, plinth, loft and top filler.",
       "bodyTooTall": "Body is {{h}} mm, over the {{max}} mm carcass limit. Add a loft or lower the height.",
       "loftTooSmall": "Loft {{h}} mm is under the {{min}} mm minimum.",
@@ -2834,6 +2841,25 @@
       "closet": "Walk-in closet"
     },
     "closet": {
+      "unitsTitle": "Closets",
+      "noUnits": "Add a closet to start.",
+      "addOnWall": "Add a closet on a wall…",
+      "wallOption": "Wall {{n}} · {{len}} mm",
+      "addFree": "Free-standing",
+      "addIsland": "Island",
+      "newHeight": "Height for new closets",
+      "placementTitle": "{{unit}} · placement",
+      "deleteUnit": "Delete",
+      "rotation": "Rotation",
+      "fromWallStart": "From wall start",
+      "fromWallEnd": "From wall end",
+      "posX": "X (mm)",
+      "posY": "Y (mm)",
+      "placeOnWall": "Move against a wall…",
+      "unitsHint": "Drag a closet to move it; it snaps to walls and other closets. Click to select.",
+      "fix": {
+        "runsInto": "{{unit}} runs into the corner"
+      },
       "walls": "Walls",
       "step": {
         "room": "Room",
@@ -2879,6 +2905,7 @@
       "pickRun": "Pick a run to see its front view.",
       "planHint": "Click a run or the island to edit it. Runs are open unless you give them doors.",
       "stat": {
+        "units": "Closets",
         "runs": "Runs",
         "length": "Run length (mm)"
       },
