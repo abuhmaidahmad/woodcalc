@@ -1,4 +1,4 @@
-export const UNIT_KINDS = ['wardrobe', 'island']
+export const UNIT_KINDS = ['wardrobe', 'island', 'desk']
 
 const num = (v, fallback = 0) => {
   const n = Number(v)

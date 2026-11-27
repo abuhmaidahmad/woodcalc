@@ -1,6 +1,7 @@
 import { computeWardrobe, withSectionCount, mergeParts, summarizeParts, PART_NAMES_AR } from './wardrobeEngine'
 import { unitFrame, placementFrom, islandHalves } from './unitGeometry'
 import { closetChecks } from './closetChecks'
+import { computeDesk } from './deskEngine'
 
 export const CLOSET_SHAPES = ['straight', 'L', 'U']
 export const CORNER_RULES = ['empty', 'back', 'side']
@@ -200,7 +201,7 @@ function relabel(result, prefix) {
 }
 
 function addHardware(into, hw) {
-  Object.entries(hw).forEach(([k, v]) => { into[k] = r1((into[k] || 0) + v) })
+  Object.entries(hw).forEach(([k, v]) => { into[k] = k === 'mirrorM2' ? Math.round(((into[k] || 0) + v) * 100) / 100 : r1((into[k] || 0) + v) })
 }
 
 function islandTop(island, std, label) {
@@ -261,6 +262,17 @@ export function computeUnits(closet, std, room = null) {
       parts.push(top)
       rawParts.push({ name: top.name, L: top.L, W: top.W, T: top.T, qty: 1, material: 'Front', edges: top.edges, section: label, loft: false })
       return { id: unit.id, label, kind: 'island', unit, design: unit.design, frame, halves, top }
+    }
+    if (unit.kind === 'desk') {
+      const desk = computeDesk(unit.design, std)
+      if (desk.pedestal) take(desk.pedestal.result, label)
+      desk.parts.forEach((p) => {
+        parts.push({ ...p, sections: [label], loft: false })
+        rawParts.push({ name: p.name, L: p.L, W: p.W, T: p.T, qty: p.qty, material: p.material, edges: p.edges, section: label, loft: false })
+      })
+      addHardware(hardware, desk.hardware)
+      warnings.push(...desk.warnings.map((w) => ({ ...w, run: label })))
+      return { id: unit.id, label, kind: 'desk', unit, design: unit.design, frame, geometry: desk.geometry, pedestal: desk.pedestal, knee: desk.knee }
     }
     const design = unit.design
     const result = computeWardrobe(design, std)

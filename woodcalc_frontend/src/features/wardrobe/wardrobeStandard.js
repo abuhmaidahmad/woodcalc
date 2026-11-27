@@ -97,6 +97,13 @@ export const DEFAULT_WARDROBE_STANDARD = {
   closetCornerGap: 50,
   minWalkway: 700,
   islandTopOverhang: 20,
+  mirrorT: 4,
+  deskTopH: 750,
+  deskModestyH: 300,
+  minKneeW: 600,
+  priceLedM: 6,
+  priceDoorSensor: 4,
+  priceMirrorM2: 18,
 }
 
 export const STANDARD_STRINGS = new Set(['spacerBoardSku'])
@@ -115,11 +122,12 @@ export const STANDARD_FIELD_GROUPS = [
   { id: 'sliding', fields: ['slidingOverlap', 'slidingTrackDepth', 'slidingHDeduction', 'maxSlidingDoorW'] },
   { id: 'shared', fields: ['sideJoin', 'partitionJoin', 'backRailCount', 'backRailH', 'wallClearance', 'partitionStagger', 'grooveStagger', 'minGrooveBacking', 'minConfirmatEdge', 'minConfirmatSpacing', 'railStagger', 'connectorsPerJoint', 'connectorDiameter', 'connectorEdge', 'connectorInset'] },
   { id: 'closet', fields: ['closetCornerGap', 'minWalkway', 'islandTopOverhang'] },
+  { id: 'desk', fields: ['deskTopH', 'deskModestyH', 'minKneeW', 'mirrorT'] },
   { id: 'cnc', fields: ['hingeStagger', 'hingePlateFront', 'hingePlateSpacing', 'hingePlateDiameter', 'hingePlateDepth', 'runnerHoleDiameter', 'runnerHoleDepth', 'runnerStagger', 'railSocketHoles', 'railSocketSpacing', 'railSocketDiameter', 'railSocketDepth', 'railSocketStagger'] },
-  { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'priceCarcassConnector', 'labourPct', 'marginPct'] },
+  { id: 'prices', fields: ['priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'priceCarcassConnector', 'priceLedM', 'priceDoorSensor', 'priceMirrorM2', 'labourPct', 'marginPct'] },
 ]
 
-export const DECIMAL_FIELDS = new Set(['wasteFactor', 'priceCarcassConnector', 'priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin'])
+export const DECIMAL_FIELDS = new Set(['wasteFactor', 'priceCarcassConnector', 'priceBoardCarcass', 'priceBoardFront', 'priceBoardBack', 'priceBoardDrawer', 'priceEdgeM', 'priceHinge', 'priceRunnerPair', 'priceRailM', 'priceRailSocket', 'priceLeg', 'priceSlidingTrackSet', 'priceSlidingKit', 'priceHandle', 'priceConfirmat', 'priceShelfPin', 'priceLedM', 'priceDoorSensor', 'priceMirrorM2'])
 
 const STORAGE_KEY = 'woodcalc.wardrobeStandard.v1'
 

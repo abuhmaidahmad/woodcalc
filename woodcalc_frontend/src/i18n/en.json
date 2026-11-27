@@ -2454,6 +2454,31 @@
     "newInstallation": "+ New installation"
   },
   "wardrobe": {
+    "acc": {
+      "title": "Accessories",
+      "led": "LED strip",
+      "ledRows": "LED rows",
+      "doorSensors": "Door sensors (one per door)",
+      "mirrorW": "Mirror width",
+      "mirrorH": "Mirror height",
+      "addMirror": "+ Mirror"
+    },
+    "desk": {
+      "drawers": "Drawers",
+      "drawerW": "Drawer unit width",
+      "knee": "Knee space {{w}} mm",
+      "drawerSide": "Drawers on",
+      "sides": {
+        "left": "Left",
+        "right": "Right",
+        "none": "No drawers"
+      },
+      "endLeft": "Left end panel",
+      "endRight": "Right end panel",
+      "endHint": "Turn an end panel off where the desk butts onto a closet.",
+      "mirror": "Mirror above the desk",
+      "mirrorFrom": "Mirror from floor"
+    },
     "title": "Wardrobe Builder",
     "standardButton": "Construction standard",
     "sizeTitle": "Overall size (mm)",
@@ -2563,6 +2588,7 @@
       "R": "Right"
     },
     "material": {
+      "Mirror": "Mirror",
       "Carcass": "Carcass",
       "Front": "Front",
       "Back": "Back / HDF",
@@ -2593,6 +2619,7 @@
     "resetStandard": "Reset to ABC defaults",
     "saveStandard": "Save standard",
     "stdGroup": {
+      "desk": "Dressing table and mirrors",
       "materials": "Materials and sheets",
       "construction": "Carcass construction",
       "sizes": "Sizes and limits",
@@ -2605,6 +2632,13 @@
       "cnc": "CNC drilling"
     },
     "std": {
+      "mirrorT": "Mirror thickness",
+      "deskTopH": "Desk height",
+      "deskModestyH": "Desk back panel height",
+      "minKneeW": "Minimum knee space",
+      "priceLedM": "LED strip / m",
+      "priceDoorSensor": "Door sensor",
+      "priceMirrorM2": "Mirror / m²",
       "carcassT": "Carcass thickness",
       "frontT": "Door thickness",
       "backT": "Back thickness",
@@ -2701,6 +2735,7 @@
       "minFrontH": "Min front height"
     },
     "warn": {
+      "deskKneeNarrow": "Knee space is {{w}} mm, under {{min}} mm.",
       "unitsOverlap": "{{a}} and {{b}} overlap.",
       "unitInWall": "{{unit}} goes into wall {{wall}}.",
       "unitHitsColumn": "{{unit}} hits a column.",
@@ -2799,6 +2834,9 @@
       "costsMore": "Shared partitions cost {{amount}} JD more",
       "compareHint": "Same design, materials, labour and margin. Only the construction changes.",
       "hw": {
+        "ledMeters": "LED strip (m)",
+        "doorSensor": "Door sensors",
+        "mirrorM2": "Mirror (m²)",
         "hinge": "Hinges",
         "runnerPair": "Drawer runners (pairs)",
         "railMeters": "Hanging rail (m)",
@@ -2841,6 +2879,8 @@
       "closet": "Walk-in closet"
     },
     "closet": {
+      "addDesk": "Dressing table",
+      "deskRow": "dressing table, {{count}} drawers",
       "unitsTitle": "Closets",
       "noUnits": "Add a closet to start.",
       "addOnWall": "Add a closet on a wall…",
