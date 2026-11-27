@@ -1,3 +1,4 @@
+import { closetRoom } from './closetRoom'
 export const WARDROBE_ROOM_TYPES = ['wardrobe', 'closet']
 export const WARDROBE_DATA_KIND = 'wardrobe'
 
@@ -52,38 +53,47 @@ export function buildWardrobePlannerData({ design, std, price, result, picked, f
       mode: design.mode === 'closet' ? 'closet' : 'wardrobe',
       construction: result.summary.construction,
       backType: result.summary.backType,
-      width: design.mode === 'closet' ? design.closet.width : design.width,
+      width: design.mode === 'closet' ? closetRoom(design.closet).room.width : design.width,
       height: design.mode === 'closet' ? design.closet.height : design.height,
-      depth: design.mode === 'closet' ? design.closet.roomDepth : design.depth,
+      depth: design.mode === 'closet' ? closetRoom(design.closet).room.depth : design.depth,
       sheets: price.sheetCount,
       parts: result.summary.partCount,
     },
   }
 }
 
+const WALL_LABELS = ['A', 'B', 'C', 'I']
+
+export function unitName(u, t) {
+  return WALL_LABELS.includes(u.label) ? t(`wardrobe.closet.wall.${u.label}`) : u.label
+}
+
 export function contractRows(design, result, widths, t, carcassName, frontName = null) {
   const door = (s) => (frontName ? `${s} · ${frontName}` : s)
   if (result.mode === 'closet') {
-    const runs = result.runs.map((r) => ({
-      id: r.id,
-      label: `${t(`wardrobe.closet.wall.${r.id}`)} · ${t('wardrobe.closet.sectionsCount', { count: r.design.sections.length })}`,
-      width: Math.round(r.place.length),
-      height: r.design.height,
-      depth: r.design.depth,
-      material: carcassName,
-      doorStyle: door(t(`wardrobe.doorTypes.${r.design.doorType}`)),
-    }))
-    if (!result.island) return runs
-    const isl = design.closet.island
-    return runs.concat([{
-      id: 'I',
-      label: `${t('wardrobe.closet.wall.I')} · ${t('wardrobe.closet.islandDrawers', { count: isl.bays * isl.drawers * (isl.doubleSided ? 2 : 1) })}`,
-      width: isl.width,
-      height: isl.height,
-      depth: isl.depth,
-      material: carcassName,
-      doorStyle: door(t('wardrobe.zone.drawers')),
-    }])
+    return result.units.map((u) => {
+      if (u.kind === 'island') {
+        const isl = u.design
+        return {
+          id: u.label,
+          label: `${unitName(u, t)} · ${t('wardrobe.closet.islandDrawers', { count: isl.bays * isl.drawers * (isl.doubleSided ? 2 : 1) })}`,
+          width: isl.width,
+          height: isl.height,
+          depth: isl.depth,
+          material: carcassName,
+          doorStyle: door(t('wardrobe.zone.drawers')),
+        }
+      }
+      return {
+        id: u.label,
+        label: `${unitName(u, t)} · ${t('wardrobe.closet.sectionsCount', { count: u.design.sections.length })}`,
+        width: Math.round(u.frame.length),
+        height: u.design.height,
+        depth: u.design.depth,
+        material: carcassName,
+        doorStyle: door(t(`wardrobe.doorTypes.${u.design.doorType}`)),
+      }
+    })
   }
   return design.sections.map((s, i) => ({
     id: `S${i + 1}`,

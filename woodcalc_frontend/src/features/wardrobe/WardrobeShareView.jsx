@@ -3,7 +3,8 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 import { useTranslation } from '../../i18n/LanguageContext'
 import { normalizeStandard } from './wardrobeStandard'
 import { computeDesign } from './closetEngine'
-import { validFrontColor } from './wardrobeRoom'
+import { validFrontColor, unitName } from './wardrobeRoom'
+import { closetRoom } from './closetRoom'
 import { shareLook } from './wardrobeMaterials'
 import { forceHttps } from '../kitchen_planner/textureMap'
 import ClosetPlan from './ClosetPlan'
@@ -45,7 +46,7 @@ export default function WardrobeShareView({ data }) {
     return aspect < 1 ? Math.min(2.4, 1.15 / aspect) : 1
   })
   const size = closet
-    ? `${Math.round(closet.width)} × ${Math.round(closet.roomDepth)} × ${Math.round(closet.height)}`
+    ? `${Math.round(closetRoom(closet).room.width)} × ${Math.round(closetRoom(closet).room.depth)} × ${Math.round(closet.height)}`
     : `${Math.round(design.width)} × ${Math.round(design.height)}`
   const loading = <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#999' }}>{t('wardrobe.loading3d')}</div>
 
@@ -75,7 +76,7 @@ export default function WardrobeShareView({ data }) {
         <div style={{ position: 'absolute', inset: 0, overflow: 'auto' }}>
           <ErrorBoundary fallback={<div style={{ padding: 24, textAlign: 'center', color: '#999' }}>{t('kitchenPlannerModule.view3dFailed')}</div>}>
             {view === 'plan' && closet ? (
-              <ClosetPlan result={result} selected={null} onSelect={() => {}} wallLabel={(id) => t(`wardrobe.closet.wall.${id}`)} />
+              <ClosetPlan result={result} closet={closet} unitName={(u) => unitName(u, t)} />
             ) : (
               <Suspense fallback={loading}>
                 {closet ? (

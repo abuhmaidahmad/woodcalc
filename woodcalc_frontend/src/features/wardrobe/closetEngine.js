@@ -1,4 +1,6 @@
 import { computeWardrobe, withSectionCount, mergeParts, summarizeParts, PART_NAMES_AR } from './wardrobeEngine'
+import { unitFrame, placementFrom, islandHalves } from './unitGeometry'
+import { closetChecks } from './closetChecks'
 
 export const CLOSET_SHAPES = ['straight', 'L', 'U']
 export const CORNER_RULES = ['empty', 'back', 'side']
@@ -201,7 +203,115 @@ function addHardware(into, hw) {
   Object.entries(hw).forEach(([k, v]) => { into[k] = r1((into[k] || 0) + v) })
 }
 
-export function computeCloset(closet, std) {
+function islandTop(island, std, label) {
+  const ov = num(std.islandTopOverhang)
+  return { name: 'Island top', nameAr: PART_NAMES_AR['Island top'], L: r1(num(island.width) + 2 * ov), W: r1(num(island.depth) + 2 * ov), T: std.frontT, qty: 1, material: 'Front', edges: 'F,B,L,R', sections: [label], loft: false }
+}
+
+function closetSummary(units, merged, closet, size) {
+  const robes = units.filter((u) => u.kind === 'wardrobe')
+  const isl = units.filter((u) => u.kind === 'island')
+  const constructions = [...new Set(robes.map((r) => r.result.summary.construction).concat(isl.map((i) => i.halves[0].result.summary.construction)))]
+  const backs = [...new Set(robes.map((r) => r.result.summary.backType))]
+  return {
+    mode: 'closet',
+    construction: constructions.length === 1 ? constructions[0] : 'mixed',
+    backType: backs.length === 1 ? backs[0] : 'mixed',
+    runCount: robes.length,
+    unitCount: units.length,
+    runLength: r1(robes.reduce((a, r) => a + r.frame.length, 0)),
+    sectionCount: robes.reduce((a, r) => a + r.design.sections.length, 0),
+    doorCount: robes.reduce((a, r) => a + (r.result.summary.doorCount || 0), 0),
+    fixedFrontCount: robes.reduce((a, r) => a + (r.result.summary.fixedFrontCount || 0), 0),
+    partCount: merged.reduce((a, p) => a + p.qty, 0),
+    width: size.width,
+    depth: size.depth,
+    height: num(closet.height),
+  }
+}
+
+export function unitLabel(unit, index) {
+  return unit.label || `U${index + 1}`
+}
+
+export function computeUnits(closet, std, room = null) {
+  let parts = []
+  let rawParts = []
+  const hardware = {}
+  const warnings = []
+  const units = (closet.units || []).map((unit, i) => {
+    const label = unitLabel(unit, i)
+    const frame = unitFrame(unit)
+    const take = (result, prefix) => {
+      const lab = relabel(result, prefix)
+      parts = parts.concat(lab.parts)
+      rawParts = rawParts.concat(lab.rawParts)
+      warnings.push(...lab.warnings)
+      addHardware(hardware, result.hardware)
+    }
+    if (unit.kind === 'island') {
+      const designs = islandDesigns(unit.design, std)
+      const placements = islandHalves(frame, designs.length > 1)
+      const halves = designs.map((design, k) => {
+        const result = computeWardrobe(design, std)
+        take(result, designs.length > 1 ? `${label}${k + 1}` : label)
+        return { design, result, place: placements[k] }
+      })
+      const top = islandTop(unit.design, std, label)
+      parts.push(top)
+      rawParts.push({ name: top.name, L: top.L, W: top.W, T: top.T, qty: 1, material: 'Front', edges: top.edges, section: label, loft: false })
+      return { id: unit.id, label, kind: 'island', unit, design: unit.design, frame, halves, top }
+    }
+    const design = unit.design
+    const result = computeWardrobe(design, std)
+    take(result, label)
+    return { id: unit.id, label, kind: 'wardrobe', unit, design, result, frame }
+  })
+  warnings.push(...closetChecks(units, room, std))
+  const merged = mergeParts(parts)
+  const { materials, edgeBanding } = summarizeParts(merged, std)
+  const size = room?.room ? { width: num(room.room.width), depth: num(room.room.depth) } : { width: num(closet.width), depth: num(closet.roomDepth) }
+  const summary = closetSummary(units, merged, closet, size)
+  return { mode: 'closet', parts: merged, rawParts, hardware, materials, edgeBanding, warnings, summary, units, layout: { width: size.width, depth: size.depth }, geometry: [], sections: [] }
+}
+
+export function unitsFromRuns(closet, std) {
+  const layout = closetLayout(closet, std)
+  const units = []
+  layout.walls.forEach((id) => {
+    const place = layout.runs[id]
+    if (place.length <= 0) return
+    const design = runDesign(closet, id, place.length)
+    units.push({ id, kind: 'wardrobe', label: id, wallIndex: { B: 0, A: 1, C: 2 }[id], ...placementFrom(place.origin, place.u, place.length, num(design.depth)), design })
+  })
+  if (closet.island?.enabled && layout.island) {
+    const { x, y } = layout.island
+    units.push({ id: 'I', kind: 'island', label: 'I', wallIndex: null, x, y, rotation: 0, design: { ...closet.island } })
+  }
+  return units
+}
+
+export function withUnits(design, std) {
+  if (!design || design.mode !== 'closet' || !design.closet || Array.isArray(design.closet.units)) return design
+  return { ...design, closet: { ...design.closet, units: unitsFromRuns(design.closet, std) } }
+}
+
+function legacyUnits(runs, island, closet) {
+  const out = runs.map((r) => ({
+    id: r.id, label: r.id, kind: 'wardrobe', design: r.design, result: r.result,
+    frame: { origin: r.place.origin, u: r.place.u, n: r.place.n, length: r.place.length, depth: r.place.depth, angle: r.place.angle },
+  }))
+  if (island) {
+    const { x, y, w, d } = island.place
+    const frame = { origin: [x, y], u: [1, 0], n: [0, 1], length: w, depth: d, angle: 0 }
+    const placements = islandHalves(frame, island.halves.length > 1)
+    out.push({ id: 'I', label: 'I', kind: 'island', design: closet.island, frame, halves: island.halves.map((h, k) => ({ ...h, place: placements[k] })), top: island.top })
+  }
+  return out
+}
+
+export function computeCloset(closet, std, room = null) {
+  if (Array.isArray(closet.units)) return computeUnits(closet, std, room)
   const layout = closetLayout(closet, std)
   const runs = []
   let parts = []
@@ -259,15 +369,19 @@ export function computeCloset(closet, std) {
     depth: layout.depth,
     height: num(closet.height),
   }
-  return { mode: 'closet', parts: merged, rawParts, hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [] }
+  return { mode: 'closet', parts: merged, rawParts, hardware, materials, edgeBanding, warnings, summary, runs, island, layout, geometry: [], sections: [], units: legacyUnits(runs, island, closet) }
 }
 
 export function computeDesign(design, std) {
-  return design.mode === 'closet' && design.closet ? computeCloset(design.closet, std) : computeWardrobe(design, std)
+  return design.mode === 'closet' && design.closet ? computeCloset(design.closet, std, design.closet.room || null) : computeWardrobe(design, std)
 }
 
 export function withConstruction(design, construction) {
   const apply = (r) => ({ ...r, construction, backType: construction === 'shared' ? r.backType || 'none' : r.backType })
+  if (design.mode === 'closet' && design.closet && Array.isArray(design.closet.units)) {
+    const units = design.closet.units.map((u) => (u.kind === 'island' ? { ...u, design: { ...u.design, construction } } : { ...u, design: apply(u.design) }))
+    return { ...design, closet: { ...design.closet, units } }
+  }
   if (design.mode === 'closet' && design.closet) {
     const runs = Object.fromEntries(Object.entries(design.closet.runs).map(([k, r]) => [k, apply(r)]))
     return { ...design, closet: { ...design.closet, runs, island: { ...design.closet.island, construction } } }

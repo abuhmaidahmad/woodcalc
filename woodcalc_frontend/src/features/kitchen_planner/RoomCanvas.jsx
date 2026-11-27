@@ -694,6 +694,8 @@ export default function RoomCanvas({
   hideWallsElements,
   hideStairTool = false,
   fitOnMount = false,
+  renderCabinet = null,
+  hideBadges = false,
   bulkIds = EMPTY_BULK_IDS, onToggleBulk,
 }) {
   const { t } = useTranslation()
@@ -1627,8 +1629,8 @@ export default function RoomCanvas({
   fitRef.current = fitView
   useEffect(() => {
     if (!fitOnMount) return
-    const id = requestAnimationFrame(() => fitRef.current())
-    return () => cancelAnimationFrame(id)
+    const id = setTimeout(() => fitRef.current(), 120)
+    return () => clearTimeout(id)
   }, [fitOnMount])
 
   const zoomToSelection = () => {
@@ -1947,7 +1949,11 @@ export default function RoomCanvas({
           {/* Floor items first, then anything mounted above them -- wall units and also
               elevated accessories (wall side panels, wall fillers), which would otherwise
               be painted over by a base filler/cabinet added after them. */}
-          {[...cabinets.filter(c => !isMountedAbove(c)), ...cabinets.filter(isMountedAbove)].map(cab => (
+          {[...cabinets.filter(c => !isMountedAbove(c)), ...cabinets.filter(isMountedAbove)].map(cab => renderCabinet ? (
+            <React.Fragment key={cab.id}>
+              {renderCabinet({ cab, scale, isSelected: selected === cab.id && selectedType === 'cabinet', isColliding: collidingIds.has(cab.id), onMouseDown: handleCabinetMouseDown })}
+            </React.Fragment>
+          ) : (
             <CabinetShape2D
               key={cab.id}
               cab={cab}
@@ -2021,7 +2027,7 @@ export default function RoomCanvas({
               confirmed, frozen from then on), the same "#" the Cabinet List / Fillers & Panels BOM
               tables and the Contract/Proposal tabs show. */}
           <g style={{ pointerEvents: 'none' }}>
-            {cabinets.map((cab) => {
+            {!hideBadges && cabinets.map((cab) => {
               const p = plan.badges.get(cab.id)
               if (!p) return null
               const num = badgeNums.get(cab.id)
