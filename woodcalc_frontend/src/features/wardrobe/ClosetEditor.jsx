@@ -20,6 +20,7 @@ import { unitSize, unitHeight, normRotation } from './unitGeometry'
 import { nextLabel, wallInfo, freeSpan, placeOnWall, wallDistances, moveAlongWall, addWardrobeOnWall, addFreeUnit, resizeUnit, stopAtFace } from './unitOps'
 import { unitName } from './wardrobeRoom'
 import AccessoriesCard from './AccessoriesCard'
+import SlidingDoorsCard from './SlidingDoorsCard'
 import { DESK_SIDES } from './deskEngine'
 
 const Closet3D = lazy(() => import('./Closet3D'))
@@ -254,6 +255,10 @@ export default function ClosetEditor({ design, setDesign, result, std, readOnly,
                 </div>
               </div>
             </div>
+          )}
+
+          {unit?.kind === 'wardrobe' && d.doorType === 'sliding' && out && (
+            <SlidingDoorsCard design={d} result={out.result} onChange={(slidingDoors) => setUnitDesign({ slidingDoors })} />
           )}
 
           {unit?.kind === 'wardrobe' && (

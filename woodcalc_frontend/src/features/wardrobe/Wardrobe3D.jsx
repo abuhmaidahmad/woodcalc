@@ -74,6 +74,34 @@ function HingedDoor({ g, finish, open }) {
   )
 }
 
+const ALU = '#b9bdc1'
+
+function FramedDoor({ g, finish }) {
+  const f = g.frame
+  const bars = [
+    { x: g.x, y: g.y, w: f, h: g.h },
+    { x: g.x + g.w - f, y: g.y, w: f, h: g.h },
+    { x: g.x + f, y: g.y, w: g.w - 2 * f, h: f },
+    { x: g.x + f, y: g.y + g.h - f, w: g.w - 2 * f, h: f },
+    ...(g.transoms || []).map((ty) => ({ x: g.x + f, y: g.y + ty, w: g.w - 2 * f, h: g.rail })),
+  ]
+  const inset = Math.max(4, g.d / 3)
+  return (
+    <>
+      {bars.map((b, i) => (
+        <mesh key={`b${i}`} position={[(b.x + b.w / 2) * S, (b.y + b.h / 2) * S, (g.z + g.d / 2) * S]} castShadow>
+          <boxGeometry args={[b.w * S, b.h * S, g.d * S]} />
+          <meshStandardMaterial color={ALU} metalness={0.6} roughness={0.35} />
+        </mesh>
+      ))}
+      {(g.panels || []).map((p, i) => {
+        const pg = { x: g.x + f, y: g.y + p.y, z: g.z + (g.d - inset) / 2, w: g.w - 2 * f, h: p.h, d: inset }
+        return p.kind === 'mirror' ? <Mirror key={`p${i}`} g={pg} /> : <Panel key={`p${i}`} g={pg} finish={finish} roughness={0.45} />
+      })}
+    </>
+  )
+}
+
 function SlidingDoor({ g, finish, open }) {
   const ref = useRef()
   useFrame(() => {
@@ -83,7 +111,7 @@ function SlidingDoor({ g, finish, open }) {
   })
   return (
     <group ref={ref}>
-      <Panel g={g} finish={finish} roughness={0.4} />
+      {g.style ? <FramedDoor g={g} finish={finish} /> : <Panel g={g} finish={finish} roughness={0.4} />}
     </group>
   )
 }

@@ -80,6 +80,7 @@ export function hardwareLines(hw, std) {
     ['ledMeters', hw.ledMeters, std.priceLedM],
     ['doorSensor', hw.doorSensor, std.priceDoorSensor],
     ['mirrorM2', hw.mirrorM2, std.priceMirrorM2],
+    ['slidingFrameM', hw.slidingFrameM, std.priceSlidingFrameM],
   ]
   return lines
     .filter(([, qty]) => num(qty) > 0)

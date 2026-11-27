@@ -1,6 +1,7 @@
 import { MACHINING_CONFIG } from '../kitchen_planner/machining/config'
 import { getHingeCount } from '../kitchen_planner/formulaEngine'
 import { createKit, opList } from './wardrobeMachining'
+import { slidingStyle, doorLayout } from './slidingDoors'
 
 export const ZONE_TYPES = ['shelves', 'hang', 'hang2', 'drawers', 'open']
 export const PRESET_IDS = ['longHang', 'doubleHang', 'shelves', 'hangDrawers', 'shelvesDrawers']
@@ -39,6 +40,7 @@ export const PART_NAMES_AR = {
   'Shelf': 'رف متحرك',
   'Door': 'باب',
   'Sliding door': 'باب جرار',
+  'Sliding door panel': 'حشوة باب جرار',
   'Drawer spacer': 'تسميكة',
   'Drawer front': 'وجه درج',
   'Drawer side': 'جانب درج',
@@ -793,13 +795,30 @@ export function computeWardrobe(design, std) {
   if (shared) addHw('leg', Math.ceil(std.legsPerSection / 2) * (design.sections.length + 1 + doubles.length))
 
   let slidingCount = 0
+  let doorMirrorM2 = 0
   if (sliding) {
     const n = Math.max(2, Math.ceil(cw / std.maxSlidingDoorW))
     slidingCount = n
     const doorW = (cw + (n - 1) * std.slidingOverlap) / n
     const doorH = bodyH - std.slidingHDeduction
     if (doorW > std.maxSlidingDoorW) warn('slidingDoorTooWide', { w: r1(doorW), max: std.maxSlidingDoorW })
-    part({ name: 'Sliding door', L: doorH, W: doorW, T: FT, qty: n, material: 'Front', edges: EDGE_ALL, section: 'ALL' })
+    const sd = design.slidingDoors || {}
+    const layouts = Array.from({ length: n }, (_, k) => doorLayout(slidingStyle(design, k), doorW, doorH, sd, std))
+    const plain = layouts.filter((l) => !l.framed).length
+    part({ name: 'Sliding door', L: doorH, W: doorW, T: FT, qty: plain, material: 'Front', edges: EDGE_ALL, section: 'ALL' })
+    layouts.forEach((l) => {
+      if (!l.framed) return
+      addHw('slidingFrameM', l.frameM)
+      l.panels.forEach((p) => {
+        if (p.kind === 'mirror') {
+          part({ name: 'Mirror', L: p.h, W: l.insertW, T: std.mirrorT, qty: 1, material: 'Mirror', edges: '', section: 'ALL' })
+          if (p.h > 0 && l.insertW > 0) doorMirrorM2 += (p.h * l.insertW) / 1e6
+        } else {
+          part({ name: 'Sliding door panel', L: p.h, W: l.insertW, T: std.slidingInsertT, qty: 1, material: 'Front', edges: '', section: 'ALL' })
+        }
+      })
+      if (l.mid != null && l.mid <= 0) warn('slidingMirrorTooSmall', { h: l.mid })
+    })
     addHw('slidingKit', n)
     addHw('slidingTrack', 2)
     const step = doorW - std.slidingOverlap
@@ -808,7 +827,8 @@ export function computeWardrobe(design, std) {
     for (let k = 0; k < n; k++) {
       const backTrack = k % 2 === 0
       const openDx = backTrack ? (k < n - 1 ? step : -step) : 0
-      box({ kind: 'slidingDoor', x: k * step, y: std.plinthH + std.slidingHDeduction / 2, z: backTrack ? zBack : zFront, w: r1(doorW), h: r1(doorH), d: FT, openDx })
+      const l = layouts[k]
+      box({ kind: 'slidingDoor', x: k * step, y: std.plinthH + std.slidingHDeduction / 2, z: backTrack ? zBack : zFront, w: r1(doorW), h: r1(doorH), d: FT, openDx, ...(l.framed ? { style: slidingStyle(design, k), frame: num(std.slidingFrameDeduct), panels: l.panels, transoms: l.transoms, rail: num(std.slidingTransomH) } : {}) })
     }
   }
 
@@ -837,7 +857,7 @@ export function computeWardrobe(design, std) {
   if (acc.doorSensors) addHw('doorSensor', doorCount)
   const mirrors = Array.isArray(acc.mirrors) ? acc.mirrors : []
   mirrors.forEach((m) => part({ name: 'Mirror', L: num(m.h), W: num(m.w), T: std.mirrorT, qty: 1, material: 'Mirror', edges: '', section: 'ALL' }))
-  const mirrorM2 = mirrors.reduce((a, m) => a + (num(m.h) * num(m.w)) / 1e6, 0)
+  const mirrorM2 = mirrors.reduce((a, m) => a + (num(m.h) * num(m.w)) / 1e6, 0) + doorMirrorM2
   if (mirrorM2 > 0) hardware.mirrorM2 = Math.round(mirrorM2 * 100) / 100
 
   const parts = aggregate(rawParts).map((p) => ({ ...p, nameAr: PART_NAMES_AR[p.name] || '' }))

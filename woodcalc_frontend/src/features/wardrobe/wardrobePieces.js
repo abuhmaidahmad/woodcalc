@@ -18,6 +18,7 @@ export const WARDROBE_PART_CODES = {
   'Shelf': 'SH',
   'Door': 'D',
   'Sliding door': 'SLD',
+  'Sliding door panel': 'SLP',
   'Drawer spacer': 'SP',
   'Drawer front': 'DF',
   'Drawer side': 'DS',

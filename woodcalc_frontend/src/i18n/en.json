@@ -2454,6 +2454,22 @@
     "newInstallation": "+ New installation"
   },
   "wardrobe": {
+    "sliding": {
+      "title": "Sliding doors",
+      "allDoors": "Style for all doors",
+      "styles": {
+        "panel": "Melamine",
+        "framed": "Aluminium + melamine",
+        "split": "Wood + mirror + wood",
+        "mirror": "Aluminium + mirror"
+      },
+      "topH": "Top wood panel (mm)",
+      "bottomH": "Bottom wood panel (mm)",
+      "perDoor": "Per door",
+      "door": "Door {{n}}",
+      "sameAsAll": "Same as all",
+      "hint": "Framed doors use an aluminium profile; the inserts and mirrors are listed in the cut list. Frame sizes and prices are in the construction standard."
+    },
     "acc": {
       "title": "Accessories",
       "led": "LED strip",
@@ -2632,6 +2648,10 @@
       "cnc": "CNC drilling"
     },
     "std": {
+      "slidingFrameDeduct": "Door frame width (per side)",
+      "slidingTransomH": "Door frame rail height",
+      "slidingInsertT": "Door insert thickness",
+      "priceSlidingFrameM": "Aluminium door frame / m",
       "mirrorT": "Mirror thickness",
       "deskTopH": "Desk height",
       "deskModestyH": "Desk back panel height",
@@ -2735,6 +2755,7 @@
       "minFrontH": "Min front height"
     },
     "warn": {
+      "slidingMirrorTooSmall": "The wood panels leave {{h}} mm for the mirror. Make them shorter.",
       "deskKneeNarrow": "Knee space is {{w}} mm, under {{min}} mm.",
       "unitsOverlap": "{{a}} and {{b}} overlap.",
       "unitInWall": "{{unit}} goes into wall {{wall}}.",
@@ -2834,6 +2855,7 @@
       "costsMore": "Shared partitions cost {{amount}} JD more",
       "compareHint": "Same design, materials, labour and margin. Only the construction changes.",
       "hw": {
+        "slidingFrameM": "Aluminium door frame (m)",
         "ledMeters": "LED strip (m)",
         "doorSensor": "Door sensors",
         "mirrorM2": "Mirror (m²)",
