@@ -2188,6 +2188,27 @@ function RecessedLEDStrip({ length, x, y, z, inward, withLight = false }) {
   )
 }
 
+// A profile set into a groove on a wood shelf's underside: only its lip and
+// lens show, flush with the board (as RecessedLEDStrip is in the cabinet sides).
+// y is the shelf's underside; the strip runs along x and lights downward.
+function FlushShelfLEDStrip({ length, y, z }) {
+  const lipW = 0.0186, lensW = 0.0152
+  return (
+    <group position={[0, y, z]}>
+      <mesh position={[0, -0.0004, 0]}>
+        <boxGeometry args={[length, 0.0008, lipW]} />
+        <meshPhysicalMaterial color="#c8c8c8" metalness={0.75} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, -0.0009, 0]}>
+        <boxGeometry args={[Math.max(0.01, length - 0.002), 0.0004, lensW]} />
+        <meshStandardMaterial color="#fff4d6" emissive="#ffdb8a" emissiveIntensity={4.5} toneMapped={false} />
+      </mesh>
+      <rectAreaLight position={[0, -0.002, 0]} rotation={[-Math.PI / 2, 0, 0]}
+        width={Math.max(0.01, length - 0.002)} height={lensW} color="#ffcb8a" intensity={LED_STRIP_LUMINANCE} />
+    </group>
+  )
+}
+
 function LEDStripLight({ length, rotation = [0, 0, 0], position = [0, 0, 0], withLight = true }) {
   const outerW = 0.0186, outerH = 0.0125, diffW = 0.0152, diffH = 0.003
   return (
@@ -2501,17 +2522,24 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
           </>
         )
       })()}
-      {/* Shelf LEDs (open boxes): a profile under each shelf's front edge, at the
-          same heights HollowGlassCarcass spaces the shelves. */}
+      {/* Shelf LEDs (open boxes), at the heights HollowGlassCarcass spaces the
+          shelves, 30mm behind the shelf front: set flush into a wood shelf's
+          underside (the CNC grooves it), surface-mounted under a glass one. */}
       {cab.ledStripShelves && cab.subtype === 'Open Shelf' && (() => {
         const T = 0.018
         const n = shelfCountFor(cab)
-        const shelfT = hasGlassShelves(cab) ? 0.008 : T
+        const glass = hasGlassShelves(cab)
+        const shelfT = glass ? 0.008 : T
         const usableH = H - T * 2
-        const len = Math.max(0.05, W - 0.04)
+        const backInset = hasBoxBoardBack(cab) ? OPEN_BOX_BACK_GAP / 1000 : 0
+        const shelfFront = backInset / 2 - 0.005 + (D - backInset - T - 0.01) / 2
+        const z = shelfFront - 0.030
+        const len = Math.max(0.05, W - T * 2 - 0.004)
         return Array.from({ length: n }, (_, k) => {
-          const y = T + (usableH * (k + 1)) / (n + 1) - shelfT / 2 - 0.0125 / 2
-          return <LEDStripLight key={`shelf-led-${k}`} length={len} rotation={[0, Math.PI / 2, 0]} position={[0, y, D / 2 - 0.045]} />
+          const underside = T + (usableH * (k + 1)) / (n + 1) - shelfT / 2
+          return glass
+            ? <LEDStripLight key={`shelf-led-${k}`} length={Math.max(0.05, W - 0.04)} rotation={[0, Math.PI / 2, 0]} position={[0, underside - 0.0125 / 2, z]} />
+            : <FlushShelfLEDStrip key={`shelf-led-${k}`} length={len} y={underside} z={z} />
         })
       })()}
       {cab.ledStripUnder && isWall && (

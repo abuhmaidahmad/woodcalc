@@ -54,6 +54,9 @@ export const MACHINING_CONFIG = {
     width: 19,
     depth: 12.5,
     backDistance: 20,
+    // Shelf LED (open boxes with wood shelves): the profile sits flush in a
+    // groove on the shelf's underside, its centreline this far behind the front edge.
+    shelfFrontDistance: 30,
   },
 };
 
