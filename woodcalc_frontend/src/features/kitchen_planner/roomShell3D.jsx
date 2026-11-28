@@ -25,12 +25,14 @@ export const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_R
   const outerStartLocal = body?.outerStart ? toLocal(px2m(body.outerStart.x), px2m(body.outerStart.y)) : { x: -len / 2, z: T }
   const outerEndLocal = body?.outerEnd ? toLocal(px2m(body.outerEnd.x), px2m(body.outerEnd.y)) : { x: len / 2, z: T }
 
+  const wallH = wall.height > 0 ? wall.height / 1000 : roomH
+
   const geometry = useMemo(() => {
     const shape = new THREE.Shape()
     shape.moveTo(-len/2, 0)
     shape.lineTo(len/2, 0)
-    shape.lineTo(len/2, roomH)
-    shape.lineTo(-len/2, roomH)
+    shape.lineTo(len/2, wallH)
+    shape.lineTo(-len/2, wallH)
     shape.closePath()
 
     elements
@@ -41,9 +43,10 @@ export const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_R
         const localX = t - len/2
         const W = el.w/1000
         const H = (el.h || (el.type === 'window' ? 1200 : 2300)) / 1000
-        const yBottom = el.type === 'window' ? (el.elevation || 900)/1000 : 0
-        const yTop = yBottom + H
         const margin = 0.01
+        const yBottom = el.type === 'window' ? (el.elevation || 900)/1000 : 0
+        const yTop = Math.min(yBottom + H, wallH - margin)
+        if (yTop - yBottom <= margin * 3) return
         const hole = new THREE.Path()
         hole.moveTo(localX - W/2 + margin, yBottom + margin)
         hole.lineTo(localX + W/2 - margin, yBottom + margin)
@@ -68,7 +71,7 @@ export const Wall3D = React.memo(function Wall3D({ wall, body, roomH = DEFAULT_R
     pos.needsUpdate = true
     geom.computeVertexNormals()
     return geom
-  }, [len, roomH, T, elements, wallIndex, x1, z1, dirX, dirZ, outerStartLocal.x, outerStartLocal.z, outerEndLocal.x, outerEndLocal.z])
+  }, [len, wallH, T, elements, wallIndex, x1, z1, dirX, dirZ, outerStartLocal.x, outerStartLocal.z, outerEndLocal.x, outerEndLocal.z])
 
   return (
     <mesh position={[cx, 0, cz]} rotation={[0, -angle, 0]} geometry={geometry} castShadow={opacity >= 1} receiveShadow>

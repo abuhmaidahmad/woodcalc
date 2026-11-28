@@ -352,6 +352,7 @@ export function migrateLegacyWalls(walls, legacyThickness = DEFAULT_WALL_THICKNE
       x1: faceStart.x, y1: faceStart.y, x2: faceEnd.x, y2: faceEnd.y,
       thickness: legacyThickness,
       thicknessSide: loop ? loopSides[i] : openChainSide,
+      ...(w.height > 0 ? { height: w.height } : {}),
     }
   })
 }
