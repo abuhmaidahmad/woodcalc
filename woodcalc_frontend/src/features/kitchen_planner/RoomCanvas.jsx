@@ -679,6 +679,25 @@ const StairShape2D = React.memo(function StairShape2D({ stair, scale, selected, 
   )
 })
 
+function WallHeightInput({ value, placeholder, onCommit, style }) {
+  const [text, setText] = useState(value != null ? String(value) : '')
+  useEffect(() => { setText(value != null ? String(value) : '') }, [value])
+  const commit = () => {
+    const trimmed = text.trim()
+    if (trimmed === '') { if (value != null) onCommit(null); return }
+    const n = Math.round(Number(trimmed))
+    if (Number.isFinite(n) && n > 0) { if (n !== value) onCommit(n) }
+    else setText(value != null ? String(value) : '')
+  }
+  return (
+    <input type="number" min={1} step={10} value={text} placeholder={placeholder}
+      onChange={e => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur(); e.stopPropagation() }}
+      style={style} />
+  )
+}
+
 export default function RoomCanvas({
   room, scale, showGrid, showDimensions,
   elements, setElements, cabinets = EMPTY_LIST, setCabinets = NOOP,
@@ -1768,6 +1787,27 @@ export default function RoomCanvas({
                 style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
                 {t('roomCanvas.flipThicknessSide')}
               </button>
+              {(() => {
+                const ceilingH = room?.ceilingHeight || 2800
+                const wallH = walls[selectedWall]?.height > 0 ? walls[selectedWall].height : null
+                const setWallHeight = h => pushHistory(walls.map((w, i) => i === selectedWall ? { ...w, height: h } : w))
+                return (
+                  <>
+                    <span style={{ fontSize: 11, color: '#666', fontWeight: 600, marginInlineStart: 6 }}>{t('roomCanvas.wallHeightLabel')}</span>
+                    <WallHeightInput value={wallH} placeholder={String(ceilingH)} onCommit={setWallHeight}
+                      style={{ width: 64, padding: '3px 6px', borderRadius: 5, border: '1.5px solid', borderColor: wallH != null ? ACCENT : '#E0DAD4', fontSize: 11 }} />
+                    <span style={{ fontSize: 11, color: '#888' }}>mm</span>
+                    {wallH == null ? (
+                      <span style={{ fontSize: 10, color: '#888', background: '#f4f2ef', padding: '3px 6px', borderRadius: 5 }}>{t('roomCanvas.wallHeightStandard')}</span>
+                    ) : (
+                      <button onClick={() => setWallHeight(null)}
+                        style={{ padding: '4px 8px', borderRadius: 5, border: '1.5px solid #E0DAD4', background: '#fff', color: '#555', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                        {t('roomCanvas.wallHeightReset')}
+                      </button>
+                    )}
+                  </>
+                )
+              })()}
             </div>
           )}
           {mode === 'select' && selectedWall !== null && (
