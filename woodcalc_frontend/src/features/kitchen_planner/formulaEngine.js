@@ -134,6 +134,13 @@ export const hasWoodShelfOpenBox = (c) => isOpenBox(c) && c?.shelfMaterial === '
 // every other shelf-eligible cabinet gets 18mm wood shelves cut by calculateCabinet.
 export const hasGlassShelves = (c) => (isOpenBox(c) && !hasWoodShelfOpenBox(c)) || isGlassDoorCabinet(c);
 
+// All of a cabinet's LED strip (profile + diffuser + strip), in meters: the
+// interior option runs up both sides, the under-cabinet one across the width,
+// plus any shelf LEDs. Single source for the BOM and the proposal.
+export const ledStripMetersFor = (c) => (c?.ledStripInterior ? 2 * (Number(c.height) || 0) / 1000 : 0)
+  + (c?.ledStripUnder ? (Number(c.width) || 0) / 1000 : 0)
+  + shelfLedMeters(c);
+
 // Shelf LED: an aluminium profile under the front edge of every shelf, as long
 // as the shelf is wide. Only open boxes offer it (ledStripShelves).
 export const shelfLedMeters = (c) => (isOpenBox(c) && c?.ledStripShelves
