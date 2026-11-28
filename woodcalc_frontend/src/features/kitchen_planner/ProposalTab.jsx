@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react'
 import { countertopRunMm } from './countertopOverhang'
-import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
+import { calculateCabinet, cabinetBadges, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, panelFace, edgeBandingByMaterialMm, flatPieceEdgeBanding, glassShelfSpec, ledStripMetersFor, getCompanyGlassDoor, resolveDrawerMaterials } from './formulaEngine'
 import { useCompanyStandards, useProductionPricing, useCompanyBranding } from '../../api/companySettings'
 import { ASSEMBLY_CATEGORIES, normalizeProductionPricing, cuttingCost, assemblyCost, assemblyCategory } from './productionPricing'
 import { useTranslation } from '../../i18n/LanguageContext'
@@ -28,6 +28,7 @@ const DEFAULT_PRICES = {
   handle_pc:         3.50,  // per handle
   soft_close_pc:     2.00,  // tip-on per piece
   vent_grille_pc:    3.55,
+  led_strip_m:       8.00,  // LED strip lighting per meter: aluminium profile + diffuser + strip
   countertop_lm:    85.00,  // per linear meter (installed)
   electric_point:   25.00,  // per electrical point
   delivery:         30.00,  // flat delivery fee
@@ -332,12 +333,18 @@ function priceCabinet(cab, prices, materialsMap, drawerSystemsCatalog, t) {
   const softCost     = parseFloat(((h.tip_on || 0)     * prices.soft_close_pc).toFixed(3))
   const grillePrice  = prices.vent_grille_pc ?? DEFAULT_PRICES.vent_grille_pc
   const grilleCost   = parseFloat(((h.vent_grilles || 0) * grillePrice).toFixed(3))
-  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + handleCost + softCost + grilleCost
+  // LED strip lighting (interior, under-cabinet, under-shelf), priced per meter.
+  // Rooms saved before LEDs had a price carry no led_strip_m: use the default.
+  const ledM = ledStripMetersFor(cab)
+  const ledPrice = prices.led_strip_m ?? DEFAULT_PRICES.led_strip_m
+  const ledCost = parseFloat((ledM * ledPrice).toFixed(3))
+  const hardwareCost = hingeCost + legCost + confirmCost + dowelCost + screwCost + handleCost + softCost + grilleCost + ledCost
 
   breakdown.push({ label: t('proposalTab.breakdownHinges'),      qty: (h.hinges || 0)     + ' ' + t('proposalTab.unitPcs'), unit: prices.hinge_pc,     cost: hingeCost })
   breakdown.push({ label: t('proposalTab.breakdownLegs'),        qty: (h.legs || 0)       + ' ' + t('proposalTab.unitPcs'), unit: prices.leg_pc,       cost: legCost })
   breakdown.push({ label: t('proposalTab.breakdownConfirmats'),  qty: (h.confirmats || 0) + ' ' + t('proposalTab.unitPcs'), unit: prices.confirmat_pc, cost: confirmCost })
   breakdown.push({ label: t('proposalTab.breakdownHandles'),     qty: (h.handles || 0)    + ' ' + t('proposalTab.unitPcs'), unit: prices.handle_pc,    cost: handleCost })
+  if (ledM > 0) breakdown.push({ label: t('proposalTab.breakdownLedStrip'), qty: ledM.toFixed(2) + ' ' + t('proposalTab.unitM'), unit: ledPrice, cost: ledCost })
   if (h.vent_grilles) breakdown.push({ label: t('proposalTab.breakdownVentGrilles'), qty: h.vent_grilles + ' ' + t('proposalTab.unitPcs'), unit: grillePrice, cost: grilleCost })
 
   // Cutting & edge banding (per board) and assembly (per cabinet) are priced for
@@ -642,6 +649,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
           <PriceRow label={t('proposalTab.countertopLmFallback')} value={prices.countertop_lm} onChange={v => updatePrice('countertop_lm', v)} unit="JD/m" />
           <SectionTitle>{t('proposalTab.finishingPerM')}</SectionTitle>
           <PriceRow label={t('proposalTab.edgeBanding')}        value={prices.edge_banding_m} onChange={v => updatePrice('edge_banding_m', v)} />
+          <PriceRow label={t('proposalTab.ledStrip')}           value={prices.led_strip_m ?? DEFAULT_PRICES.led_strip_m} onChange={v => updatePrice('led_strip_m', v)} />
           <SectionTitle>{t('proposalTab.hardwarePerPc')}</SectionTitle>
           <PriceRow label={t('proposalTab.blumHinge')}          value={prices.hinge_pc}       onChange={v => updatePrice('hinge_pc', v)} />
           <PriceRow label={t('proposalTab.adjustableLeg')}      value={prices.leg_pc}         onChange={v => updatePrice('leg_pc', v)} />

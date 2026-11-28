@@ -3,7 +3,7 @@ import { CT_OVERHANG_DEFAULTS, CT_OVERHANG_SIDES, countertopOverhang } from './c
 import { SINK_KINDS, SINK_FINISHES, resolveSink } from './sinkOptions'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, shelfLedMeters, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
+import { calculateCabinet, ledStripMetersFor, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
 import { useCompanyStandards, useProductionPricing, useRoomSheetUsage } from '../../api/companySettings'
 import { useRoomLockActions } from '../rooms/useRoomLockActions'
 import LinkProjectModal from '../rooms/LinkProjectModal'
@@ -325,9 +325,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
   })
 
   cabinets.forEach(c => {
-    if (c.ledStripInterior) ledStripMeters += 2 * c.height / 1000
-    if (c.ledStripUnder) ledStripMeters += c.width / 1000
-    ledStripMeters += shelfLedMeters(c)
+    ledStripMeters += ledStripMetersFor(c)
     const { carcassMat, frontMat } = bandMaterialNames(c)
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
