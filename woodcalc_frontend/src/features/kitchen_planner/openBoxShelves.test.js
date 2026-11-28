@@ -35,3 +35,29 @@ describe('open box shelf material', () => {
     expect(shelfLedMeters({ ...openBox({ ledStripShelves: true }), subtype: 'Standard' })).toBe(0)
   })
 })
+
+describe('shelf LED groove (CNC)', async () => {
+  const { buildMachining } = await import('./machining')
+  const grooves = (c) => buildMachining({ ...cabinetConfig(c), ledStripShelves: !!c.ledStripShelves }).parts
+    .filter(p => p.source === 'Shelf (18mm)')
+    .map(p => ({ p, ops: p.machining_ops.filter(o => o.rule === 'led_groove') }))
+
+  it('grooves each wood shelf underside, full length, 30mm from the front', () => {
+    const rows = grooves(openBox({ shelfMaterial: 'wood', ledStripShelves: true }))
+    expect(rows).toHaveLength(2)
+    rows.forEach(({ p, ops }) => {
+      expect(ops).toHaveLength(1)
+      expect(ops[0]).toMatchObject({ face: 'BOTTOM', x: 0, x2: p.length, width: 19, depth: 12.5 })
+      expect(Math.min(ops[0].y, p.width - ops[0].y)).toBe(30)
+    })
+  })
+
+  it('the groove passes machining validation', () => {
+    const built = buildMachining({ ...cabinetConfig(openBox({ shelfMaterial: 'wood' })), ledStripShelves: true })
+    expect(JSON.stringify(built.errors ?? [])).not.toMatch(/GROOVE|groove/)
+  })
+
+  it('no groove without the LED option', () => {
+    grooves(openBox({ shelfMaterial: 'wood' })).forEach(({ ops }) => expect(ops).toHaveLength(0))
+  })
+})

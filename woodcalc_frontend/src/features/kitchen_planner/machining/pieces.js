@@ -99,6 +99,7 @@ export function cabinetPieces(cab, badge, idFor, { constructionSettings = null, 
   const config = {
     ...cabinetConfig(cab), hingeSide: cab.hingeSide, blindSide: cab.blindSide, shelfHeights: cab.shelfHeights, constructionSettings,
     ledStripInterior: !!cab.ledStripInterior,
+    ledStripShelves: !!cab.ledStripShelves,
     // Metal-sided bottoms are sized from this cabinet's drawer system entry.
     drawerSystemSpec: drawerSystems.find(s => s.name === cab.drawerSystem) || undefined,
   };
