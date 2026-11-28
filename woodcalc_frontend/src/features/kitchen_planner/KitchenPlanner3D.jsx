@@ -1,5 +1,5 @@
 import { Canvas, useFrame, useLoader, useThree } from '@react-three/fiber'
-import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob, isOvenMicroTower, ovenMicroTowerSpec, ovenTowerShelves } from './formulaEngine'
+import { BLIND_PANEL_WIDTH, BLIND_FILLER_WIDTH, detectCornerJoins, isShelfEligible, getDefaultDoorCount, resolveZonePreset, golaNeedsChannelAbove, golaFrontReductionMm, DOUBLE_OVEN_BOTTOM, shelfCountFor, OPEN_BOX_BACK_GAP, hasBoxBoardBack, hasGlassShelves, isGolaBaseFiller, APPLIANCE_NICHE, nicheDoorHeights, nicheShelfSplit, isHoodCabinet, hoodCabinetSpec, hasHob, isOvenMicroTower, ovenMicroTowerSpec, ovenTowerShelves } from './formulaEngine'
 import { OrbitControls, ContactShadows, Environment, RoundedBox, AdaptiveDpr, AdaptiveEvents } from '@react-three/drei'
 import { EffectComposer, N8AO, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
@@ -222,6 +222,26 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
   const shelfD = D - backInset - T - 0.01
   const shelfZ = backInset / 2 - 0.005
   const common = { color, materialName, matProps, envMapIntensity: 0.5, castShadow: true, receiveShadow: true }
+  // Gola base cabinets drop the separate top cap and instead notch both side
+  // panels' top band back from the front edge (the same milled recess
+  // GolaCarcass's own sides use), so the aluminum L-profile channel the glass
+  // door renders (see GlassDoor) seats in a real shadow gap, matching how a
+  // solid Gola door's carcass meets its own channel, instead of a flush glass-
+  // cabinet top cutting across it.
+  // A catalog material's real look is its photo texture -- its `color` is only
+  // the fallback hex -- so when one is given, panels render textured like door
+  // fronts do instead of a flat (fallback) color.
+  const panel = (args, position) => {
+    if (!texEntry) return <SmartBox args={args} position={position} {...common} />
+    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
+    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
+    const [a, b] = [...args].sort((m, n) => n - m)
+    return (
+      <PhotoTexturedBox args={args} position={position} castShadow receiveShadow
+        imageUrl={texEntry.texture_image} color={color} matProps={matProps}
+        envMapIntensity={0.8} repeatU={a / physW} repeatV={b / physH} />
+    )
+  }
   const shelfT = glassShelf ? 0.008 : T // 8mm clear glass, or standard 18mm wood panel
   const usableH = H - T * 2
   const shelves = []
@@ -243,28 +263,8 @@ function HollowGlassCarcass({ W, H, D, color, materialName, matProps, shelfCount
           </mesh>
         </group>
       ) : (
-        <SmartBox key={i} args={[W - T * 2 - 0.004, shelfT, shelfD]} position={[0, y, shelfZ]} {...common} />
+        <React.Fragment key={i}>{panel([W - T * 2 - 0.004, shelfT, shelfD], [0, y, shelfZ])}</React.Fragment>
       )
-    )
-  }
-  // Gola base cabinets drop the separate top cap and instead notch both side
-  // panels' top band back from the front edge (the same milled recess
-  // GolaCarcass's own sides use), so the aluminum L-profile channel the glass
-  // door renders (see GlassDoor) seats in a real shadow gap, matching how a
-  // solid Gola door's carcass meets its own channel, instead of a flush glass-
-  // cabinet top cutting across it.
-  // A catalog material's real look is its photo texture -- its `color` is only
-  // the fallback hex -- so when one is given, panels render textured like door
-  // fronts do instead of a flat (fallback) color.
-  const panel = (args, position) => {
-    if (!texEntry) return <SmartBox args={args} position={position} {...common} />
-    const physW = (texEntry.texture_physical_width_mm || 600) / 1000
-    const physH = (texEntry.texture_physical_height_mm || 600) / 1000
-    const [a, b] = [...args].sort((m, n) => n - m)
-    return (
-      <PhotoTexturedBox args={args} position={position} castShadow receiveShadow
-        imageUrl={texEntry.texture_image} color={color} matProps={matProps}
-        envMapIntensity={0.8} repeatU={a / physW} repeatV={b / physH} />
     )
   }
   const EB = 0.001
@@ -2346,7 +2346,7 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
       ) : (isGlass || cab.subtype === 'Open Shelf') ? (
         <HollowGlassCarcass W={W} H={H} D={D} color={boxColor} materialName={boxMaterial} matProps={boxMatProps} texEntry={boxTexEntry}
           shelfCount={shelfCountFor(cab)}
-          glassShelf={isGlass || cab.category === 'wall' || cab.subtype === 'Open Shelf'}
+          glassShelf={hasGlassShelves(cab)}
           isGola={isGlass && doorStyle === 'Gola' && isBase && !isShelf}
           backInset={hasBoxBoardBack(cab) ? OPEN_BOX_BACK_GAP / 1000 : 0} />
       ) : isNiche ? (
@@ -2500,6 +2500,19 @@ const Cabinet = React.memo(function Cabinet({ cab, countertopMat, countertopThic
             <RecessedLEDStrip length={len} x={-W / 2 + T} y={H / 2} z={z} inward={1} withLight />
           </>
         )
+      })()}
+      {/* Shelf LEDs (open boxes): a profile under each shelf's front edge, at the
+          same heights HollowGlassCarcass spaces the shelves. */}
+      {cab.ledStripShelves && cab.subtype === 'Open Shelf' && (() => {
+        const T = 0.018
+        const n = shelfCountFor(cab)
+        const shelfT = hasGlassShelves(cab) ? 0.008 : T
+        const usableH = H - T * 2
+        const len = Math.max(0.05, W - 0.04)
+        return Array.from({ length: n }, (_, k) => {
+          const y = T + (usableH * (k + 1)) / (n + 1) - shelfT / 2 - 0.0125 / 2
+          return <LEDStripLight key={`shelf-led-${k}`} length={len} rotation={[0, Math.PI / 2, 0]} position={[0, y, D / 2 - 0.045]} />
+        })
       })()}
       {cab.ledStripUnder && isWall && (
         <LEDStripLight length={Math.max(0.05, W - 0.04)} rotation={[0, Math.PI / 2, 0]}

@@ -125,9 +125,19 @@ export function isGlassDoorMaterial(m) {
 }
 export const isGlassDoorCabinet = (c) => c?.subtype === 'Glass Door';
 
-// Cabinets whose shelves are glass (open boxes and glass-door cabinets); every
-// other shelf-eligible cabinet gets 18mm wood shelves cut by calculateCabinet.
-export const hasGlassShelves = (c) => isOpenBox(c) || isGlassDoorCabinet(c);
+// An open box's shelves are glass unless its Shelves option is set to wood
+// (shelfMaterial: 'wood'): then they're 18mm boards cut from the box's own
+// material (carcass, or front when its Box Color is front).
+export const hasWoodShelfOpenBox = (c) => isOpenBox(c) && c?.shelfMaterial === 'wood';
+
+// Cabinets whose shelves are glass (glass open boxes and glass-door cabinets);
+// every other shelf-eligible cabinet gets 18mm wood shelves cut by calculateCabinet.
+export const hasGlassShelves = (c) => (isOpenBox(c) && !hasWoodShelfOpenBox(c)) || isGlassDoorCabinet(c);
+
+// Shelf LED: an aluminium profile under the front edge of every shelf, as long
+// as the shelf is wide. Only open boxes offer it (ledStripShelves).
+export const shelfLedMeters = (c) => (isOpenBox(c) && c?.ledStripShelves
+  ? shelfCountFor(c) * Math.max(0, (Number(c.width) || 0) - 40) / 1000 : 0);
 
 // Shelf spacing standard: shelves start ~300mm apart and can't be added closer
 // than 250mm (clear gap between 18mm shelves, inside the 36mm of top + bottom).
@@ -505,6 +515,7 @@ export function cabinetConfig(c) {
     drawerBoxConstruction: c.drawerBoxConstruction,
     baseHeight: c.baseHeight,
     openBoxMaterialSource: c.openBoxMaterialSource,
+    shelfMaterial: c.shelfMaterial,
     nicheLowerDoorH: c.nicheLowerDoorH,
     nicheUpperDoorH: c.nicheUpperDoorH,
     hoodFrontH: c.hoodFrontH,
@@ -772,6 +783,11 @@ export function panelEdgeBanding(p, carcassColor, frontColor, carcassMat, frontM
     const ends = p.endsBanded ? box : 'None'
     return { T: ends, B: ends, L: 'None', R: box }
   }
+  // An open box's wood shelf in the front material is banded all round in it.
+  if (p.name === 'Shelf (18mm)' && p.faceMaterial === 'front') {
+    const fc = frontMat || frontColor || 'Front'
+    return { T: fc, B: fc, L: fc, R: fc }
+  }
   const eb = p.behindGlass
     ? getEdgeBanding(p.name, carcassColor, carcassColor, carcassMat, carcassMat, doorStyle)
     : getEdgeBanding(p.name, carcassColor, frontColor, carcassMat, frontMat, doorStyle)
@@ -826,8 +842,10 @@ export function calculateCabinet(config) {
   // The oven(s) occupy the cavity — no adjustable shelves default for these.
   const openBox = isOpenBox(config);
   const boxBoardBack = hasBoxBoardBack(config);
-  // Open boxes and glass-door cabinets get glass shelves instead (glassShelfSpec).
-  const shelves = (openBox || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (isOvenMicro ? 1 : isOvenTower ? ovenTowerShelfTotal(config) : config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
+  // Glass open boxes and glass-door cabinets get glass shelves instead
+  // (glassShelfSpec); a wood-shelf open box cuts them from its box board below.
+  const woodShelfOpenBox = openBox && config.shelfMaterial === 'wood';
+  const shelves = ((openBox && !woodShelfOpenBox) || isGlassDoorCabinet(config)) ? 0 : Number(config.shelves ?? (isOvenMicro ? 1 : isOvenTower ? ovenTowerShelfTotal(config) : config.cabinetType === 'tall' && !isOvenTower ? 4 : 0));
   const drawerType = (config.drawerType || 'Wood Box');
   // Drawer runner system: 'LEGRABOX' (integrated box), 'Tandem' (runner + wood box),
   // 'Local Bearing' (runner + wood box), or any custom system name from the catalog.
@@ -1055,7 +1073,19 @@ export function calculateCabinet(config) {
   // With a grooved back they stop shelfClearance in front of the groove.
   const shelfD = round2((grooved ? grooveFrontD - grooveCfg.shelfClearance : bottomD - 10)
     - (hasBlindPanel ? BLIND_STILE_DEPTH : 0));
-  if (shelves > 0) {
+  if (shelves > 0 && woodShelfOpenBox) {
+    // Open box: the box board itself, 10mm shallower than the space in front of
+    // its 18mm board back (same depth as its glass shelves would be).
+    panels.push({
+      name: 'Shelf (18mm)',
+      qty: shelves,
+      width: shelfW,
+      depth: round2(D - OPEN_BOX_BACK_GAP - T - 10),
+      thickness: T,
+      faceMaterial: config.openBoxMaterialSource === 'front' ? 'front' : 'carcass',
+      notes: 'Per shelf, open box board, banded all round',
+    });
+  } else if (shelves > 0) {
     panels.push({
       name: 'Shelf (18mm)',
       qty: shelves,

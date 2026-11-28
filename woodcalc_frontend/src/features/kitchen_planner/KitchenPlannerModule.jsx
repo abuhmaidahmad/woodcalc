@@ -3,7 +3,7 @@ import { CT_OVERHANG_DEFAULTS, CT_OVERHANG_SIDES, countertopOverhang } from './c
 import { SINK_KINDS, SINK_FINISHES, resolveSink } from './sinkOptions'
 import { authFetch, withCompanyParam, isReadOnly, getRole } from '../../api/auth'
 import MaterialLibrary from './MaterialLibrary'
-import { calculateCabinet, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
+import { calculateCabinet, shelfLedMeters, setRoomBackPanel, cabinetBadges, setDrawerSystemCatalog, detectCornerJoins, isShelfEligible, getDefaultDoorCount, hasSingleDoorWidth, isCarcassCabinet, cabinetConfig, nonCarcassPieceDims, fillerCleatDims, APPLIANCE_SUBTYPES, isBackPanel, isOpenBox, hasGlassShelves, shelfCountFor, maxShelvesFor, panelFace, glassShelfSpec, getEdgeBanding, panelEdgeBanding, flatPieceEdgeBanding, edgeBandingByMaterialMm, flatPieceEdgeBandingByMaterialMm, getCompanyGlassDoor, glassOrderItems, APPLIANCE_NICHE, nicheDoorHeights, isHoodCabinet, hoodCabinetSpec, isOvenMicroTower, ovenMicroTowerSpec } from './formulaEngine'
 import { useCompanyStandards, useProductionPricing, useRoomSheetUsage } from '../../api/companySettings'
 import { useRoomLockActions } from '../rooms/useRoomLockActions'
 import LinkProjectModal from '../rooms/LinkProjectModal'
@@ -327,6 +327,7 @@ function computeMasterCutList(cabinets, calculateCabinet) {
   cabinets.forEach(c => {
     if (c.ledStripInterior) ledStripMeters += 2 * c.height / 1000
     if (c.ledStripUnder) ledStripMeters += c.width / 1000
+    ledStripMeters += shelfLedMeters(c)
     const { carcassMat, frontMat } = bandMaterialNames(c)
     if (!isCarcassCabinet(c)) {
       if (APPLIANCE_SUBTYPES.includes(c.subtype)) return // purchased appliance, not a manufactured piece
@@ -2005,6 +2006,24 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                   const isGlassMaterial = hasGlassShelves(selCab)
                   return (
                     <div style={{ marginBottom: 10 }}>
+                      {selCab.subtype === 'Open Shelf' && (
+                        // Open boxes: glass shelves (default) or 18mm shelves cut from the box's own board.
+                        <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                          {['glass', 'wood'].map(m => {
+                            const on = (selCab.shelfMaterial === 'wood' ? 'wood' : 'glass') === m
+                            return (
+                              <button key={m} onClick={() => updateCab('shelfMaterial', m)}
+                                style={{
+                                  flex: 1, padding: '6px 0', borderRadius: 6,
+                                  border: on ? '1.5px solid #C9A876' : '1.5px solid #E0DAD4',
+                                  background: on ? '#FBF3E7' : '#fff',
+                                  color: on ? '#8A6D3B' : '#666',
+                                  fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                                }}>{m === 'glass' ? t('kitchenPlannerModule.shelfMaterialGlass') : t('kitchenPlannerModule.shelfMaterialWood')}</button>
+                            )
+                          })}
+                        </div>
+                      )}
                       <div style={s.propLabel}>{isGlassMaterial ? t('kitchenPlannerModule.shelvesGlass') : t('kitchenPlannerModule.shelvesWood')}</div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <button onClick={() => updateCab('shelfCount', Math.max(0, current - 1))}
@@ -2201,6 +2220,14 @@ export default function KitchenPlannerModule({ roomId: initialRoomId, roomName: 
                       <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripInterior ? ACCENT : '#ccc'}`, background: selCab.ledStripInterior ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripInterior ? '✓' : ''}</div>
                       <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripInterior ? ACCENT : '#666' }}>{t('kitchenPlannerModule.ledStripInterior')}</span>
                     </div>
+                    {selCab.subtype === 'Open Shelf' && (
+                      <div
+                        onClick={() => updateCab('ledStripShelves', !selCab.ledStripShelves)}
+                        style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 6, border: `1.5px solid ${selCab.ledStripShelves ? ACCENT : '#E0DAD4'}`, background: selCab.ledStripShelves ? ACCENT + '12' : '#FAFAFA', cursor: 'pointer' }}>
+                        <div style={{ width: 16, height: 16, borderRadius: 4, border: `1.5px solid ${selCab.ledStripShelves ? ACCENT : '#ccc'}`, background: selCab.ledStripShelves ? ACCENT : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: '#fff' }}>{selCab.ledStripShelves ? '✓' : ''}</div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: selCab.ledStripShelves ? ACCENT : '#666' }}>{t('kitchenPlannerModule.ledStripShelves')}</span>
+                      </div>
+                    )}
                     {selCab.category === 'wall' && (
                       <div
                         onClick={() => updateCab('ledStripUnder', !selCab.ledStripUnder)}
