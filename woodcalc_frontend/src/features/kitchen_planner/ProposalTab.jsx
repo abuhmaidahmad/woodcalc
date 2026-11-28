@@ -109,6 +109,17 @@ function materialPricePerLm(code, materialsMap, fallback) {
 // KitchenPlanner3D's Cabinet component uses to decide whether to render one
 // ((isBase && !isShelf) || a base-height Filler), so the quoted linear meters
 // always match what's visually sitting on top of the design.
+// The board a proposal line is made of, for its Material column: flat pieces
+// (side panels, fillers, panels) and open boxes / glass-door cabinets whose Box
+// Color is the front material are all front board; everything else is listed
+// under its carcass material.
+export function proposalMaterialName(cab) {
+  const front = cab.frontMaterialName || cab.frontColor
+  const allFront = !isCarcassCabinet(cab) && !APPLIANCE_SUBTYPES.includes(cab.subtype)
+    || (['Open Shelf', 'Glass Door'].includes(cab.subtype) && cab.openBoxMaterialSource === 'front')
+  return (allFront && front) || cab.carcassMaterialName || cab.material
+}
+
 function hasCountertop(cab) {
   const isBase  = cab.category === 'base' || cab.category === 'vanity' || cab.category === 'corner' || cab.subtype === 'Freestanding Dishwasher'
   const isShelf = cab.subtype === 'Shelf' || cab.subtype === 'Open Shelf' || cab.subtype === 'Filler' || cab.subtype === 'Panel' || cab.subtype === 'Toe Kick'
@@ -833,7 +844,7 @@ export default function ProposalTab({ cabinets, countertopMat, materialsMap = {}
                         <td style={{ padding: '10px 12px', fontSize: 11, color: '#666', fontFamily: 'monospace' }}>
                           {cab.width}×{cab.height}×{cab.depth}
                         </td>
-                        <td style={{ padding: '10px 12px', fontSize: 11 }}>{cab.carcassMaterialName || cab.material}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 11 }}>{proposalMaterialName(cab)}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: DARK }}>
                           {fmtC(cab.pricing.total)}
                         </td>
@@ -999,7 +1010,7 @@ function exportPDF(data) {
       <td>${String(c.num).padStart(2,'0')}</td>
       <td>${c.label}</td>
       <td style="font-family:monospace">${c.width}×${c.height}×${c.depth}mm</td>
-      <td>${c.carcassMaterialName || c.material}</td>
+      <td>${proposalMaterialName(c)}</td>
       <td>${c.doorStyle}</td>
       <td style="text-align:end;font-weight:700">${fmt(c.pricing.total)} JD</td>
     </tr>`).join('')
@@ -1108,7 +1119,7 @@ function exportExcel(data) {
 
   pricedCabinets.forEach((c) => {
     rows.push([
-      c.num, c.label, c.width, c.height, c.depth, c.carcassMaterialName || c.material, c.doorStyle,
+      c.num, c.label, c.width, c.height, c.depth, proposalMaterialName(c), c.doorStyle,
       fmt(c.pricing.materialCost), fmt(c.pricing.hardwareCost), fmt(c.pricing.productionCost || 0), fmt(c.pricing.total)
     ])
   })
